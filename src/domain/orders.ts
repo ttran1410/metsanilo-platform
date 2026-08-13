@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, orders, packages, products, shops } from "@/db/schema";
+import { auditEntries, availability, orderNotes, orderPayments, orders, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
@@ -196,6 +196,8 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
           : null,
         pickupTime: pickup ? row.shop.pickupTime : null,
         notes: input.notes || null,
+        pickupConfirmedAt: null,
+        pickupConfirmedBy: null,
         locale: input.locale,
         status: "NEW" as const,
         version: 1,
@@ -250,6 +252,84 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
 export async function listManagerOrders(database: Database) {
   const { SHOP_ID } = env();
   return database.select().from(orders).where(eq(orders.shopId, SHOP_ID)).orderBy(desc(orders.createdAt));
+}
+
+export async function getManagerOrder(database: Database, orderId: string) {
+  const { SHOP_ID } = env();
+  const order = await database.query.orders.findFirst({ where: and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID)) });
+  if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
+  const [notes, payments] = await Promise.all([
+    database.select().from(orderNotes).where(and(eq(orderNotes.orderId, orderId), eq(orderNotes.shopId, SHOP_ID))).orderBy(desc(orderNotes.createdAt)),
+    database.select().from(orderPayments).where(and(eq(orderPayments.orderId, orderId), eq(orderPayments.shopId, SHOP_ID))).orderBy(desc(orderPayments.recordedAt)),
+  ]);
+  return { order, notes, payments };
+}
+
+export async function addOrderNote(database: Database, input: { orderId: string; body: string }) {
+  const { SHOP_ID } = env();
+  const body = input.body.trim();
+  if (body.length < 1 || body.length > 2000) throw new DomainError("VALIDATION_ERROR", "Note must be 1–2000 characters", 422);
+  const order = await database.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
+  if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
+  const id = randomUUID(); const createdAt = nowIso();
+  await database.transaction(async (tx) => {
+    await tx.insert(orderNotes).values({ id, shopId: SHOP_ID, orderId: input.orderId, body, actor: "manager", createdAt });
+    await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.note_added", entityType: "order", entityId: input.orderId, detailsJson: JSON.stringify({ noteId: id }), createdAt });
+  });
+  return (await database.query.orderNotes.findFirst({ where: eq(orderNotes.id, id) }))!;
+}
+
+export async function setDeliveryFee(database: Database, input: { orderId: string; expectedVersion: number; deliveryFeeCents: number }) {
+  const { SHOP_ID } = env();
+  if (!Number.isSafeInteger(input.deliveryFeeCents) || input.deliveryFeeCents < 0) throw new DomainError("VALIDATION_ERROR", "Delivery fee must be non-negative cents", 422);
+  return database.transaction(async (tx) => {
+    const order = await tx.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
+    if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
+    if (order.fulfillmentMethod !== "DELIVERY") throw new DomainError("INVALID_ORDER", "Delivery fee applies only to delivery orders", 409);
+    if (order.status === "CANCELLED") throw new DomainError("INVALID_ORDER", "Cancelled order cannot be updated", 409);
+    if (order.version !== input.expectedVersion) throw new DomainError("STALE_VERSION", "Order changed", 409);
+    const finalTotalCents = order.itemSubtotalCents + input.deliveryFeeCents;
+    const updatedAt = nowIso();
+    const changed = await tx.update(orders).set({ deliveryFeeCents: input.deliveryFeeCents, finalTotalCents, version: sql`${orders.version} + 1`, updatedAt }).where(and(eq(orders.id, order.id), eq(orders.version, input.expectedVersion))).run();
+    if (changed.rowsAffected !== 1) throw new DomainError("STALE_VERSION", "Order changed", 409);
+    await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.delivery_fee_set", entityType: "order", entityId: order.id, detailsJson: JSON.stringify({ fromCents: order.deliveryFeeCents, toCents: input.deliveryFeeCents, finalTotalCents }), createdAt: updatedAt });
+    return { ...order, deliveryFeeCents: input.deliveryFeeCents, finalTotalCents, version: order.version + 1, updatedAt };
+  });
+}
+
+export async function recordPayment(database: Database, input: { orderId: string; amountCents: number; method: "CASH" | "BANK_TRANSFER" | "CARD" | "OTHER"; reference?: string }) {
+  const { SHOP_ID } = env();
+  if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0) throw new DomainError("VALIDATION_ERROR", "Payment amount must be positive cents", 422);
+  return database.transaction(async (tx) => {
+    const order = await tx.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
+    if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
+    if (order.status === "CANCELLED") throw new DomainError("INVALID_ORDER", "Cancelled order cannot be paid", 409);
+    if (order.finalTotalCents === null) throw new DomainError("DELIVERY_FEE_PENDING", "Set the delivery fee before recording payment", 409);
+    const previous = await tx.select().from(orderPayments).where(and(eq(orderPayments.orderId, order.id), eq(orderPayments.shopId, SHOP_ID)));
+    const paidCents = previous.reduce((sum, payment) => sum + payment.amountCents, 0);
+    if (paidCents + input.amountCents > order.finalTotalCents) throw new DomainError("PAYMENT_EXCEEDS_TOTAL", "Payment exceeds order total", 409);
+    const id = randomUUID(); const recordedAt = nowIso();
+    await tx.insert(orderPayments).values({ id, shopId: SHOP_ID, orderId: order.id, amountCents: input.amountCents, method: input.method, reference: input.reference?.trim() || null, recordedAt, actor: "manager" });
+    await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.payment_recorded", entityType: "order", entityId: order.id, detailsJson: JSON.stringify({ paymentId: id, amountCents: input.amountCents, method: input.method }), createdAt: recordedAt });
+    return (await tx.query.orderPayments.findFirst({ where: eq(orderPayments.id, id) }))!;
+  });
+}
+
+export async function confirmPickup(database: Database, input: { orderId: string; expectedVersion: number }) {
+  const { SHOP_ID } = env();
+  return database.transaction(async (tx) => {
+    const order = await tx.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
+    if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
+    if (order.fulfillmentMethod !== "PICKUP") throw new DomainError("INVALID_ORDER", "Only pickup orders can be confirmed as picked up", 409);
+    if (order.status !== "CONFIRMED") throw new DomainError("INVALID_TRANSITION", "Order must be confirmed before pickup", 409);
+    if (order.pickupConfirmedAt) throw new DomainError("INVALID_TRANSITION", "Pickup is already confirmed", 409);
+    if (order.version !== input.expectedVersion) throw new DomainError("STALE_VERSION", "Order changed", 409);
+    const confirmedAt = nowIso();
+    const changed = await tx.update(orders).set({ pickupConfirmedAt: confirmedAt, pickupConfirmedBy: "manager", version: sql`${orders.version} + 1`, updatedAt: confirmedAt }).where(and(eq(orders.id, order.id), eq(orders.version, input.expectedVersion))).run();
+    if (changed.rowsAffected !== 1) throw new DomainError("STALE_VERSION", "Order changed", 409);
+    await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.pickup_confirmed", entityType: "order", entityId: order.id, detailsJson: JSON.stringify({ confirmedAt }), createdAt: confirmedAt });
+    return { ...order, pickupConfirmedAt: confirmedAt, pickupConfirmedBy: "manager", version: order.version + 1, updatedAt: confirmedAt };
+  });
 }
 
 export async function transitionOrder(

@@ -2,10 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import type { availability, orders, products } from "@/db/schema";
+import type { availability, orderNotes, orderPayments, orders, products } from "@/db/schema";
 
 type Order = typeof orders.$inferSelect;
 type AvailabilityRow = { availability: typeof availability.$inferSelect; product: typeof products.$inferSelect };
+type OrderDetail = { order: Order; notes: Array<typeof orderNotes.$inferSelect>; payments: Array<typeof orderPayments.$inferSelect> };
 
 export function ManagerView({
   initialOrders,
@@ -17,6 +18,7 @@ export function ManagerView({
   const [orderRows, setOrderRows] = useState(initialOrders);
   const [availabilityRows, setAvailabilityRows] = useState(initialAvailability);
   const [message, setMessage] = useState("");
+  const [detail, setDetail] = useState<OrderDetail | null>(null);
 
   async function status(order: Order, next: "CONFIRMED" | "CANCELLED") {
     setMessage("");
@@ -29,6 +31,38 @@ export function ManagerView({
     if (!response.ok) return setMessage(body.code ?? "Request failed");
     setOrderRows((rows) => rows.map((row) => (row.id === order.id ? body.data : row)));
     setMessage(`Order ${order.publicReference}: ${next}`);
+  }
+
+  async function openDetail(order: Order) {
+    const response = await fetch(`/api/manager/orders/${order.id}`); const body = await response.json();
+    if (!response.ok) return setMessage(body.code ?? "Request failed");
+    setDetail(body.data);
+  }
+
+  async function detailAction(event: FormEvent<HTMLFormElement>, action: "note" | "fee" | "payment") {
+    event.preventDefault();
+    if (!detail) return;
+    const values = new FormData(event.currentTarget);
+    const endpoint = action === "note" ? "notes" : action === "fee" ? "delivery-fee" : "payment";
+    const payload = action === "note"
+      ? { body: values.get("body") }
+      : action === "fee"
+        ? { expectedVersion: detail.order.version, deliveryFeeCents: Math.round(Number(values.get("feeEuros")) * 100) }
+        : { amountCents: Math.round(Number(values.get("paymentEuros")) * 100), method: values.get("method"), reference: values.get("reference") };
+    const response = await fetch(`/api/manager/orders/${detail.order.id}/${endpoint}`, { method: action === "fee" ? "PUT" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+    const body = await response.json();
+    if (!response.ok) return setMessage(body.code ?? body.message ?? "Request failed");
+    if (action === "fee") setDetail((current) => current ? { ...current, order: body.data } : current);
+    else await openDetail(detail.order);
+    event.currentTarget.reset(); setMessage("Order updated.");
+  }
+
+  async function pickupConfirm() {
+    if (!detail) return;
+    const response = await fetch(`/api/manager/orders/${detail.order.id}/pickup-confirm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: detail.order.version }) });
+    const body = await response.json();
+    if (!response.ok) return setMessage(body.code ?? body.message ?? "Request failed");
+    setDetail((current) => current ? { ...current, order: body.data } : current); setOrderRows((rows) => rows.map((row) => row.id === body.data.id ? body.data : row)); setMessage("Pickup confirmed.");
   }
 
   async function save(row: AvailabilityRow, form: HTMLFormElement) {
@@ -104,13 +138,23 @@ export function ManagerView({
                   <p>{order.fulfillmentDate} · {order.fulfillmentMethod} · {(order.volumeMl / 1000).toLocaleString("fi-FI")} l</p>
                   {order.fulfillmentMethod === "DELIVERY" && <p>Delivery to be agreed · {order.streetAddress}, {order.postalCode} {order.city}</p>}
                 </div>
-                {order.status === "NEW" && (
-                  <div className="flex gap-2">
+                <div className="flex gap-2">
+                  <button className="btn btn-secondary" onClick={() => void openDetail(order)}>Details</button>
+                  {order.status === "NEW" && <>
                     <button className="btn" onClick={() => status(order, "CONFIRMED")}>Confirm</button>
                     <button className="btn bg-[var(--berry)]" onClick={() => status(order, "CANCELLED")}>Cancel</button>
-                  </div>
-                )}
+                  </>}
+                </div>
               </div>
+              {detail?.order.id === order.id && <div className="mt-4 grid gap-3 border-t pt-4">
+                <h4 className="font-bold">Order detail</h4>
+                <p>Item: {(detail.order.itemSubtotalCents / 100).toFixed(2)} € · Delivery: {detail.order.deliveryFeeCents === null ? "to be agreed" : `${(detail.order.deliveryFeeCents / 100).toFixed(2)} €`} · Total: {detail.order.finalTotalCents === null ? "to be agreed" : `${(detail.order.finalTotalCents / 100).toFixed(2)} €`}</p>
+                {detail.order.fulfillmentMethod === "DELIVERY" && detail.order.status !== "CANCELLED" && <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void detailAction(event, "fee")}><label className="field"><span>Delivery fee (€)</span><input name="feeEuros" type="number" min="0" step="0.01" defaultValue={detail.order.deliveryFeeCents === null ? "" : (detail.order.deliveryFeeCents / 100).toFixed(2)} required /></label><button className="btn" type="submit">Save fee</button></form>}
+                {detail.order.fulfillmentMethod === "PICKUP" && detail.order.status === "CONFIRMED" && !detail.order.pickupConfirmedAt && <button className="btn w-fit" onClick={() => void pickupConfirm()}>Confirm pickup</button>}
+                <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void detailAction(event, "payment")}><label className="field"><span>Payment (€)</span><input name="paymentEuros" type="number" min="0.01" step="0.01" required /></label><label className="field"><span>Method</span><select name="method" defaultValue="CASH"><option value="CASH">Cash</option><option value="BANK_TRANSFER">Bank transfer</option><option value="CARD">Card</option><option value="OTHER">Other</option></select></label><label className="field"><span>Reference</span><input name="reference" maxLength={200} /></label><button className="btn" type="submit">Record payment</button></form>
+                <form className="flex items-end gap-2" onSubmit={(event) => void detailAction(event, "note")}><label className="field grow"><span>Internal note</span><textarea name="body" maxLength={2000} required /></label><button className="btn" type="submit">Add note</button></form>
+                <div className="text-sm"><strong>Payments:</strong> {detail.payments.length ? detail.payments.map((payment) => `${(payment.amountCents / 100).toFixed(2)} € ${payment.method}`).join(" · ") : "None"}<br /><strong>Notes:</strong> {detail.notes.length ? detail.notes.map((note) => note.body).join(" · ") : "None"}</div>
+              </div>}
             </article>
           ))}
         </div>
