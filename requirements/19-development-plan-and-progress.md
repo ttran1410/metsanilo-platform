@@ -1,6 +1,8 @@
 # 19 — Development Plan and Progress Tracker
 
-Version: 1.9  
+> **Current release: v0.0.1 two-day pilot — ADR-0005 is authoritative.** The longer phase plan below remains the future roadmap. The pilot is intentionally limited to one shop, four roles with per-user permissions, core ordering/capacity/pickup, manual delivery fees, fixed-page four-image CMS, invoice/payment records, record-only pickers, and picking records in litres or kilograms with unit-specific buy prices. Customer orders/capacity remain litres-only.
+
+Version: 2.0
 Status: Approved plan; implementation not started  
 Approved: 2026-08-13  
 Market: Pori/Satakunta, Finland  
@@ -16,27 +18,125 @@ Exact ownership of every requirement, rule, NFR, and acceptance scenario is main
 
 It does not replace functional requirements, business rules, form specifications, acceptance criteria, or non-functional requirements. If this plan conflicts with a more specific requirement, the more specific requirement wins until an approved decision record changes it.
 
-No phase is complete merely because its UI exists. Completion includes the applicable domain behavior, database migration, tenant isolation, authorization, validation, audit, observability, automated tests, accessibility, localization, documentation, and acceptance evidence.
+No phase is complete merely because its UI exists. Completion includes the applicable domain behavior, database migration, authorization, validation, audit, observability, automated tests, accessibility, localization, documentation, and acceptance evidence. Tenant isolation, provider, and background-job gates apply only to future releases.
+
+## 1A. v0.0.1 two-day execution plan
+
+The pilot has **4 implementation phases**. They are intentionally smaller than the 12-phase future roadmap below.
+
+| Phase | Timebox | Deliverable | Exit evidence |
+|---|---:|---|---|
+| P0 — Scope and foundation | Day 1, hours 0–3 | Single-shop schema, Admin/Manager/Staff/Content Creator auth, feature-permission catalogue, Finnish default + English switch, seed shop/admin, audit skeleton | Login/permission matrix and i18n smoke tests pass |
+| P1 — Public catalog and order core | Day 1, hours 3–8 | Fixed-page CMS, product CRUD, max four images, availability window, per-day capacity/sold-out, pickup address/instructions, public order form, atomic reservation | Customer can submit pickup or delivery-to-be-agreed order without oversell |
+| P2 — Operations and records | Day 2, hours 0–5 | Order list/status transitions, manual delivery fee, payment record, invoice PDF download, external picker records, litre/kg picking records with unit-specific buy prices, Manager permission assignment | Staff flow and Admin/Manager self-approval are audited and permission-tested |
+| P3 — Release hardening | Day 2, hours 5–8 | Responsive/accessibility/i18n QA, image/file validation, error recovery, seed/demo data, deployment configuration, smoke tests, rollback notes | Critical acceptance subset passes and no Google/Meta API is required |
+
+### Explicit v0.0.1 deferrals
+
+Do not start multi-shop organisation, Platform Admin, Google Routes/Address Validation, postal zones, Facebook/WhatsApp/shared inbox, public picker applications, supplier purchases, expenses, quality/rates, staff compensation/payroll, full finance/reporting/export, customer accounts, automated email/SMS, video media, raw HTML/arbitrary CMS blocks, marketing consent/campaigns, or scheduler/outbox work until the pilot is live and verified.
+
+## 1B. Current code versus approved v0.0.1 requirements
+
+The repository is not an empty scaffold. The current code is a narrower working reservation pilot (`package.json` version `0.0.2`, current production history on `main`). It already provides:
+
+- Finnish-default and English public routes with a language switch.
+- Seeded one-shop product/package/catalog data.
+- Atomic public order reservation with idempotency and concurrent-capacity protection.
+- Litre-only customer orders, sold-out/remaining-capacity presentation, pickup address/instructions, and delivery always shown as “Delivery to be agreed.”
+- A protected Manager view for basic capacity/sold-out/order operations.
+- Turso/libSQL + Drizzle migrations, seed scripts, audit rows, and focused order tests.
+
+The current code is still missing or deliberately narrower than the approved requirements:
+
+| Approved capability | Current state before the next release |
+|---|---|
+| `ADMIN`, `MANAGER`, `STAFF`, `CONTENT_CREATOR` accounts | Basic Manager-only environment-password access; no user records or per-user permissions |
+| Product module | Seed/configuration-driven product and package; no complete portal CRUD/media editor |
+| Availability | Core daily capacity/sold-out behavior exists; full day/week/month/custom planner and complete UI remain |
+| Order operations | Core submit/confirm/cancel exists; full order list/detail, payment record, manual delivery fee, invoice workflow remain |
+| CMS and four-image media | Not implemented; public pages are code/configuration-driven |
+| External picker records | Not implemented |
+| Picking records | Not implemented; target is litre/kg quantity plus unit-specific buy price |
+| Invoice PDF | Not implemented; tax/VAT wording remains intentionally neutral |
+| Production hardening | Core scripts exist, but the local dependency installation currently lacks `vitest`; typecheck therefore fails until dependencies are installed from the lockfile |
+
+This gap review is the baseline for the nine releases below. It does not authorize expanding v0.0.1 beyond the approved pilot boundary.
+
+## 1C. Nine deployable release increments
+
+The detailed release decision is [ADR-0006](decisions/0006-incremental-deployable-release-plan.md). There are **nine** checkpoints: `v0.0.2`, `v0.0.3`, `v0.0.4`, `v0.0.5`, `v0.0.6`, `v0.0.7`, `v0.0.8`, `v0.0.9`, and `v0.1.0`.
+
+| Version | Scope | Deployable acceptance gate |
+|---|---|---|
+| `v0.0.2` | Foundation hardening: Turso/Vercel reproducibility, env validation, migration/seed safety, errors, smoke tests | Existing public order/pickup/delivery pilot still works after a clean migration and production smoke test |
+| `v0.0.3` | Product CRUD: localized product/package management, availability window, archive/delete checks | Admin/Manager/assigned Staff/Content Creator can update catalog without breaking public ordering |
+| `v0.0.4` | Capacity operations: day/week/month/custom planning, current-day edits, sold-out controls | Concurrent reservations remain safe; public remaining litres/sold-out behavior remains correct |
+| `v0.0.5` | Order operations: list/detail, notes, transitions, payment records, manual delivery fee | Staff can operate an order end-to-end; delivery remains manual and audited |
+| `v0.0.6` | Identity/RBAC: four roles, user records, feature permissions, Manager assignment | Unauthorized UI and API actions are denied; existing Manager flow is preserved |
+| `v0.0.7` | Fixed-page CMS and media: fi/en draft/publish/preview/revisions, maximum four images | Public content can be changed without code and remains accessible in both locales |
+| `v0.0.8` | Picking/invoices: external picker records, litre/kg quantities, `€/L`/`€/kg` buy prices, invoice PDF | Authorized user records, approves, pays, and downloads correct unit-specific picking/invoice facts |
+| `v0.0.9` | Hardening: accessibility, i18n completeness, API authorization, audit, media limits, backup/rollback/runbook | Critical journeys pass release QA and preview deployment checks |
+| `v0.1.0` | Pilot launch: real data/configuration, tax-neutral invoice wording, production verification | All previous gates pass in production; tag and rollback reference are recorded |
+
+Every version is a working deploy, not a partial feature branch. A version may be merged/tagged only after typecheck, lint, tests, build, migration verification, locale smoke checks, and the version-specific acceptance gate pass.
+
+### v0.0.2 detailed work plan
+
+**Goal:** harden the existing v0.0.1 pilot for repeatable Vercel/Turso deployment without adding a business feature.
+
+| Workstream | Tasks | Exit evidence |
+|---|---|---|
+| Configuration | Split local/test defaults from production requirements; validate URL, auth token, shop/pickup/timezone, and Manager credentials; reject unsafe production fallback values | Invalid production configuration fails before serving traffic with an actionable message |
+| Database operations | Add migration preflight, explicit failure handling, idempotent seed safeguards, and disposable libSQL migration/seed test | Clean database can migrate and seed; existing reservations are never reset |
+| Runtime reliability | Add safe health/readiness endpoint, release/commit metadata, stable correlation IDs, and structured redacted error logging | Health reports configuration/database readiness without secrets or PII |
+| Deployment | Verify clean `npm ci` path, Vercel/Turso variable matrix, preview/prod procedure, rollback and migration runbook | Preview and production deployment can be repeated by another operator |
+| Regression | Add smoke checks for locale, privacy, order, idempotency, capacity, sold-out, pickup, delivery pending, Manager auth, and status mutation | Existing v0.0.1 journey passes in Finnish and English |
+
+**Out of scope:** Product/CMS/RBAC/payments/invoices/pickers/picking units and all deferred integrations.
+
+**Planned commits:** `chore(v0.0.2): harden runtime environment validation`; `chore(v0.0.2): make migration and seed preflight-safe`; `feat(v0.0.2): add health and release metadata endpoints`; `test(v0.0.2): add deployment and smoke regression coverage`; `docs(v0.0.2): add deployment runbook and release notes`.
+
+### v0.0.3 detailed work plan — Product module
+
+**Branch rule:** implementation must start only after switching to `codex/release-v0.0.3`. The branch has been created before implementation; no v0.0.3 code is written yet.
+
+**Goal:** provide a protected product/package CRUD module while preserving the v0.0.2 public reservation flow.
+
+| Workstream | Tasks | Exit evidence |
+|---|---|---|
+| Schema | Add localized descriptions and archive/update metadata through an additive Drizzle migration; preserve existing snapshots | Disposable migration succeeds and existing order/catalog rows are unchanged |
+| Domain/API | Implement list/create/update/activate/archive/delete commands for products and packages; validate both locales, code/slug, dates, litres, and price server-side | Invalid and unauthorized mutations are rejected with stable errors; audit rows are written |
+| Reference safety | Check orders/reservations/retained facts before deletion; allow hard delete only when unreferenced, otherwise archive/deactivate | Referenced delete is refused; historical order snapshots remain unchanged |
+| Manager portal | Add product/package list and bilingual create/edit/archive/delete forms with accessible validation and confirmation | Manager can manage catalog without editing code or seed variables |
+| Public regression | Reuse catalog query; active/window-valid records remain orderable and archived records disappear from public ordering | Finnish and English order smoke tests pass |
+
+**Release boundary:** v0.0.3 uses the existing Manager authentication gate. The `ADMIN`/`MANAGER`/`STAFF`/`CONTENT_CREATOR` permission assignments are implemented in v0.0.6. Media uploads belong to v0.0.7; capacity planning belongs to v0.0.4.
+
+**Planned commits:** `feat(v0.0.3): add product description and archive schema`; `feat(v0.0.3): add product and package domain commands`; `feat(v0.0.3): add protected product module routes and portal`; `test(v0.0.3): cover catalog validation and reference safety`; `docs(v0.0.3): add product release notes and smoke checks`.
+
+### Branch and tag cadence
+
+Keep `main` production-approved. For each increment create `codex/release-v0.0.x` (or `codex/release-v0.1.0`), make small commits, deploy a preview, merge, tag the merge commit, and deploy the tag. Do not mix the next version’s unfinished work into a release branch. Suggested commits are `feat(v0.0.3): ...`, `test(v0.0.3): ...`, and `docs(v0.0.3): ...`.
 
 ## 2. Approved scope interpretations
 
-- User-facing `Admin` means `PLATFORM_ADMIN`; it inherits every Manager action in selected-shop context plus platform shop-management/security permissions.
-- `PLATFORM_ADMIN` inherits every Manager action in visible selected-shop context and additionally manages shops/platform concerns.
+- User-facing `Admin` means the single-shop `ADMIN` owner and has every shop permission.
+- `MANAGER` is an employee with operational authority and may assign feature permissions to Staff and Content Creator; it cannot grant Admin.
 - Staff receives sensitive capabilities only through explicit permissions. Quality/rate configuration is denied by default.
 - MFA is required for every shop-portal and platform-console user.
 - Historical orders may represent every legitimate terminal outcome. A historical refund preserves the completed-sale and refund chronology rather than creating an unexplained bare refund.
 - Public MVP ordering has one item line with fixed quantity 1; manual/historical orders may have multiple lines and positive integer quantities under one fulfillment date/method.
 - Conflicting public customer identifiers create a provisional review record rather than an automatic link or merge.
 - Outside/unverifiable delivery keeps the item subtotal authoritative while delivery fee/final total remain pending until agreement.
-- When enabled, the 5 km rule uses the shorter driving route returned server-side by Google Routes API from a validated shop origin to destination; postal zones/straight-line distance are not authoritative, and provider failures degrade to manual agreement.
-- Google delivery quoting is default-off per shop, guarded by a Platform Admin kill switch plus Platform Admin/Manager shop toggle. Disabled mode emits no Google delivery calls and uses the same public manual-agreement fallback with a distinct internal cause.
+- Delivery is always “Delivery to be agreed.” No Google, postal-zone, route, or provider setting is implemented. Admin/Manager/Staff with `delivery.override` can enter a fee and reason.
 - Partial refunds retain completed fulfillment status; only a full cumulative refund transitions the order to `REFUNDED`.
 - `CUSTOMER_DECLINED` resolves the 15-minute overdue-new condition.
 - External purchases use `DRAFT → SUBMITTED → APPROVED → PAID`, with rejection/correction controls and complete action-level audit.
-- Manager has every shop permission and may self-approve/pay financial records; Platform Admin inherits the same authority in selected-shop context. No Finance Approver/External Accountant portal role is introduced.
-- Platform Admin in selected-shop context, Manager, Staff, and Content Editor (“Content Creator”) manage shop products. Platform Admin/Manager/Staff manage bounded day/week/month/custom capacity; Content Editor cannot change prices or per-date capacity.
-- Platform Admin, Manager, and Staff may set a private daily manual-sold-out override. Public UI shows the same sold-out state as natural exhaustion; reports never treat the override as a sale, fulfilled litre, revenue, expense, or payment.
-- Manually composed and scheduled broadcasts are included. Autonomous, event-triggered, or drip marketing automation is deferred.
+- Admin and Manager may self-approve/pay invoice/payment/picking records; Staff requires explicit permission. No Finance Approver/External Accountant portal role is introduced.
+- Admin, Manager, Staff, and Content Creator manage products according to feature permissions. Admin/Manager/Staff manage bounded day/week/month/custom capacity; Content Creator may manage content/product identity only when assigned.
+- Admin, Manager, and Staff may set a private daily manual-sold-out override. Public UI shows the same sold-out state as natural exhaustion and reports remain truthful.
+- External pickers are record-only; picking entries store person/product/date/litres. Full finance and compensation are deferred.
+- Facebook/WhatsApp, shared inbox, and marketing automation are deferred.
 - Open business, legal, accounting, privacy, infrastructure, and provider decisions are Phase 0 decision gates. Provisional values may be configurable in non-production environments, but affected capabilities cannot pass their production gate without owner approval.
 
 ## 3. Delivery model
@@ -45,6 +145,7 @@ The plan contains **12 phases**, numbered Phase 0 through Phase 11.
 
 | Milestone | Included phases | Intended outcome |
 |---|---|---|
+| **v0.0.1 Pilot** | P0–P3 above | One-shop live pilot with core ordering and operations in two days |
 | Core Operational Release | 0–8 | Secure multi-tenant public ordering and shop operations, including management finance/reporting |
 | Extended MVP Release | 9–11 | Uploaded video, analytics, compliant invoices, Meta channels, shared inbox, segments, and scheduled broadcasts |
 
@@ -70,10 +171,10 @@ flowchart LR
 ## 4. Technical baseline
 
 - TypeScript modular monolith.
-- React/Next.js for tenant-resolved public sites, shop portal, and Platform Console.
-- First-class internationalization with locale-prefixed routes, server-loaded translation dictionaries, tenant-configured supported/default locales, and locale-aware content/formatting.
-- PostgreSQL with database-enforced atomic capacity reservation and versioned migrations.
-- PostgreSQL-backed durable jobs and transactional outbox.
+- Next.js App Router/TypeScript for the single-shop public site and admin portal.
+- First-class internationalization with locale-prefixed routes, server-loaded translation dictionaries, Finnish default, English switch, and locale-aware content/formatting.
+- Turso/libSQL with Drizzle and database-enforced atomic capacity reservation and versioned migrations.
+- Durable jobs/outbox are future scope; do not make them a v0.0.1 dependency.
 - Managed OIDC authentication with mandatory MFA.
 - S3-compatible object storage in an approved EU region.
 - Typed command/query contracts and stable error codes.
@@ -258,12 +359,12 @@ Status values: `NOT STARTED`, `IN DISCOVERY`, `READY`, `IN PROGRESS`, `BLOCKED`,
 |---:|---|---|---:|---|---|
 | 0 | Decisions, architecture, and design validation | IN DISCOVERY | 25% | — | Requirements audits, design research, i18n design, baseline decisions, and traceability completed; external owner gates remain |
 | 1 | Repository and platform foundation | NOT STARTED | 0% | Phase 0 ready gate | — |
-| 2 | Multi-tenancy, identity, permissions, and audit | NOT STARTED | 0% | Phase 1 | — |
-| 3 | Shop configuration, catalog, CMS, and fulfillment setup | NOT STARTED | 0% | Phase 2 | — |
+| 2 | Identity, permissions, and audit | NOT STARTED | 0% | Phase 1 | Single-shop pilot uses Admin/Manager/Staff/Content Creator; multi-tenancy deferred |
+| 3 | Shop configuration, catalog, fixed-page CMS, and fulfillment setup | NOT STARTED | 0% | Phase 2 | Four-image CMS and manual delivery only for pilot |
 | 4 | Customers, public ordering, and atomic capacity | NOT STARTED | 0% | Phase 3 | — |
-| 5 | Order operations, lifecycle, payments, jobs, and notifications | NOT STARTED | 0% | Phase 4 | — |
+| 5 | Order operations, lifecycle, payment records, invoice PDF, and picking | NOT STARTED | 0% | Phase 4 | Manual transitions; picker records and litre/kg picking records in pilot |
 | 6 | Operational engagement and order documents | NOT STARTED | 0% | Phase 5 stable | May overlap Phase 7 |
-| 7 | Supply, expenses, staff earnings, and reporting | NOT STARTED | 0% | Phase 5 stable | May overlap Phase 6 |
+| 7 | Supply, expenses, staff earnings, and reporting | DEFERRED | 0% | Phase 5 stable | Future release; pilot keeps only payment/invoice/picking records |
 | 8 | Core release hardening and production readiness | NOT STARTED | 0% | Phases 6–7 | Core release gate |
 | 9 | Uploaded video, analytics, and invoice completion | NOT STARTED | 0% | Phase 8 | Policy/accounting decisions required; may overlap Phase 10 |
 | 10 | Channel connections, social publishing, and shared inbox | NOT STARTED | 0% | Phase 8 | Meta/BSP approval required; may overlap Phase 9 |
@@ -279,7 +380,7 @@ Objective: make the requirements implementation-ready and remove architectural a
 
 Deliverables:
 
-- Architecture decisions for repository shape, modules, PostgreSQL/migrations, tenant enforcement, API contracts, authentication/MFA, outbox/jobs, storage/media, PDFs, email, observability, hosting, and testing.
+- Architecture decisions for repository shape, modules, Turso/libSQL + Drizzle migrations, API contracts, authentication/MFA, storage/media, PDFs, observability, hosting, and testing.
 - Internationalization decision covering route strategy, locale resolution/persistence, dictionary tooling, translation ownership/workflow, CMS/catalog translation storage, fallback rules, SEO, formatting, and locale addition.
 - Domain/module ownership map and initial migration sequence.
 - Stable permission catalogue and threat model.
@@ -304,7 +405,7 @@ Objective: create the deployable skeleton and engineering safeguards.
 
 Deliverables:
 
-- Separate public, shop-portal, and Platform Console route boundaries.
+- Separate public and admin route boundaries with server-side feature authorization.
 - Accessible design-system foundations implementing the validated tokens and typography.
 - First-class `fi`/`en` infrastructure: locale-prefixed routes, Finnish default resolution, persistent accessible language switch, validated dictionaries, formatting services, localized metadata/SEO, and translation test tooling.
 - Typed configuration, migrations/seeds, health checks, logging, metrics, traces, and correlation IDs.
@@ -550,23 +651,23 @@ Every completed phase must provide, where applicable:
 | i18n library/tooling, translation ownership, English formatting policy, and future locale fallback policy | Engineering/Product/Content | Phase 0–1 | OPEN |
 | Initial products, packages, prices, and content | Business | Phase 3 | OPEN |
 | Same-day cutoff | Business/Operations | Phase 3–4 | OPEN |
-| Delivery-origin address, 5,000 m maximum, free threshold, local fee, and manual-fallback policy | Business/Operations | Phase 3–4 | OPEN — Google/shorter-driving-route method resolved in ADR-0004 |
-| Google Maps billing account, quotas/budgets, EEA terms/DPA/privacy notice, attribution/display, retention/caching, and production credentials | Security/Privacy/Platform owner | Phase 0–4 production | OPEN — provider selected in ADR-0004 |
+| Delivery-origin/address text, manual fee policy, and “Delivery to be agreed” wording | Business/Operations | P1–P2 | READY — ADR-0005 |
+| Google Maps billing/account/provider/privacy gates | Security/Privacy/Platform owner | Future release | DEFERRED — no Google calls in v0.0.1 |
 | Pickup location addresses, localized instructions, schedules, and exceptions | Operations | Phase 3–4 | OPEN |
 | Identity provider and recovery policy | Security/Platform owner | Phase 1–2 | OPEN |
 | Hosting region, subprocessors, email, storage, and backups | Security/Privacy | Phase 1 and production | OPEN |
 | Purpose-specific retention/anonymization policy | Legal/Business | Phase 4 and production | OPEN |
 | Notification recipients/categories/escalation | Operations | Phase 5 | OPEN |
-| Finance approval thresholds and receipt requirements | Business/Manager | Phase 7 | OPEN |
-| Compensation defaults and reporting allocation basis | Business | Phase 7 | OPEN |
-| Invoice/VAT/legal fields, numbering, terms, and correction policy | Business with qualified accounting advice | Phase 9 | OPEN |
+| Staff permission catalogue and Admin/Manager self-approval policy | Product/Business | P0–P2 | READY — ADR-0005 |
+| Full finance approval thresholds, compensation, and reporting allocation | Business | Future release | DEFERRED |
+| Minimal invoice numbering/PDF template and tax wording | Business with qualified accounting advice | P2 | OPEN before production |
 | Analytics wording, retention, and session expiry | Privacy/Product | Phase 9 | OPEN |
-| Video quotas, formats, duration, scanning, and processing | Product/Security | Phase 9 | OPEN |
-| Meta/BSP, verification, scopes, templates, rate/frequency limits | Product/Privacy/Security | Phase 10–11 | OPEN |
-| Segment criteria and marketing-frequency policy | Product/Privacy | Phase 11 | OPEN |
+| Video quotas, formats, duration, scanning, and processing | Product/Security | Future release | DEFERRED |
+| Meta/BSP, verification, scopes, templates, rate/frequency limits | Product/Privacy/Security | Future release | DEFERRED |
+| Segment criteria and marketing-frequency policy | Product/Privacy | Future release | DEFERRED |
 | Consumer terms, seller disclosures, contract formation, cancellation/withdrawal, and perishable-goods treatment | Legal/Business | Phase 4 production release | OPEN |
 | Operating-company microenterprise status and resulting accessibility statement/service obligations | Legal/Business | Phase 1 compliance design and Phase 8 release | OPEN |
-| Owner authority: Manager all shop actions/self-approval; Platform Admin inherits Manager in selected shop plus platform management | Product/Business | Phases 2 and 7 | RESOLVED — ADR-0003 |
+| Single-shop roles, Admin owner, Manager assignment, Staff permissions, picker records, manual delivery, and pilot scope | Product/Business | P0 | RESOLVED — ADR-0005 |
 
 ## 11. Progress-update log
 
@@ -584,3 +685,5 @@ Add one entry whenever a phase status, material decision, release scope, or exit
 | 2026-08-13 | 3/4 | Granted Platform Admin/Manager/Staff pickup and delivery-origin configuration; required pickup address/instructions in checkout and success; retained destination-zone MVP pricing without false distance claims | Requirement and plan updates | Product/Business/Engineering |
 | 2026-08-13 | 0/3/4 | Replaced postal-zone 5 km classification with Google-validated addresses and server-side shorter driving-route distance; added signed quotes, manual failure fallback, privacy/security/cost gates, and tests | ADR-0004 and requirement/plan updates | Product/Business/Engineering |
 | 2026-08-13 | 0/3/4 | Added default-off per-shop Google delivery toggle and platform kill switch; disabled mode makes no Google delivery calls, invalidates unused quotes, and falls back to manual agreement | ADR-0004 and requirement/plan updates | Product/Business/Engineering |
+| 2026-08-13 | P0–P3 | Reduced release to a two-day v0.0.1 single-shop pilot; removed organisation, Google, Facebook/WhatsApp, advanced finance/reporting, public picker applications, video, and automation; added feature permissions, record-only pickers, manual delivery fees, fixed four-image CMS, invoice/payment, and picked-litre scope | ADR-0005 and v0.0.1 execution plan | Product/Business/Engineering |
+| 2026-08-13 | P2 | Clarified picking records: one record uses either litres or kilograms, stores a unit-specific buy price (`€/L` or `€/kg`), and calculates its total; customer orders/capacity remain litres-only | ADR-0005 and picking form/data/QA updates | Product/Business/Engineering |
