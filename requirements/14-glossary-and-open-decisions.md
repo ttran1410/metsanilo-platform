@@ -1,5 +1,7 @@
 # 14 — Glossary and Open Decisions
 
+> **v0.0.1 terminology override — ADR-0005 applies.** Use `ADMIN`, `MANAGER`, `STAFF`, and `CONTENT_CREATOR`; “external picker” means a record-only person; “Delivery to be agreed” is always the delivery state until a manual fee is entered. `PLATFORM_ADMIN`, `CONTENT_EDITOR`, tenant/shop organisation, Google routing, and channel connectors are future terms only.
+
 ## 1. Glossary
 
 | Term | Definition |

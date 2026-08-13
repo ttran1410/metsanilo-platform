@@ -1,5 +1,7 @@
 # ADR-0002 — Manager Approval and Product Availability
 
+> **Approval-role and broad platform-role details superseded for v0.0.1 by ADR-0005.** Product availability-window and capacity-boundary decisions remain useful.
+
 Status: Accepted in part; financial approval and Platform Admin permission limitations are superseded by ADR-0003  
 Date: 2026-08-13  
 Decision owners: Product and Business  

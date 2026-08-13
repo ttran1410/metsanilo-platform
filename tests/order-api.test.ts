@@ -5,13 +5,14 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { eq } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
-import { availability, orderPayments, orders, packages, products, shops } from "@/db/schema";
+import { availability, customers, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { createUser, requirePermission, setUserPermission } from "@/domain/access";
 import { createExternalOrder, createHistoricalOrder, runAutomation } from "@/domain/operations";
 import { addOrderNote, confirmPickup, getManagerOrder, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder } from "@/domain/orders";
 import { createProduct, deleteProduct } from "@/domain/products";
 import { planAvailability } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
+import { listPaymentMethods, setPaymentMethod } from "@/domain/payment-methods";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-test-"));
 let databaseUrl = "";
@@ -197,13 +198,35 @@ describe("availability planning", () => {
 });
 
 describe("order operations", () => {
-  it("queues automation email, creates external orders, and records historical orders", async () => {
+  it("creates external and historical orders without customer email automation", async () => {
     const external = await createExternalOrder(database, { ...pickupInput("external-placeholder"), source: "PHONE", status: "NEW" });
     expect(external.orderSource).toBe("PHONE");
     const historical = await createHistoricalOrder(database, { productId: "product-berries", packageId: "package-5l", quantity: 1, fulfillmentDate: "2099-08-12", fulfillmentMethod: "PICKUP", customerName: "Historical Customer", mobile: "+358401234567", completedStatus: "PICKED_UP", completedAt: "2099-08-12T12:00:00.000Z", source: "OTHER", reason: "Paper record from launch", paymentAmountCents: 2500 });
     expect(historical.historicalEntry).toBe(true);
-    const jobs = await database.select().from((await import("@/db/schema")).outboxJobs);
-    expect(jobs.some((job) => job.type === "EMAIL")).toBe(true);
+    const jobs = await database.select().from(outboxJobs);
+    expect(jobs.some((job) => job.type === "EMAIL")).toBe(false);
+  });
+
+  it("matches repeat customers and flags conflicting identifiers for review", async () => {
+    const first = await submitOrder(database, pickupInput("customer-match-one"));
+    const second = await submitOrder(database, { ...pickupInput("customer-match-two"), fulfillmentDate: "2099-08-14" });
+    const firstRow = (await database.query.orders.findFirst({ where: eq(orders.publicReference, first.publicReference) }))!;
+    const secondRow = (await database.query.orders.findFirst({ where: eq(orders.publicReference, second.publicReference) }))!;
+    expect(firstRow.customerId).toBe(secondRow.customerId);
+    expect(await database.select().from(customers)).toHaveLength(1);
+    const conflict = await submitOrder(database, { ...pickupInput("customer-conflict"), fulfillmentDate: "2099-08-14", email: "different@example.com" });
+    const conflictRow = (await database.query.orders.findFirst({ where: eq(orders.publicReference, conflict.publicReference) }))!;
+    expect((await database.query.customers.findFirst({ where: eq(customers.id, conflictRow.customerId!) }))?.matchStatus).toBe("CONFLICT_REVIEW");
+  });
+
+  it("supports MobilePay and blocks disabled payment methods", async () => {
+    const receipt = await submitOrder(database, pickupInput("mobilepay-order"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    await setPaymentMethod(database, "MOBILEPAY", false, "manager");
+    await expect(recordPayment(database, { orderId: order.id, amountCents: 2500, method: "MOBILEPAY" })).rejects.toMatchObject({ code: "PAYMENT_METHOD_DISABLED" });
+    await setPaymentMethod(database, "MOBILEPAY", true, "manager");
+    await expect(recordPayment(database, { orderId: order.id, amountCents: 2500, method: "MOBILEPAY" })).resolves.toMatchObject({ method: "MOBILEPAY" });
+    expect((await listPaymentMethods(database)).find((method) => method.method === "MOBILEPAY")?.enabled).toBe(true);
   });
 
   it("moves today confirmed orders to picking through the durable automation runner", async () => {
@@ -213,6 +236,8 @@ describe("order operations", () => {
     const result = await runAutomation(database, new Date("2099-08-13T10:00:00.000Z"));
     expect(result.picking).toBe(1);
     expect((await database.query.orders.findFirst({ where: eq(orders.id, confirmed.id) }))?.status).toBe("PICKING");
+    const jobs = await database.select().from(outboxJobs);
+    expect(jobs.some((job) => job.type === "EMAIL")).toBe(false);
   });
 
   it("calculates partial and full refund summaries", async () => {

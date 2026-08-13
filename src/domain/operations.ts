@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, eq, lt } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
+import { auditEntries, customers, notifications, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
@@ -43,17 +43,28 @@ export async function createHistoricalOrder(database: Database, input: {
     const volumeMl = row.package.volumeMl * input.quantity;
     const subtotal = input.itemSubtotalCents ?? row.package.priceCents * input.quantity;
     const deliveryFee = input.fulfillmentMethod === "PICKUP" ? 0 : input.deliveryFeeCents ?? null;
-    const id = randomUUID(); const createdAt = nowIso();
-    await tx.insert(orders).values({ id, shopId, publicReference: `H-${randomBytes(5).toString("hex").toUpperCase()}`, idempotencyKey: `historical-${id}`, productId: row.product.id, packageId: row.package.id, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity: input.quantity, volumeMl, itemSubtotalCents: subtotal, deliveryFeeCents: deliveryFee, finalTotalCents: deliveryFee === null ? null : subtotal + deliveryFee, fulfillmentDate: input.fulfillmentDate, fulfillmentMethod: input.fulfillmentMethod, customerName: input.customerName.trim(), mobile: input.mobile, email: input.email?.toLowerCase() || null, streetAddress: input.streetAddress || null, postalCode: input.postalCode || null, city: input.city || null, pickupName: null, pickupAddress: null, pickupInstructions: null, pickupTime: null, notes: input.reason.trim(), statusReason: input.reason.trim(), contactedAt: null, contactedBy: null, contactChannel: null, fulfillmentStartedAt: null, readyAt: null, dispatchedAt: input.completedStatus === "DELIVERED" ? input.completedAt : null, completedAt: input.completedAt, pickupConfirmedAt: input.completedStatus === "PICKED_UP" ? input.completedAt : null, pickupConfirmedBy: input.completedStatus === "PICKED_UP" ? "manager" : null, locale: "fi", status: input.completedStatus, version: 1, orderSource: input.source, historicalEntry: true, createdAt, updatedAt: createdAt });
+    const id = randomUUID(); const createdAt = nowIso(); const normalizedEmail = input.email?.toLowerCase() || null;
+    const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, shopId), eq(customers.mobile, input.mobile)) });
+    const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, shopId), eq(customers.email, normalizedEmail)) }) : undefined;
+    const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id);
+    const customer = (conflict || (!mobileMatch && !emailMatch)) ? { id: randomUUID(), shopId, name: input.customerName.trim(), mobile: input.mobile, email: normalizedEmail, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt } : (mobileMatch ?? emailMatch)!;
+    if (conflict || (!mobileMatch && !emailMatch)) await tx.insert(customers).values(customer);
+    await tx.insert(orders).values({ id, shopId, publicReference: `H-${randomBytes(5).toString("hex").toUpperCase()}`, idempotencyKey: `historical-${id}`, productId: row.product.id, packageId: row.package.id, customerId: customer.id, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity: input.quantity, volumeMl, itemSubtotalCents: subtotal, deliveryFeeCents: deliveryFee, finalTotalCents: deliveryFee === null ? null : subtotal + deliveryFee, fulfillmentDate: input.fulfillmentDate, fulfillmentMethod: input.fulfillmentMethod, customerName: input.customerName.trim(), mobile: input.mobile, email: normalizedEmail, streetAddress: input.streetAddress || null, postalCode: input.postalCode || null, city: input.city || null, pickupName: null, pickupAddress: null, pickupInstructions: null, pickupTime: null, notes: input.reason.trim(), statusReason: input.reason.trim(), contactedAt: null, contactedBy: null, contactChannel: null, fulfillmentStartedAt: null, readyAt: null, dispatchedAt: input.completedStatus === "DELIVERED" ? input.completedAt : null, completedAt: input.completedAt, pickupConfirmedAt: input.completedStatus === "PICKED_UP" ? input.completedAt : null, pickupConfirmedBy: input.completedStatus === "PICKED_UP" ? "manager" : null, locale: "fi", status: input.completedStatus, version: 1, orderSource: input.source, historicalEntry: true, createdAt, updatedAt: createdAt });
     if (input.paymentAmountCents && input.paymentAmountCents > 0) await tx.insert(orderPayments).values({ id: randomUUID(), shopId, orderId: id, amountCents: input.paymentAmountCents, kind: "PAYMENT", method: "OTHER", reference: "historical entry", recordedAt: input.completedAt, actor: "manager" });
     await tx.insert(auditEntries).values({ id: randomUUID(), shopId, actor: "manager", action: "order.historical_created", entityType: "order", entityId: id, detailsJson: JSON.stringify({ status: input.completedStatus, reason: input.reason, source: input.source }), createdAt });
     return (await tx.query.orders.findFirst({ where: eq(orders.id, id) }))!;
   });
 }
 
-async function enqueue(database: Database, eventKey: string, type: "EMAIL" | "AUTOMATION", payload: Record<string, unknown>, scheduledFor: string) {
+async function enqueue(database: Database, eventKey: string, type: "EMAIL" | "AUTOMATION" | "NOTIFICATION", payload: Record<string, unknown>, scheduledFor: string) {
   const shopId = env().SHOP_ID;
   await database.insert(outboxJobs).values({ id: randomUUID(), shopId, eventKey, type, payloadJson: JSON.stringify(payload), status: "PENDING", scheduledFor, attempts: 0, createdAt: nowIso() }).onConflictDoNothing({ target: [outboxJobs.shopId, outboxJobs.eventKey] });
+}
+
+async function notify(database: Database, eventKey: string, category: string, title: string, body: string, orderId?: string) {
+  const shopId = env().SHOP_ID; const createdAt = nowIso();
+  await database.insert(notifications).values({ id: randomUUID(), shopId, eventKey, category, title, body, orderId: orderId ?? null, createdAt }).onConflictDoNothing({ target: [notifications.shopId, notifications.eventKey] });
+  await enqueue(database, eventKey, "NOTIFICATION", { category, title, body, orderId }, createdAt);
 }
 
 export async function runAutomation(database: Database, now = new Date()) {
@@ -69,10 +80,10 @@ export async function runAutomation(database: Database, now = new Date()) {
   }
   const overdueAt = new Date(now.getTime() - 15 * 60 * 1000).toISOString();
   const overdue = await database.select().from(orders).where(and(eq(orders.shopId, shopId), eq(orders.status, "NEW"), lt(orders.createdAt, overdueAt)));
-  for (const order of overdue) { await enqueue(database, `order:${order.id}:new-overdue:v1`, "EMAIL", { kind: "new_order_overdue", orderId: order.id, email: order.email }, now.toISOString()); counts.overdueReminders += 1; }
+  for (const order of overdue) { await notify(database, `order:${order.id}:new-overdue:v1`, "NEW_ORDER_OVERDUE", "New order overdue", `Order ${order.publicReference} has been NEW for at least 15 minutes.`, order.id); counts.overdueReminders += 1; }
   if (hour >= 19) {
     const picking = await database.select().from(orders).where(and(eq(orders.shopId, shopId), eq(orders.fulfillmentDate, date), eq(orders.status, "PICKING")));
-    for (const order of picking) { await enqueue(database, `order:${order.id}:ready-review:v1`, "EMAIL", { kind: "ready_review", orderId: order.id }, now.toISOString()); counts.readyReminders += 1; }
+    for (const order of picking) { await notify(database, `order:${order.id}:ready-review:v1`, "READY_REVIEW", "Ready review required", `Order ${order.publicReference} is still PICKING after the ready-review time.`, order.id); counts.readyReminders += 1; }
   }
   return { date, hour, ...counts };
 }

@@ -1,5 +1,7 @@
 # 10 — Non-functional, Security and Privacy Requirements
 
+> **v0.0.1 scope override — ADR-0005 applies.** Apply these controls to the single shop and four pilot roles. Google/Meta provider controls, tenant isolation, analytics consent, channel webhooks, video processing, advanced exports, and automated notification infrastructure are deferred. MFA, server-side authorization, auditability, safe image uploads, Finnish/English localization, accessibility, and capacity/order integrity remain in scope.
+
 Numeric targets are MVP baselines and should be validated against hosting choices and expected traffic.
 
 ## 1. Performance and capacity

@@ -1,5 +1,7 @@
 # 07 — Logical Data Model
 
+> **v0.0.1 scope override — ADR-0005 applies.** The pilot stores one shop’s records; tenant/membership/platform entities, Google quote/provider entities, channel entities, supplier/expense/quality/reporting entities, and analytics are future roadmap. The minimum live model is users/permissions, customers, products/packages/media, availability, pickup, orders, payments, invoices, picker records, picking entries, CMS revisions, and audit events.
+
 This is a technology-neutral relational model. Identifiers are opaque UUID-like values unless implementation constraints dictate otherwise. Monetary values use fixed-point minor units or exact decimals, never floating-point.
 
 ## 1. Relationship overview
@@ -45,13 +47,13 @@ erDiagram
 
 ### Customer
 
-`id`, `tenant_id`, `display_name`, normalized/raw primary mobile, normalized/raw WhatsApp number, normalized/raw email, Messenger/Facebook display name and stable provider identifier, preferred contact channel, default address, optional `customer_area_id`, area source/confidence/override audit, internal notes, lifecycle state, optional provisional/match-review state and conflict references, anonymized timestamp, created/updated timestamps.
+`id`, `display_name`, normalized/raw primary mobile, normalized/raw email, default address, internal notes, lifecycle state, optional provisional/match-review state and conflict references, anonymized timestamp, created/updated timestamps. Connector identifiers and customer-area classification are future fields.
 
 Indexes: normalized mobile, normalized email, normalized Messenger identifier, search name. Unique constraints should account for nulls and deliberate shared contact details; duplicate detection may be advisory rather than globally unique.
 
 ### Order
 
-`id`, `tenant_id`, `public_reference`, `customer_id`, `order_source_id` and source snapshot, optional campaign/referrer attribution, `status`, fulfillment date/method, pickup snapshot, delivery address/classification/rule/fee snapshot, item subtotal, nullable/pending delivery fee, nullable final total, currency, payment summary, customer identity/contact/area snapshot, notes, manual/historical flags, capacity-effect state, overdue flags, created/updated/fulfilled/outcome timestamps, version.
+`id`, `public_reference`, `customer_id`, manually recorded order source, `status`, fulfillment date/method, pickup snapshot, delivery address/details, manual delivery fee/reason/actor/timestamp snapshot, item subtotal, nullable/pending delivery fee, nullable final total, currency, payment summary, customer identity/contact snapshot, notes, manual/historical flags, capacity-effect state, overdue flags, created/updated/fulfilled/outcome timestamps, version.
 
 The `version` supports optimistic concurrency. Snapshot fields are deliberate duplication to preserve history.
 
@@ -69,7 +71,7 @@ Public MVP orders contain exactly one item. Manual/historical orders may contain
 
 ### ProductMedia
 
-Tenant/product, media type (`IMAGE`, `UPLOADED_VIDEO`, `EXTERNAL_VIDEO`), storage/object reference or allowlisted provider/video ID, MIME/dimensions/duration/size, primary/order/active state, localized caption/alt/transcript metadata, processing/security status, rights/source notes, timestamps.
+Product/page, media type `IMAGE`, storage/object reference, MIME/dimensions/size, primary/order/active state, localized caption/alt metadata, processing/security status, rights/source notes, timestamps. A product/page may have at most four images. Video is future scope.
 
 ### Package
 
@@ -100,9 +102,9 @@ The sum of movements must reconcile to reserved capacity.
 
 Localized identity/instructions, structured customer-visible street address/postal code/city/access details, timezone, active period; slots/defaults/overrides with weekday or specific date, start/end time, optional capacity. Orders snapshot the selected display identity, address, instructions, and slot so later configuration changes do not rewrite customer history.
 
-### DeliveryOrigin / DeliveryRule
+### DeliveryOrigin / DeliveryRule (pilot)
 
-DeliveryOrigin stores tenant, localized/operational name, structured dispatch address, optional customer-confirmed provider-normalized form/minimal reference permitted by terms, validation state/time/provider, active state, and version. DeliveryRule stores origin reference, priority, active range, maximum driving-distance metres, free threshold, local fee, fallback postal zones/text, outside/provider-failure policy, localized explanation, and version. ShopDeliveryProviderSetting stores tenant, provider, enabled flag defaulting false, configuration/readiness state, version, changer/reason/timestamps; a separate platform kill-switch configuration is audited. DeliveryQuote stores a short-lived token/hash, normalized-destination binding when available, origin/rule/enablement version, nullable integer distance metres, provider/outcome including `PROVIDER_DISABLED`, fee state/value, calculated/expiry timestamps, and no unnecessary raw provider response or route geometry.
+DeliveryOrigin stores the customer-visible dispatch name/address/instructions. The order stores delivery details and optional manually agreed fee/reason/actor/timestamp. Distance rules, postal zones, provider settings, delivery quotes, Google responses, and route geometry are deferred.
 
 ### CustomerArea
 
@@ -182,7 +184,15 @@ Report type, filters/formula version, timezone/currency/data cutoff, format CSV/
 
 Submitter contact (private), display name, rating, product, immutable original text, edited display text, status, featured/published flags, source, acknowledgements, moderation actor/reason/timestamps.
 
-### PickerApplication
+### ExternalPicker (pilot)
+
+`id`, display name, mobile/email, active state, internal note, created/updated timestamps. It is a record only and has no login or supplier payment profile.
+
+### PickingEntry (pilot)
+
+`id`, staff user or external picker, product, picking date, `quantity_unit` (`LITRE` or `KILOGRAM`), positive `quantity`, `buy_price_per_unit`, calculated `total_amount`, currency, optional note, workflow status, creator/submitter/approver/payer actors and timestamps, audit reference. Exactly one unit is allowed per record; `€/L` and `€/kg` are stored separately and never converted automatically. Customer orders and capacity remain litres-only.
+
+### PickerApplication (future)
 
 Identity/contact/location, transport flag, interests, expected amount, availability, experience/notes, status, assignee, privacy statement version, timestamps. Status history and staff notes should be separate append-only records where possible.
 
@@ -198,7 +208,7 @@ Stable page/section key, locale, current published revision. Revision contains s
 
 ### User, Role, Permission
 
-User identity, email, authentication-provider reference/password metadata, state, locale, timezone, last login. Shop roles attach many-to-many to TenantMembership; roles attach permissions. A separate restricted PlatformGrant assigns `PLATFORM_ADMIN`. Use stable permission codes.
+User identity, email, authentication-provider reference/password metadata, state, locale, timezone, last login. A single-shop role assignment uses `ADMIN`, `MANAGER`, `STAFF`, or `CONTENT_CREATOR` plus stable feature permission codes. No PlatformGrant or tenant membership is needed in v0.0.1.
 
 ### NotificationPreference / Notification
 

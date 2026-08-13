@@ -1,5 +1,7 @@
 # 09 — Admin Portal, Roles and Permissions
 
+> **v0.0.1 active matrix — ADR-0005 applies.** The portal is one shop. The four roles are `ADMIN`, `MANAGER`, `STAFF`, and `CONTENT_CREATOR`. The pilot does not expose Platform Console, shop switcher, Google delivery settings, channels/shared inbox, supplier/expense/reporting modules, or video media. Feature permissions are assigned per user; Admin has all, Manager may assign Staff/Content Creator permissions, and Staff may invoice/pay/pick only when assigned.
+
 ## 1. Navigation and modules
 
 ```text
@@ -30,11 +32,11 @@ Reports & Exports
 Invoices
 ```
 
-Platform Admin uses a separate Platform Console for Shops, platform users/grants, entitlements, connection/provider health, support access, platform audit, and global security/settings. A user assigned to multiple shops sees an explicit shop switcher; every page prominently displays the active shop.
+There is no Platform Console or shop switcher in v0.0.1. The navigation labels for Shared Inbox, Channels, Suppliers, Expenses, Reports, and Picker Applications are future/deferred and should be hidden from the pilot UI.
 
 Navigation is permission-aware, but hidden navigation is not authorization; every server operation enforces permission.
 
-Every human Platform Console and shop-portal user must use MFA. Service identities are non-interactive and follow separate credential controls.
+Every human shop-portal user must use MFA. Service identities are non-interactive and follow separate credential controls.
 
 ## 2. Dashboard
 
@@ -45,10 +47,9 @@ The dashboard presents actionable operational data for the current business date
 - Litres and value by status/product/method.
 - Capacity, reserved, remaining, natural/manual sold-out dates, and private override actor/reason for authorized internal users.
 - Upcoming 7-day workload.
-- New contact messages and picker applications.
-- Recent notification/job/channel failures for Manager or Platform Admin.
-- Current ISO-week revenue, non-staff cost, result before staff picking cost, staff picking cost, and estimated profit after staff picking cost (Manager, Platform Admin in selected-shop context, or explicit financial-read permission only).
-- Operational funnel including customer-declined and customer-cancelled outcomes, plus analytics-eligible form abandonment clearly labeled by coverage.
+- New contact messages and external-picker records.
+- Recent operational failures.
+- Order/payment/invoice/picking-quantity summaries; full financial and analytics reporting is deferred.
 
 Cards link to filtered lists. Values include an “as of” timestamp and use the active shop timezone, initially `Europe/Helsinki`.
 
@@ -62,33 +63,34 @@ Cards link to filtered lists. Values include an “as of” timestamp and use th
 
 ## 4. Role definitions
 
-### Platform Admin (`PLATFORM_ADMIN`)
+### Admin (`ADMIN`)
 
-Platform-wide provisioning, suspension, entitlements, security, provider health, and cross-shop audit. In a visible explicitly selected shop, it inherits every Manager permission and action. It is not a grantable shop role and cannot be granted by a Manager. Last-Platform-Admin protections apply.
+Shop owner with every shop permission, including user/permission management, manual delivery-fee override, invoice/payment actions, picking records, CMS, products, capacity, and audit. Admin is not grantable by a Manager.
 
 ### Manager (`MANAGER`)
 
-Shop owner with every application permission inside assigned shop(s): users/roles, operations, customers, products/packages/media, bounded availability and sold-out overrides, sources/areas, quality/buy rates, finance workflow actions (including self-approval/payment), reports, CMS, channels/shared inbox/campaigns, integrations, settings, and shop audit. It cannot access another shop, grant Platform Admin, or change platform-wide security/subscription infrastructure.
+Employee with all operational permissions in the single shop and permission-assignment authority for Staff and Content Creator. Manager may create/approve/pay their own records. It cannot grant Admin.
 
 ### Staff
 
-Shop-scoped operational access: orders, customers, Product-module product records, packages/prices, bounded day/week/month/custom availability capacity, per-day manual sold-out, pickup/delivery, payment recording, reviews, picker applications, contact/shared-inbox work, dashboard, and granted non-sensitive functions. It cannot manage shop users/roles by default, change unrestricted settings, or approve financial records.
+Employee with only assigned features. Staff may manage orders, invoice/payment records, participate in picking, and record litre/kg quantities when those permissions are assigned. Staff may manage content/products when assigned. Staff cannot manage users or grant permissions by default.
 
-Staff may enter their own picking records and view their own earnings. Additional explicit permissions may allow entry of supplier purchases/expenses or operational reports, but Staff cannot approve any financial record or view other staff earnings by default.
+Staff may enter picking records for themselves or an external picker when assigned. Compensation, supplier, expense, and earnings modules are future scope.
 
-### Content Editor (Content Creator)
+### Content Creator (`CONTENT_CREATOR`)
 
-CMS pages, announcements, media, preview/publish, and shop Product-module records. Content Editor may create/update/localize/activate/archive an assigned-shop product, set its inclusive availability window, and hard-delete it only when unreferenced. Package prices and per-date capacity are read-only. No access to orders, customers, applicants, messages, payments, finance, users/roles, or sensitive settings.
+Fixed-page CMS, product names/descriptions, pickup instructions, preview/publish, and up to four images, subject to assigned permissions. No order/payment/picking/user access unless explicitly granted.
 
 ## 5. Permission matrix
 
+Rows for Platform Admin, channels, Google, suppliers, expenses, quality, analytics, and advanced reports are retained as future reference only; they are not release permissions in v0.0.1.
+
 Legend: `M` manage, `V` view, `—` denied, `L` limited.
 
-| Capability | Platform Admin | Manager | Staff | Content Editor |
+| Capability | Admin | Manager | Staff | Content Creator |
 |---|---:|---:|---:|---:|
-| Provision/suspend shops, platform entitlements/security | M | — | — | — |
-| Audited support access to a shop | M | — | — | — |
-| Shop dashboard/operations | M: selected shop | M | M | — |
+| Shop/user/permission management | M | M | — | — |
+| Shop dashboard/operations | M | M | L: assigned | — |
 | Orders/status/contact attempts | M: selected shop | M | M | — |
 | Historical orders | M: selected shop | M | M if granted | — |
 | Refund/payment record | M: selected shop | M | L: explicit permission | — |
@@ -98,8 +100,7 @@ Legend: `M` manage, `V` view, `—` denied, `L` limited.
 | Packages/media/prices | M: selected shop | M | M | L: media and read-only package/price |
 | Per-date availability/manual sold-out | M: selected shop | M | M | — |
 | Pickup locations, delivery origin/rules, and sources | M: selected shop | M | M | — |
-| Shop Google delivery enable/disable | M: selected shop | M | — | — |
-| Platform Google delivery kill switch/credentials | M | — | — | — |
+| Google delivery settings | — | — | — | — |
 | Quality grades/buy rates | M: selected shop | M | L: configure only with explicit `quality.configure`; denied by default | — |
 | Reviews/picker applications/contact | M: selected shop | M | M | — |
 | Shared inbox/reply | M: selected shop | M | L: if granted | — |
@@ -107,25 +108,25 @@ Legend: `M` manage, `V` view, `—` denied, `L` limited.
 | Campaign publish/send/schedule | M: selected shop | M | L: explicit permission | — |
 | Connect/disconnect provider accounts | M | M | — | — |
 | CMS/media publish | M: selected shop | M | — | M |
-| Shop users/roles/permissions | M: selected shop | M | — | — |
+| Shop users/roles/permissions | M | M | — | — |
 | Shop-sensitive settings/retention | M: selected shop | M | — | — |
 | Personal notification preferences | M | M | M | M |
 | Shop audit | M | M | L: own/relevant events | — |
 | Suppliers/external purchases | M: selected shop | M | L: if granted | — |
-| Expenses/purchases/Picking Entry submission | M: selected shop | M | L: enter if granted | — |
-| Finance approve/reject/correct/mark paid, including own record | M: selected shop | M | — | — |
-| Own picking entries/earnings | M: selected shop | M | M | — |
+| Picking record submission (litres/kg + buy price) | M | M | L: explicit permission | — |
+| Finance approve/reject/correct/mark paid, including own record | M | M | L: explicit permission | — |
+| Picking records (litres/kg + buy price) | M | M | L: explicit permission | — |
 | Other staff earnings/rates | M: selected shop | M | — unless finance permission | — |
 | Reports/CSV/PDF | M: selected shop | M | L: same scope as permissions | — |
 | Order Summary/invoice PDF | M: selected shop | M | L: if granted | — |
 
 ## 6. Suggested stable permission codes
 
-`platform.shops.manage`, `platform.entitlements.manage`, `platform.shop_context.select`, `orders.read`, `orders.create`, `orders.update`, `orders.transition`, `orders.override`, `orders.refund`, `documents.order_summary`, `invoices.preview`, `invoices.issue`, `invoices.download`, `customers.read`, `customers.write`, `customers.anonymize`, `areas.write`, `catalog.read`, `catalog.product.write`, `catalog.product.delete_unreferenced`, `catalog.package.write`, `media.write`, `availability.write`, `availability.sold_out`, `sources.write`, `delivery.configure`, `delivery.override`, `quality.configure`, `suppliers.read`, `suppliers.write`, `purchases.write`, `expenses.write`, `finance.approve`, `finance.mark_paid`, `picking.own.write`, `picking.all.write`, `earnings.own.read`, `earnings.all.read`, `reports.operational`, `reports.financial`, `reports.analytics`, `reports.export`, `channels.connect`, `channels.inbox.read`, `channels.reply`, `channels.content.write`, `channels.send`, `segments.write`, `reviews.moderate`, `pickers.manage`, `messages.manage`, `cms.edit`, `cms.publish`, `shop_users.manage`, `shop_roles.manage`, `settings.operational`, `settings.sensitive`, `audit.read`.
+`orders.read`, `orders.create`, `orders.update`, `orders.transition`, `orders.payment.write`, `invoices.issue`, `invoices.download`, `customers.read`, `customers.write`, `catalog.product.write`, `catalog.product.delete_unreferenced`, `catalog.package.write`, `media.write`, `availability.write`, `availability.sold_out`, `delivery.configure`, `delivery.override`, `picking.write`, `pickers.manage`, `reviews.moderate`, `messages.manage`, `cms.edit`, `cms.publish`, `shop_users.manage`, `shop_permissions.assign`, `settings.operational`, `audit.read`.
 
-Manager receives the complete shop-permission catalogue. Platform Admin receives the same catalogue in selected-shop context plus platform permissions. Domain/data invariants remain mandatory; they are not permission denials.
+Admin receives the complete shop-permission catalogue. Manager receives the operational catalogue and may assign/revoke feature permissions for Staff and Content Creator, but cannot grant Admin. Domain/data invariants remain mandatory.
 
-Provider cost controls use `delivery.provider.toggle` for Manager/selected-shop Platform Admin and `platform.delivery_provider.manage` for Platform Admin only. Staff may retain `delivery.configure` and `delivery.override` without either provider-enablement permission.
+There are no provider cost controls in v0.0.1. Staff may retain `delivery.configure` and `delivery.override` only when explicitly assigned.
 
 ## 7. Notifications
 

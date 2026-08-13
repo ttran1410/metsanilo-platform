@@ -1,11 +1,12 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
+import { auditEntries, availability, customers, orderNotes, orderPayments, orders, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
 import { normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
+import { assertPaymentMethodEnabled, type PaymentMethod } from "./payment-methods";
 
 const nowIso = () => new Date().toISOString();
 const publicReference = () => `R-${randomBytes(5).toString("hex").toUpperCase()}`;
@@ -168,12 +169,22 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
       const orderId = randomUUID();
       const reference = publicReference();
       const pickup = input.fulfillmentMethod === "PICKUP";
+      const normalizedEmail = input.email?.toLowerCase() || null;
+      const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, mobile)) });
+      const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.email, normalizedEmail)) }) : undefined;
+      const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id) || Boolean(mobileMatch && normalizedEmail && mobileMatch.email && mobileMatch.email !== normalizedEmail && !emailMatch);
+      const customer = (conflict || (!mobileMatch && !emailMatch))
+        ? { id: randomUUID(), shopId: SHOP_ID, name: input.customerName, mobile, email: normalizedEmail, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt }
+        : { ...(mobileMatch ?? emailMatch!), name: input.customerName, email: normalizedEmail ?? (mobileMatch ?? emailMatch)!.email, updatedAt: createdAt };
+      if (conflict || (!mobileMatch && !emailMatch)) await tx.insert(customers).values(customer);
+      else await tx.update(customers).set({ name: customer.name, email: customer.email, updatedAt: createdAt }).where(eq(customers.id, customer.id));
       const created = {
         id: orderId,
         shopId: SHOP_ID,
         publicReference: reference,
         idempotencyKey: input.idempotencyKey,
         productId: row.product.id,
+        customerId: customer.id,
         packageId: row.package.id,
         productNameFi: row.product.nameFi,
         productNameEn: row.product.nameEn,
@@ -188,7 +199,7 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
         fulfillmentMethod: input.fulfillmentMethod,
         customerName: input.customerName,
         mobile,
-        email: input.email?.toLowerCase() || null,
+        email: normalizedEmail,
         streetAddress: pickup ? null : input.streetAddress!,
         postalCode: pickup ? null : input.postalCode!,
         city: pickup ? null : input.city!,
@@ -220,9 +231,6 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
         updatedAt: createdAt,
       };
       await tx.insert(orders).values(created);
-      if (created.email) {
-        await tx.insert(outboxJobs).values({ id: randomUUID(), shopId: SHOP_ID, eventKey: `order:${orderId}:created-email:v1`, type: "EMAIL", payloadJson: JSON.stringify({ kind: "order_created", orderId, email: created.email }), status: "PENDING", scheduledFor: createdAt, attempts: 0, createdAt });
-      }
       await tx.insert(auditEntries).values([
         {
           id: randomUUID(),
@@ -318,10 +326,11 @@ export async function setDeliveryFee(database: Database, input: { orderId: strin
   });
 }
 
-export async function recordPayment(database: Database, input: { orderId: string; amountCents: number; method: "CASH" | "BANK_TRANSFER" | "CARD" | "OTHER"; reference?: string }) {
+export async function recordPayment(database: Database, input: { orderId: string; amountCents: number; method: PaymentMethod; reference?: string }) {
   const { SHOP_ID } = env();
   if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0) throw new DomainError("VALIDATION_ERROR", "Payment amount must be positive cents", 422);
   return database.transaction(async (tx) => {
+    await assertPaymentMethodEnabled(tx, input.method);
     const order = await tx.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
     if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
     if (order.status === "CANCELLED") throw new DomainError("INVALID_ORDER", "Cancelled order cannot be paid", 409);
@@ -336,10 +345,11 @@ export async function recordPayment(database: Database, input: { orderId: string
   });
 }
 
-export async function recordRefund(database: Database, input: { orderId: string; amountCents: number; method: "CASH" | "BANK_TRANSFER" | "CARD" | "OTHER"; reason: string }) {
+export async function recordRefund(database: Database, input: { orderId: string; amountCents: number; method: PaymentMethod; reason: string }) {
   const { SHOP_ID } = env();
   if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0 || input.reason.trim().length < 2) throw new DomainError("VALIDATION_ERROR", "Refund amount and reason are required", 422);
   return database.transaction(async (tx) => {
+    await assertPaymentMethodEnabled(tx, input.method);
     const order = await tx.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
     if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
     if (!["PICKED_UP", "DELIVERED", "REFUNDED"].includes(order.status)) throw new DomainError("INVALID_ORDER", "Only completed orders can be refunded", 409);

@@ -1,5 +1,7 @@
 # ADR-0003 — Owner Authority and Sold-out Override
 
+> **Role interpretation superseded for v0.0.1 by ADR-0005.** The single-shop `ADMIN` role is the owner; `MANAGER` is an employee. The daily capacity and sold-out behavior remains applicable.
+
 Status: Accepted  
 Date: 2026-08-13  
 Decision owners: Product and Business  

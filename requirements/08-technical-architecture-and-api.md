@@ -1,12 +1,14 @@
 # 08 — Technical Architecture and API
 
+> **v0.0.1 scope override — ADR-0005 applies.** Build a single-shop modular monolith with four user roles and feature-level authorization. Remove Google Maps/Routes, postal-zone classification, Facebook/WhatsApp, multi-tenant routing, supplier/expense/reporting, video processing, and background integration dependencies from the pilot.
+
 ## 1. Architecture goals
 
 - Technology-neutral separation between public presentation, administration, application logic, persistent data, and background processing.
 - Strong transactional consistency for orders and capacity.
-- Replaceable integrations for email, future payment, geocoding, messaging, and authentication.
+- Replaceable integrations for future payment, messaging, geocoding, and authentication; none are required for the pilot except managed authentication/MFA.
 - A modular monolith is appropriate for MVP; module boundaries must remain explicit so scale-out does not require rewriting domain rules.
-- Tenant isolation is a first-class security boundary from the first schema/migration, even when only one shop is initially active.
+- Object-level authorization and audit are security boundaries. A tenant switcher and cross-shop isolation layer are future scope while only one shop exists.
 
 ## 2. Component view
 
@@ -22,12 +24,11 @@ flowchart TB
     WK["Scheduler/Worker"] --> OUT
     WK --> DOM
     WK --> MAIL["Email Provider"]
-    API --> MAP["Google Address Validation / Routes"]
     OBS["Logs, Metrics, Traces, Alerts"] --- API
     OBS --- WK
 ```
 
-Domain modules: Tenancy/Entitlements, Catalog/Media, Availability, Orders/Sources, Customers/Areas, Fulfillment/Delivery, Payments-recording, Suppliers/Quality/Purchases, Expenses, Staff Picking/Earnings, Reporting/Analytics/Exports, Invoices/Documents, Reviews, Pickers, Contact, Channels/Shared Inbox/Campaigns, CMS, IAM, Notifications, Settings, Audit.
+Domain modules: Catalog/Media, Availability, Orders, Customers, Fulfillment/Delivery, Payment records, Invoices/Documents, Picking/External Pickers, Reviews, Contact, CMS, IAM/Permissions, Settings, Audit. Future modules include tenancy, channels, suppliers, expenses, analytics, and advanced reporting.
 
 ## 3. Application boundaries
 
@@ -36,16 +37,13 @@ Domain modules: Tenancy/Entitlements, Catalog/Media, Availability, Orders/Source
 - Shop-portal APIs require authenticated permission checks per operation.
 - Domain services own status transitions, capacity calculations, delivery pricing, matching, and audit emission. Controllers/UI must not reproduce these rules.
 - Background workers call the same domain services as interactive users.
-- Public host/slug resolution establishes tenant context before any content, catalog, form, media, or analytics operation. Authenticated tenant context comes from verified membership, never a freely trusted request parameter.
-- Platform Admin console is separated from shop portal routes and platform controls. In explicit selected-shop context, Platform Admin inherits all Manager shop commands with visible context and audit attribution.
+- Public routes resolve the single shop. Authenticated access is checked against the user’s role and feature permission; no client-supplied shop/tenant context is trusted.
 
 ## 4. Representative API surface
 
 Exact HTTP/GraphQL style is an implementation choice. Commands should use typed request/response contracts and stable error codes.
 
-Delivery quoting uses `DELIVERY_ADDRESS_CONFIRMATION_REQUIRED` for a correctable provider suggestion, `DELIVERY_QUOTE_STALE` for an expired/version-mismatched signed quote, and a successful `DELIVERY_TO_BE_AGREED` fee state—not a fatal order error—for beyond-limit/no-route/provider-failure fallback.
-
-Effective Google delivery is `platform_google_delivery_enabled && shop_google_delivery_enabled && credentials_ready && origin_validated && provider_circuit_available`. A false value short-circuits before any Google Address Validation/Routes call, returns `DELIVERY_TO_BE_AGREED` with internal cause `PROVIDER_DISABLED` where applicable, and invalidates unconsumed automatic quotes. Public responses never disclose the internal disabled/failure cause.
+Delivery has no quote endpoint in v0.0.1. Public and portal order flows use `DELIVERY_TO_BE_AGREED`; an authorized user may later record a manual fee and reason.
 
 ### Public reads and commands
 
@@ -53,10 +51,8 @@ Effective Google delivery is `platform_google_delivery_enabled && shop_google_de
 GET  /public/pages/{slug}?locale=fi
 GET  /public/products?date=YYYY-MM-DD&locale=fi
 GET  /public/availability?product_id=...&package_id=...
-POST /public/delivery-quotes
 POST /public/orders
 POST /public/reviews
-POST /public/picker-applications
 POST /public/contact-messages
 GET  /public/order-receipts/{opaque_reference} (optional short-lived access design)
 POST /public/analytics/events
@@ -81,7 +77,7 @@ POST /admin/availability/{product}/batch
 GET/POST/PATCH /admin/pickup-locations
 GET/POST/PATCH /admin/delivery-rules
 GET/POST/PATCH /admin/delivery-origins
-GET/PATCH /admin/settings/delivery-provider
+POST /admin/orders/{id}/delivery-fee
 GET/POST/PATCH /admin/reviews
 GET/PATCH /admin/picker-applications
 GET/PATCH /admin/contact-messages
@@ -91,29 +87,10 @@ GET/POST/PATCH /admin/users|roles
 GET/PATCH /admin/settings
 GET /admin/dashboard
 GET/PATCH /admin/notifications
-GET/POST/PATCH /admin/suppliers
-GET/POST/PATCH /admin/external-purchases
-GET/POST/PATCH /admin/expenses
 GET/POST/PATCH /admin/picking-entries
-POST /admin/picking-entries/{id}/submit|approve|reject|mark-paid
-GET/POST/PATCH /admin/compensation-rates
-GET /admin/reports/weekly|financial|operations
-POST /admin/report-exports
 POST /admin/orders/{id}/invoices/preview|issue
 GET /admin/invoices/{id}/pdf
-GET/POST/PATCH /shops/{shop}/order-sources
-GET/POST/PATCH /shops/{shop}/customer-areas
-GET/POST/PATCH /shops/{shop}/quality-grades|external-buy-rates
-POST /shops/{shop}/orders/{id}/documents/order-summary
-GET/POST/PATCH /shops/{shop}/channel-connections
-GET/POST/PATCH /shops/{shop}/channel-content|segments|campaigns
-POST /shops/{shop}/campaigns/{id}/schedule|cancel|dispatch
-GET/PATCH /shops/{shop}/inbox/conversations
-POST /shops/{shop}/inbox/conversations/{id}/messages
-POST /webhooks/channels/{provider}
-GET/POST/PATCH /platform/shops
-POST /platform/shops/{id}/suspend|reactivate|select-context
-GET/PATCH /platform/settings/delivery-provider-kill-switch
+GET/POST/PATCH /admin/external-pickers
 ```
 
 ## 5. Public order transaction
@@ -122,7 +99,7 @@ Within one transaction or an equivalent strongly consistent unit:
 
 1. Validate idempotency key and return prior success if already committed.
 2. Load active product/package/date, validate the product window and effective sold-out state, and lock or condition capacity/version.
-3. Before opening the database transaction, resolve effective provider enablement. If enabled, validate/recompute any stale quote server-side through Google; if disabled, make no Google delivery call and produce `DELIVERY_TO_BE_AGREED`. Inside the transaction, verify the quote's signed destination/origin/rule/enablement binding and recompute litres, prices, distance classification, fee, and total; disabled/beyond-limit/unverifiable/no-route/provider-failure delivery keeps fee/final total null pending agreement.
+3. Validate delivery details locally and set `DELIVERY_TO_BE_AGREED`; no route quote or provider call is made. If a previously agreed manual fee is being changed, require the authorized fee command and audit reason.
 4. Reject if remaining capacity is insufficient or ordering is closed.
 5. Match/create or provisionally associate customer using normalized identifiers and ambiguity/conflict rules.
 6. Create order and item/customer/fulfillment/price snapshots.
@@ -165,10 +142,9 @@ An application-only “check then insert” without database concurrency control
 - `EmailGateway`: administrative notification delivery and status callbacks where available.
 - `IdentityProvider`: admin authentication, MFA, recovery, lifecycle.
 - `MediaStorage`: signed upload, transformation, malware/type checks, public delivery.
-- `AddressClassifier`: MVP postal-zone lookup; future geocoding/radius provider behind the interface.
+- `AddressClassifier`: future geocoding/radius provider; not used by v0.0.1.
 - `PaymentGateway`: absent in MVP, but payment records include provider/reference fields for later implementation.
-- `ChannelProvider`: capability discovery, connection lifecycle, Facebook Page publishing, Group manual-share metadata, WhatsApp template/window/send, inbound webhook normalization, and message status; future Instagram support implements the same interface.
-- `VideoProvider`: validates and normalizes supported YouTube/Vimeo references; uploaded media uses `MediaStorage` and processing.
+- `ChannelProvider` and `VideoProvider`: future interfaces only; not required by v0.0.1.
 - `DocumentRenderer`: deterministic server-side PDF rendering for invoices and report exports, with versioned templates/fonts and checksum.
 - `InvoiceDeliveryGateway`: interface/event boundary only in MVP; no automatic customer email delivery implementation.
 
@@ -178,7 +154,7 @@ Return correlation ID, stable code, localized/safe message, and field errors. Ex
 
 ## 11. Deployment shape
 
-At minimum: tenant-resolved public/shop/platform web surfaces, API/application service, worker/scheduler, relational database, object storage/CDN/media processing, PDF renderer, transactional admin email provider, channel webhook/connector boundary, secret manager, backups, and observability. Surfaces may share a deployment but must retain authorization and tenant boundaries.
+At minimum: single-shop public/admin web surfaces, API/application service, relational database, object storage for images, PDF renderer, managed authentication/MFA, backups, and observability. A worker, channel webhooks, provider boundary, and multi-tenant platform surface are future scope.
 
 ## 12. Reporting architecture
 
