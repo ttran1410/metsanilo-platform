@@ -8,6 +8,13 @@
       "when": 1786632381648,
       "tag": "0000_smart_magus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786633000000,
+      "tag": "0001_product_module",
+      "breakpoints": true
     }
   ]
 }

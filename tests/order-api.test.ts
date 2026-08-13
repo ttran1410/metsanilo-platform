@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
 import { availability, orders, packages, products, shops } from "@/db/schema";
 import { submitOrder, transitionOrder } from "@/domain/orders";
+import { createProduct, deleteProduct } from "@/domain/products";
 import { resetEnvForTests } from "@/lib/env";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-test-"));
@@ -140,5 +141,24 @@ describe("public order transaction and API", () => {
     }));
     expect(invalid.status).toBe(422);
     expect((await invalid.json()).code).toBe("VALIDATION_ERROR");
+  });
+});
+
+describe("product module", () => {
+  it("creates a bilingual product with a package and refuses deletion after use", async () => {
+    const created = await createProduct(database, {
+      code: "MUSHROOMS", slug: "mushrooms", nameFi: "Sienet", nameEn: "Mushrooms",
+      descriptionFi: "Metsäsieniä", descriptionEn: "Forest mushrooms", availableFrom: "2099-08-13", availableThrough: "2099-09-30", active: true,
+      packages: [{ labelFi: "Kilo", labelEn: "Kilogram", volumeMl: 1000, priceCents: 1200, active: true }],
+    });
+    expect(created.product.descriptionFi).toBe("Metsäsieniä");
+    expect(created.packages).toHaveLength(1);
+    await expect(createProduct(database, {
+      code: "MUSHROOMS", slug: "another", nameFi: "Toiset", nameEn: "Other", descriptionFi: "", descriptionEn: "",
+      availableFrom: "2099-08-13", availableThrough: "2099-09-30", active: true,
+      packages: [{ labelFi: "Kilo", labelEn: "Kilogram", volumeMl: 1000, priceCents: 1200, active: true }],
+    })).rejects.toMatchObject({ code: "DUPLICATE_PRODUCT" });
+    await expect(deleteProduct(database, "product-berries")).rejects.toMatchObject({ code: "PRODUCT_IN_USE" });
+    await expect(deleteProduct(database, created.product.id)).resolves.toMatchObject({ deleted: true });
   });
 });

@@ -25,6 +25,8 @@ export const products = sqliteTable(
     slug: text("slug").notNull(),
     nameFi: text("name_fi").notNull(),
     nameEn: text("name_en").notNull(),
+    descriptionFi: text("description_fi").notNull().default(""),
+    descriptionEn: text("description_en").notNull().default(""),
     availableFrom: text("available_from").notNull(),
     availableThrough: text("available_through").notNull(),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
