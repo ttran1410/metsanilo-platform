@@ -114,6 +114,8 @@ export const orders = sqliteTable(
     pickupInstructions: text("pickup_instructions"),
     pickupTime: text("pickup_time"),
     notes: text("notes"),
+    pickupConfirmedAt: text("pickup_confirmed_at"),
+    pickupConfirmedBy: text("pickup_confirmed_by"),
     locale: text("locale", { enum: ["fi", "en"] }).notNull(),
     status: text("status", { enum: ["NEW", "CONFIRMED", "CANCELLED"] }).notNull().default("NEW"),
     version: integer("version").notNull().default(1),
@@ -127,6 +129,37 @@ export const orders = sqliteTable(
     check("orders_public_quantity_one", sql`${table.quantity} = 1`),
     check("orders_positive_volume", sql`${table.volumeMl} > 0`),
     check("orders_nonnegative_subtotal", sql`${table.itemSubtotalCents} >= 0`),
+  ],
+);
+
+export const orderNotes = sqliteTable(
+  "order_notes",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    orderId: text("order_id").notNull().references(() => orders.id),
+    body: text("body").notNull(),
+    actor: text("actor").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("order_notes_shop_order_idx").on(table.shopId, table.orderId, table.createdAt)],
+);
+
+export const orderPayments = sqliteTable(
+  "order_payments",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    orderId: text("order_id").notNull().references(() => orders.id),
+    amountCents: integer("amount_cents").notNull(),
+    method: text("method", { enum: ["CASH", "BANK_TRANSFER", "CARD", "OTHER"] }).notNull(),
+    reference: text("reference"),
+    recordedAt: text("recorded_at").notNull(),
+    actor: text("actor").notNull(),
+  },
+  (table) => [
+    index("order_payments_shop_order_idx").on(table.shopId, table.orderId, table.recordedAt),
+    check("order_payments_positive_amount", sql`${table.amountCents} > 0`),
   ],
 );
 

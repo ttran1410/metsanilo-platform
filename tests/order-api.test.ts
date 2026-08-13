@@ -5,8 +5,8 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { eq } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
-import { availability, orders, packages, products, shops } from "@/db/schema";
-import { submitOrder, transitionOrder } from "@/domain/orders";
+import { availability, orderPayments, orders, packages, products, shops } from "@/db/schema";
+import { addOrderNote, confirmPickup, getManagerOrder, recordPayment, setDeliveryFee, submitOrder, transitionOrder } from "@/domain/orders";
 import { createProduct, deleteProduct } from "@/domain/products";
 import { planAvailability } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
@@ -178,5 +178,33 @@ describe("availability planning", () => {
       productId: "product-berries", frequency: "CUSTOM", startDate: "2099-08-13", endDate: "2099-08-13",
       dates: ["2099-08-13"], capacityMl: 1, manualSoldOut: false,
     })).rejects.toMatchObject({ code: "BELOW_RESERVED" });
+  });
+});
+
+describe("order operations", () => {
+  it("sets a manual delivery fee, records payment, and adds a note", async () => {
+    const receipt = await submitOrder(database, {
+      ...pickupInput("delivery-operations", "2099-08-14"), fulfillmentMethod: "DELIVERY",
+      streetAddress: "Test street 1", postalCode: "00100", city: "Helsinki",
+    });
+    await expect(recordPayment(database, { orderId: (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!.id, amountCents: 2500, method: "CARD" })).rejects.toMatchObject({ code: "DELIVERY_FEE_PENDING" });
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    const updated = await setDeliveryFee(database, { orderId: order.id, expectedVersion: order.version, deliveryFeeCents: 500 });
+    await recordPayment(database, { orderId: order.id, amountCents: 3000, method: "CARD", reference: "terminal-1" });
+    await addOrderNote(database, { orderId: order.id, body: "Customer called about delivery." });
+    const detail = await getManagerOrder(database, order.id);
+    expect(updated.finalTotalCents).toBe(3000);
+    expect(detail.payments).toHaveLength(1);
+    expect(detail.notes[0]?.body).toContain("delivery");
+    expect(await database.select().from(orderPayments)).toHaveLength(1);
+  });
+
+  it("confirms pickup only after the order is confirmed", async () => {
+    const receipt = await submitOrder(database, pickupInput("pickup-confirm"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    await expect(confirmPickup(database, { orderId: order.id, expectedVersion: order.version })).rejects.toMatchObject({ code: "INVALID_TRANSITION" });
+    const confirmed = await transitionOrder(database, { orderId: order.id, status: "CONFIRMED", expectedVersion: order.version });
+    const picked = await confirmPickup(database, { orderId: order.id, expectedVersion: confirmed.version });
+    expect(picked.pickupConfirmedAt).toBeTruthy();
   });
 });
