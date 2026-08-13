@@ -136,11 +136,16 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
       if (current.manualSoldOut || current.capacityMl - current.reservedMl === 0) {
         throw new DomainError("SOLD_OUT", "Product is sold out", 409);
       }
+      if (row.package.volumeMl !== 10000 && input.quantity !== 1) {
+        throw new DomainError("INVALID_QUANTITY", "Only the 10 litre package supports a selectable quantity", 422);
+      }
+      const totalVolumeMl = row.package.volumeMl * input.quantity;
+      const itemSubtotalCents = row.package.priceCents * input.quantity;
 
       const reserved = await tx
         .update(availability)
         .set({
-          reservedMl: sql`${availability.reservedMl} + ${row.package.volumeMl}`,
+          reservedMl: sql`${availability.reservedMl} + ${totalVolumeMl}`,
           version: sql`${availability.version} + 1`,
           updatedAt: nowIso(),
         })
@@ -150,7 +155,7 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
             eq(availability.shopId, SHOP_ID),
             eq(availability.acceptsOrders, true),
             eq(availability.manualSoldOut, false),
-            gte(sql`${availability.capacityMl} - ${availability.reservedMl}`, row.package.volumeMl),
+            gte(sql`${availability.capacityMl} - ${availability.reservedMl}`, totalVolumeMl),
           ),
         )
         .run();
@@ -174,11 +179,11 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
         productNameEn: row.product.nameEn,
         packageLabelFi: row.package.labelFi,
         packageLabelEn: row.package.labelEn,
-        quantity: 1 as const,
-        volumeMl: row.package.volumeMl,
-        itemSubtotalCents: row.package.priceCents,
+        quantity: input.quantity,
+        volumeMl: totalVolumeMl,
+        itemSubtotalCents,
         deliveryFeeCents: pickup ? 0 : null,
-        finalTotalCents: pickup ? row.package.priceCents : null,
+        finalTotalCents: pickup ? itemSubtotalCents : null,
         fulfillmentDate: input.fulfillmentDate,
         fulfillmentMethod: input.fulfillmentMethod,
         customerName: input.customerName,
@@ -213,7 +218,7 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
           action: "order.created",
           entityType: "order",
           entityId: orderId,
-          detailsJson: JSON.stringify({ reference, status: "NEW", volumeMl: row.package.volumeMl }),
+          detailsJson: JSON.stringify({ reference, status: "NEW", quantity: input.quantity, volumeMl: totalVolumeMl }),
           createdAt,
         },
         {
@@ -223,7 +228,7 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
           action: "capacity.reserved",
           entityType: "availability",
           entityId: current.id,
-          detailsJson: JSON.stringify({ orderId, volumeMl: row.package.volumeMl }),
+          detailsJson: JSON.stringify({ orderId, quantity: input.quantity, volumeMl: totalVolumeMl }),
           createdAt,
         },
       ]);

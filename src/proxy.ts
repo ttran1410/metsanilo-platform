@@ -8,7 +8,6 @@ function equal(left: string, right: string) {
 }
 
 export function proxy(request: NextRequest) {
-  const username = process.env.MANAGER_USERNAME ?? "manager";
   const password = process.env.MANAGER_PASSWORD;
   if (!password || password.length < 16) {
     return new NextResponse("Manager access is not configured.", { status: 503 });
@@ -20,7 +19,9 @@ export function proxy(request: NextRequest) {
       const separator = decoded.indexOf(":");
       const candidateUser = decoded.slice(0, separator);
       const candidatePassword = decoded.slice(separator + 1);
-      if (separator > 0 && equal(candidateUser, username) && equal(candidatePassword, password)) {
+      // The pilot uses one configured Basic-auth secret; the username selects
+      // the shop user and is authorized server-side by the RBAC layer.
+      if (separator > 0 && candidateUser.length > 0 && equal(candidatePassword, password)) {
         return NextResponse.next();
       }
     } catch {

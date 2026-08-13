@@ -16,6 +16,33 @@ export const shops = sqliteTable("shops", {
   pickupTime: text("pickup_time").notNull().default("20:00"),
 });
 
+export const users = sqliteTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    username: text("username").notNull(),
+    displayName: text("display_name").notNull(),
+    role: text("role", { enum: ["ADMIN", "MANAGER", "STAFF", "CONTENT_CREATOR"] }).notNull(),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("users_shop_username_unique").on(table.shopId, table.username)],
+);
+
+export const userPermissions = sqliteTable(
+  "user_permissions",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    userId: text("user_id").notNull().references(() => users.id),
+    permission: text("permission").notNull(),
+    granted: integer("granted", { mode: "boolean" }).notNull().default(true),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("user_permissions_user_code_unique").on(table.userId, table.permission)],
+);
+
 export const products = sqliteTable(
   "products",
   {
@@ -126,7 +153,7 @@ export const orders = sqliteTable(
     uniqueIndex("orders_shop_reference_unique").on(table.shopId, table.publicReference),
     uniqueIndex("orders_shop_idempotency_unique").on(table.shopId, table.idempotencyKey),
     index("orders_shop_created_idx").on(table.shopId, table.createdAt),
-    check("orders_public_quantity_one", sql`${table.quantity} = 1`),
+    check("orders_positive_quantity", sql`${table.quantity} > 0`),
     check("orders_positive_volume", sql`${table.volumeMl} > 0`),
     check("orders_nonnegative_subtotal", sql`${table.itemSubtotalCents} >= 0`),
   ],

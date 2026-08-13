@@ -5,7 +5,7 @@ export const orderInputSchema = z
     locale: z.enum(["fi", "en"]),
     productId: z.string().min(1).max(100),
     packageId: z.string().min(1).max(100),
-    quantity: z.literal(1),
+    quantity: z.number().int().min(1).max(100),
     fulfillmentDate: z.iso.date(),
     fulfillmentMethod: z.enum(["PICKUP", "DELIVERY"]),
     customerName: z.string().trim().min(2).max(120),
