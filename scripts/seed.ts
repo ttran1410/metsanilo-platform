@@ -1,6 +1,6 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
-import { availability, packages, products, shops } from "../src/db/schema";
+import { availability, packages, products, shops, users } from "../src/db/schema";
 import { validateRuntimeEnvironment } from "../src/lib/env";
 
 const preflight = validateRuntimeEnvironment({ production: process.env.NODE_ENV === "production" || process.env.RELEASE_PREFLIGHT === "true" });
@@ -83,6 +83,14 @@ await database
       pickupTime: process.env.PICKUP_TIME?.trim() || "20:00",
     },
   });
+
+await database
+  .insert(users)
+  .values({
+    id: `user-${shopId}-admin`, shopId, username: process.env.MANAGER_USERNAME?.trim() || "manager",
+    displayName: process.env.MANAGER_DISPLAY_NAME?.trim() || "Shop admin", role: "ADMIN", active: true, createdAt: now,
+  })
+  .onConflictDoUpdate({ target: users.id, set: { username: process.env.MANAGER_USERNAME?.trim() || "manager", displayName: process.env.MANAGER_DISPLAY_NAME?.trim() || "Shop admin", role: "ADMIN", active: true } });
 
 await database
   .insert(products)

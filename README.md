@@ -1,8 +1,8 @@
-# METSÄNILO v0.0.5 order-operations pilot
+# METSÄNILO v0.0.6 roles-and-permissions pilot
 
 The next work is split into nine independently deployable checkpoints (`v0.0.2`–`v0.0.9`, then `v0.1.0`). See [ADR-0006](requirements/decisions/0006-incremental-deployable-release-plan.md) and the [development tracker](requirements/19-development-plan-and-progress.md) before making the next code change.
 
-This repository contains the intentionally narrow live pilot: one configured shop, bilingual public reservations, atomic capacity handling, a protected Manager view, the Product module, and bounded availability planning. v0.0.5 adds Manager order detail, notes, payment records, pickup confirmation, and manual delivery fees. It does not contain online payment processing, invoicing, messaging, Google routing, analytics, or SaaS provisioning scope.
+This repository contains the intentionally narrow live pilot: one configured shop, bilingual public reservations, atomic capacity handling, the Product module, bounded availability planning, and Manager order operations. v0.0.6 adds shop-scoped Admin/Manager/Staff/Content Creator identities and feature permissions. It does not contain per-user passwords, OIDC/MFA, online payment processing, invoicing, messaging, Google routing, analytics, or SaaS provisioning scope.
 
 ## Runtime and safety model
 

@@ -30,8 +30,10 @@ export function OrderForm({
   const t = copy[locale];
   const [productId, setProductId] = useState(products[0]?.id ?? "");
   const product = products.find((item) => item.id === productId);
-  const [packageId, setPackageId] = useState(products[0]?.packages[0]?.id ?? "");
+  const defaultPackage = products[0]?.packages.find((item) => item.volumeMl === 10000) ?? products[0]?.packages[0];
+  const [packageId, setPackageId] = useState(defaultPackage?.id ?? "");
   const selectedPackage = product?.packages.find((item) => item.id === packageId) ?? product?.packages[0];
+  const [quantity, setQuantity] = useState(1);
   const [date, setDate] = useState("");
   const [method, setMethod] = useState<"PICKUP" | "DELIVERY">("PICKUP");
   const [idempotencyKey, setIdempotencyKey] = useState(initialIdempotencyKey);
@@ -41,14 +43,16 @@ export function OrderForm({
   const [receipt, setReceipt] = useState<OrderReceipt>();
 
   const orderableDates = useMemo(
-    () => product?.dates.filter((item) => item.acceptsOrders && !item.soldOut && item.remainingMl >= (selectedPackage?.volumeMl ?? Infinity)) ?? [],
-    [product, selectedPackage],
+    () => product?.dates.filter((item) => item.acceptsOrders && !item.soldOut && item.remainingMl >= (selectedPackage?.volumeMl ?? Infinity) * quantity) ?? [],
+    [product, selectedPackage, quantity],
   );
 
   function changeProduct(nextId: string) {
     const next = products.find((item) => item.id === nextId);
     setProductId(nextId);
-    setPackageId(next?.packages[0]?.id ?? "");
+    const nextPackage = next?.packages.find((item) => item.volumeMl === 10000) ?? next?.packages[0];
+    setPackageId(nextPackage?.id ?? "");
+    setQuantity(1);
     setDate("");
   }
 
@@ -62,7 +66,7 @@ export function OrderForm({
       locale,
       productId,
       packageId: selectedPackage?.id,
-      quantity: 1,
+      quantity,
       fulfillmentDate: date,
       fulfillmentMethod: method,
       customerName: values.get("customerName"),
@@ -131,12 +135,19 @@ export function OrderForm({
         </label>
         <label className="field">
           <span>{t.package} *</span>
-          <select value={selectedPackage?.id ?? ""} onChange={(event) => { setPackageId(event.target.value); setDate(""); }}>
+          <select value={selectedPackage?.id ?? ""} onChange={(event) => { setPackageId(event.target.value); setQuantity(1); setDate(""); }}>
             {product?.packages.map((item) => (
               <option key={item.id} value={item.id}>{item.label} — {formatLitres(item.volumeMl, locale)} l — {formatEuros(item.priceCents, locale)}</option>
             ))}
           </select>
         </label>
+        {selectedPackage?.volumeMl === 10000 && (
+          <label className="field">
+            <span>{locale === "fi" ? "Määrä" : "Quantity"} *</span>
+            <input type="number" name="quantity" min={1} max={100} step={1} value={quantity} onChange={(event) => { setQuantity(Math.max(1, Math.min(100, Number(event.target.value) || 1))); setDate(""); }} required />
+            <small>{locale === "fi" ? "10 litran pakkaukselle voit valita määrän." : "Quantity can be selected for the 10 litre package."}</small>
+          </label>
+        )}
         <div className="grid gap-2" aria-live="polite">
           {product?.dates.map((item) => (
             <div key={item.date} className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 py-2">

@@ -6,6 +6,7 @@ import { migrate } from "drizzle-orm/libsql/migrator";
 import { eq } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
 import { availability, orderPayments, orders, packages, products, shops } from "@/db/schema";
+import { createUser, requirePermission, setUserPermission } from "@/domain/access";
 import { addOrderNote, confirmPickup, getManagerOrder, recordPayment, setDeliveryFee, submitOrder, transitionOrder } from "@/domain/orders";
 import { createProduct, deleteProduct } from "@/domain/products";
 import { planAvailability } from "@/domain/availability";
@@ -64,6 +65,10 @@ beforeEach(async () => {
     id: "package-5l", shopId: "shop-main", productId: "product-berries",
     labelFi: "5 litraa", labelEn: "5 litres", volumeMl: 5000, priceCents: 2500, active: true,
   });
+  await database.insert(packages).values({
+    id: "package-10l", shopId: "shop-main", productId: "product-berries",
+    labelFi: "10 litraa", labelEn: "10 litres", volumeMl: 10000, priceCents: 4500, active: true,
+  });
   await database.insert(availability).values([
     {
       id: "availability-main", shopId: "shop-main", productId: "product-berries", businessDate: "2099-08-13",
@@ -80,6 +85,15 @@ afterEach(() => closeDatabase());
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
 
 describe("public order transaction and API", () => {
+  it("allows quantity selection only for the 10 litre package", async () => {
+    await expect(submitOrder(database, { ...pickupInput("invalid-quantity"), quantity: 2 })).rejects.toMatchObject({ code: "INVALID_QUANTITY" });
+    await database.update(availability).set({ capacityMl: 30000 }).where(eq(availability.id, "availability-main"));
+    const receipt = await submitOrder(database, { ...pickupInput("ten-litre-quantity"), packageId: "package-10l", quantity: 2 });
+    expect(receipt.volumeMl).toBe(20000);
+    expect(receipt.itemSubtotalCents).toBe(9000);
+    const row = await database.query.availability.findFirst({ where: eq(availability.id, "availability-main") });
+    expect(row?.reservedMl).toBe(20000);
+  });
   it("reserves capacity once for an idempotent replay", async () => {
     const first = await submitOrder(database, pickupInput("same-request"));
     const replay = await submitOrder(database, pickupInput("same-request"));
@@ -141,7 +155,7 @@ describe("public order transaction and API", () => {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...delivery, idempotencyKey: "manipulated-quantity", quantity: 2 }),
     }));
     expect(invalid.status).toBe(422);
-    expect((await invalid.json()).code).toBe("VALIDATION_ERROR");
+    expect((await invalid.json()).code).toBe("INVALID_QUANTITY");
   });
 });
 
@@ -206,5 +220,18 @@ describe("order operations", () => {
     const confirmed = await transitionOrder(database, { orderId: order.id, status: "CONFIRMED", expectedVersion: order.version });
     const picked = await confirmPickup(database, { orderId: order.id, expectedVersion: confirmed.version });
     expect(picked.pickupConfirmedAt).toBeTruthy();
+  });
+});
+
+describe("shop roles and permissions", () => {
+  it("allows Manager assignment but requires explicit Staff grants", async () => {
+    process.env.MANAGER_USERNAME = "manager";
+    resetEnvForTests();
+    const adminRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("manager:secret").toString("base64")}` } });
+    const staff = await createUser(database, adminRequest, { username: "picker", displayName: "Picker", role: "STAFF" });
+    const staffRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("picker:secret").toString("base64")}` } });
+    await expect(requirePermission(database, staffRequest, "orders.read")).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await setUserPermission(database, adminRequest, { userId: staff.id, permission: "orders.read", granted: true });
+    await expect(requirePermission(database, staffRequest, "orders.read")).resolves.toMatchObject({ username: "picker" });
   });
 });
