@@ -1,6 +1,6 @@
 {
   "name": "metsanilo-v0.0.1",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "private": true,
   "scripts": {
@@ -12,7 +12,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "db:preflight": "tsx scripts/preflight.ts"
   },
   "dependencies": {
     "@libsql/client": "0.17.4",

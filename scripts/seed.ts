@@ -1,6 +1,10 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { availability, packages, products, shops } from "../src/db/schema";
+import { validateRuntimeEnvironment } from "../src/lib/env";
+
+const preflight = validateRuntimeEnvironment({ production: process.env.NODE_ENV === "production" || process.env.RELEASE_PREFLIGHT === "true" });
+if (!preflight.ok) throw new Error(`Environment preflight failed: ${preflight.errors.join("; ")}`);
 
 function required(name: string) {
   const value = process.env[name]?.trim();
@@ -29,10 +33,24 @@ const productId = `product-${safeCode}`;
 const packageId = `package-${safeCode}`;
 const now = new Date().toISOString();
 const client = createClient({
-  url: process.env.TURSO_DATABASE_URL ?? "file:local.db",
-  authToken: process.env.TURSO_AUTH_TOKEN,
+  url: preflight.config.TURSO_DATABASE_URL,
+  authToken: preflight.config.TURSO_AUTH_TOKEN,
 });
 const database = drizzle(client);
+
+const existingShops = await database.select({ id: shops.id }).from(shops);
+if (existingShops.some((shop) => shop.id !== shopId)) {
+  throw new Error(`Seed refused: database contains another shop. Expected only ${shopId}.`);
+}
+if (existingShops.some((shop) => shop.id === shopId) && process.env.SEED_ALLOW_EXISTING !== "true") {
+  throw new Error("Seed refused: existing shop detected. Set SEED_ALLOW_EXISTING=true after reviewing the configured values.");
+}
+
+if (process.env.SEED_DRY_RUN === "true") {
+  console.log(`Seed preflight passed for ${shopId}; no changes written.`);
+  client.close();
+  process.exit(0);
+}
 
 await database
   .insert(shops)

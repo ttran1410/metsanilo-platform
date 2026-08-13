@@ -1,6 +1,8 @@
-# METSÄNILO v0.0.1 operational pilot
+# METSÄNILO v0.0.2 foundation-hardened pilot
 
-This repository contains the intentionally narrow live pilot: one configured shop, bilingual public reservations, atomic capacity handling, and a minimal protected Manager view. It does not contain the later CMS, finance, payment, messaging, Google routing, analytics, or SaaS provisioning scope.
+The next work is split into nine independently deployable checkpoints (`v0.0.2`–`v0.0.9`, then `v0.1.0`). See [ADR-0006](requirements/decisions/0006-incremental-deployable-release-plan.md) and the [development tracker](requirements/19-development-plan-and-progress.md) before making the next code change.
+
+This repository contains the intentionally narrow live pilot: one configured shop, bilingual public reservations, atomic capacity handling, and a minimal protected Manager view. v0.0.2 adds deployment/environment hardening, a health check, and release metadata. It does not contain the later CMS, finance, payment, messaging, Google routing, analytics, or SaaS provisioning scope.
 
 ## Runtime and safety model
 
@@ -30,6 +32,10 @@ npm run db:migrate
 npm run db:seed
 npm run dev
 ```
+
+For a deployment or production-like environment, run `npm run db:preflight` before migration. The health endpoint is `/api/health` and returns only readiness status, release metadata, and safe check results.
+
+Seeding is intentionally guarded: use `SEED_DRY_RUN=true npm run db:seed` to validate inputs without writing, and set `SEED_ALLOW_EXISTING=true` only after reviewing an existing shop before an idempotent update. The seed refuses to run if the database contains a different shop.
 
 Open `http://localhost:3000/fi`, switch to English at `/en`, and open `/manager` with `MANAGER_USERNAME` and `MANAGER_PASSWORD`.
 
