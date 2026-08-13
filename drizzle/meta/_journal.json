@@ -36,6 +36,13 @@
       "when": 1786636000000,
       "tag": "0004_variable_public_quantity",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786637000000,
+      "tag": "0005_order_lifecycle",
+      "breakpoints": true
     }
   ]
 }

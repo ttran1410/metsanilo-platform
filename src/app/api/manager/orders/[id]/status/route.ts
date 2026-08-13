@@ -8,8 +8,10 @@ import { requirePermission } from "@/domain/access";
 export const runtime = "nodejs";
 
 const command = z.object({
-  status: z.enum(["CONFIRMED", "CANCELLED"]),
+  status: z.enum(["CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED", "CUSTOMER_DECLINED", "CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "REFUNDED"]),
   expectedVersion: z.number().int().positive(),
+  reason: z.string().max(500).optional(),
+  contactChannel: z.enum(["PHONE", "SMS", "EMAIL", "OTHER"]).optional(),
 });
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {

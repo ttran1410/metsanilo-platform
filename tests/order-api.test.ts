@@ -126,7 +126,7 @@ describe("public order transaction and API", () => {
   it("releases capacity once when a new order is cancelled", async () => {
     const receipt = await submitOrder(database, pickupInput("cancel-order"));
     const [created] = await database.select().from(orders).where(eq(orders.publicReference, receipt.publicReference));
-    await transitionOrder(database, { orderId: created.id, status: "CANCELLED", expectedVersion: 1 });
+    await transitionOrder(database, { orderId: created.id, status: "CANCELLED", expectedVersion: 1, reason: "Customer unavailable" });
     await expect(
       transitionOrder(database, { orderId: created.id, status: "CANCELLED", expectedVersion: 1 }),
     ).rejects.toMatchObject({ code: "STALE_VERSION" });
@@ -196,6 +196,27 @@ describe("availability planning", () => {
 });
 
 describe("order operations", () => {
+  it("follows pickup fulfillment states without releasing reserved capacity", async () => {
+    const receipt = await submitOrder(database, pickupInput("full-pickup-lifecycle"));
+    let order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    order = await transitionOrder(database, { orderId: order.id, status: "CONFIRMED", expectedVersion: order.version });
+    order = await transitionOrder(database, { orderId: order.id, status: "PICKING", expectedVersion: order.version });
+    order = await transitionOrder(database, { orderId: order.id, status: "READY", expectedVersion: order.version });
+    order = await transitionOrder(database, { orderId: order.id, status: "PICKED_UP", expectedVersion: order.version });
+    expect(order.status).toBe("PICKED_UP");
+    expect(order.completedAt).toBeTruthy();
+    expect((await database.query.availability.findFirst({ where: eq(availability.id, "availability-main") }))?.reservedMl).toBe(5000);
+  });
+
+  it("releases capacity for a confirmed business cancellation", async () => {
+    const receipt = await submitOrder(database, pickupInput("confirmed-cancellation"));
+    let order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    order = await transitionOrder(database, { orderId: order.id, status: "CONFIRMED", expectedVersion: order.version });
+    order = await transitionOrder(database, { orderId: order.id, status: "CANCELLED", expectedVersion: order.version, reason: "Business unavailable" });
+    expect(order.status).toBe("CANCELLED");
+    expect((await database.query.availability.findFirst({ where: eq(availability.id, "availability-main") }))?.reservedMl).toBe(0);
+  });
+
   it("sets a manual delivery fee, records payment, and adds a note", async () => {
     const receipt = await submitOrder(database, {
       ...pickupInput("delivery-operations", "2099-08-14"), fulfillmentMethod: "DELIVERY",

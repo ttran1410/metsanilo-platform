@@ -12,7 +12,7 @@ const publicReference = () => `R-${randomBytes(5).toString("hex").toUpperCase()}
 
 export type OrderReceipt = {
   publicReference: string;
-  status: "NEW" | "CONFIRMED" | "CANCELLED";
+  status: "NEW" | "CONFIRMED" | "PICKING" | "READY" | "OUT_FOR_DELIVERY" | "PICKED_UP" | "DELIVERED" | "CUSTOMER_DECLINED" | "CANCELLED" | "CANCELLED_BY_CUSTOMER" | "REJECTED" | "NO_SHOW" | "REFUNDED";
   locale: "fi" | "en";
   productName: string;
   packageLabel: string;
@@ -201,6 +201,14 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
           : null,
         pickupTime: pickup ? row.shop.pickupTime : null,
         notes: input.notes || null,
+        statusReason: null,
+        contactedAt: null,
+        contactedBy: null,
+        contactChannel: null,
+        fulfillmentStartedAt: null,
+        readyAt: null,
+        dispatchedAt: null,
+        completedAt: null,
         pickupConfirmedAt: null,
         pickupConfirmedBy: null,
         locale: input.locale,
@@ -339,7 +347,13 @@ export async function confirmPickup(database: Database, input: { orderId: string
 
 export async function transitionOrder(
   database: Database,
-  input: { orderId: string; status: "CONFIRMED" | "CANCELLED"; expectedVersion: number },
+  input: {
+    orderId: string;
+    status: "CONFIRMED" | "PICKING" | "READY" | "OUT_FOR_DELIVERY" | "PICKED_UP" | "DELIVERED" | "CUSTOMER_DECLINED" | "CANCELLED" | "CANCELLED_BY_CUSTOMER" | "REJECTED" | "NO_SHOW" | "REFUNDED";
+    expectedVersion: number;
+    reason?: string;
+    contactChannel?: "PHONE" | "SMS" | "EMAIL" | "OTHER";
+  },
 ) {
   const { SHOP_ID } = env();
   return database.transaction(async (tx) => {
@@ -348,23 +362,58 @@ export async function transitionOrder(
     });
     if (!current) throw new DomainError("NOT_FOUND", "Order not found", 404);
     if (current.version !== input.expectedVersion) throw new DomainError("STALE_VERSION", "Order changed", 409);
-    if (current.status !== "NEW") throw new DomainError("INVALID_TRANSITION", "Order is no longer new", 409);
+    const allowed: Record<typeof current.status, readonly typeof input.status[]> = {
+      NEW: ["CONFIRMED", "CUSTOMER_DECLINED", "CANCELLED"],
+      CONFIRMED: ["PICKING", "CANCELLED", "CANCELLED_BY_CUSTOMER"],
+      PICKING: ["READY", "CANCELLED", "CANCELLED_BY_CUSTOMER"],
+      READY: ["PICKED_UP", "OUT_FOR_DELIVERY", "CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW"],
+      OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW"],
+      PICKED_UP: ["REFUNDED"],
+      DELIVERED: ["REFUNDED"],
+      CUSTOMER_DECLINED: [], CANCELLED: [], CANCELLED_BY_CUSTOMER: [], REJECTED: [], NO_SHOW: [], REFUNDED: [],
+    };
+    if (!allowed[current.status].includes(input.status)) throw new DomainError("INVALID_TRANSITION", `${current.status} cannot transition to ${input.status}`, 409);
+    const reasonRequired = ["CUSTOMER_DECLINED", "CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "REFUNDED"].includes(input.status);
+    const reason = input.reason?.trim() || "";
+    if (reasonRequired && reason.length < 2) throw new DomainError("VALIDATION_ERROR", "A reason is required for this transition", 422);
+    const contactChannel = input.contactChannel ?? (input.status === "CONFIRMED" ? "PHONE" : undefined);
+    if (input.status === "PICKED_UP" && current.fulfillmentMethod !== "PICKUP") throw new DomainError("INVALID_TRANSITION", "Only pickup orders can be picked up", 409);
+    if (input.status === "OUT_FOR_DELIVERY" && current.fulfillmentMethod !== "DELIVERY") throw new DomainError("INVALID_TRANSITION", "Only delivery orders can be dispatched", 409);
+    if (input.status === "DELIVERED" && current.fulfillmentMethod !== "DELIVERY") throw new DomainError("INVALID_TRANSITION", "Only delivery orders can be delivered", 409);
+    if (input.status === "PICKED_UP" && current.finalTotalCents === null) throw new DomainError("DELIVERY_FEE_PENDING", "Resolve the order total before handover", 409);
+    if (input.status === "OUT_FOR_DELIVERY" && current.finalTotalCents === null) throw new DomainError("DELIVERY_FEE_PENDING", "Resolve the delivery fee before dispatch", 409);
 
+    const now = nowIso();
+    const releaseCapacity = ["CUSTOMER_DECLINED", "CANCELLED", "CANCELLED_BY_CUSTOMER"].includes(input.status) && ["NEW", "CONFIRMED"].includes(current.status);
+    const completedAt = ["PICKED_UP", "DELIVERED"].includes(input.status) ? now : current.completedAt;
     const changed = await tx
       .update(orders)
-      .set({ status: input.status, version: sql`${orders.version} + 1`, updatedAt: nowIso() })
+      .set({
+        status: input.status,
+        statusReason: reason || null,
+        contactedAt: input.status === "CONFIRMED" ? now : current.contactedAt,
+        contactedBy: input.status === "CONFIRMED" ? "manager" : current.contactedBy,
+        contactChannel: input.status === "CONFIRMED" ? contactChannel! : current.contactChannel,
+        fulfillmentStartedAt: input.status === "PICKING" ? now : current.fulfillmentStartedAt,
+        readyAt: input.status === "READY" ? now : current.readyAt,
+        dispatchedAt: input.status === "OUT_FOR_DELIVERY" ? now : current.dispatchedAt,
+        completedAt,
+        pickupConfirmedAt: input.status === "PICKED_UP" ? now : current.pickupConfirmedAt,
+        pickupConfirmedBy: input.status === "PICKED_UP" ? "manager" : current.pickupConfirmedBy,
+        version: sql`${orders.version} + 1`, updatedAt: now,
+      })
       .where(
         and(
           eq(orders.id, current.id),
           eq(orders.shopId, SHOP_ID),
-          eq(orders.status, "NEW"),
+          eq(orders.status, current.status),
           eq(orders.version, input.expectedVersion),
         ),
       )
       .run();
     if (changed.rowsAffected !== 1) throw new DomainError("STALE_VERSION", "Order changed", 409);
 
-    if (input.status === "CANCELLED") {
+    if (releaseCapacity) {
       const released = await tx
         .update(availability)
         .set({
@@ -385,14 +434,14 @@ export async function transitionOrder(
       await tx.insert(auditEntries).values({
         id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "capacity.released",
         entityType: "order", entityId: current.id,
-        detailsJson: JSON.stringify({ volumeMl: current.volumeMl }), createdAt: nowIso(),
+        detailsJson: JSON.stringify({ volumeMl: current.volumeMl, reason }), createdAt: now,
       });
     }
     await tx.insert(auditEntries).values({
       id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.status_changed",
       entityType: "order", entityId: current.id,
-      detailsJson: JSON.stringify({ from: current.status, to: input.status }), createdAt: nowIso(),
+      detailsJson: JSON.stringify({ from: current.status, to: input.status, reason, contactChannel }), createdAt: now,
     });
-    return { ...current, status: input.status, version: current.version + 1, updatedAt: nowIso() };
+    return { ...current, status: input.status, statusReason: reason || null, contactedAt: input.status === "CONFIRMED" ? now : current.contactedAt, contactedBy: input.status === "CONFIRMED" ? "manager" : current.contactedBy, contactChannel: input.status === "CONFIRMED" ? contactChannel! : current.contactChannel, fulfillmentStartedAt: input.status === "PICKING" ? now : current.fulfillmentStartedAt, readyAt: input.status === "READY" ? now : current.readyAt, dispatchedAt: input.status === "OUT_FOR_DELIVERY" ? now : current.dispatchedAt, completedAt, pickupConfirmedAt: input.status === "PICKED_UP" ? now : current.pickupConfirmedAt, pickupConfirmedBy: input.status === "PICKED_UP" ? "manager" : current.pickupConfirmedBy, version: current.version + 1, updatedAt: now };
   });
 }
