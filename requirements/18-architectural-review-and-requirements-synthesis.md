@@ -1,5 +1,7 @@
 # 18 — Architectural Review and Requirements Synthesis
 
+> **v0.0.1 release override — ADR-0005 applies.** Reduce this future-ready synthesis to one shop, Admin/Manager/Staff/Content Creator permissions, fixed-page four-image CMS, manual delivery fees, invoice/payment records, record-only pickers, and litre/kg picking records with unit-specific buy prices. Customer orders/capacity remain litres-only. Multi-tenant, Google, channel, video, supplier/expense/reporting, and marketing sections are deferred.
+
 Version: 2.0  
 Status: Corrected MVP synthesis  
 Supersedes: Reviewed `Architectural Review & Requirements Synthesis for METSÄNILO` draft  

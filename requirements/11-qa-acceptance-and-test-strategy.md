@@ -1,5 +1,17 @@
 # 11 — QA Acceptance Criteria and Test Strategy
 
+> **v0.0.1 release subset — ADR-0005 applies.** Release testing covers one shop, Admin/Manager/Staff/Content Creator permissions, Finnish/English public flow, product availability/capacity/sold-out, pickup, delivery-to-be-agreed with manual fee, orders, payments/invoice PDF, picker records, litre/kg picking records with unit-specific buy prices, four-image CMS, and audit. Multi-shop, Google, Facebook/WhatsApp, supplier/expense/reporting, video, and marketing scenarios are deferred and must not block this release.
+
+For v0.0.1, the acceptance scenarios below are a reusable future baseline. Only the pilot subset named above is a release gate; scenarios that mention Google, Platform Admin, Content Editor, public picker applications, suppliers, expenses, advanced reports, channels, or video are explicitly deferred.
+
+### Pilot picking-record checks
+
+- A record with `quantity_unit = LITRE`, quantity `12.5`, and `buy_price_per_unit = €4.00` calculates €50.00.
+- A record with `quantity_unit = KILOGRAM`, quantity `8`, and `buy_price_per_unit = €6.50` calculates €52.00.
+- The same record cannot contain both units, and `€/L` is never converted to `€/kg` (or the reverse).
+- Zero/negative quantity, negative price, mismatched unit labels, or client-supplied totals are rejected server-side.
+- Customer order/capacity calculations remain litres-only and are unaffected by kilogram picking records.
+
 ## 1. Release acceptance scenarios
 
 ### Ordering and capacity

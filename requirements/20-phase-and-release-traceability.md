@@ -1,6 +1,8 @@
 # 20 — Phase and Release Traceability
 
-Version: 1.0  
+> **v0.0.1 traceability override — ADR-0005 applies.** This document retains complete future ID coverage. The release gate is the smaller pilot subset: one shop, role permissions, public order/capacity/pickup, delivery-to-be-agreed/manual fee, CMS/images, invoices/payments, picker records, litre/kg picking records with unit-specific buy prices, i18n, audit, and no Google/Meta calls. Customer orders/capacity remain litres-only.
+
+Version: 1.1
 Status: Approved planning baseline  
 Date: 2026-08-13
 
@@ -14,10 +16,17 @@ Ranges are inclusive. Comma-separated IDs and ranges form one assignment group. 
 
 | Release | Phases | Requirement scope | Acceptance scope |
 |---|---|---|---|
+| **v0.0.1 Pilot** | P0–P3 | ADR-0005 subset only: one shop, four roles/permissions, catalog/capacity/pickup, manual delivery fee, CMS/images, invoice/payment/picking records, i18n, audit | Pilot subset below; deferred IDs are not release blockers |
 | Core Operational Release | 0–8 | All IDs assigned to Phases 1–8 | 66 scenarios assigned to Phases 2–8 |
 | Extended MVP Release | 0–11 | Core plus all IDs assigned to Phases 9–11 | All 81 scenarios |
 
 Phase 0 owns decisions, design validation, provider/legal inputs, and backlog readiness. It has no implementation requirement IDs. A production capability remains blocked when its external decision gate is open, even if its code and tests are otherwise complete.
+
+### v0.0.1 acceptance subset
+
+The pilot release gate is the following behavior, regardless of the future ID-to-phase table below: `FR-PUB-001–008`, `FR-ORD-001–018` excluding connector messaging, `FR-PRD-001–007`, `FR-AVL-001–008`, `FR-DLV-001–008` as rewritten for manual delivery, `FR-CMS-001–005`, `FR-IAM-001–005`, `FR-INV-001–003`, basic payment-record rules, record-only external pickers, litre/kg picking records with unit-specific buy prices, Finnish/English localization, image validation/max-four constraint, audit, and capacity concurrency. The pilot must prove: customer order submission, pickup address/instructions, “Delivery to be agreed,” manual fee entry, invoice PDF download, payment record, picker/picking record in either unit, user permission assignment, and no Google/Meta/WhatsApp API call.
+
+All `FR-TEN-*`, `FR-CHN-*`, Google-specific delivery behavior, postal-zone classification, supplier/expense/quality/full finance/reporting, analytics, video, public picker application scenarios, and marketing acceptance scenarios are deferred and do not block v0.0.1. The record-only picker and litre/kg picking subset is in scope.
 
 ## 3. Functional requirements
 

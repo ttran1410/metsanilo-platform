@@ -1,5 +1,7 @@
 # 17 — Channels, Shared Inbox and Marketing Integrations
 
+> **Deferred for v0.0.1 — ADR-0005.** Facebook, WhatsApp, shared inbox, broadcasts, campaign segments, channel consent, provider webhooks, and marketing automation are not implemented or required for the two-day pilot. Manual phone/other order source recording remains available.
+
 ## 1. MVP scope
 
 - Provider-neutral shop channel connections.

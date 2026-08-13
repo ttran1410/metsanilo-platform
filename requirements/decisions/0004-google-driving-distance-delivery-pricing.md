@@ -1,5 +1,7 @@
 # ADR-0004 — Google Driving-distance Delivery Pricing
 
+> **Historical / deferred for v0.0.1.** This design is retained for a future release. The pilot always shows “Delivery to be agreed,” never calls Google services, and uses a manually entered delivery fee.
+
 Status: Accepted for implementation; production use remains subject to billing, EEA terms, privacy/processor, and credential approval  
 Date: 2026-08-13  
 Decision owners: Product and Business  

@@ -1,5 +1,7 @@
 # 04 — Business and User Flows
 
+> **v0.0.1 flow override — ADR-0005 applies.** Use one shop, Admin/Manager/Staff/Content Creator permissions, manual phone/other order sources, delivery always “Delivery to be agreed” with an optional manual fee, fixed-page four-image CMS, record-only external pickers, and picking records in litres or kilograms with unit-specific buy prices. Google, Meta/WhatsApp, tenant provisioning, supplier/expense/reporting, and marketing flows below are deferred.
+
 ## 1. End-to-end business flow
 
 ```mermaid
@@ -24,7 +26,7 @@ flowchart LR
 3. Customer chooses product, one fixed package, and fulfillment date; public quantity is implicitly 1.
 4. System shows live calculated litres, item price, availability, and allowed fulfillment methods. Public MVP ordering uses one item line with fixed quantity 1 and no quantity control; the server rejects manipulated non-1 input.
 5. Customer chooses pickup or delivery.
-6. Pickup shows the selected location's complete address, localized instructions, and time slot. If Google delivery is enabled, Delivery asks the customer to confirm the validated destination and the backend applies the shorter-route 5 km/volume rule. If disabled—or for outside/unresolved/provider-failure outcomes—the system makes no Google delivery call and marks delivery fee/final total “to be agreed,” retaining an authoritative item subtotal.
+6. Pickup shows the selected location's complete address, localized instructions, and time slot. Delivery always shows “Delivery to be agreed”; no route or provider call is made. An authorized Admin/Manager/Staff user may later record a fee and reason while the item subtotal remains authoritative.
 7. Customer enters name, mobile number, optional email/Messenger, notes, acknowledges privacy information, and optionally opts into marketing.
 8. On submit, server verifies the signed route/fee quote and current origin/rule version, recomputes it when stale, then revalidates product/date/capacity/fee and atomically stores customer (normal, matched, or provisional under identity-conflict rules), order, snapshots, capacity reservation, and audit event.
 9. After commit, pickup success shows the snapshotted pickup address, instructions, and time; delivery success shows the destination and final/pending fee state. It remains a reservation-submission acknowledgement, not a false confirmation.
@@ -42,7 +44,7 @@ Exceptions:
 
 1. Staff opens the new-order notification or filtered Orders list.
 2. Staff reviews contact details, order, capacity, delivery/pickup details, and any warnings.
-3. Staff records each WhatsApp/Messenger/SMS/phone/shared-inbox contact attempt.
+3. Staff records a phone/other contact attempt outside the system when needed.
 4. If agreed, Staff confirms order. If it is today after picking start and before cutoff, it immediately enters `PICKING`; otherwise it enters `CONFIRMED`.
 5. If customer explicitly declines before confirmation, Staff selects `CUSTOMER_DECLINED` and reason; if contact fails/business cancels, select `CANCELLED`. Capacity is released.
 6. If order is still `NEW` after 15 minutes, the system marks it overdue and sends the configured admin reminder.
@@ -52,7 +54,7 @@ If a customer cancels after confirmation, Staff selects `CANCELLED_BY_CUSTOMER`;
 ## 4. Manual external order flow
 
 1. Manager/permitted Staff selects Create Order.
-2. Selects source: WhatsApp, Messenger, SMS, phone, or other.
+2. Selects source: website, phone, or other.
 3. Searches for a customer by mobile/email/Messenger; resolves ambiguous results or creates a new customer.
 4. Enters one or more items, one shared date/method, fulfillment, fee/payment data, and internal notes.
 5. Creates as `NEW` if confirmation is still needed, or `CONFIRMED` if already agreed.
@@ -84,7 +86,7 @@ Historical completed-order variant:
 
 ## 7. Product and availability management flow
 
-1. Platform Admin in explicit selected-shop context, Manager, Staff, or Content Editor opens the active shop's Product module and creates/updates localized product identity, public state, and inclusive availability start/end dates.
+1. Admin, Manager, Staff, or Content Creator with product permission opens the Product module and creates/updates localized product identity, public state, and inclusive availability start/end dates.
 2. Manager/Staff manages package litres/prices. Content Editor may view package facts but cannot change prices or per-date capacity.
 3. Hard delete is available only for an unreferenced product; otherwise the user archives it and retained snapshots/history remain valid.
 4. Platform Admin in explicit selected-shop context, Manager, or Staff selects the product and planning mode: one day, ISO week, calendar month, or custom range.
@@ -120,7 +122,7 @@ Manager/Staff-created review follows the same provenance/audit rules and require
 
 ## 11. CMS publishing flow
 
-1. Manager/Content Editor opens a page and edits Finnish/English content.
+1. Admin/Manager/Staff/Content Creator with `cms.edit` opens a fixed page and edits Finnish/English content, including up to four images.
 2. Saves a draft and previews both desktop/mobile presentation.
 3. Validation checks required localized fields, links, image formats, and alternative text.
 4. Authorized user publishes; a revision is created.
@@ -128,12 +130,12 @@ Manager/Staff-created review follows the same provenance/audit rules and require
 
 ## 12. Staff picking and earnings flow
 
-1. Staff or an authorized operator creates a Picking Entry for one staff member, product, and picking date.
-2. The entry records litres and compensation method. `PER_HOUR` additionally records hours; rate defaults from the effective staff/product rate but remains a snapshot.
-3. The creator reviews calculated earning and any adjustment, then submits it.
-4. Manager—or Platform Admin in selected-shop context—validates and approves/rejects it, including their own submitted entry; each action is audited.
-5. Approved earnings enter management reports as staff picking cost for the picking date/report allocation.
-6. An authorized user later marks the entry paid with payment date/method/reference. This changes cash/payment status but does not count cost again.
+1. Staff or an authorized operator creates a picking record for one staff member or external picker, product, and picking date.
+2. The record selects exactly one quantity unit: `LITRE` or `KILOGRAM`, enters a positive quantity, and stores a buy price per selected unit (`€/L` or `€/kg`) plus the calculated total.
+3. The creator reviews the calculated total, then submits it.
+4. Admin/Manager validates and approves/rejects the record, including their own submitted record; each action is audited.
+5. An authorized user later marks the record paid with payment date/method/reference. This changes cash/payment status but does not count the amount again.
+6. Customer orders and capacity remain litres-only; picking records are not allocated to individual customer orders.
 
 ## 13. Supplier and external berry purchase flow
 

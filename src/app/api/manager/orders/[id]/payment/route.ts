@@ -6,7 +6,7 @@ import { failure, success } from "../../../../response";
 import { requirePermission } from "@/domain/access";
 
 export const runtime = "nodejs";
-const command = z.object({ amountCents: z.number().int().positive(), method: z.enum(["CASH", "BANK_TRANSFER", "CARD", "OTHER"]), reference: z.string().max(200).optional() });
+const command = z.object({ amountCents: z.number().int().positive(), method: z.enum(["CASH", "BANK_TRANSFER", "MOBILEPAY", "CARD", "OTHER"]), reference: z.string().max(200).optional() });
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

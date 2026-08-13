@@ -1,7 +1,7 @@
 # METSÄNILO Product Documentation
 
-Version: 2.1  
-Status: MVP baseline  
+Version: 2.2
+Status: v0.0.1 two-day pilot baseline (future requirements retained below)
 Language: English  
 Market: Pori/Satakunta, Finland  
 Currency: EUR  
@@ -11,7 +11,11 @@ Business timezone: `Europe/Helsinki`
 
 This documentation defines the MVP for METSÄNILO, a local seasonal-produce commerce and operations platform. The public experience must remain fast and simple, while the administration portal supports products, capacity, orders, customers, delivery, content, reviews, picker applications, messages, users, permissions, settings, notifications, and operational reporting.
 
-The documents are intended to be usable by Product Owners, Software Engineers, UX/UI designers, and Quality Engineers without relying on the original conversation.
+The documents are intended to be usable by Product Owners, Software Engineers, UX/UI designers, and Quality Engineers without relying on the original conversation. ADR-0005 is the release-scoped authority for v0.0.1; older broad-platform requirements remain future roadmap context.
+
+## v0.0.1 scope at a glance
+
+The pilot is one shop operated by `ADMIN` (owner), `MANAGER`, `STAFF`, and `CONTENT_CREATOR`. It includes Finnish-default/English-switchable public content, products and bounded capacity/sold-out controls, pickup, delivery always shown as “Delivery to be agreed,” manually entered delivery fees, orders, basic payment records, invoice PDF download, picking records in either litres or kilograms with unit-specific buy prices, record-only external pickers, and feature-level per-user permissions. Customer orders/capacity remain litres-only. It excludes shop organisation, Platform Admin, Facebook/WhatsApp, Google route services, postal-zone classification, supplier/expense/quality/accounting/reporting modules, video media, and marketing automation.
 
 ## Document index
 
@@ -89,12 +93,13 @@ The documents are intended to be usable by Product Owners, Software Engineers, U
 - Configuration and extension points are preferred over hard-coded berry-specific behavior.
 - Every sensitive or operationally important admin action must be attributable and auditable.
 - Management reports must distinguish revenue, result before staff picking cost, and estimated profit after staff picking cost; they are not a substitute for statutory accounting.
-- Tenant isolation is a security boundary: every shop-owned record and operation is scoped to exactly one shop, even while the MVP is operated initially by METSÄNILO.
-- Provider-specific Facebook/WhatsApp limitations remain behind versioned connector interfaces; unsupported Group auto-publishing must not be represented as available.
+- v0.0.1 is deliberately single-shop. Object-level authorization, auditability, and data integrity remain security boundaries even without a tenant switcher.
+- Facebook/WhatsApp connectors and Google route services are future integrations and must not be represented as available in the pilot.
 
 ## Canonical role terminology
 
-- `PLATFORM_ADMIN`: operates the METSÄNILO platform across shops.
-- `MANAGER`: shop owner/manager with broad authority only inside assigned shop(s).
-- `STAFF`: shop employee/contractor with assigned operational permissions.
-- `CONTENT_EDITOR`: shop-scoped content/media role.
+- `ADMIN`: shop owner with all shop permissions.
+- `MANAGER`: shop employee with operational authority and permission assignment to Staff/Content Creators.
+- `STAFF`: shop employee with feature-level permissions, including order/payment/invoice and picking work when assigned.
+- `CONTENT_CREATOR`: shop content/product editor with assigned permissions.
+- External picker: record-only person, not a portal account.

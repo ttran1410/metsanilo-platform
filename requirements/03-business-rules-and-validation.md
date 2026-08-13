@@ -1,5 +1,7 @@
 # 03 — Business Rules and Validation
 
+> **v0.0.1 scope override — ADR-0005 applies.** Capacity, sold-out, order, pickup, payment, invoice, picking, and authorization invariants below are retained. Google routing, postal zones, tenant/platform rules, connector consent, supplier/expense/quality/reporting rules, and automated schedulers are deferred unless explicitly called out in the pilot plan.
+
 ## 1. Order and capacity rules
 
 - **BR-ORD-001:** A public order is a request awaiting manual confirmation. Successful submission creates `NEW`, not `CONFIRMED`.
@@ -37,7 +39,7 @@
 ## 2. Customer matching rules
 
 - **BR-CUS-001:** Mobile numbers are normalized to an international comparable format where possible; Finnish local numbers use the configured country context.
-- **BR-CUS-002:** Exact normalized primary-mobile or WhatsApp-number match has first priority, exact case-insensitive normalized email second, and exact stable Messenger provider identifier third. Messenger/Facebook display name is never sufficient for automatic matching.
+- **BR-CUS-002:** Exact normalized primary-mobile match has first priority, exact case-insensitive normalized email second. Connector-specific identifiers and Messenger/Facebook display names are future scope and never drive pilot matching.
 - **BR-CUS-003:** Conflicting matches, such as phone matching one customer and email another, must not auto-link or merge either profile. Public submission creates a new provisional customer identity flagged for staff resolution while preserving the submitted order snapshot.
 - **BR-CUS-004:** Public order submission creates a normal new customer when no candidate exists and a provisional customer when candidates are ambiguous/conflicting. Later resolution never rewrites the submitted snapshot.
 - **BR-CUS-005:** A profile edit never rewrites snapshots on existing orders.
@@ -47,7 +49,7 @@
 ## 3. Contact information rules
 
 - **BR-CON-001:** A public order requires customer name and mobile number. Email and Messenger identifier are optional.
-- **BR-CON-002:** Manual shop-user orders require at least one contact channel: mobile/WhatsApp number, email, or Messenger identifier; a reason is required if mobile is absent.
+- **BR-CON-002:** Manual shop-user orders require at least one contact channel: mobile or email; a reason is required if mobile is absent.
 - **BR-CON-003:** Email format validation does not prove ownership. Mobile validation accepts international input and normalizes it server-side.
 - **BR-CON-004:** Free-text fields are trimmed, length-limited, safely encoded, and must not render active HTML/script.
 
@@ -55,12 +57,12 @@
 
 - **BR-DLV-001:** Pickup requires a selected active pickup location and time slot available for the fulfillment date. Its complete customer-visible address and localized instructions appear in selection/review and again after a successful order commit.
 - **BR-DLV-002:** The initial default pickup time is 20:00, overridden in order: specific date → weekday → global default.
-- **BR-DLV-003:** Delivery requires recipient name, customer destination street address, postal code, city, and mobile number. When integration is enabled the destination is Google-validated and the customer confirms any provider suggestion; when disabled only local field/format validation runs. The separately configured shop origin is never substituted for the customer's destination.
-- **BR-DLV-004:** Automatic local eligibility exists only when the platform and shop Google-delivery switches are enabled and configuration/credentials/origin/provider circuit are ready. It is then the shorter eligible driving route returned by Google Routes API with `travelMode = DRIVE`: `distanceMeters <= 5000` is inside the initial rule and `5001` is outside. Straight-line distance, duration, and postal-zone membership are non-authoritative.
-- **BR-DLV-005:** Inside the configured maximum driving distance: if `order_litres >= free_delivery_threshold_litres`, fee is €0; otherwise use configured local fee.
-- **BR-DLV-006:** Disabled integration, beyond configured distance, ambiguous/unverifiable address, no route, timeout, quota exhaustion, or provider error: public order displays the same “Delivery to be agreed” message; item subtotal is final, but delivery fee and final total remain null/pending. Internally, `PROVIDER_DISABLED` is distinct from errors/distance outcomes. The order remains `NEW` until staff records agreement and the resulting fee/total.
-- **BR-DLV-007:** Manager/permitted Staff may set a manual fee only with a reason and agreement timestamp. The original calculated classification remains auditable.
-- **BR-DLV-008:** A fee/route quote recalculates when items, method, destination, fulfillment date, origin, distance rule, price-rule version, or effective provider-enablement state changes. Disabling integration invalidates unconsumed automatic quotes; submit falls back to `DELIVERY_TO_BE_AGREED`. An enabled short-lived server-signed quote binds normalized destination, origin/rule version, provider distance/outcome, and fee; submit rejects or recomputes stale/tampered quotes unless a valid manual override is deliberately retained and reconfirmed.
+- **BR-DLV-003:** Delivery requires recipient name, destination street address, postal code, city, and mobile number. Only local required-field/format validation runs; the destination is never sent to a mapping provider.
+- **BR-DLV-004:** v0.0.1 has no automatic distance classification, postal-zone classifier, Google setting, or routing provider.
+- **BR-DLV-005:** Every delivery order is publicly labeled “Delivery to be agreed”; no automatic free/paid distance rule applies.
+- **BR-DLV-006:** Until an authorized user records an agreed non-negative fee, delivery fee and final total remain pending while item subtotal remains authoritative.
+- **BR-DLV-007:** Admin, Manager, or Staff with `delivery.override` may set a manual fee only with a reason and agreement timestamp.
+- **BR-DLV-008:** A manual fee is revalidated when order items, method, or destination changes; route quotes and provider enablement are future scope.
 
 ## 5. Payment rules
 
@@ -70,10 +72,17 @@
 - **BR-PAY-004:** `PICKED_UP` or `DELIVERED` may remain `UNPAID` only with explicit confirmation because invoice/bank transfer may settle later.
 - **BR-PAY-005:** A partial refund creates a refund Payment Record and sets payment summary to `PARTIALLY_REFUNDED` while the order remains `PICKED_UP` or `DELIVERED`. The order transitions to `REFUNDED` only when the full currently refundable amount has been refunded; cumulative refunds may never exceed that amount.
 
+## 5A. Pilot picking-record rules
+
+- Each picking record has exactly one `quantity_unit`: `LITRE` or `KILOGRAM`.
+- Quantity is positive; buy price is non-negative and expressed per selected unit (`€/L` or `€/kg`).
+- The server calculates `total = quantity × buy_price_per_unit`; client totals are informational only.
+- Units are not automatically converted. Customer orders and capacity remain litres-only.
+
 ## 6. Privacy and consent rules
 
 - **BR-PRV-001:** The order form presents the privacy notice and processing information. Processing strictly necessary for an order is not represented as optional marketing consent.
-- **BR-PRV-002:** Marketing consent is optional, separate, unchecked by default, and not required to order. The initial public statement covers WhatsApp only. A later channel requires separately enabled, legally/provider-approved channel-specific wording and affirmative evidence; existing WhatsApp evidence is never extended implicitly.
+- **BR-PRV-002:** Marketing consent is not collected for v0.0.1; only order-processing/privacy notices are required. Channel-specific consent is future scope.
 - **BR-PRV-003:** Consent evidence stores subject/customer, purpose, each channel named by the statement, granted/withdrawn timestamp, statement version, locale, tenant/shop, and source. Adding a future channel does not extend older consent and requires a new affirmative action.
 - **BR-PRV-004:** Withdrawal is as easy as granting consent and does not affect order processing or retained order history.
 - **BR-PRV-005:** Public review publication includes explicit acknowledgement that display name/rating/text will be public if approved.
@@ -97,12 +106,12 @@
 - **BR-CMS-002:** Published media requires alternative text in each published locale unless explicitly decorative.
 - **BR-REV-001:** Reviews are never public before approval. Manager/permitted Staff edits preserve original text and editor identity.
 - **BR-IAM-001:** Denied UI actions must also be denied at API/service level.
-- **BR-IAM-002:** The last active Platform Admin cannot be suspended/demoted/deleted. An active shop must retain at least one active Manager unless Platform Admin is simultaneously assigning a replacement or closing the shop.
-- **BR-IAM-003:** Content Editors cannot access orders, customers, payments, picker applicant personal data, messages, users, roles, or sensitive settings.
-- **BR-IAM-004:** Platform Admin is cross-tenant; Manager, Staff, and Content Editor permissions are evaluated within an explicit tenant membership. A tenant identifier supplied by the client never grants access.
-- **BR-IAM-005:** Manager can manage users/roles inside assigned shop(s) but cannot grant Platform Admin, alter platform security, or access another shop.
-- **BR-IAM-006:** MFA is mandatory for every human Platform Console and shop-portal user, including Platform Admin, Manager, Staff, and Content Editor. Service identities use separate non-interactive credential controls.
-- **BR-IAM-007:** Manager authorization allows every action on an assigned shop. Platform Admin inherits that complete shop authority in explicit selected-shop context plus platform permissions. Neither role bypasses tenant isolation, validation, state, capacity, audit, immutable-history, or legal/security invariants.
+- **BR-IAM-002:** The single shop must retain at least one active Admin and one active Manager unless the shop is being closed.
+- **BR-IAM-003:** Content Creator access is limited to assigned CMS/product/media permissions; it has no access to orders, customer data, payments, finance, or users unless explicitly assigned a narrowly scoped feature.
+- **BR-IAM-004:** Authorization is evaluated against the single shop and the user’s feature permissions; no client-supplied tenant or shop identifier grants access.
+- **BR-IAM-005:** Admin and Manager can manage Staff/Content Creator users and permissions but cannot grant Admin.
+- **BR-IAM-006:** MFA is mandatory for every human Admin, Manager, Staff, and Content Creator account.
+- **BR-IAM-007:** Admin and Manager have complete shop authority; Staff and Content Creator are limited by assigned permissions. No role bypasses validation, state, capacity, audit, immutable-history, or legal/security invariants.
 
 ## 9. Canonical validation behavior
 
@@ -140,7 +149,7 @@ Operating result before staff picking cost
 - **BR-FIN-007:** One-time expenses are recognized on their expense date. Recurring/manual-allocation expenses are recognized according to stored allocation entries; allocated totals must reconcile exactly to the source expense.
 - **BR-FIN-008:** External berry purchase total equals `litres × price_per_litre` unless an authorized total override is entered with a reason. It is a non-staff cost, not staff income.
 - **BR-FIN-009:** Picking Entry earnings are calculated as: `litres × rate` for `PER_LITRE`, `hours × rate` for `PER_HOUR`, fixed rate for `FIXED`, plus approved adjustment. Inputs must be non-negative and an adjustment requires a reason.
-- **BR-FIN-010:** Manager and Platform Admin in selected-shop context may approve a Picking Entry, expense, or external purchase they created/submitted. Creator, submitter, approver, payer, active shop, and role/context remain separately auditable even when the actor is the same.
+- **BR-FIN-010:** Admin and Manager may approve a payment/invoice or picking entry they created/submitted. Staff may approve or mark paid only with explicit permissions. Creator, submitter, approver, payer, and role remain separately auditable even when the actor is the same.
 - **BR-FIN-011:** Draft/rejected entries do not affect reports. Approved and Paid entries do; marking Paid must not count the cost twice.
 - **BR-FIN-012:** Management reports display gross/net/VAT values when available and state the selected basis. Until VAT/accounting policy is approved, reported profit is explicitly “estimated management profit,” not taxable profit.
 - **BR-FIN-013:** Report and export filters, formulas, timezone, currency, generation time, and data cutoff are displayed so results can be reproduced.
@@ -150,8 +159,8 @@ Operating result before staff picking cost
 
 ## 11. Catalog, source, quality, analytics, and channel rules
 
-- **BR-MED-001:** Exactly one active product-media item may be primary. Uploaded files are validated/scanned; external video references are allowlisted to supported providers and rendered without trusting arbitrary embed HTML.
-- **BR-MED-002:** Product video uploads obey shop/platform quotas and configured file/duration limits. UI recommends external YouTube/Vimeo references to reduce storage/bandwidth.
+- **BR-MED-001:** Exactly one active image may be primary. Each product/page has at most four images; uploaded files are type/size validated and scanned without trusting arbitrary embed HTML.
+- **BR-MED-002:** Video uploads and external video references are deferred for v0.0.1.
 - **BR-SRC-001:** Order-source code is unique within a shop and immutable after first use. Label/category/order may change; used sources are archived, not deleted.
 - **BR-SRC-002:** Campaign/referrer data is optional attribution metadata and does not replace the canonical order source.
 - **BR-QLT-001:** External-purchase grade code is unique per shop and historical grades/rates are snapshotted. A used grade/rate is archived, not deleted or retroactively changed. Manager or Staff explicitly granted `quality.configure` may manage these records; Staff is denied the permission by default.

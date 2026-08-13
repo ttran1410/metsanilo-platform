@@ -1,5 +1,7 @@
 # 16 — Multi-tenant Platform and Shop Management
 
+> **Deferred for v0.0.1 — ADR-0005.** This document is future roadmap architecture. The pilot has one shop, no tenant switcher, no Platform Admin, no provisioning/subscriptions, and no cross-shop access path.
+
 ## 1. Product recommendation
 
 METSÄNILO should be multi-tenant-ready in this MVP but should not implement full subscription SaaS commerce yet.

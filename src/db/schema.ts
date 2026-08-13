@@ -16,6 +16,34 @@ export const shops = sqliteTable("shops", {
   pickupTime: text("pickup_time").notNull().default("20:00"),
 });
 
+export const customers = sqliteTable(
+  "customers",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    name: text("name").notNull(),
+    mobile: text("mobile").notNull(),
+    email: text("email"),
+    matchStatus: text("match_status", { enum: ["ACTIVE", "CONFLICT_REVIEW"] }).notNull().default("ACTIVE"),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("customers_shop_mobile_idx").on(table.shopId, table.mobile), index("customers_shop_email_idx").on(table.shopId, table.email)],
+);
+
+export const shopPaymentMethods = sqliteTable(
+  "shop_payment_methods",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    method: text("method", { enum: ["CASH", "BANK_TRANSFER", "MOBILEPAY", "CARD", "OTHER"] }).notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("shop_payment_methods_unique").on(table.shopId, table.method)],
+);
+
 export const users = sqliteTable(
   "users",
   {
@@ -119,6 +147,7 @@ export const orders = sqliteTable(
     idempotencyKey: text("idempotency_key").notNull(),
     productId: text("product_id").notNull().references(() => products.id),
     packageId: text("package_id").notNull().references(() => packages.id),
+    customerId: text("customer_id").references(() => customers.id),
     productNameFi: text("product_name_fi").notNull(),
     productNameEn: text("product_name_en").notNull(),
     packageLabelFi: text("package_label_fi").notNull(),
@@ -141,6 +170,8 @@ export const orders = sqliteTable(
     pickupInstructions: text("pickup_instructions"),
     pickupTime: text("pickup_time"),
     notes: text("notes"),
+    orderSource: text("order_source").notNull().default("WEBSITE"),
+    historicalEntry: integer("historical_entry", { mode: "boolean" }).notNull().default(false),
     statusReason: text("status_reason"),
     contactedAt: text("contacted_at"),
     contactedBy: text("contacted_by"),
@@ -187,7 +218,8 @@ export const orderPayments = sqliteTable(
     shopId: text("shop_id").notNull().references(() => shops.id),
     orderId: text("order_id").notNull().references(() => orders.id),
     amountCents: integer("amount_cents").notNull(),
-    method: text("method", { enum: ["CASH", "BANK_TRANSFER", "CARD", "OTHER"] }).notNull(),
+    kind: text("kind", { enum: ["PAYMENT", "REFUND"] }).notNull().default("PAYMENT"),
+    method: text("method", { enum: ["CASH", "BANK_TRANSFER", "MOBILEPAY", "CARD", "OTHER"] }).notNull(),
     reference: text("reference"),
     recordedAt: text("recorded_at").notNull(),
     actor: text("actor").notNull(),
@@ -196,6 +228,40 @@ export const orderPayments = sqliteTable(
     index("order_payments_shop_order_idx").on(table.shopId, table.orderId, table.recordedAt),
     check("order_payments_positive_amount", sql`${table.amountCents} > 0`),
   ],
+);
+
+export const outboxJobs = sqliteTable(
+  "outbox_jobs",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    eventKey: text("event_key").notNull(),
+    type: text("type", { enum: ["EMAIL", "AUTOMATION", "NOTIFICATION"] }).notNull(),
+    payloadJson: text("payload_json").notNull(),
+    status: text("status", { enum: ["PENDING", "PROCESSING", "SENT", "FAILED"] }).notNull().default("PENDING"),
+    scheduledFor: text("scheduled_for").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    processedAt: text("processed_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("outbox_shop_event_unique").on(table.shopId, table.eventKey), index("outbox_due_idx").on(table.shopId, table.status, table.scheduledFor)],
+);
+
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    eventKey: text("event_key").notNull(),
+    category: text("category").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    orderId: text("order_id"),
+    readAt: text("read_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("notifications_shop_event_unique").on(table.shopId, table.eventKey), index("notifications_shop_read_idx").on(table.shopId, table.readAt, table.createdAt)],
 );
 
 export const auditEntries = sqliteTable(

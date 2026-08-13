@@ -1,5 +1,7 @@
 # 05 — Order Lifecycle and Automation
 
+> **v0.0.1 automation boundary — ADR-0005 applies.** Keep the state machine and capacity invariants. Automatic scheduler, notification jobs, channel delivery, and advanced exception automation are optional/future; the two-day pilot may perform transitions and reminders through the admin UI. Delivery is always manual agreement.
+
 ## 1. Canonical statuses
 
 | Status | Meaning | Terminal? | Holds/consumes capacity? |
@@ -98,7 +100,7 @@ The original creation date does not influence this rule.
 
 ## 5. Ready review rule
 
-At 19:00, all today’s orders still in `PICKING` are marked operationally overdue and included in an in-app notification plus optional user-configured email.
+At 19:00, all today’s orders still in `PICKING` are marked operationally overdue and included in an in-app notification. Customer messaging is manual in the pilot; no automatic customer email is sent.
 
 The scheduler must **not** change them to `READY`. Staff may open the filtered list and bulk-confirm eligible orders as `READY`.
 

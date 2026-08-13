@@ -1,5 +1,7 @@
 # 06 — Form and Field Specifications
 
+> **v0.0.1 scope override — ADR-0005 applies.** Delivery is always “Delivery to be agreed” with an optional manually entered fee. The editor is fixed-page, Finnish/English, and image-only (maximum four images per page/product). User forms use Admin/Manager/Staff/Content Creator feature permissions. Google, Meta, postal-zone, tenant-provisioning, supplier/expense/reporting, video, and marketing forms below are deferred.
+
 ## 1. Shared form design standard
 
 All public forms are mobile-first, single-column by default, and use visible labels rather than placeholder-only labels. Related fields are grouped, conditional fields appear immediately after the controlling choice, and computed totals are summarized before submission.
@@ -60,20 +62,18 @@ This may be one page with grouped sections or an accessible stepper. Changing ea
 | Pickup time slot | select | Conditional | Required for pickup; default derived date → weekday → global, initially 20:00 |
 | Recipient/customer name | text | Yes | Trimmed, 2–120 characters |
 | Mobile number | tel | Yes | Valid, normalized; 7–30 raw characters |
-| WhatsApp number | tel + same-as-mobile | No | Defaults to primary mobile when customer selects “same”; otherwise separately normalized |
+| WhatsApp number | tel | No | Deferred connector field; not required for v0.0.1 |
 | Email | email | No | Maximum 254 characters; normalized lowercase for matching |
-| Messenger identifier/link | text | No | Maximum 255; safely encoded |
+| Messenger identifier/link | text | No | Deferred connector field; not required for v0.0.1 |
 | Street address | text | Delivery | 2–160 characters |
 | Postal code | text | Delivery | Finnish format initially: five digits; architecture permits other market rules |
 | City | text | Delivery | 2–100 characters |
-| Customer area | computed/hidden | No | Derived after address/postal mapping when possible; customer does not need to choose it publicly |
-| Delivery classification | computed | Delivery | Inside, outside, or unverifiable service area |
-| Driving distance | computed | Delivery | Backend/provider result in metres/km; customer-friendly display may round for presentation but fee uses integer metres |
-| Delivery fee | computed | Delivery | Free/local fee or null/“to be agreed”; server recomputed |
+| Delivery classification | fixed display | Delivery | Always “Delivery to be agreed”; no distance or postal-zone calculation |
+| Delivery fee | manual | Delivery | Null/“to be agreed” until Admin/Manager/authorized Staff records a fee and reason |
 | Final total | computed | Yes | Item subtotal plus delivery fee; null/pending when a required delivery fee is not yet agreed |
 | Customer notes | textarea | No | Maximum 1,000 characters; plain text |
 | Privacy acknowledgement | checkbox | Yes | Acknowledges notice/necessary processing; unchecked initially |
-| Marketing consent | checkbox | No | Unchecked and optional; initial statement names WhatsApp only and creates channel-specific evidence |
+| Marketing consent | checkbox | No | Deferred; v0.0.1 collects only required order/privacy acknowledgement |
 | Anti-spam token | hidden/widget | Yes | Valid server verification where enabled |
 | Idempotency token | hidden | Yes | Unique per form attempt; retained on retry |
 
@@ -83,11 +83,11 @@ This may be one page with grouped sections or an accessible stepper. Changing ea
 - Package/date changes requery indicative capacity and recalculate subtotal. Public quantity is fixed to 1 with no quantity control; the server rejects manipulated non-1 input.
 - An otherwise open product/date with positive capacity shows exact remaining litres. Natural zero or manual sold-out shows `Loppuunmyyty` in Finnish or `Sold out` in English from i18n resources, disables selection/submission, and exposes neither a numeric remainder nor the private override cause.
 - Pickup hides and clears delivery-only fields and shows the selected location's complete address/instructions in selection and Review; delivery hides and clears pickup selections.
-- With effective Google delivery enabled, a complete destination is provider-validated, the customer confirms any normalized suggestion, and the backend calculates the shorter driving route. At `distance_metres <= configured maximum` the volume threshold rule applies. With integration disabled, local format validation runs without a Google delivery call and the UI immediately shows the same non-final “to be agreed” fee used for beyond/unverified/no-route/provider failure.
+- Delivery always uses local required-field/format validation and immediately shows “Delivery to be agreed.” No provider call, distance, postal-zone, or automatic fee calculation is made.
 - The Review section shows all values, pending/manual fee warnings, and “This reservation requires confirmation by METSÄNILO.” When delivery fee is pending it shows the authoritative item subtotal and labels delivery fee/final total “to be agreed” instead of displaying a misleading numeric total.
 - Final submit revalidates everything. The UI result cannot override server price/capacity.
 - Fulfillment date options never include a past business date in the resolved shop timezone.
-- Marketing consent text initially names the shop, purpose, and WhatsApp. Adding a new direct-marketing channel requires separately approved channel-specific wording and a new affirmative action; it does not inherit the old choice.
+- Marketing consent controls are deferred from the pilot.
 
 ### 2.4 Success state
 
@@ -100,7 +100,7 @@ Includes all order fields plus:
 | Field | Required | Rules |
 |---|---:|---|
 | Order entry mode | Yes | Normal or historical completed |
-| Source | Yes | Selected from active shop-configured sources; website, WhatsApp, Messenger, SMS, phone, other may be seeded defaults |
+| Source | Yes | Website, phone, or other manually recorded source; connector-specific sources are deferred |
 | Existing customer | Conditional | Search by name/phone/email/Messenger; ambiguity requires selection |
 | Contact channel used | Confirmed order | Channel and agreement timestamp |
 | Initial/outcome status | Yes | Normal: `NEW`/`CONFIRMED`; historical: applicable terminal outcome such as `PICKED_UP`, `DELIVERED`, `CUSTOMER_DECLINED`, cancellation variant, `REJECTED`, or `NO_SHOW`. Historical refund entry must first capture the completed-sale fact and then its refund event/evidence. |
@@ -166,15 +166,15 @@ Manager/permitted Staff review form additionally captures source, original conte
 
 ### 7.1 Customer
 
-Name (required), primary/normalized mobile, WhatsApp number with “same as primary” option, email, Messenger/Facebook display name, stable provider identifier (read-only when provider-owned), addresses, optional area, area source/confidence/manual override, preferred contact channel, channel-specific consent evidence, internal notes, active/anonymized state. Duplicate warnings do not silently merge. Anonymize requires confirmation, reason, and impact preview.
+Name (required), primary/normalized mobile, email, addresses, internal notes, active/anonymized state. Duplicate warnings do not silently merge. Anonymize requires confirmation, reason, and impact preview. Connector-specific identifiers and marketing-consent fields are future scope.
 
 The profile summary displays order count, completed count, recognized revenue/lifetime value, latest order/activity, and “View all orders,” linking to the shop-scoped Orders list by customer ID. Order list/detail customer links support opening in a new tab without personal data in the URL.
 
 ### 7.2 Product and package
 
-Product code/slug, Finnish/English names/descriptions, ordered media gallery, unit base (`LITRE`), required inclusive `available_from`/`available_through` business dates, active/public flags, and display order. Start must not follow end. Changing the window shows affected capacity and retained facts; a forbidden shortening is blocked. Gallery supports images, uploaded videos, and allowlisted YouTube/Vimeo URLs; one primary item, localized caption/alt/transcript metadata, preview, archive, and ordering. External video URL is visually recommended over upload.
+Product code/slug, Finnish/English names/descriptions, ordered media gallery, unit base (`LITRE`), required inclusive `available_from`/`available_through` business dates, active/public flags, and display order. Start must not follow end. Changing the window shows affected capacity and retained facts; a forbidden shortening is blocked. Gallery supports at most four images with localized caption/alt metadata, preview, archive, and ordering; video is deferred.
 
-Platform Admin in explicit selected-shop context, Manager, Staff, and Content Editor may manage the product record. Content Editor sees package price/capacity as read-only. Delete first shows a reference check: an unreferenced product may be hard-deleted with confirmation; otherwise only archive is offered.
+Admin, Manager, Staff, and Content Creator may manage the product record according to feature permissions. Delete first shows a reference check: an unreferenced product may be hard-deleted with confirmation; otherwise only archive is offered.
 
 Package includes immutable identifier, localized label, positive litre amount, non-negative EUR price, active dates/state, and display order. Litres/price changes affect new orders only. Public MVP quantity is always 1; package size is the volume choice. Manual/historical-order quantity remains a positive integer. A manipulated public non-1 quantity is rejected, never silently normalized.
 
@@ -188,25 +188,29 @@ Platform Admin in selected-shop context, Manager, and Staff manage localized nam
 
 ### 7.5 Delivery rule
 
-Platform Admin in selected-shop context, Manager, and Staff manage the delivery-origin/dispatch name/address plus rule name, priority, active dates, maximum driving distance metres (initially 5,000), free threshold litres, local fee EUR, fulfillment dates/method availability, fallback postal zones/text, and outside-distance/provider-failure policy. Platform Admin/Manager additionally see the audited per-shop “Automatic Google delivery quote” toggle; only Platform Admin sees the platform kill switch. New shops default off. Enabling requires credentials/gates and a successfully validated origin. Disabling warns that unconsumed quotes expire and all new delivery requests use “to be agreed” without Google calls. Threshold, distance, and fee must be non-negative.
+Admin, Manager, and Staff with `delivery.configure` manage the customer-visible delivery-origin/dispatch name/address and instructions. There is no distance, postal-zone, provider, or enable/disable setting in v0.0.1. Delivery orders always use “to be agreed”; `delivery.override` users may enter a non-negative fee and reason on the order.
 
 ### 7.6 CMS editor
 
-Page/section, locale tabs, title, rich text limited to safe components, CTA label/link, media, alt text, SEO title/description, draft/publish controls, preview, revision note. Unsafe markup and broken internal links are rejected.
+Fixed page/section, locale tabs, title, safe rich text components, CTA label/link, up to four images, alt text, SEO title/description, draft/publish controls, preview, revision note. Unsafe markup and broken internal links are rejected; raw HTML/video/arbitrary blocks are deferred.
 
 ### 7.7 User and role
 
-User: identity, email, status, locale/timezone and shop memberships. Membership: shop, role(s), state and notification settings. Shop Role: name, description, permission checklist. Prevent removal of the last Platform Admin and prevent an active shop from losing its last Manager without replacement/closure.
+User: identity, email, status, locale/timezone. User assignment: role (`ADMIN`, `MANAGER`, `STAFF`, or `CONTENT_CREATOR`), feature-permission checklist, state, and notification settings. Prevent removal of the last Admin or Manager without replacement/closure. Manager may assign permissions to Staff/Content Creator but never Admin.
 
 ### 7.8 Settings
 
 Shop identity/contact, default/supported locales, currency, timezone, picking/ready/pickup times, cutoff, delivery, public availability, notification recipients/categories, retention and order-reference format. Shop-sensitive changes require Manager and audit; platform-sensitive settings require Platform Admin.
 
-### 7.9 Supplier profile
+### 7.9 External picker record (pilot)
+
+Name, contact mobile/email, active state, and internal note. No login, supplier payment details, application status, or bank information.
+
+### 7.10 Supplier profile (future)
 
 Supplier type (`EXTERNAL_PICKER` initially), legal/display name, optional business/tax identifier, contact person, mobile, email, address, payment details/reference (access-restricted), active/archive state, and internal notes. Name is required; at least one contact method is recommended. Bank/payment details must never appear in general reports or logs.
 
-### 7.10 External berry purchase
+### 7.11 External berry purchase
 
 Supplier, product, quality grade, purchase/picking date, litres (positive), effective resolved €/L buy rate and calculated total, or authorized rate/total override with reason; currency EUR, future VAT representation, payment status/date/method/reference, receipt attachment/reference, notes, creator/submitter/approver/context, and approval status. Product/supplier/grade/rate snapshots are stored at approval; mixed grades use separate lines. Manager and Platform Admin in selected-shop context see every workflow action even when they created/submitted the record.
 
@@ -214,16 +218,15 @@ Supplier, product, quality grade, purchase/picking date, litres (positive), effe
 
 Expense date, category, description, supplier/payee, gross/net/VAT values where known, currency, allocation method (`ONE_TIME`, `RECURRING`, `MANUAL_ALLOCATION`), allocation dates/rows, payment status/date/method/reference, receipt, notes, workflow status, and approver/context. Amount must be positive; allocation rows must be non-negative and sum exactly to the source amount. Manager and Platform Admin in selected-shop context see every workflow action even when they created/submitted the record.
 
-### 7.12 Picking Entry and rate
+### 7.12 Picking record and buy price
 
-Staff user, product, picking date, compensation method, litres, hours, rate, fixed amount, adjustment, adjustment reason, calculated earning, workflow status, submitter/approver/payment fields. Rules:
+Staff user or external picker record, product, picking date, quantity unit (`LITRE` or `KILOGRAM`), positive quantity, buy price per selected unit (`€/L` or `€/kg`), calculated total, optional note, workflow status, submitter/approver/payment fields. Rules:
 
-- `PER_LITRE`: litres > 0 and rate ≥ 0; hours hidden.
-- `PER_HOUR`: hours > 0 and rate ≥ 0; litres remains required for production reporting but does not calculate pay.
-- `FIXED`: fixed amount ≥ 0; litres remains required.
-- Adjustment may be positive/negative but cannot create a negative final earning and always requires reason.
-- Effective rate is suggested by staff/product/date, then snapshotted. Unauthorized users cannot override it.
-- Manager and Platform Admin in selected-shop context may approve their own entry; creator/submitter/approver actions remain separate audit events.
+- Exactly one unit is selected for each record; quantity must be greater than zero.
+- Buy price must be non-negative and use the selected unit. `€/L` and `€/kg` are separate values and are never converted automatically.
+- Total equals `quantity × buy_price_per_unit`, calculated server-side.
+- Admin and Manager may approve their own record; Staff requires explicit picking/payment permissions. Creator/submitter/approver actions remain separate audit events.
+- Customer orders and availability capacity remain litres-only and are not changed by kilogram records.
 
 ### 7.13 Financial report filters/export
 

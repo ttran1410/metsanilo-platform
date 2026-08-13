@@ -1,5 +1,7 @@
 # 15 — Reporting, Finance, Staff Earnings and Invoices
 
+> **v0.0.1 boundary — ADR-0005 applies.** Implement only order payment records, invoice PDF issue/download, record-only external pickers, and picking records in litres or kilograms with unit-specific buy prices. Expenses, supplier purchases, quality/rates, staff compensation, weekly profit reports, exports, payroll, and accounting workflows are deferred.
+
 ## 1. Purpose and boundary
 
 This module provides management visibility into whether METSÄNILO is economically viable. It is a management-reporting subsystem, not a substitute for statutory bookkeeping, payroll, VAT returns, tax calculations, bank reconciliation, or professional accounting advice.
@@ -153,7 +155,9 @@ This supports practical allocation of reusable buckets/equipment without attempt
 
 `DRAFT → SUBMITTED → APPROVED → PAID`, with `REJECTED`/correction behavior. Approval recognizes the cost; Paid tracks settlement. Manager and Platform Admin in selected-shop context may perform every workflow action, including self-approval/payment; each action remains a distinct audit event. There is no Finance Approver or External Accountant portal role in MVP.
 
-## 7. Staff picking and earnings
+## 7. Staff picking and earnings (future)
+
+The compensation model below is future scope. The v0.0.1 picking record uses one unit (`LITRE` or `KILOGRAM`), a positive quantity, a buy price per selected unit, and a server-calculated total. It does not calculate wages, hours, or payroll.
 
 ### Unit of record
 

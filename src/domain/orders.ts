@@ -1,11 +1,12 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, orderNotes, orderPayments, orders, packages, products, shops } from "@/db/schema";
+import { auditEntries, availability, customers, orderNotes, orderPayments, orders, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
 import { normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
+import { assertPaymentMethodEnabled, type PaymentMethod } from "./payment-methods";
 
 const nowIso = () => new Date().toISOString();
 const publicReference = () => `R-${randomBytes(5).toString("hex").toUpperCase()}`;
@@ -168,12 +169,22 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
       const orderId = randomUUID();
       const reference = publicReference();
       const pickup = input.fulfillmentMethod === "PICKUP";
+      const normalizedEmail = input.email?.toLowerCase() || null;
+      const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, mobile)) });
+      const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.email, normalizedEmail)) }) : undefined;
+      const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id) || Boolean(mobileMatch && normalizedEmail && mobileMatch.email && mobileMatch.email !== normalizedEmail && !emailMatch);
+      const customer = (conflict || (!mobileMatch && !emailMatch))
+        ? { id: randomUUID(), shopId: SHOP_ID, name: input.customerName, mobile, email: normalizedEmail, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt }
+        : { ...(mobileMatch ?? emailMatch!), name: input.customerName, email: normalizedEmail ?? (mobileMatch ?? emailMatch)!.email, updatedAt: createdAt };
+      if (conflict || (!mobileMatch && !emailMatch)) await tx.insert(customers).values(customer);
+      else await tx.update(customers).set({ name: customer.name, email: customer.email, updatedAt: createdAt }).where(eq(customers.id, customer.id));
       const created = {
         id: orderId,
         shopId: SHOP_ID,
         publicReference: reference,
         idempotencyKey: input.idempotencyKey,
         productId: row.product.id,
+        customerId: customer.id,
         packageId: row.package.id,
         productNameFi: row.product.nameFi,
         productNameEn: row.product.nameEn,
@@ -188,7 +199,7 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
         fulfillmentMethod: input.fulfillmentMethod,
         customerName: input.customerName,
         mobile,
-        email: input.email?.toLowerCase() || null,
+        email: normalizedEmail,
         streetAddress: pickup ? null : input.streetAddress!,
         postalCode: pickup ? null : input.postalCode!,
         city: pickup ? null : input.city!,
@@ -201,6 +212,8 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
           : null,
         pickupTime: pickup ? row.shop.pickupTime : null,
         notes: input.notes || null,
+        orderSource: "WEBSITE",
+        historicalEntry: false,
         statusReason: null,
         contactedAt: null,
         contactedBy: null,
@@ -275,7 +288,10 @@ export async function getManagerOrder(database: Database, orderId: string) {
     database.select().from(orderNotes).where(and(eq(orderNotes.orderId, orderId), eq(orderNotes.shopId, SHOP_ID))).orderBy(desc(orderNotes.createdAt)),
     database.select().from(orderPayments).where(and(eq(orderPayments.orderId, orderId), eq(orderPayments.shopId, SHOP_ID))).orderBy(desc(orderPayments.recordedAt)),
   ]);
-  return { order, notes, payments };
+  const paidCents = payments.filter((payment) => payment.kind === "PAYMENT").reduce((sum, payment) => sum + payment.amountCents, 0);
+  const refundedCents = payments.filter((payment) => payment.kind === "REFUND").reduce((sum, payment) => sum + payment.amountCents, 0);
+  const totalCents = order.finalTotalCents ?? 0;
+  return { order, notes, payments, paymentSummary: { paidCents, refundedCents, outstandingCents: Math.max(0, totalCents - paidCents + refundedCents), status: refundedCents >= totalCents && totalCents > 0 ? "REFUNDED" : refundedCents > 0 ? "PARTIALLY_REFUNDED" : paidCents >= totalCents && totalCents > 0 ? "PAID" : "PENDING" } };
 }
 
 export async function addOrderNote(database: Database, input: { orderId: string; body: string }) {
@@ -310,20 +326,43 @@ export async function setDeliveryFee(database: Database, input: { orderId: strin
   });
 }
 
-export async function recordPayment(database: Database, input: { orderId: string; amountCents: number; method: "CASH" | "BANK_TRANSFER" | "CARD" | "OTHER"; reference?: string }) {
+export async function recordPayment(database: Database, input: { orderId: string; amountCents: number; method: PaymentMethod; reference?: string }) {
   const { SHOP_ID } = env();
   if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0) throw new DomainError("VALIDATION_ERROR", "Payment amount must be positive cents", 422);
   return database.transaction(async (tx) => {
+    await assertPaymentMethodEnabled(tx, input.method);
     const order = await tx.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
     if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
     if (order.status === "CANCELLED") throw new DomainError("INVALID_ORDER", "Cancelled order cannot be paid", 409);
     if (order.finalTotalCents === null) throw new DomainError("DELIVERY_FEE_PENDING", "Set the delivery fee before recording payment", 409);
     const previous = await tx.select().from(orderPayments).where(and(eq(orderPayments.orderId, order.id), eq(orderPayments.shopId, SHOP_ID)));
-    const paidCents = previous.reduce((sum, payment) => sum + payment.amountCents, 0);
+    const paidCents = previous.filter((payment) => payment.kind === "PAYMENT").reduce((sum, payment) => sum + payment.amountCents, 0);
     if (paidCents + input.amountCents > order.finalTotalCents) throw new DomainError("PAYMENT_EXCEEDS_TOTAL", "Payment exceeds order total", 409);
     const id = randomUUID(); const recordedAt = nowIso();
-    await tx.insert(orderPayments).values({ id, shopId: SHOP_ID, orderId: order.id, amountCents: input.amountCents, method: input.method, reference: input.reference?.trim() || null, recordedAt, actor: "manager" });
+    await tx.insert(orderPayments).values({ id, shopId: SHOP_ID, orderId: order.id, amountCents: input.amountCents, kind: "PAYMENT", method: input.method, reference: input.reference?.trim() || null, recordedAt, actor: "manager" });
     await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.payment_recorded", entityType: "order", entityId: order.id, detailsJson: JSON.stringify({ paymentId: id, amountCents: input.amountCents, method: input.method }), createdAt: recordedAt });
+    return (await tx.query.orderPayments.findFirst({ where: eq(orderPayments.id, id) }))!;
+  });
+}
+
+export async function recordRefund(database: Database, input: { orderId: string; amountCents: number; method: PaymentMethod; reason: string }) {
+  const { SHOP_ID } = env();
+  if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0 || input.reason.trim().length < 2) throw new DomainError("VALIDATION_ERROR", "Refund amount and reason are required", 422);
+  return database.transaction(async (tx) => {
+    await assertPaymentMethodEnabled(tx, input.method);
+    const order = await tx.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
+    if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
+    if (!["PICKED_UP", "DELIVERED", "REFUNDED"].includes(order.status)) throw new DomainError("INVALID_ORDER", "Only completed orders can be refunded", 409);
+    if (order.finalTotalCents === null) throw new DomainError("INVALID_ORDER", "Order total is unresolved", 409);
+    const payments = await tx.select().from(orderPayments).where(and(eq(orderPayments.orderId, order.id), eq(orderPayments.shopId, SHOP_ID)));
+    const paidCents = payments.filter((payment) => payment.kind === "PAYMENT").reduce((sum, payment) => sum + payment.amountCents, 0);
+    const refundedCents = payments.filter((payment) => payment.kind === "REFUND").reduce((sum, payment) => sum + payment.amountCents, 0);
+    if (refundedCents + input.amountCents > paidCents) throw new DomainError("REFUND_EXCEEDS_PAID", "Refund exceeds paid amount", 409);
+    const id = randomUUID(); const recordedAt = nowIso();
+    await tx.insert(orderPayments).values({ id, shopId: SHOP_ID, orderId: order.id, amountCents: input.amountCents, kind: "REFUND", method: input.method, reference: input.reason.trim(), recordedAt, actor: "manager" });
+    const fullyRefunded = refundedCents + input.amountCents >= paidCents;
+    if (fullyRefunded && order.status !== "REFUNDED") await tx.update(orders).set({ status: "REFUNDED", statusReason: input.reason.trim(), version: sql`${orders.version} + 1`, updatedAt: recordedAt }).where(eq(orders.id, order.id));
+    await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.refund_recorded", entityType: "order", entityId: order.id, detailsJson: JSON.stringify({ amountCents: input.amountCents, reason: input.reason.trim(), fullyRefunded }), createdAt: recordedAt });
     return (await tx.query.orderPayments.findFirst({ where: eq(orderPayments.id, id) }))!;
   });
 }
@@ -353,6 +392,7 @@ export async function transitionOrder(
     expectedVersion: number;
     reason?: string;
     contactChannel?: "PHONE" | "SMS" | "EMAIL" | "OTHER";
+    actor?: "manager" | "system";
   },
 ) {
   const { SHOP_ID } = env();
@@ -377,6 +417,7 @@ export async function transitionOrder(
     const reason = input.reason?.trim() || "";
     if (reasonRequired && reason.length < 2) throw new DomainError("VALIDATION_ERROR", "A reason is required for this transition", 422);
     const contactChannel = input.contactChannel ?? (input.status === "CONFIRMED" ? "PHONE" : undefined);
+    const actor = input.actor ?? "manager";
     if (input.status === "PICKED_UP" && current.fulfillmentMethod !== "PICKUP") throw new DomainError("INVALID_TRANSITION", "Only pickup orders can be picked up", 409);
     if (input.status === "OUT_FOR_DELIVERY" && current.fulfillmentMethod !== "DELIVERY") throw new DomainError("INVALID_TRANSITION", "Only delivery orders can be dispatched", 409);
     if (input.status === "DELIVERED" && current.fulfillmentMethod !== "DELIVERY") throw new DomainError("INVALID_TRANSITION", "Only delivery orders can be delivered", 409);
@@ -392,7 +433,7 @@ export async function transitionOrder(
         status: input.status,
         statusReason: reason || null,
         contactedAt: input.status === "CONFIRMED" ? now : current.contactedAt,
-        contactedBy: input.status === "CONFIRMED" ? "manager" : current.contactedBy,
+        contactedBy: input.status === "CONFIRMED" ? actor : current.contactedBy,
         contactChannel: input.status === "CONFIRMED" ? contactChannel! : current.contactChannel,
         fulfillmentStartedAt: input.status === "PICKING" ? now : current.fulfillmentStartedAt,
         readyAt: input.status === "READY" ? now : current.readyAt,
@@ -432,16 +473,16 @@ export async function transitionOrder(
         .run();
       if (released.rowsAffected !== 1) throw new Error("Capacity release invariant failed");
       await tx.insert(auditEntries).values({
-        id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "capacity.released",
+        id: randomUUID(), shopId: SHOP_ID, actor, action: "capacity.released",
         entityType: "order", entityId: current.id,
         detailsJson: JSON.stringify({ volumeMl: current.volumeMl, reason }), createdAt: now,
       });
     }
     await tx.insert(auditEntries).values({
-      id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.status_changed",
+      id: randomUUID(), shopId: SHOP_ID, actor, action: "order.status_changed",
       entityType: "order", entityId: current.id,
       detailsJson: JSON.stringify({ from: current.status, to: input.status, reason, contactChannel }), createdAt: now,
     });
-    return { ...current, status: input.status, statusReason: reason || null, contactedAt: input.status === "CONFIRMED" ? now : current.contactedAt, contactedBy: input.status === "CONFIRMED" ? "manager" : current.contactedBy, contactChannel: input.status === "CONFIRMED" ? contactChannel! : current.contactChannel, fulfillmentStartedAt: input.status === "PICKING" ? now : current.fulfillmentStartedAt, readyAt: input.status === "READY" ? now : current.readyAt, dispatchedAt: input.status === "OUT_FOR_DELIVERY" ? now : current.dispatchedAt, completedAt, pickupConfirmedAt: input.status === "PICKED_UP" ? now : current.pickupConfirmedAt, pickupConfirmedBy: input.status === "PICKED_UP" ? "manager" : current.pickupConfirmedBy, version: current.version + 1, updatedAt: now };
+    return { ...current, status: input.status, statusReason: reason || null, contactedAt: input.status === "CONFIRMED" ? now : current.contactedAt, contactedBy: input.status === "CONFIRMED" ? actor : current.contactedBy, contactChannel: input.status === "CONFIRMED" ? contactChannel! : current.contactChannel, fulfillmentStartedAt: input.status === "PICKING" ? now : current.fulfillmentStartedAt, readyAt: input.status === "READY" ? now : current.readyAt, dispatchedAt: input.status === "OUT_FOR_DELIVERY" ? now : current.dispatchedAt, completedAt, pickupConfirmedAt: input.status === "PICKED_UP" ? now : current.pickupConfirmedAt, pickupConfirmedBy: input.status === "PICKED_UP" ? actor : current.pickupConfirmedBy, version: current.version + 1, updatedAt: now };
   });
 }
