@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { confirmPickup } from "@/domain/orders";
+import { transitionOrder } from "@/domain/orders";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../../response";
 import { requirePermission } from "@/domain/access";
@@ -14,7 +14,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid pickup confirmation", 422);
     const { id } = await params;
     await requirePermission(db(), request, "orders.update");
-    return success(await confirmPickup(db(), { orderId: id, ...parsed.data }));
+    return success(await transitionOrder(db(), { orderId: id, status: "PICKED_UP", ...parsed.data }));
   } catch (error) {
     return failure(error);
   }

@@ -20,12 +20,15 @@ export function ManagerView({
   const [message, setMessage] = useState("");
   const [detail, setDetail] = useState<OrderDetail | null>(null);
 
-  async function status(order: Order, next: "CONFIRMED" | "CANCELLED") {
+  async function status(order: Order, next: "CONFIRMED" | "PICKING" | "READY" | "OUT_FOR_DELIVERY" | "PICKED_UP" | "DELIVERED" | "CUSTOMER_DECLINED" | "CANCELLED" | "CANCELLED_BY_CUSTOMER" | "REJECTED" | "NO_SHOW" | "REFUNDED") {
     setMessage("");
+    const needsReason = ["CUSTOMER_DECLINED", "CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "REFUNDED"].includes(next);
+    const reason = needsReason ? window.prompt("Reason for this transition")?.trim() : undefined;
+    if (needsReason && !reason) return;
     const response = await fetch(`/api/manager/orders/${order.id}/status`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status: next, expectedVersion: order.version }),
+      body: JSON.stringify({ status: next, expectedVersion: order.version, reason, contactChannel: next === "CONFIRMED" ? "PHONE" : undefined }),
     });
     const body = await response.json();
     if (!response.ok) return setMessage(body.code ?? "Request failed");
@@ -55,14 +58,6 @@ export function ManagerView({
     if (action === "fee") setDetail((current) => current ? { ...current, order: body.data } : current);
     else await openDetail(detail.order);
     event.currentTarget.reset(); setMessage("Order updated.");
-  }
-
-  async function pickupConfirm() {
-    if (!detail) return;
-    const response = await fetch(`/api/manager/orders/${detail.order.id}/pickup-confirm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: detail.order.version }) });
-    const body = await response.json();
-    if (!response.ok) return setMessage(body.code ?? body.message ?? "Request failed");
-    setDetail((current) => current ? { ...current, order: body.data } : current); setOrderRows((rows) => rows.map((row) => row.id === body.data.id ? body.data : row)); setMessage("Pickup confirmed.");
   }
 
   async function save(row: AvailabilityRow, form: HTMLFormElement) {
@@ -138,19 +133,19 @@ export function ManagerView({
                   <p>{order.fulfillmentDate} · {order.fulfillmentMethod} · {(order.volumeMl / 1000).toLocaleString("fi-FI")} l</p>
                   {order.fulfillmentMethod === "DELIVERY" && <p>Delivery to be agreed · {order.streetAddress}, {order.postalCode} {order.city}</p>}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button className="btn btn-secondary" onClick={() => void openDetail(order)}>Details</button>
-                  {order.status === "NEW" && <>
-                    <button className="btn" onClick={() => status(order, "CONFIRMED")}>Confirm</button>
-                    <button className="btn bg-[var(--berry)]" onClick={() => status(order, "CANCELLED")}>Cancel</button>
-                  </>}
+                  {order.status === "NEW" && <><button className="btn" onClick={() => void status(order, "CONFIRMED")}>Confirm</button><button className="btn btn-secondary" onClick={() => void status(order, "CUSTOMER_DECLINED")}>Customer declined</button><button className="btn bg-[var(--berry)]" onClick={() => void status(order, "CANCELLED")}>Cancel</button></>}
+                  {order.status === "CONFIRMED" && <><button className="btn" onClick={() => void status(order, "PICKING")}>Start picking</button><button className="btn bg-[var(--berry)]" onClick={() => void status(order, "CANCELLED")}>Cancel</button></>}
+                  {order.status === "PICKING" && <button className="btn" onClick={() => void status(order, "READY")}>Mark ready</button>}
+                  {order.status === "READY" && (order.fulfillmentMethod === "PICKUP" ? <button className="btn" onClick={() => void status(order, "PICKED_UP")}>Confirm pickup</button> : <button className="btn" onClick={() => void status(order, "OUT_FOR_DELIVERY")}>Dispatch delivery</button>)}
+                  {order.status === "OUT_FOR_DELIVERY" && <button className="btn" onClick={() => void status(order, "DELIVERED")}>Mark delivered</button>}
                 </div>
               </div>
               {detail?.order.id === order.id && <div className="mt-4 grid gap-3 border-t pt-4">
                 <h4 className="font-bold">Order detail</h4>
                 <p>Item: {(detail.order.itemSubtotalCents / 100).toFixed(2)} € · Delivery: {detail.order.deliveryFeeCents === null ? "to be agreed" : `${(detail.order.deliveryFeeCents / 100).toFixed(2)} €`} · Total: {detail.order.finalTotalCents === null ? "to be agreed" : `${(detail.order.finalTotalCents / 100).toFixed(2)} €`}</p>
                 {detail.order.fulfillmentMethod === "DELIVERY" && detail.order.status !== "CANCELLED" && <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void detailAction(event, "fee")}><label className="field"><span>Delivery fee (€)</span><input name="feeEuros" type="number" min="0" step="0.01" defaultValue={detail.order.deliveryFeeCents === null ? "" : (detail.order.deliveryFeeCents / 100).toFixed(2)} required /></label><button className="btn" type="submit">Save fee</button></form>}
-                {detail.order.fulfillmentMethod === "PICKUP" && detail.order.status === "CONFIRMED" && !detail.order.pickupConfirmedAt && <button className="btn w-fit" onClick={() => void pickupConfirm()}>Confirm pickup</button>}
                 <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void detailAction(event, "payment")}><label className="field"><span>Payment (€)</span><input name="paymentEuros" type="number" min="0.01" step="0.01" required /></label><label className="field"><span>Method</span><select name="method" defaultValue="CASH"><option value="CASH">Cash</option><option value="BANK_TRANSFER">Bank transfer</option><option value="CARD">Card</option><option value="OTHER">Other</option></select></label><label className="field"><span>Reference</span><input name="reference" maxLength={200} /></label><button className="btn" type="submit">Record payment</button></form>
                 <form className="flex items-end gap-2" onSubmit={(event) => void detailAction(event, "note")}><label className="field grow"><span>Internal note</span><textarea name="body" maxLength={2000} required /></label><button className="btn" type="submit">Add note</button></form>
                 <div className="text-sm"><strong>Payments:</strong> {detail.payments.length ? detail.payments.map((payment) => `${(payment.amountCents / 100).toFixed(2)} € ${payment.method}`).join(" · ") : "None"}<br /><strong>Notes:</strong> {detail.notes.length ? detail.notes.map((note) => note.body).join(" · ") : "None"}</div>
