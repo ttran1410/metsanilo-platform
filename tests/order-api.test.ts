@@ -8,6 +8,7 @@ import { createDatabaseConnection, type Database } from "@/db/client";
 import { availability, orders, packages, products, shops } from "@/db/schema";
 import { submitOrder, transitionOrder } from "@/domain/orders";
 import { createProduct, deleteProduct } from "@/domain/products";
+import { planAvailability } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-test-"));
@@ -160,5 +161,22 @@ describe("product module", () => {
     })).rejects.toMatchObject({ code: "DUPLICATE_PRODUCT" });
     await expect(deleteProduct(database, "product-berries")).rejects.toMatchObject({ code: "PRODUCT_IN_USE" });
     await expect(deleteProduct(database, created.product.id)).resolves.toMatchObject({ deleted: true });
+  });
+});
+
+describe("availability planning", () => {
+  it("plans daily dates, creates missing rows, and protects reservations", async () => {
+    await submitOrder(database, pickupInput("planner-reservation"));
+    const planned = await planAvailability(database, {
+      productId: "product-berries", frequency: "DAY", startDate: "2099-08-13", endDate: "2099-08-15",
+      capacityMl: 12000, manualSoldOut: true, soldOutReason: "Picker unavailable",
+    });
+    expect(planned).toHaveLength(3);
+    expect(planned.every((row) => row.capacityMl === 12000 && row.manualSoldOut)).toBe(true);
+    expect((await database.query.availability.findFirst({ where: eq(availability.businessDate, "2099-08-15") }))?.reservedMl).toBe(0);
+    await expect(planAvailability(database, {
+      productId: "product-berries", frequency: "CUSTOM", startDate: "2099-08-13", endDate: "2099-08-13",
+      dates: ["2099-08-13"], capacityMl: 1, manualSoldOut: false,
+    })).rejects.toMatchObject({ code: "BELOW_RESERVED" });
   });
 });

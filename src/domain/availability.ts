@@ -6,6 +6,45 @@ import { DomainError } from "./errors";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+type PlanFrequency = "DAY" | "WEEK" | "MONTH" | "CUSTOM";
+
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function addMonths(value: string) {
+  const date = new Date(`${value}T00:00:00Z`);
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + 1);
+  const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  date.setUTCDate(Math.min(day, lastDay));
+  return date.toISOString().slice(0, 10);
+}
+
+function planDates(input: { frequency: PlanFrequency; startDate: string; endDate: string; dates?: string[] }) {
+  if (!datePattern.test(input.startDate) || !datePattern.test(input.endDate) || input.startDate > input.endDate) {
+    throw new DomainError("VALIDATION_ERROR", "Planning dates are invalid", 422);
+  }
+  if (input.frequency === "CUSTOM") {
+    const dates = [...new Set(input.dates ?? [])].sort();
+    if (!dates.length || dates.some((date) => !datePattern.test(date) || date < input.startDate || date > input.endDate)) {
+      throw new DomainError("VALIDATION_ERROR", "Custom dates must be valid and inside the planning window", 422);
+    }
+    return dates;
+  }
+  const dates: string[] = [];
+  for (let cursor = input.startDate; cursor <= input.endDate;) {
+    dates.push(cursor);
+    cursor = input.frequency === "DAY" ? addDays(cursor, 1) : input.frequency === "WEEK" ? addDays(cursor, 7) : addMonths(cursor);
+  }
+  return dates;
+}
+
 export async function getPublicCatalog(database: Database) {
   const { SHOP_ID } = env();
   const shop = await database.query.shops.findFirst({
@@ -147,5 +186,59 @@ export async function updateAvailability(
       version: current.availability.version + 1,
       updatedAt,
     };
+  });
+}
+
+export async function planAvailability(
+  database: Database,
+  input: {
+    productId: string;
+    frequency: PlanFrequency;
+    startDate: string;
+    endDate: string;
+    dates?: string[];
+    capacityMl: number;
+    manualSoldOut: boolean;
+    soldOutReason?: string;
+  },
+) {
+  const { SHOP_ID } = env();
+  if (!Number.isSafeInteger(input.capacityMl) || input.capacityMl < 0) {
+    throw new DomainError("VALIDATION_ERROR", "Capacity must be non-negative millilitres", 422);
+  }
+  if (input.manualSoldOut && (!input.soldOutReason || input.soldOutReason.trim().length < 2)) {
+    throw new DomainError("VALIDATION_ERROR", "Sold-out reason is required", 422);
+  }
+  const dates = planDates(input);
+  return database.transaction(async (tx) => {
+    const product = await tx.query.products.findFirst({ where: and(eq(products.id, input.productId), eq(products.shopId, SHOP_ID)) });
+    const shop = await tx.query.shops.findFirst({ where: eq(shops.id, SHOP_ID) });
+    if (!product || !shop) throw new DomainError("NOT_FOUND", "Product not found", 404);
+    const today = todayInTimezone(shop.timezone);
+    if (dates.some((date) => date < today)) throw new DomainError("HISTORICAL_DATE", "Historical availability cannot be edited", 409);
+    if (dates.some((date) => date < product.availableFrom || date > product.availableThrough)) {
+      throw new DomainError("OUTSIDE_PRODUCT_WINDOW", "A planning date is outside the product window", 409);
+    }
+    const now = new Date().toISOString();
+    const soldOutReason = input.manualSoldOut ? input.soldOutReason!.trim() : null;
+    const touched: string[] = [];
+    for (const businessDate of dates) {
+      const current = await tx.query.availability.findFirst({ where: and(eq(availability.shopId, SHOP_ID), eq(availability.productId, input.productId), eq(availability.businessDate, businessDate)) });
+      if (current && input.capacityMl < current.reservedMl) {
+        throw new DomainError("BELOW_RESERVED", `Capacity for ${businessDate} cannot be below reserved volume`, 409);
+      }
+      if (current) {
+        const result = await tx.update(availability).set({ capacityMl: input.capacityMl, manualSoldOut: input.manualSoldOut, manualSoldOutReason: soldOutReason, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.id, current.id), eq(availability.version, current.version))).run();
+        if (result.rowsAffected !== 1) throw new DomainError("STALE_VERSION", `Availability changed for ${businessDate}`, 409);
+        touched.push(current.id);
+      } else {
+        const id = `${SHOP_ID}:${input.productId}:${businessDate}`;
+        await tx.insert(availability).values({ id, shopId: SHOP_ID, productId: input.productId, businessDate, capacityMl: input.capacityMl, reservedMl: 0, acceptsOrders: true, manualSoldOut: input.manualSoldOut, manualSoldOutReason: soldOutReason, version: 1, updatedAt: now });
+        touched.push(id);
+      }
+    }
+    await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "availability.planned", entityType: "product", entityId: input.productId, detailsJson: JSON.stringify({ frequency: input.frequency, dates, capacityMl: input.capacityMl, manualSoldOut: input.manualSoldOut }), createdAt: now });
+    const rows = await tx.select().from(availability).where(and(eq(availability.shopId, SHOP_ID), eq(availability.productId, input.productId)));
+    return rows.filter((row) => touched.includes(row.id));
   });
 }
