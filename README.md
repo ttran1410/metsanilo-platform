@@ -1,8 +1,8 @@
-# METSÄNILO v0.0.7 order-lifecycle pilot
+# METSÄNILO v0.0.8 automation-and-order-records pilot
 
 The next work is split into nine independently deployable checkpoints (`v0.0.2`–`v0.0.9`, then `v0.1.0`). See [ADR-0006](requirements/decisions/0006-incremental-deployable-release-plan.md) and the [development tracker](requirements/19-development-plan-and-progress.md) before making the next code change.
 
-This repository contains the intentionally narrow live pilot: one configured shop, bilingual public reservations, atomic capacity handling, the Product module, bounded availability planning, RBAC, and Manager order operations. v0.0.7 adds the canonical manual order lifecycle and fulfillment states with audited, versioned transitions. Durable scheduler/outbox automation, invoices, messaging, Google routing, analytics, and SaaS provisioning remain out of scope.
+This repository contains the intentionally narrow live pilot: one configured shop, bilingual public reservations, atomic capacity handling, the Product module, bounded availability planning, RBAC, and the canonical order lifecycle. v0.0.8 adds durable outbox-backed automation, external/historical order records, and payment/refund summaries. Provider transport, invoices, messaging integrations, Google routing, analytics, and SaaS provisioning remain out of scope.
 
 ## Runtime and safety model
 

@@ -141,6 +141,8 @@ export const orders = sqliteTable(
     pickupInstructions: text("pickup_instructions"),
     pickupTime: text("pickup_time"),
     notes: text("notes"),
+    orderSource: text("order_source").notNull().default("WEBSITE"),
+    historicalEntry: integer("historical_entry", { mode: "boolean" }).notNull().default(false),
     statusReason: text("status_reason"),
     contactedAt: text("contacted_at"),
     contactedBy: text("contacted_by"),
@@ -187,6 +189,7 @@ export const orderPayments = sqliteTable(
     shopId: text("shop_id").notNull().references(() => shops.id),
     orderId: text("order_id").notNull().references(() => orders.id),
     amountCents: integer("amount_cents").notNull(),
+    kind: text("kind", { enum: ["PAYMENT", "REFUND"] }).notNull().default("PAYMENT"),
     method: text("method", { enum: ["CASH", "BANK_TRANSFER", "CARD", "OTHER"] }).notNull(),
     reference: text("reference"),
     recordedAt: text("recorded_at").notNull(),
@@ -196,6 +199,24 @@ export const orderPayments = sqliteTable(
     index("order_payments_shop_order_idx").on(table.shopId, table.orderId, table.recordedAt),
     check("order_payments_positive_amount", sql`${table.amountCents} > 0`),
   ],
+);
+
+export const outboxJobs = sqliteTable(
+  "outbox_jobs",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    eventKey: text("event_key").notNull(),
+    type: text("type", { enum: ["EMAIL", "AUTOMATION"] }).notNull(),
+    payloadJson: text("payload_json").notNull(),
+    status: text("status", { enum: ["PENDING", "PROCESSING", "SENT", "FAILED"] }).notNull().default("PENDING"),
+    scheduledFor: text("scheduled_for").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    processedAt: text("processed_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("outbox_shop_event_unique").on(table.shopId, table.eventKey), index("outbox_due_idx").on(table.shopId, table.status, table.scheduledFor)],
 );
 
 export const auditEntries = sqliteTable(

@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 
 export const PERMISSIONS = [
-  "orders.read", "orders.update", "orders.transition", "orders.payment.write",
+  "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.write",
   "catalog.product.write", "catalog.product.delete_unreferenced", "catalog.package.write",
   "availability.write", "availability.sold_out", "delivery.override", "cms.edit", "cms.publish",
   "media.write", "invoices.issue", "invoices.download", "picking.write", "pickers.manage",

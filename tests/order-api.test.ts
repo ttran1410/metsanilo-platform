@@ -7,7 +7,8 @@ import { eq } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
 import { availability, orderPayments, orders, packages, products, shops } from "@/db/schema";
 import { createUser, requirePermission, setUserPermission } from "@/domain/access";
-import { addOrderNote, confirmPickup, getManagerOrder, recordPayment, setDeliveryFee, submitOrder, transitionOrder } from "@/domain/orders";
+import { createExternalOrder, createHistoricalOrder, runAutomation } from "@/domain/operations";
+import { addOrderNote, confirmPickup, getManagerOrder, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder } from "@/domain/orders";
 import { createProduct, deleteProduct } from "@/domain/products";
 import { planAvailability } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
@@ -196,6 +197,38 @@ describe("availability planning", () => {
 });
 
 describe("order operations", () => {
+  it("queues automation email, creates external orders, and records historical orders", async () => {
+    const external = await createExternalOrder(database, { ...pickupInput("external-placeholder"), source: "PHONE", status: "NEW" });
+    expect(external.orderSource).toBe("PHONE");
+    const historical = await createHistoricalOrder(database, { productId: "product-berries", packageId: "package-5l", quantity: 1, fulfillmentDate: "2099-08-12", fulfillmentMethod: "PICKUP", customerName: "Historical Customer", mobile: "+358401234567", completedStatus: "PICKED_UP", completedAt: "2099-08-12T12:00:00.000Z", source: "OTHER", reason: "Paper record from launch", paymentAmountCents: 2500 });
+    expect(historical.historicalEntry).toBe(true);
+    const jobs = await database.select().from((await import("@/db/schema")).outboxJobs);
+    expect(jobs.some((job) => job.type === "EMAIL")).toBe(true);
+  });
+
+  it("moves today confirmed orders to picking through the durable automation runner", async () => {
+    const receipt = await submitOrder(database, { ...pickupInput("automation-order", "2099-08-13"), email: "notify@example.com" });
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    const confirmed = await transitionOrder(database, { orderId: order.id, status: "CONFIRMED", expectedVersion: order.version });
+    const result = await runAutomation(database, new Date("2099-08-13T10:00:00.000Z"));
+    expect(result.picking).toBe(1);
+    expect((await database.query.orders.findFirst({ where: eq(orders.id, confirmed.id) }))?.status).toBe("PICKING");
+  });
+
+  it("calculates partial and full refund summaries", async () => {
+    const receipt = await submitOrder(database, pickupInput("refund-lifecycle"));
+    let order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    order = await transitionOrder(database, { orderId: order.id, status: "CONFIRMED", expectedVersion: order.version });
+    order = await transitionOrder(database, { orderId: order.id, status: "PICKING", expectedVersion: order.version });
+    order = await transitionOrder(database, { orderId: order.id, status: "READY", expectedVersion: order.version });
+    order = await transitionOrder(database, { orderId: order.id, status: "PICKED_UP", expectedVersion: order.version });
+    await recordPayment(database, { orderId: order.id, amountCents: 2500, method: "CASH" });
+    await recordRefund(database, { orderId: order.id, amountCents: 500, method: "CASH", reason: "Quality adjustment" });
+    expect((await getManagerOrder(database, order.id)).paymentSummary.status).toBe("PARTIALLY_REFUNDED");
+    await recordRefund(database, { orderId: order.id, amountCents: 2000, method: "CASH", reason: "Final refund" });
+    expect((await getManagerOrder(database, order.id)).order.status).toBe("REFUNDED");
+  });
+
   it("follows pickup fulfillment states without releasing reserved capacity", async () => {
     const receipt = await submitOrder(database, pickupInput("full-pickup-lifecycle"));
     let order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
