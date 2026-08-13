@@ -5,7 +5,6 @@ import { db } from "@/db/client";
 import { getPublicCatalog } from "@/domain/availability";
 import { isLocale, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
-import { env } from "@/lib/env";
 import { OrderForm, type PublicProduct } from "./order-form";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +73,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           locale={locale}
           products={[...productMap.values()]}
           idempotencyKey={randomUUID()}
-          privacyNoticeUrl={env().PRIVACY_NOTICE_URL}
+          privacyNoticeUrl={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}
           pickup={{
             name: locale === "fi" ? data.shop.pickupNameFi : data.shop.pickupNameEn,
             address: data.shop.pickupAddress,

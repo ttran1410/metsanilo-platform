@@ -10,7 +10,6 @@ const envSchema = z.object({
   SHOP_TIMEZONE: z.string().min(1).default("Europe/Helsinki"),
   MANAGER_USERNAME: z.string().min(1).default("manager"),
   MANAGER_PASSWORD: z.string().min(16).optional(),
-  PRIVACY_NOTICE_URL: z.url().optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

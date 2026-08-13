@@ -54,7 +54,6 @@ npm run db:seed
 | `TURSO_AUTH_TOKEN` | Least-privilege production database token |
 | `SHOP_ID` | Stable server-selected tenant identity; must match the seeded shop |
 | `MANAGER_USERNAME`, `MANAGER_PASSWORD` | Protected Manager access; password must be 16+ characters |
-| `PRIVACY_NOTICE_URL` | Approved public privacy notice shown beside the acknowledgement |
 
 The operator-only migration/seed environment additionally requires the following values. These do not need to be stored in Vercel after seeding:
 
@@ -103,7 +102,7 @@ After starting locally or deploying, smoke-check:
 1. Create/link the Vercel project and add the runtime variables from the first table above to Production. Do not expose secrets with `NEXT_PUBLIC_` names.
 2. Apply the Turso migration and reviewed seed from a trusted operator machine.
 3. Deploy this branch with `vercel --prod` (or the connected Git branch), then run the smoke checks against the assigned HTTPS URL.
-4. Treat production launch as blocked until the real seller/shop inputs, pickup details, catalog/price/capacity, privacy notice/retention choices, and Finnish consumer-law wording are approved. The app never invents these values.
+4. The bilingual privacy notice is published at `/fi/tietosuoja` and `/en/privacy`. Treat production launch as blocked until the real seller/shop inputs, pickup details, catalog/price/capacity, retention choices, and Finnish consumer-law wording are approved. The app never invents these values.
 
 ## Rollback
 
