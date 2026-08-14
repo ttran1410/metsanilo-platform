@@ -68,7 +68,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
         <div className="shell storefront-nav">
           <Link className="brand-lockup" href={`/${locale}`} aria-label={`${shopName} — ${locale === "fi" ? "etusivu" : "home"}`}>
             <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
-            <span><strong>METSÄNILO</strong><small>{shopName}</small></span>
+            <span><strong>METSÄNILO</strong></span>
           </Link>
           <p className="nav-season">{locale === "fi" ? `Satakunnan metsistä · Kausi ${seasonYear}` : `From Satakunta forests · Season ${seasonYear}`}</p>
           <Link className="locale-switch" href={`/${otherLocale}`} hrefLang={otherLocale}>
@@ -127,7 +127,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
       <section id="order" className="order-section" aria-labelledby="order-title">
         <div className="shell">
           <div className="order-intro">
-            <div><p className="eyebrow">{locale === "fi" ? "Helppo varaus" : "Simple reservation"}</p><h2 id="order-title">{t.shopHeading}</h2></div>
+            <div><p className="eyebrow">{locale === "fi" ? "Varaa verkossa" : "Reserve online"}</p><h2 id="order-title">{t.shopHeading}</h2><p className="order-intro-lede">{locale === "fi" ? "Valitse tuotteet, noutopäivä ja yhteystietosi. Vahvistamme varauksen henkilökohtaisesti." : "Choose your products, pickup date and contact details. We’ll confirm your reservation personally."}</p></div>
             <div className="order-intro-note"><span>01—03</span><p>{t.pending}</p></div>
           </div>
         <OrderForm
