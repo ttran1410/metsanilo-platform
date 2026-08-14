@@ -42,7 +42,7 @@ export default async function ManagerPage() {
     { id: "settings", label: "Settings", enabled: await allowed("settings.operational") },
     { id: "users", label: "Users & permissions", enabled: await allowed("shop_users.manage") },
   ];
-  return <><AdminNavigation role={actor.role} items={navigation} />
+  return <div className="admin-app"><AdminNavigation role={actor.role} items={navigation} />
     {ordersAllowed && <DashboardModule />}
     {(ordersAllowed || availabilityAllowed) && <ManagerView initialOrders={orders} initialAvailability={availability} canViewOrders={ordersAllowed} canManageAvailability={availabilityAllowed} />}
     {navigation[3].enabled && <div id="customers"><CustomersModule /></div>}
@@ -50,5 +50,5 @@ export default async function ManagerPage() {
     {productsAllowed && <div id="products" className="shell pb-10"><ProductModule initialProducts={products} canManageMedia={mediaAllowed} /></div>}
     {navigation[6].enabled && <div id="settings"><OperationsSettings /></div>}
     {navigation[7].enabled && <div id="users"><UserModule /></div>}
-  </>;
+  </div>;
 }
