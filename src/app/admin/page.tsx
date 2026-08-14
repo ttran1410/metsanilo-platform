@@ -17,7 +17,7 @@ export const runtime = "nodejs";
 
 export default async function ManagerPage() {
   const authorization = (await headers()).get("authorization");
-  const request = new Request("http://internal/manager", { headers: authorization ? { authorization } : undefined });
+  const request = new Request("http://internal/admin", { headers: authorization ? { authorization } : undefined });
   const allowed = async (permission: "orders.read" | "availability.write" | "catalog.product.write") => {
     try { await requirePermission(db(), request, permission); return true; } catch { return false; }
   };

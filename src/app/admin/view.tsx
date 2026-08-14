@@ -22,7 +22,7 @@ export function ManagerView({
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
-    window.location.assign("/manager/login");
+    window.location.assign("/admin/login");
   }
 
   async function status(order: Order, next: "CONFIRMED" | "PICKING" | "READY" | "OUT_FOR_DELIVERY" | "PICKED_UP" | "DELIVERED" | "CUSTOMER_DECLINED" | "CANCELLED" | "CANCELLED_BY_CUSTOMER" | "REJECTED" | "NO_SHOW" | "REFUNDED") {
@@ -30,7 +30,7 @@ export function ManagerView({
     const needsReason = ["CUSTOMER_DECLINED", "CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "REFUNDED"].includes(next);
     const reason = needsReason ? window.prompt("Reason for this transition")?.trim() : undefined;
     if (needsReason && !reason) return;
-    const response = await fetch(`/api/manager/orders/${order.id}/status`, {
+    const response = await fetch(`/api/admin/orders/${order.id}/status`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ status: next, expectedVersion: order.version, reason, contactChannel: next === "CONFIRMED" ? "PHONE" : undefined }),
@@ -42,7 +42,7 @@ export function ManagerView({
   }
 
   async function openDetail(order: Order) {
-    const response = await fetch(`/api/manager/orders/${order.id}`); const body = await response.json();
+    const response = await fetch(`/api/admin/orders/${order.id}`); const body = await response.json();
     if (!response.ok) return setMessage(body.code ?? "Request failed");
     setDetail(body.data);
   }
@@ -57,7 +57,7 @@ export function ManagerView({
       : action === "fee"
         ? { expectedVersion: detail.order.version, deliveryFeeCents: Math.round(Number(values.get("feeEuros")) * 100) }
         : { amountCents: Math.round(Number(values.get("paymentEuros")) * 100), method: values.get("method"), reference: values.get("reference") };
-    const response = await fetch(`/api/manager/orders/${detail.order.id}/${endpoint}`, { method: action === "fee" ? "PUT" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+    const response = await fetch(`/api/admin/orders/${detail.order.id}/${endpoint}`, { method: action === "fee" ? "PUT" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
     const body = await response.json();
     if (!response.ok) return setMessage(body.code ?? body.message ?? "Request failed");
     if (action === "fee") setDetail((current) => current ? { ...current, order: body.data } : current);
@@ -69,7 +69,7 @@ export function ManagerView({
     setMessage("");
     const values = new FormData(form);
     const capacityLitres = Number(values.get("capacityLitres"));
-    const response = await fetch(`/api/manager/availability/${encodeURIComponent(row.availability.id)}`, {
+    const response = await fetch(`/api/admin/availability/${encodeURIComponent(row.availability.id)}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -91,7 +91,7 @@ export function ManagerView({
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     const frequency = String(values.get("frequency"));
-    const response = await fetch("/api/manager/availability/plan", {
+    const response = await fetch("/api/admin/availability/plan", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
