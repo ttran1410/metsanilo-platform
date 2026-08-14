@@ -8,6 +8,7 @@ import { formatEuros, formatLitres, isLocale, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
 import { OrderForm, type PublicProduct } from "./order-form";
 import { ProductGallery } from "./product-gallery";
+import { LocaleDocument } from "./locale-document";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -61,6 +62,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
   const seasonYear = new Date().getFullYear();
   return (
     <main className="storefront">
+      <LocaleDocument locale={locale} />
       <header className="storefront-header">
         <div className="shell storefront-nav">
           <Link className="brand-lockup" href={`/${locale}`} aria-label={`${shopName} — ${locale === "fi" ? "etusivu" : "home"}`}>
@@ -148,6 +150,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           <div><span>{locale === "fi" ? "Tietoa" : "Information"}</span><Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link></div>
         </div>
       </footer>
+      <a className="mobile-reserve-cta" href="#order">{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}<span aria-hidden="true">→</span></a>
     </main>
   );
 }
