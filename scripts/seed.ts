@@ -70,6 +70,9 @@ await database
     pickupInstructionsFi: required("PICKUP_INSTRUCTIONS_FI"),
     pickupInstructionsEn: required("PICKUP_INSTRUCTIONS_EN"),
     pickupTime: process.env.PICKUP_TIME?.trim() || "20:00",
+    contactPhone: process.env.CONTACT_PHONE?.trim() || "",
+    contactEmail: process.env.CONTACT_EMAIL?.trim() || "",
+    contactHours: process.env.CONTACT_HOURS?.trim() || "",
   })
   .onConflictDoUpdate({
     target: shops.id,
@@ -84,6 +87,9 @@ await database
       pickupInstructionsFi: required("PICKUP_INSTRUCTIONS_FI"),
       pickupInstructionsEn: required("PICKUP_INSTRUCTIONS_EN"),
       pickupTime: process.env.PICKUP_TIME?.trim() || "20:00",
+      contactPhone: process.env.CONTACT_PHONE?.trim() || "",
+      contactEmail: process.env.CONTACT_EMAIL?.trim() || "",
+      contactHours: process.env.CONTACT_HOURS?.trim() || "",
     },
   });
 

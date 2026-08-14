@@ -11,9 +11,12 @@ export const shops = sqliteTable("shops", {
   pickupNameFi: text("pickup_name_fi").notNull(),
   pickupNameEn: text("pickup_name_en").notNull(),
   pickupAddress: text("pickup_address").notNull(),
-  pickupInstructionsFi: text("pickup_instructions_fi").notNull(),
-  pickupInstructionsEn: text("pickup_instructions_en").notNull(),
-  pickupTime: text("pickup_time").notNull().default("20:00"),
+    pickupInstructionsFi: text("pickup_instructions_fi").notNull(),
+    pickupInstructionsEn: text("pickup_instructions_en").notNull(),
+    pickupTime: text("pickup_time").notNull().default("20:00"),
+    contactPhone: text("contact_phone").notNull().default(""),
+    contactEmail: text("contact_email").notNull().default(""),
+    contactHours: text("contact_hours").notNull().default(""),
 });
 
 export const customers = sqliteTable(

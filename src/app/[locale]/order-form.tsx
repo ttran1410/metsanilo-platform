@@ -13,6 +13,7 @@ export type PublicProduct = {
 };
 
 type Pickup = { name: string; address: string; instructions: string; time: string };
+type Contact = { phone: string; email: string; hours: string };
 
 export function OrderForm({
   locale,
@@ -20,14 +21,18 @@ export function OrderForm({
   pickup,
   idempotencyKey: initialIdempotencyKey,
   privacyNoticeUrl,
+  contact,
 }: {
   locale: Locale;
   products: PublicProduct[];
   pickup: Pickup;
   idempotencyKey: string;
   privacyNoticeUrl?: string;
+  contact: Contact;
 }) {
   const t = copy[locale];
+  const smsNumber = contact.phone.replace(/[^+\d]/g, "");
+  const whatsappNumber = contact.phone.replace(/\D/g, "").replace(/^0/, "358");
   const [productId, setProductId] = useState(products[0]?.id ?? "");
   const product = products.find((item) => item.id === productId);
   const defaultPackage = products[0]?.packages.find((item) => item.volumeMl === 10000) ?? products[0]?.packages[0];
@@ -41,6 +46,8 @@ export function OrderForm({
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [receipt, setReceipt] = useState<OrderReceipt>();
+  const subtotalCents = (selectedPackage?.priceCents ?? 0) * quantity;
+  const totalLitres = ((selectedPackage?.volumeMl ?? 0) * quantity) / 1000;
 
   const orderableDates = useMemo(
     () => product?.dates.filter((item) => item.acceptsOrders && !item.soldOut && item.remainingMl >= (selectedPackage?.volumeMl ?? Infinity) * quantity) ?? [],
@@ -144,7 +151,7 @@ export function OrderForm({
         {selectedPackage?.volumeMl === 10000 && (
           <label className="field">
             <span>{locale === "fi" ? "Määrä" : "Quantity"} *</span>
-            <input type="number" name="quantity" min={1} max={100} step={1} value={quantity} onChange={(event) => { setQuantity(Math.max(1, Math.min(100, Number(event.target.value) || 1))); setDate(""); }} required />
+            <div className="quantity-control"><button className="stepper" type="button" aria-label={locale === "fi" ? "Vähennä määrää" : "Decrease quantity"} onClick={() => { setQuantity(Math.max(1, quantity - 1)); setDate(""); }}>−</button><input type="number" name="quantity" min={1} max={100} step={1} value={quantity} onChange={(event) => { setQuantity(Math.max(1, Math.min(100, Number(event.target.value) || 1))); setDate(""); }} required /><button className="stepper" type="button" aria-label={locale === "fi" ? "Lisää määrää" : "Increase quantity"} onClick={() => { setQuantity(Math.min(100, quantity + 1)); setDate(""); }}>+</button></div>
             <small>{locale === "fi" ? "10 litran pakkaukselle voit valita määrän." : "Quantity can be selected for the 10 litre package."}</small>
           </label>
         )}
@@ -194,7 +201,8 @@ export function OrderForm({
         {privacyNoticeUrl && <a className="font-bold underline" href={privacyNoticeUrl} target="_blank" rel="noreferrer">{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</a>}
         <label className="flex items-start gap-3"><input className="mt-1" name="privacyAcknowledged" type="checkbox" required /> <span>{t.privacy} *</span></label>
       </div>
-      <div className="rounded-lg bg-slate-100 p-4"><strong>{t.pending}</strong>{method === "DELIVERY" && <><br />{t.deliveryPending}</>}</div>
+      <div className="summary-card"><div><span>{locale === "fi" ? "Yhteensä" : "Total"}</span><strong>{formatLitres(totalLitres * 1000, locale)} l · {formatEuros(subtotalCents, locale)}</strong></div><p>{t.pending}</p>{method === "DELIVERY" && <p>{t.deliveryPending}</p>}</div>
+      {contact.phone && <div className="card grid gap-2 bg-white"><strong>{locale === "fi" ? "Tarvitsetko apua tilaukseen?" : "Need help with your order?"}</strong><p>{locale === "fi" ? "Voit tilata myös viestillä." : "You can also order by message."}</p><div className="flex flex-wrap gap-2"><a className="btn btn-secondary" href={`sms:${smsNumber}`}>{locale === "fi" ? "Lähetä tekstiviesti" : "Send SMS"}</a><a className="btn btn-secondary" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">WhatsApp</a></div></div>}
       <button className="btn" disabled={submitting || !date || !selectedPackage} type="submit">{submitting ? "…" : t.submit}</button>
     </form>
   );

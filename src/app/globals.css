@@ -15,7 +15,30 @@ button, input, select, textarea { font: inherit; }
 button, select, input, textarea { min-height: 44px; }
 :focus-visible { outline: 3px solid #c27400; outline-offset: 3px; }
 
-.shell { width: min(100% - 2rem, 68rem); margin-inline: auto; }
+.shell { width: min(100% - 2rem, 72rem); margin-inline: auto; }
+.section { padding-block: 2rem; }
+.hero { border-radius: 1.5rem; background: var(--forest); color: white; padding: clamp(1.5rem, 5vw, 4rem); }
+.hero h2 { max-width: 48rem; margin: .5rem 0; font-size: clamp(2rem, 6vw, 3.75rem); line-height: 1.08; }
+.hero p:not(.eyebrow) { max-width: 42rem; font-size: 1.125rem; line-height: 1.6; color: #e8f2eb; }
+.eyebrow { margin: 0; color: #fbbf24; font-size: .8rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.5rem; }
+.trust-grid { display: grid; gap: .75rem; margin-top: 2rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
+.trust-item { border: 1px solid rgb(255 255 255 / 25%); border-radius: .75rem; padding: .85rem; font-weight: 700; }
+.section-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; }
+.catalog-grid { display: grid; gap: 1rem; margin-top: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.catalog-card { display: grid; gap: 1rem; border: 1px solid #ccd4ca; border-radius: 1rem; background: white; padding: 1.25rem; box-shadow: 0 8px 30px rgb(22 61 45 / 8%); }
+.catalog-card h3 { margin: 0; font-size: 1.35rem; }
+.package-list { display: grid; gap: .6rem; }
+.package-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-radius: .75rem; background: #f1f5f2; padding: .8rem; }
+.package-row span { display: grid; gap: .2rem; font-weight: 700; }
+.package-row small { color: #475569; font-weight: 400; }
+.quantity-control { display: grid; grid-template-columns: 3rem minmax(5rem, 7rem) 3rem; align-items: center; gap: .5rem; }
+.quantity-control input { text-align: center; }
+.stepper { min-height: 3rem; border: 0; border-radius: .65rem; background: var(--forest); color: white; font-size: 1.5rem; font-weight: 800; }
+.summary-card { display: grid; gap: .35rem; border-radius: 1rem; background: #edf4ef; padding: 1rem; }
+.summary-card > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; font-size: 1.1rem; }
+.summary-card strong { font-size: 1.35rem; }
+.summary-card p { margin: 0; }
 .card { border: 1px solid #ccd4ca; border-radius: 1rem; background: white; padding: 1.25rem; box-shadow: 0 8px 30px rgb(22 61 45 / 8%); }
 .field { display: grid; gap: .4rem; }
 .field input, .field select, .field textarea { width: 100%; border: 1px solid #718078; border-radius: .5rem; padding: .65rem .75rem; background: white; }

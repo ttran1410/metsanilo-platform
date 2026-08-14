@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/db/client";
 import { getPublicCatalog } from "@/domain/availability";
-import { isLocale, type Locale } from "@/lib/format";
+import { formatEuros, formatLitres, isLocale, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
 import { OrderForm, type PublicProduct } from "./order-form";
 
@@ -66,8 +66,21 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           </Link>
         </div>
       </header>
-      <section className="shell py-8">
-        <h2 className="text-3xl font-bold text-[var(--forest)]">{t.shopHeading}</h2>
+      <section className="hero shell mt-6" aria-labelledby="hero-title">
+        <p className="eyebrow">{locale === "fi" ? "Satakunnan kauden marjat" : "Seasonal berries from Satakunta"}</p>
+        <h2 id="hero-title">{locale === "fi" ? "Tuoreita ja puhdistettuja metsämustikoita" : "Fresh, cleaned wild berries"}</h2>
+        <p>{locale === "fi" ? "Varaa marjat helposti ennakkoon. Nouto Porista – toimituksesta sovitaan erikseen." : "Reserve your berries easily. Pickup in Pori – delivery is agreed separately."}</p>
+        <div className="hero-actions"><a className="btn" href="#order">{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}</a><a className="btn btn-secondary" href="#catalog">{locale === "fi" ? "Katso saatavuus" : "See availability"}</a></div>
+        <div className="trust-grid" aria-label={locale === "fi" ? "Miksi METSÄNILO" : "Why METSÄNILO"}>
+          {[locale === "fi" ? "Satakunnan metsistä" : "From Satakunta forests", locale === "fi" ? "Puhdistettu ja valmis pakastettavaksi" : "Cleaned and ready for freezing", locale === "fi" ? "Ei ennakkomaksua" : "No prepayment", locale === "fi" ? "Nouto Porista" : "Pickup in Pori"].map((item) => <div className="trust-item" key={item}>{item}</div>)}
+        </div>
+      </section>
+      <section id="catalog" className="shell section" aria-labelledby="catalog-title">
+        <div className="section-heading"><div><p className="eyebrow">{locale === "fi" ? "Saatavuus" : "Availability"}</p><h2 id="catalog-title">{locale === "fi" ? "Valitse marjat ja pakkaus" : "Choose berries and a package"}</h2></div></div>
+        <div className="catalog-grid">{[...productMap.values()].map((product) => <article className="catalog-card" key={product.id}><h3>{product.name}</h3><div className="package-list">{product.packages.map((pkg) => <div className="package-row" key={pkg.id}><span>{pkg.label}<small>{formatLitres(pkg.volumeMl, locale)} l</small></span><strong>{formatEuros(pkg.priceCents, locale)}</strong></div>)}</div><a className="btn" href="#order">{locale === "fi" ? "Valitse ja tilaa" : "Choose and order"}</a></article>)}</div>
+      </section>
+      <section id="order" className="shell section" aria-labelledby="order-title">
+        <h2 id="order-title" className="text-3xl font-bold text-[var(--forest)]">{t.shopHeading}</h2>
         <p className="mt-2">{t.pending}</p>
         <OrderForm
           locale={locale}
@@ -80,6 +93,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             instructions: locale === "fi" ? data.shop.pickupInstructionsFi : data.shop.pickupInstructionsEn,
             time: data.shop.pickupTime,
           }}
+          contact={{ phone: data.shop.contactPhone, email: data.shop.contactEmail, hours: data.shop.contactHours }}
         />
       </section>
     </main>
