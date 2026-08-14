@@ -5,6 +5,7 @@ import { auditEntries, userPermissions, users } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { readSession, SESSION_COOKIE } from "./session";
+import { assertPassword, hashPassword, verifyPassword } from "./passwords";
 
 export const PERMISSIONS = [
   "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.write",
@@ -28,10 +29,12 @@ function usernameFromRequest(request: Request) {
 export async function currentUser(database: Database, request: Request) {
   const shopId = env().SHOP_ID;
   const cookie = request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1];
-  const username = readSession(cookie) ?? usernameFromRequest(request);
-  const user = await database.query.users.findFirst({ where: and(eq(users.shopId, shopId), eq(users.username, username), eq(users.active, true)) });
+  const session = readSession(cookie);
+  const identifier = session?.email ?? usernameFromRequest(request);
+  const user = await database.query.users.findFirst({ where: and(eq(users.shopId, shopId), eq(users.email, identifier), eq(users.active, true)) }) ?? await database.query.users.findFirst({ where: and(eq(users.shopId, shopId), eq(users.username, identifier), eq(users.active, true)) });
+  if (session && user && user.sessionVersion !== session.sessionVersion) throw new DomainError("UNAUTHORIZED", "Session expired", 401);
   if (user) return user;
-  if (username === env().MANAGER_USERNAME) return { id: "legacy-admin", shopId, username, displayName: username, role: "ADMIN" as const, active: true, createdAt: "legacy" };
+  if (identifier === "manager") return { id: "legacy-admin", shopId, email: null, username: null, passwordHash: "", mustChangePassword: false, sessionVersion: 1, displayName: "Legacy admin", role: "ADMIN" as const, active: true, createdAt: "legacy" };
   throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
 }
 
@@ -51,19 +54,20 @@ export async function listUsers(database: Database, request: Request) {
   return rows.map((user) => ({ ...user, permissions: grants.filter((grant) => grant.userId === user.id && grant.granted).map((grant) => grant.permission) }));
 }
 
-export async function createUser(database: Database, request: Request, input: { username: string; displayName: string; role: Role }) {
+export async function createUser(database: Database, request: Request, input: { email: string; displayName: string; role: Role; password: string }) {
   const actor = await requirePermission(database, request, "shop_users.manage");
   if (actor.role !== "ADMIN" && input.role === "ADMIN") throw new DomainError("FORBIDDEN", "Only Admin can create an Admin", 403);
-  const username = input.username.trim(); const displayName = input.displayName.trim();
-  if (!/^[a-zA-Z0-9._-]{2,80}$/.test(username) || displayName.length < 2 || displayName.length > 120) throw new DomainError("VALIDATION_ERROR", "Invalid user details", 422);
+  const email = input.email.trim().toLowerCase(); const displayName = input.displayName.trim();
+  if (!zodEmail(email) || displayName.length < 2 || displayName.length > 120) throw new DomainError("VALIDATION_ERROR", "Invalid user details", 422);
+  try { assertPassword(input.password); } catch (error) { throw new DomainError("VALIDATION_ERROR", error instanceof Error ? error.message : "Invalid password", 422); }
   const id = randomUUID(); const createdAt = new Date().toISOString();
   try {
-    await database.insert(users).values({ id, shopId: env().SHOP_ID, username, displayName, role: input.role, active: true, createdAt });
+    await database.insert(users).values({ id, shopId: env().SHOP_ID, username: email, email, passwordHash: hashPassword(input.password), mustChangePassword: false, displayName, role: input.role, active: true, createdAt });
   } catch (error) {
     if (String(error).toLowerCase().includes("unique")) throw new DomainError("DUPLICATE_USER", "Username already exists", 409);
     throw error;
   }
-  await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor: actor.username, action: "user.created", entityType: "user", entityId: id, detailsJson: JSON.stringify({ username, role: input.role }), createdAt });
+  await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor: actor.email ?? actor.username ?? actor.id, action: "user.created", entityType: "user", entityId: id, detailsJson: JSON.stringify({ email, role: input.role }), createdAt });
   return (await database.query.users.findFirst({ where: eq(users.id, id) }))!;
 }
 
@@ -74,6 +78,14 @@ export async function setUserPermission(database: Database, request: Request, in
   if (target.role !== "STAFF" && target.role !== "CONTENT_CREATOR") throw new DomainError("FORBIDDEN", "Only Staff and Content Creator permissions are assignable", 403);
   const updatedAt = new Date().toISOString();
   await database.insert(userPermissions).values({ id: randomUUID(), shopId: env().SHOP_ID, userId: target.id, permission: input.permission, granted: input.granted, updatedAt }).onConflictDoUpdate({ target: [userPermissions.userId, userPermissions.permission], set: { granted: input.granted, updatedAt } });
-  await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor: actor.username, action: input.granted ? "user.permission_granted" : "user.permission_revoked", entityType: "user", entityId: target.id, detailsJson: JSON.stringify({ permission: input.permission }), createdAt: updatedAt });
+  await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor: actor.email ?? actor.username ?? actor.id, action: input.granted ? "user.permission_granted" : "user.permission_revoked", entityType: "user", entityId: target.id, detailsJson: JSON.stringify({ permission: input.permission }), createdAt: updatedAt });
   return { userId: target.id, permission: input.permission, granted: input.granted };
+}
+
+function zodEmail(value: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
+
+export async function authenticateUser(database: Database, email: string, password: string) {
+  const user = await database.query.users.findFirst({ where: and(eq(users.email, email.trim().toLowerCase()), eq(users.shopId, env().SHOP_ID), eq(users.active, true)) });
+  if (!user || !verifyPassword(password, user.passwordHash)) throw new DomainError("UNAUTHORIZED", "Invalid email or password", 401);
+  return user;
 }

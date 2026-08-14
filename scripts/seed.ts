@@ -2,6 +2,7 @@ import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { availability, packages, products, shops, users } from "../src/db/schema";
 import { validateRuntimeEnvironment } from "../src/lib/env";
+import { hashPassword } from "../src/domain/passwords";
 
 const preflight = validateRuntimeEnvironment({ production: process.env.NODE_ENV === "production" || process.env.RELEASE_PREFLIGHT === "true" });
 if (!preflight.ok) throw new Error(`Environment preflight failed: ${preflight.errors.join("; ")}`);
@@ -52,6 +53,8 @@ if (process.env.SEED_DRY_RUN === "true") {
   process.exit(0);
 }
 
+const bootstrapEmail = required("BOOTSTRAP_ADMIN_EMAIL").toLowerCase();
+const bootstrapPassword = required("BOOTSTRAP_ADMIN_PASSWORD");
 await database
   .insert(shops)
   .values({
@@ -87,10 +90,10 @@ await database
 await database
   .insert(users)
   .values({
-    id: `user-${shopId}-admin`, shopId, username: process.env.MANAGER_USERNAME?.trim() || "manager",
-    displayName: process.env.MANAGER_DISPLAY_NAME?.trim() || "Shop admin", role: "ADMIN", active: true, createdAt: now,
+    id: `user-${shopId}-admin`, shopId, email: bootstrapEmail, passwordHash: hashPassword(bootstrapPassword), mustChangePassword: true,
+    displayName: process.env.ADMIN_DISPLAY_NAME?.trim() || "Shop admin", role: "ADMIN", active: true, createdAt: now,
   })
-  .onConflictDoUpdate({ target: users.id, set: { username: process.env.MANAGER_USERNAME?.trim() || "manager", displayName: process.env.MANAGER_DISPLAY_NAME?.trim() || "Shop admin", role: "ADMIN", active: true } });
+  .onConflictDoUpdate({ target: users.id, set: { email: bootstrapEmail, passwordHash: hashPassword(bootstrapPassword), mustChangePassword: true, displayName: process.env.ADMIN_DISPLAY_NAME?.trim() || "Shop admin", role: "ADMIN", active: true } });
 
 await database
   .insert(products)

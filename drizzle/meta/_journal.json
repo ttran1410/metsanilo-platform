@@ -57,6 +57,13 @@
       "when": 1786639000000,
       "tag": "0007_customers_notifications_payment_config",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786640000000,
+      "tag": "0008_email_password_users",
+      "breakpoints": true
     }
   ]
 }

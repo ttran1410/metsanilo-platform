@@ -305,13 +305,12 @@ describe("order operations", () => {
 
 describe("shop roles and permissions", () => {
   it("allows Manager assignment but requires explicit Staff grants", async () => {
-    process.env.MANAGER_USERNAME = "manager";
     resetEnvForTests();
     const adminRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("manager:secret").toString("base64")}` } });
-    const staff = await createUser(database, adminRequest, { username: "picker", displayName: "Picker", role: "STAFF" });
-    const staffRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("picker:secret").toString("base64")}` } });
+    const staff = await createUser(database, adminRequest, { email: "picker@example.com", password: "Pick3r!pass", displayName: "Picker", role: "STAFF" });
+    const staffRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("picker@example.com:secret").toString("base64")}` } });
     await expect(requirePermission(database, staffRequest, "orders.read")).rejects.toMatchObject({ code: "FORBIDDEN" });
     await setUserPermission(database, adminRequest, { userId: staff.id, permission: "orders.read", granted: true });
-    await expect(requirePermission(database, staffRequest, "orders.read")).resolves.toMatchObject({ username: "picker" });
+    await expect(requirePermission(database, staffRequest, "orders.read")).resolves.toMatchObject({ email: "picker@example.com" });
   });
 });
