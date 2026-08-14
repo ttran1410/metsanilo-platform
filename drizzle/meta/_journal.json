@@ -71,6 +71,13 @@
       "when": 1786640100000,
       "tag": "0009_email_only_username",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786640200000,
+      "tag": "0010_contact_settings",
+      "breakpoints": true
     }
   ]
 }
