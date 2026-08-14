@@ -5,6 +5,12 @@ import type { OrderReceipt } from "@/domain/orders";
 import { formatEuros, formatLitres, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
 
+type AvailabilityStatus = "available" | "today" | "unavailable" | "season";
+const availabilityLabels: Record<Locale, Record<AvailabilityStatus, string>> = {
+  fi: { available: "Saatavilla", today: "Tämän päivän erä on varattu", unavailable: "Tilapäisesti loppu", season: "Saatavuus päättynyt tältä kaudelta" },
+  en: { available: "Available", today: "Fully reserved for today", unavailable: "Currently unavailable", season: "Seasonal availability ended" },
+};
+
 export type PublicProduct = {
   id: string;
   name: string;
@@ -13,6 +19,15 @@ export type PublicProduct = {
   packages: Array<{ id: string; label: string; volumeMl: number; priceCents: number }>;
   dates: Array<{ date: string; remainingMl: number; acceptsOrders: boolean; soldOut: boolean }>;
 };
+
+function getAvailabilityStatus(dates: PublicProduct["dates"], volumeMl?: number): AvailabilityStatus {
+  const today = new Date().toISOString().slice(0, 10);
+  if (dates.some((date) => date.acceptsOrders && !date.soldOut && (volumeMl === undefined || date.remainingMl >= volumeMl))) return "available";
+  const todayDate = dates.find((date) => date.date === today);
+  if (todayDate?.soldOut || (todayDate && volumeMl !== undefined && todayDate.remainingMl < volumeMl)) return "today";
+  if (!dates.some((date) => date.date > today && date.acceptsOrders)) return "season";
+  return "unavailable";
+}
 
 type Pickup = { name: string; address: string; instructions: string; time: string };
 type Contact = { phone: string; email: string; hours: string };
@@ -159,27 +174,16 @@ export function OrderForm({
         <fieldset className="form-step">
         <legend><span>01</span> {locale === "fi" ? "Valitse marja ja pakkaus" : "Choose berries and package"}</legend>
         <div className="selection-label">{locale === "fi" ? "Tuote" : "Product"} *</div>
-        <div className="selection-grid product-selection">
+        <div className="reserve-product-grid">
           {products.map((item) => {
             const available = item.packages.some((pkg) => item.dates.some((dateItem) => dateItem.acceptsOrders && !dateItem.soldOut && dateItem.remainingMl >= pkg.volumeMl));
-            return <label className={`selection-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}>
-              <input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} />
-              <span className="selection-card-copy"><strong>{item.name}</strong><small>{item.description || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span>
-              <span className="selection-check" aria-hidden="true">✓</span>
-            </label>;
-          })}
-        </div>
-        <div className="selection-label">{t.package} *</div>
-        <div className="selection-grid package-selection">
-          {product?.packages.map((item) => {
-            const litres = item.volumeMl / 1000;
-            const unitPriceCents = litres > 0 ? Math.round(item.priceCents / litres) : item.priceCents;
-            return <label className={`selection-card package-selection-card${item.id === selectedPackage?.id ? " selected" : ""}`} key={item.id}>
-              <input type="radio" name="packageId" value={item.id} checked={item.id === selectedPackage?.id} onChange={() => { setPackageId(item.id); setQuantity(1); setDate(""); }} />
-              <span className="selection-card-copy"><strong>{item.label}</strong><small>{formatLitres(item.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"}</small></span>
-              <strong className="selection-price">{formatEuros(item.priceCents, locale)}</strong>
-              <span className="selection-check" aria-hidden="true">✓</span>
-            </label>;
+            const status = available ? "available" : getAvailabilityStatus(item.dates);
+            const availablePackages = item.packages.filter((pkg) => getAvailabilityStatus(item.dates, pkg.volumeMl) === "available");
+            const bestValueId = availablePackages.reduce((best, pkg) => !best || pkg.priceCents / pkg.volumeMl < best.priceCents / best.volumeMl ? pkg : best, availablePackages[0])?.id;
+            return <article className={`reserve-product-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}>
+              <label className="reserve-product-card-header"><input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} /><span className="reserve-product-image">{item.media[0] ? <img src={item.media[0].url} alt="" /> : <span aria-hidden="true">M</span>}</span><span className="reserve-product-card-copy"><strong>{item.name}</strong><small>{item.description?.split(/[.!?]/)[0] || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span><span className={`availability-badge reserve-product-status${available ? "" : " unavailable"}`}>{availabilityLabels[locale][status]}</span><span className="selection-check" aria-hidden="true">✓</span></label>
+              {item.id === productId && <div className="reserve-product-packages"><div className="selection-label">{t.package} *</div><div className="selection-grid package-selection">{item.packages.map((pkg) => { const litres = pkg.volumeMl / 1000; const unitPriceCents = litres > 0 ? Math.round(pkg.priceCents / litres) : pkg.priceCents; const packageStatus = getAvailabilityStatus(item.dates, pkg.volumeMl); const packageAvailable = packageStatus === "available"; return <label className={`selection-card package-selection-card${pkg.id === selectedPackage?.id ? " selected" : ""}${packageAvailable ? "" : " unavailable"}`} key={pkg.id}><input type="radio" name="packageId" value={pkg.id} checked={pkg.id === selectedPackage?.id} onChange={() => { setPackageId(pkg.id); setQuantity(1); setDate(""); }} disabled={!packageAvailable} /><span className="selection-card-copy"><strong>{pkg.label}</strong><small>{formatLitres(pkg.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"}</small></span><strong className="selection-price">{formatEuros(pkg.priceCents, locale)}</strong>{bestValueId === pkg.id && packageAvailable && <span className="reserve-best-value">{locale === "fi" ? "Paras hinta / l" : "Best value"}</span>}<span className="selection-check" aria-hidden="true">✓</span></label>; })}</div></div>}
+            </article>;
           })}
         </div>
         {selectedPackage?.volumeMl === 10000 && (

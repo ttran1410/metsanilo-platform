@@ -152,6 +152,23 @@ button, select, input, textarea { min-height: 44px; }
 .selection-grid { display: grid; gap: .75rem; }
 .product-selection { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
 .package-selection { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+.reserve-product-grid { display: grid; gap: 1rem; }
+.reserve-product-card { overflow: hidden; border: 1px solid var(--line); border-radius: 1.1rem; background: var(--paper); transition: border-color 160ms ease, box-shadow 160ms ease; }
+.reserve-product-card.selected { border-color: var(--forest); box-shadow: 0 8px 24px rgb(23 55 43 / 10%); }
+.reserve-product-card.unavailable { opacity: .68; }
+.reserve-product-card-header { position: relative; display: grid; min-height: 8rem; grid-template-columns: 7.5rem minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding: .7rem; cursor: pointer; }
+.reserve-product-card-header > input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.reserve-product-card-header:has(> input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 3px; }
+.reserve-product-image { display: grid; height: 6.5rem; overflow: hidden; place-items: center; border-radius: .75rem; background: #dce8df; color: var(--berry); font-family: var(--serif); font-size: 3rem; }
+.reserve-product-image img { width: 100%; height: 100%; object-fit: cover; }
+.reserve-product-card-copy { display: grid; gap: .35rem; min-width: 0; }
+.reserve-product-card-copy strong { color: var(--forest); font-family: var(--serif); font-size: 1.45rem; font-weight: 500; line-height: 1.05; }
+.reserve-product-card-copy small { color: var(--muted); line-height: 1.4; }
+.reserve-product-status { align-self: start; margin: .3rem .3rem 0 0; }
+.reserve-product-packages { border-top: 1px solid var(--line); background: #fbfaf5; padding: 1rem; }
+.reserve-product-packages .selection-label { margin-bottom: .6rem; }
+.reserve-product-packages .selection-card { min-height: 5.2rem; }
+.reserve-best-value { position: absolute; top: -.45rem; left: .8rem; border-radius: 999px; background: #dff5e8; color: var(--moss); padding: .2rem .5rem; font-size: .62rem; font-weight: 800; }
 .selection-card { position: relative; display: flex; min-height: 6.4rem; align-items: flex-start; gap: .85rem; border: 1.5px solid var(--line); border-radius: .9rem; background: var(--paper); padding: 1.05rem 2.4rem 1.05rem 1.05rem; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
 .selection-card:hover { border-color: var(--moss); transform: translateY(-1px); }
 .selection-card.selected { border-color: var(--forest); background: #edf5ef; box-shadow: inset 0 0 0 1px var(--forest); }
@@ -508,6 +525,11 @@ button, select, input, textarea { min-height: 44px; }
   .form-step:has(.fulfillment-date-field) .choice-grid { grid-column: 1; }
   .contact-notes { grid-column: auto; }
   .selection-card { min-height: 5.8rem; }
+  .reserve-product-card-header { grid-template-columns: 5.5rem minmax(0, 1fr); gap: .75rem; }
+  .reserve-product-image { height: 5rem; }
+  .reserve-product-card-copy strong { font-size: 1.2rem; }
+  .reserve-product-status { grid-column: 2; justify-self: start; margin: 0; }
+  .reserve-product-packages { padding: .85rem; }
   .reservation-summary-bar { position: fixed; right: .75rem; bottom: .75rem; left: .75rem; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; border-radius: 1rem; padding: .85rem; }
   .summary-total { justify-items: end; }
   .summary-total strong { font-size: 1.45rem; }
