@@ -1,4 +1,38 @@
 "use client";
+
+import Link from "next/link";
 import { useEffect, useState } from "react";
-type Dashboard = { businessDate: string; asOf: string; unreadNotifications: number; counts: Record<string, number>; capacity: Array<{ date: string; productNameFi: string; capacityLitres: number; reservedLitres: number; remainingLitres: number; soldOut: boolean }> };
-export function DashboardModule() { const [data, setData] = useState<Dashboard | null>(null); const [error, setError] = useState(""); useEffect(() => { const timer = window.setTimeout(() => { void fetch("/api/admin/dashboard").then(async (response) => { const body = await response.json(); if (response.ok) setData(body.data); else setError(body.message ?? "Dashboard unavailable"); }); }, 0); return () => window.clearTimeout(timer); }, []); if (error) return <section className="shell py-6"><p className="card" role="alert">{error}</p></section>; if (!data) return <section className="shell py-6"><p>Loading dashboard…</p></section>; const cards = [["New orders", data.counts.new], ["Confirmed", data.counts.confirmed], ["Picking", data.counts.picking], ["Ready", data.counts.ready], ["Completed", data.counts.completed], ["Exceptions", data.counts.exceptions]]; return <section className="shell py-6"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm font-semibold text-emerald-700">OPERATIONS DASHBOARD</p><h1 className="text-3xl font-bold">Today · {data.businessDate}</h1></div><p className="text-sm text-slate-600">Updated {new Date(data.asOf).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" })} · {data.unreadNotifications} unread</p></div><div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">{cards.map(([label, value]) => <article className="card" key={label as string}><p className="text-sm text-slate-600">{label}</p><p className="mt-2 text-3xl font-bold">{value}</p></article>)}</div><div className="card mt-5"><h2 className="text-xl font-bold">Capacity monitor</h2><div className="mt-3 grid gap-3 md:grid-cols-2">{data.capacity.map((row) => <article className="rounded-xl border p-4" key={`${row.productNameFi}-${row.date}`}><div className="flex justify-between gap-3"><strong>{row.productNameFi}</strong><span className="pill">{row.soldOut ? "Sold out" : "Open"}</span></div><p className="text-sm text-slate-600">{row.date}</p><div className="mt-3 h-3 rounded-full bg-slate-200"><div className="h-3 rounded-full bg-emerald-700" style={{ width: `${Math.min(100, row.capacityLitres ? row.reservedLitres / row.capacityLitres * 100 : 0)}%` }} /></div><p className="mt-2 text-sm">Reserved {row.reservedLitres} L · Remaining {row.remainingLitres} L</p></article>)}</div></div></section>; }
+
+type Dashboard = {
+  businessDate: string;
+  asOf: string;
+  unreadNotifications: number;
+  overdueNew: Array<{ id: string; publicReference: string; customerName: string; createdAt: string; ageMinutes: number }>;
+  actionableOrders: Array<{ id: string; publicReference: string; customerName: string; productNameFi: string; status: string; fulfillmentMethod: string; fulfillmentDate: string }>;
+  counts: Record<string, number>;
+  capacity: Array<{ date: string; productNameFi: string; capacityLitres: number; reservedLitres: number; remainingLitres: number; soldOut: boolean }>;
+};
+
+const pipeline = [
+  ["new", "New orders", "Incoming reservations"],
+  ["confirmed", "Confirmed", "Customer contacted"],
+  ["picking", "Picking", "Harvest in progress"],
+  ["ready", "Ready", "Pickup or delivery"],
+  ["completed", "Completed", "Handed over"],
+] as const;
+
+export function DashboardModule() {
+  const [data, setData] = useState<Dashboard | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => { const timer = window.setTimeout(() => { void fetch("/api/admin/dashboard").then(async (response) => { const body = await response.json(); if (response.ok) setData(body.data); else setError(body.message ?? "Dashboard unavailable"); }); }, 0); return () => window.clearTimeout(timer); }, []);
+  if (error) return <section className="shell py-6"><p className="card" role="alert">{error}</p></section>;
+  if (!data) return <section className="shell py-6"><p>Loading dashboard…</p></section>;
+  return <section id="dashboard" className="shell py-6">
+    <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="eyebrow">OPERATIONS CENTER</p><h2 className="mt-1 text-3xl font-bold">Today · {data.businessDate}</h2></div><p className="text-sm text-slate-600">Updated {new Date(data.asOf).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" })} · {data.unreadNotifications} unread</p></div>
+    {data.overdueNew.length > 0 && <div className="dashboard-alert mt-5" role="alert"><div><strong>Attention: {data.overdueNew.length} new order{data.overdueNew.length === 1 ? "" : "s"} over 15 minutes</strong><p>Contact the customer and confirm the reservation before the next fulfillment step.</p></div><Link className="btn dashboard-alert-btn" href="#orders">Review orders</Link></div>}
+    <div className="dashboard-pipeline mt-5">{pipeline.map(([key, label, description]) => <article className="dashboard-metric card" key={key}><div className="dashboard-metric-icon" aria-hidden="true">{key === "new" ? "!" : key === "completed" ? "✓" : "→"}</div><div><p className="text-sm text-slate-600">{label}</p><p className="dashboard-number">{data.counts[key] ?? 0}</p><p className="text-xs text-slate-500">{description}</p></div></article>)}<article className="dashboard-metric card dashboard-exception"><div className="dashboard-metric-icon" aria-hidden="true">!</div><div><p className="text-sm text-slate-600">Exceptions</p><p className="dashboard-number">{data.counts.exceptions ?? 0}</p><p className="text-xs text-slate-500">Needs review · Refunded: {data.counts.refunded ?? 0}</p></div></article></div>
+    <div className="dashboard-grid mt-5"><section className="card"><div className="flex items-center justify-between gap-3"><div><h3 className="text-xl font-bold">Capacity · next 14 days</h3><p className="text-sm text-slate-600">Reserved versus available litres by product.</p></div><Link className="btn btn-secondary" href="#availability">Manage</Link></div><div className="mt-4 grid gap-3">{data.capacity.map((row) => <div className="capacity-row" key={`${row.productNameFi}-${row.date}`}><div className="flex justify-between gap-3 text-sm"><strong>{row.productNameFi}</strong><span className={row.soldOut ? "pill pill-warning" : "pill"}>{row.soldOut ? "Sold out" : row.date}</span></div><div className="capacity-track" role="progressbar" aria-label={`${row.productNameFi} ${row.date}`} aria-valuenow={row.reservedLitres} aria-valuemin={0} aria-valuemax={row.capacityLitres}><span style={{ width: `${Math.min(100, row.reservedLitres / Math.max(row.capacityLitres, 1) * 100)}%` }} /></div><p className="text-xs text-slate-600">{row.reservedLitres} L reserved · {row.remainingLitres} L remaining</p></div>)}</div></section>
+      <section className="card"><div className="flex items-center justify-between gap-3"><div><h3 className="text-xl font-bold">Actionable today</h3><p className="text-sm text-slate-600">Orders requiring an operational next step.</p></div><Link className="btn btn-secondary" href="#orders">View all</Link></div><div className="mt-4 grid gap-2">{data.actionableOrders.length === 0 && <p className="text-sm text-slate-600">No actionable orders today.</p>}{data.actionableOrders.map((order) => <Link href="#orders" className="actionable-order" key={order.id}><span><strong>{order.publicReference}</strong><br /><span className="text-sm">{order.customerName} · {order.productNameFi}</span></span><span className="pill">{order.status}</span></Link>)}</div></section></div>
+    <p className="mt-4 text-xs text-slate-500">Exceptions include cancelled, rejected, no-show, customer-declined, and customer-cancelled orders. Refunds are tracked separately.</p>
+  </section>;
+}

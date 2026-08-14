@@ -55,3 +55,19 @@ button, select, input, textarea { min-height: 44px; }
 .admin-nav { width: min(100%, 72rem); margin: .75rem auto 0; display: flex; gap: .4rem; overflow-x: auto; padding-bottom: .15rem; }
 .admin-nav a { flex: 0 0 auto; border: 1px solid rgb(255 255 255 / 25%); border-radius: .55rem; padding: .55rem .75rem; font-size: .85rem; font-weight: 700; color: #f8f9fa; text-decoration: none; }
 .admin-nav a:hover, .admin-nav a:focus-visible { background: #f59e0b; color: #152a1d; }
+.dashboard-alert { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid #f59e0b; border-radius: 1rem; background: #fffbeb; padding: 1rem 1.25rem; color: #78350f; }
+.dashboard-alert p { margin: .25rem 0 0; font-size: .875rem; }
+.dashboard-alert-btn { background: #f59e0b; color: #152a1d; }
+.dashboard-pipeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; }
+.dashboard-metric { display: flex; align-items: flex-start; gap: .75rem; padding: 1rem; }
+.dashboard-metric-icon { display: grid; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; place-items: center; border-radius: .75rem; background: #e7efe9; color: var(--forest); font-size: 1.25rem; font-weight: 900; }
+.dashboard-number { margin: .2rem 0; font-size: 2rem; font-weight: 800; line-height: 1; }
+.dashboard-exception { border-color: #f3c56b; }
+.dashboard-exception .dashboard-metric-icon, .pill-warning { background: #fef3c7; color: #92400e; }
+.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, .65fr); gap: 1rem; }
+.capacity-row { display: grid; gap: .4rem; }
+.capacity-track { height: .7rem; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+.capacity-track span { display: block; height: 100%; border-radius: inherit; background: var(--moss); }
+.actionable-order { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border: 1px solid #e2e8f0; border-radius: .7rem; padding: .7rem; text-decoration: none; }
+.actionable-order:hover, .actionable-order:focus-visible { border-color: var(--moss); background: #f4fbf5; }
+@media (max-width: 760px) { .dashboard-alert, .dashboard-grid { display: grid; grid-template-columns: 1fr; } .dashboard-alert-btn { width: fit-content; } }

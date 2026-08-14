@@ -43,7 +43,7 @@ export default async function ManagerPage() {
     { id: "users", label: "Users & permissions", enabled: await allowed("shop_users.manage") },
   ];
   return <><AdminNavigation role={actor.role} items={navigation} />
-    {ordersAllowed && <div id="dashboard"><DashboardModule /></div>}
+    {ordersAllowed && <DashboardModule />}
     {(ordersAllowed || availabilityAllowed) && <ManagerView initialOrders={orders} initialAvailability={availability} canViewOrders={ordersAllowed} canManageAvailability={availabilityAllowed} />}
     {navigation[3].enabled && <div id="customers"><CustomersModule /></div>}
     {navigation[4].enabled && <div id="manual-orders"><ManualOrdersModule products={products} /></div>}
