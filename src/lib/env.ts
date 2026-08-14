@@ -11,6 +11,8 @@ const envSchema = z.object({
   BOOTSTRAP_ADMIN_EMAIL: z.string().email().optional(),
   BOOTSTRAP_ADMIN_PASSWORD: z.string().optional(),
   ADMIN_SESSION_SECRET: z.string().min(32).optional(),
+  BETTER_AUTH_SECRET: z.string().min(32).optional(),
+  BETTER_AUTH_URL: z.string().url().optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
