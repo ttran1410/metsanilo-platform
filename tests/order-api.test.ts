@@ -159,6 +159,11 @@ describe("public order transaction and API", () => {
     }));
     expect(invalid.status).toBe(422);
     expect((await invalid.json()).code).toBe("INVALID_QUANTITY");
+
+    const minimalDelivery = await POST(new Request("http://localhost/api/public/orders", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...delivery, idempotencyKey: "delivery-minimal", customerName: "Minimal Delivery", mobile: "+358401234568", email: "minimal@example.com", postalCode: "", city: "" }),
+    }));
+    expect(minimalDelivery.status).toBe(201);
   });
 });
 

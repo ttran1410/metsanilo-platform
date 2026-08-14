@@ -23,11 +23,8 @@ export const orderInputSchema = z
       if (!input.streetAddress || input.streetAddress.length < 2) {
         ctx.addIssue({ code: "custom", path: ["streetAddress"], message: "REQUIRED" });
       }
-      if (!/^\d{5}$/.test(input.postalCode ?? "")) {
+      if (input.postalCode && !/^\d{5}$/.test(input.postalCode)) {
         ctx.addIssue({ code: "custom", path: ["postalCode"], message: "INVALID_POSTAL_CODE" });
-      }
-      if (!input.city || input.city.length < 2) {
-        ctx.addIssue({ code: "custom", path: ["city"], message: "REQUIRED" });
       }
     }
   });

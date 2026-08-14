@@ -146,27 +146,9 @@ export function OrderForm({
 
   return (
     <>
-      {contact.phone && (
-        <section className="message-booking-banner" aria-labelledby="message-booking-title">
-          <div className="message-booking-copy">
-            <span className="message-booking-kicker">{locale === "fi" ? "Nopea varaus" : "Quick booking"}</span>
-            <h3 id="message-booking-title">{locale === "fi" ? "Etkö halua täyttää lomaketta?" : "Prefer not to fill in the form?"}</h3>
-            <p>{locale === "fi" ? "Lähetä meille viesti. Vahvistamme tuotteen, määrän ja noutoajan henkilökohtaisesti." : "Send us a message. We’ll confirm the product, quantity and pickup time personally."}</p>
-          </div>
-          <div className="message-booking-actions">
-            <a className="message-action" href={`sms:${smsNumber}`}>
-              <span><strong>SMS</strong><small>{locale === "fi" ? "Lähetä viesti" : "Send a message"}</small></span>
-              <span aria-hidden="true">→</span>
-            </a>
-            <a className="message-action message-action-whatsapp" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">
-              <span><strong>WhatsApp</strong><small>{locale === "fi" ? "Avaa WhatsApp" : "Open WhatsApp"}</small></span>
-              <span aria-hidden="true">→</span>
-            </a>
-          </div>
-        </section>
-      )}
       <form className="reservation-form" onSubmit={submit} noValidate>
       <div className="reservation-fields">
+      {contact.phone && <section className="message-booking-banner" aria-labelledby="message-booking-title"><div className="message-booking-copy"><span className="message-booking-kicker">{locale === "fi" ? "Nopea varaus" : "Quick booking"}</span><strong id="message-booking-title">{locale === "fi" ? "Varaa viestillä" : "Prefer to message us?"}</strong></div><div className="message-booking-actions"><a className="message-action" href={`sms:${smsNumber}`}><strong>SMS</strong><span aria-hidden="true">→</span></a><a className="message-action message-action-whatsapp" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer"><strong>WhatsApp</strong><span aria-hidden="true">→</span></a></div></section>}
         <p className="required-note">{t.required}</p>
         {error && <div className="error form-error" role="alert" tabIndex={-1}>{error}</div>}
         <fieldset className="form-step">
@@ -202,18 +184,11 @@ export function OrderForm({
             <small>{locale === "fi" ? "10 litran pakkaukselle voit valita määrän." : "Quantity can be selected for the 10 litre package."}</small>
           </label>
         )}
-        <label className="field">
-          <span>{t.date} *</span>
-          <select required value={date} onChange={(event) => setDate(event.target.value)} aria-invalid={Boolean(fieldErrors.fulfillmentDate)}>
-            <option value="">—</option>
-            {orderableDates.map((item) => <option key={item.date} value={item.date}>{item.date}</option>)}
-          </select>
-        </label>
-        <p className="availability-hint" aria-live="polite">{orderableDates.length > 0 ? (locale === "fi" ? `${orderableDates.length} noutopäivää saatavilla` : `${orderableDates.length} pickup dates available`) : t.closed}</p>
         </fieldset>
 
       <fieldset className="form-step">
         <legend><span>02</span> {t.method}</legend>
+        <label className="field fulfillment-date-field"><span>{t.date} *</span><select required value={date} onChange={(event) => setDate(event.target.value)} aria-invalid={Boolean(fieldErrors.fulfillmentDate)}><option value="">—</option>{orderableDates.map((item) => <option key={item.date} value={item.date}>{item.date}</option>)}</select><small className="availability-hint" aria-live="polite">{orderableDates.length > 0 ? (locale === "fi" ? `${orderableDates.length} noutopäivää saatavilla` : `${orderableDates.length} pickup dates available`) : t.closed}</small></label>
         <div className="choice-grid">
           <label className={`choice-card${method === "PICKUP" ? " selected" : ""}`}><input type="radio" checked={method === "PICKUP"} onChange={() => setMethod("PICKUP")} /> <span><strong>{t.pickup}</strong><small>{locale === "fi" ? "Nouda sovittuna päivänä Porista" : "Collect on the agreed date in Pori"}</small></span></label>
           <label className={`choice-card${method === "DELIVERY" ? " selected" : ""}`}><input type="radio" checked={method === "DELIVERY"} onChange={() => setMethod("DELIVERY")} /> <span><strong>{t.delivery}</strong><small>{locale === "fi" ? "Sovitaan erikseen" : "Arranged separately"}</small></span></label>
@@ -224,8 +199,8 @@ export function OrderForm({
           <div className="grid gap-4">
             <p className="delivery-note">{t.deliveryPending}</p>
             <label className="field"><span>{t.street} *</span><input name="streetAddress" required minLength={2} maxLength={160} /></label>
-            <label className="field"><span>{t.postalCode} *</span><input name="postalCode" required inputMode="numeric" pattern="[0-9]{5}" maxLength={5} /></label>
-            <label className="field"><span>{t.city} *</span><input name="city" required minLength={2} maxLength={100} /></label>
+            <label className="field"><span>{t.postalCode}</span><input name="postalCode" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} /></label>
+            <label className="field"><span>{t.city}</span><input name="city" minLength={2} maxLength={100} /></label>
           </div>
         )}
       </fieldset>
