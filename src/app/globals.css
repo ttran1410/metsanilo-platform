@@ -210,6 +210,7 @@ button, select, input, textarea { min-height: 44px; }
 .pickup-card > span { color: var(--muted); font-size: .65rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .pickup-card p { margin: 0; color: var(--muted); line-height: 1.6; }
 .delivery-note { margin: 0; color: var(--berry); font-weight: 700; }
+.delivery-fields { grid-template-columns: minmax(0, 2fr) minmax(8rem, .8fr) minmax(9rem, .9fr); }
 .privacy-check { display: flex; align-items: flex-start; gap: .75rem; color: var(--muted); font-size: .84rem; line-height: 1.55; }
 .privacy-check { font-size: .95rem; }
 .privacy-check input { min-height: auto; margin-top: .25rem; accent-color: var(--forest); }
@@ -522,7 +523,7 @@ button, select, input, textarea { min-height: 44px; }
   .message-action { justify-content: center; }
   .form-step { padding-block: 2rem; }
   .form-step legend { font-size: 1.5rem; }
-  .choice-grid, .product-selection, .package-selection, .contact-grid, .reservation-sidebar { grid-template-columns: 1fr; }
+  .choice-grid, .product-selection, .package-selection, .contact-grid, .delivery-fields, .reservation-sidebar { grid-template-columns: 1fr; }
   .form-step:has(.fulfillment-date-field) { grid-template-columns: 1fr; }
   .form-step:has(.fulfillment-date-field) .choice-grid { grid-column: 1; }
   .contact-notes { grid-column: auto; }

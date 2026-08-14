@@ -193,16 +193,15 @@ export function OrderForm({
         <label className="field fulfillment-date-field"><span>{t.date} *</span><select required value={date} onChange={(event) => setDate(event.target.value)} aria-invalid={Boolean(fieldErrors.fulfillmentDate)}><option value="">—</option>{orderableDates.map((item) => <option key={item.date} value={item.date}>{item.date}</option>)}</select><small className="availability-hint" aria-live="polite">{orderableDates.length > 0 ? (locale === "fi" ? `${orderableDates.length} noutopäivää saatavilla` : `${orderableDates.length} pickup dates available`) : t.closed}</small></label>
         <div className="choice-grid">
           <label className={`choice-card${method === "PICKUP" ? " selected" : ""}`}><input type="radio" checked={method === "PICKUP"} onChange={() => setMethod("PICKUP")} /> <span><strong>{t.pickup}</strong><small>{locale === "fi" ? "Nouda sovittuna päivänä Porista" : "Collect on the agreed date in Pori"}</small></span></label>
-          <label className={`choice-card${method === "DELIVERY" ? " selected" : ""}`}><input type="radio" checked={method === "DELIVERY"} onChange={() => setMethod("DELIVERY")} /> <span><strong>{t.delivery}</strong><small>{locale === "fi" ? "Sovitaan erikseen" : "Arranged separately"}</small></span></label>
+          <label className={`choice-card${method === "DELIVERY" ? " selected" : ""}`}><input type="radio" checked={method === "DELIVERY"} onChange={() => setMethod("DELIVERY")} /> <span><strong>{t.delivery}</strong><small>{locale === "fi" ? "Sovitaan toimituksesta" : "Delivery to be agreed"}</small></span></label>
         </div>
         {method === "PICKUP" ? (
           <div className="pickup-card"><span>{locale === "fi" ? "Noutopaikka" : "Pickup point"}</span><strong>{pickup.name}</strong><p>{pickup.address}<br />{pickup.instructions}<br />{pickup.time}</p></div>
         ) : (
-          <div className="grid gap-4">
-            <p className="delivery-note">{t.deliveryPending}</p>
+          <div className="delivery-fields grid gap-4">
             <label className="field"><span>{t.street} *</span><input name="streetAddress" required minLength={2} maxLength={160} /></label>
             <label className="field"><span>{t.postalCode}</span><input name="postalCode" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} /></label>
-            <label className="field"><span>{t.city}</span><input name="city" minLength={2} maxLength={100} /></label>
+            <label className="field"><span>{t.city}</span><input name="city" defaultValue="Pori" minLength={2} maxLength={100} /></label>
           </div>
         )}
       </fieldset>
