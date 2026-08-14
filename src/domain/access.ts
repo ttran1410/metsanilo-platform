@@ -18,6 +18,14 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
 
+/** Admin and Manager receive the full implemented operational catalogue.
+ * Staff and Content Creator start empty and require explicit grants. */
+export function defaultPermissionsForRole(role: Role): Permission[] {
+  if (role === "ADMIN" || role === "MANAGER") return [...PERMISSIONS];
+  if (role === "STAFF") return PERMISSIONS.filter((permission) => permission.startsWith("orders.") || permission.startsWith("delivery.") || permission.startsWith("availability.") || permission.startsWith("customers.") || permission.startsWith("catalog."));
+  return [];
+}
+
 function usernameFromRequest(request: Request) {
   const authorization = request.headers.get("authorization");
   if (!authorization?.startsWith("Basic ")) throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
@@ -63,7 +71,7 @@ export async function listUsers(database: Database, request: Request) {
   const shopId = env().SHOP_ID;
   const rows = await database.select().from(users).where(eq(users.shopId, shopId));
   const grants = await database.select().from(userPermissions).where(eq(userPermissions.shopId, shopId));
-  return rows.map((user) => ({ ...user, permissions: grants.filter((grant) => grant.userId === user.id && grant.granted).map((grant) => grant.permission) }));
+  return rows.map((user) => ({ ...user, permissions: [...new Set([...grants.filter((grant) => grant.userId === user.id && grant.granted).map((grant) => grant.permission as Permission), ...defaultPermissionsForRole(user.role)])] }));
 }
 
 export async function createUser(database: Database, request: Request, input: { email: string; displayName: string; role: Role; password: string }) {
@@ -79,6 +87,8 @@ export async function createUser(database: Database, request: Request, input: { 
     const now = new Date();
     await database.insert(authUsers).values({ id, name: displayName, email, emailVerified: true, image: null, createdAt: now, updatedAt: now });
     await database.insert(authAccounts).values({ id: randomUUID(), accountId: id, providerId: "credential", userId: id, password: passwordHash, createdAt: now, updatedAt: now });
+    const defaults = defaultPermissionsForRole(input.role);
+    if (defaults.length) await database.insert(userPermissions).values(defaults.map((permission) => ({ id: randomUUID(), shopId: env().SHOP_ID, userId: id, permission, granted: true, updatedAt: createdAt })));
   } catch (error) {
     if (String(error).toLowerCase().includes("unique")) throw new DomainError("DUPLICATE_USER", "Username already exists", 409);
     throw error;
