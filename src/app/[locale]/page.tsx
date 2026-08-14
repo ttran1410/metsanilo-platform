@@ -75,11 +75,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
 
   const shopName = locale === "fi" ? data.shop.nameFi : data.shop.nameEn;
   const products = [...productMap.values()];
-  const defaultPackageFor = (product: PublicProduct) => product.packages.find((item) => item.volumeMl === 10000) ?? product.packages[0];
-  const nextPickupDates = products.flatMap((product) => {
-    const defaultPackage = defaultPackageFor(product);
-    return defaultPackage ? product.dates.filter((date) => date.acceptsOrders && !date.soldOut && date.remainingMl >= defaultPackage.volumeMl).map((date) => date.date) : [];
-  }).filter((date, index, dates) => dates.indexOf(date) === index).sort();
+  const nextPickupDates = products.flatMap((product) => product.dates.filter((date) => date.acceptsOrders && !date.soldOut).map((date) => date.date)).filter((date, index, dates) => dates.indexOf(date) === index).sort();
   const toLocalIso = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
   const today = new Date();
   const todayIso = toLocalIso(today);
@@ -124,7 +120,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           <dl className="hero-facts">
             <div><dt>{locale === "fi" ? "Alkuperä" : "Origin"}</dt><dd>Satakunta</dd></div>
             <div><dt>{locale === "fi" ? "Nouto" : "Pickup"}</dt><dd>Pori</dd></div>
-            <div><dt>{locale === "fi" ? "Maksu" : "Payment"}</dt><dd>{locale === "fi" ? "Noudon tai toimituksen yhteydessä" : "At pickup or delivery"}</dd></div>
+            <div><dt>{locale === "fi" ? "Maksu" : "Payment"}</dt><dd>{locale === "fi" ? "Noudettaessa / toimitettaessa" : "On pickup / delivery"}</dd></div>
           </dl>
         </div>
         <div className="hero-visual" aria-hidden={!heroImage}>
