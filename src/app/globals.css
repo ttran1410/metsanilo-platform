@@ -54,6 +54,8 @@ button, select, input, textarea { min-height: 44px; }
 .hero-copy h1 em { color: #d9b6c8; font-weight: 400; }
 .hero-lede { max-width: 36rem; margin: 2rem 0 0; color: #e0e8e2; font-size: clamp(1rem, 1.5vw, 1.15rem); line-height: 1.7; }
 .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem; margin-top: 2.2rem; }
+.next-pickup-pill { display: inline-flex; width: fit-content; align-items: center; gap: .6rem; margin: 1.25rem 0 0; border: 1px solid rgb(143 186 159 / 42%); border-radius: .75rem; color: #a9d8be; padding: .65rem .85rem; font-size: .8rem; font-weight: 700; }
+.next-pickup-pill span { color: #f5b638; font-size: 1rem; }
 .btn { display: inline-flex; min-height: 3.15rem; align-items: center; justify-content: center; gap: 1.5rem; border: 0; border-radius: 999px; background: var(--forest); color: white; padding: .8rem 1.35rem; font-weight: 700; text-align: center; text-decoration: none; cursor: pointer; transition: transform 180ms ease, background-color 180ms ease, color 180ms ease; }
 .btn:hover { transform: translateY(-2px); }
 .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
