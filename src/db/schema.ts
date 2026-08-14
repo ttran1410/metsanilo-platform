@@ -49,13 +49,17 @@ export const users = sqliteTable(
   {
     id: text("id").primaryKey(),
     shopId: text("shop_id").notNull().references(() => shops.id),
-    username: text("username").notNull(),
+    username: text("username"),
+    email: text("email"),
+    passwordHash: text("password_hash").notNull(),
+    mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
+    sessionVersion: integer("session_version").notNull().default(1),
     displayName: text("display_name").notNull(),
     role: text("role", { enum: ["ADMIN", "MANAGER", "STAFF", "CONTENT_CREATOR"] }).notNull(),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     createdAt: text("created_at").notNull(),
   },
-  (table) => [uniqueIndex("users_shop_username_unique").on(table.shopId, table.username)],
+  (table) => [uniqueIndex("users_email_unique").on(table.email)],
 );
 
 export const userPermissions = sqliteTable(

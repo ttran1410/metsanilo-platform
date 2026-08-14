@@ -8,8 +8,9 @@ const envSchema = z.object({
   SHOP_NAME_FI: z.string().min(1).optional(),
   SHOP_NAME_EN: z.string().min(1).optional(),
   SHOP_TIMEZONE: z.string().min(1).default("Europe/Helsinki"),
-  MANAGER_USERNAME: z.string().min(1).default("manager"),
-  MANAGER_PASSWORD: z.string().min(16).optional(),
+  BOOTSTRAP_ADMIN_EMAIL: z.string().email().optional(),
+  BOOTSTRAP_ADMIN_PASSWORD: z.string().optional(),
+  ADMIN_SESSION_SECRET: z.string().min(32).optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -33,8 +34,7 @@ export function validateRuntimeEnvironment(options?: { production?: boolean }) {
   if (production) {
     if (config.TURSO_DATABASE_URL.startsWith("file:")) errors.push("TURSO_DATABASE_URL must be a remote Turso URL");
     if (!config.TURSO_AUTH_TOKEN) errors.push("TURSO_AUTH_TOKEN is required");
-    if (!config.MANAGER_PASSWORD || config.MANAGER_PASSWORD.length < 16) errors.push("MANAGER_PASSWORD must be at least 16 characters");
-    if (config.MANAGER_PASSWORD === "manager" || config.MANAGER_PASSWORD === "password") errors.push("MANAGER_PASSWORD must not use a default value");
+    if (!config.ADMIN_SESSION_SECRET || config.ADMIN_SESSION_SECRET.length < 32) errors.push("ADMIN_SESSION_SECRET must be at least 32 characters");
   }
   if (!config.SHOP_ID || !config.SHOP_SLUG) errors.push("SHOP_ID and SHOP_SLUG are required");
   return errors.length ? { ok: false as const, errors } : { ok: true as const, config };

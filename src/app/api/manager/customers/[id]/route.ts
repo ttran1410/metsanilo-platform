@@ -1,0 +1,13 @@
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { and, eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import { auditEntries, customers } from "@/db/schema";
+import { requirePermission } from "@/domain/access";
+import { env } from "@/lib/env";
+import { DomainError } from "@/domain/errors";
+import { failure, success } from "../../../response";
+export const runtime = "nodejs";
+const update = z.object({ name: z.string().min(2).max(120), mobile: z.string().min(3).max(40), email: z.string().email().optional().or(z.literal("")) });
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) { try { const actor = await requirePermission(db(), request, "customers.write"); const { id } = await context.params; const parsed = update.safeParse(await request.json()); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid customer details", 422); const now = new Date().toISOString(); const changed = await db().update(customers).set({ name: parsed.data.name.trim(), mobile: parsed.data.mobile.trim(), email: parsed.data.email?.toLowerCase() || null, updatedAt: now }).where(and(eq(customers.id, id), eq(customers.shopId, env().SHOP_ID))).run(); if (changed.rowsAffected !== 1) throw new DomainError("NOT_FOUND", "Customer not found", 404); await db().insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor: actor.email ?? actor.username ?? actor.id, action: "customer.updated", entityType: "customer", entityId: id, detailsJson: JSON.stringify({ fields: ["name", "mobile", "email"] }), createdAt: now }); return success((await db().query.customers.findFirst({ where: eq(customers.id, id) }))!); } catch (error) { return failure(error); } }
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) { try { const actor = await requirePermission(db(), request, "customers.write"); const { id } = await context.params; const now = new Date().toISOString(); const changed = await db().update(customers).set({ name: "Anonymized customer", mobile: `ANONYMIZED-${id.slice(0, 8)}`, email: null, notes: "Personal data anonymized by authorized user.", updatedAt: now }).where(and(eq(customers.id, id), eq(customers.shopId, env().SHOP_ID))).run(); if (changed.rowsAffected !== 1) throw new DomainError("NOT_FOUND", "Customer not found", 404); await db().insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor: actor.email ?? actor.username ?? actor.id, action: "customer.anonymized", entityType: "customer", entityId: id, detailsJson: JSON.stringify({ reason: "customer request or retention policy" }), createdAt: now }); return success({ anonymized: true }); } catch (error) { return failure(error); } }

@@ -1,0 +1,2 @@
+import { ForcedPasswordForm } from "./form";
+export default function ChangePasswordPage() { return <main className="min-h-screen bg-slate-950 px-4 py-16"><div className="mx-auto max-w-md rounded-2xl bg-white p-8 shadow-xl"><p className="text-sm font-bold tracking-widest text-emerald-700">METSÄNILO OPERATIONS</p><h1 className="mt-3 text-3xl font-bold text-slate-900">Change your password</h1><p className="mt-2 text-slate-600">For security, choose a new password before continuing.</p><ForcedPasswordForm /></div></main>; }

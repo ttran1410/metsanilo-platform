@@ -5,7 +5,7 @@ import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../response";
 
 export const runtime = "nodejs";
-const command = z.object({ username: z.string(), displayName: z.string(), role: z.enum(["ADMIN", "MANAGER", "STAFF", "CONTENT_CREATOR"]) });
+const command = z.object({ email: z.string().email(), displayName: z.string(), role: z.enum(["ADMIN", "MANAGER", "STAFF", "CONTENT_CREATOR"]), password: z.string() });
 
 export async function GET(request: Request) {
   try { return success(await listUsers(db(), request)); } catch (error) { return failure(error); }

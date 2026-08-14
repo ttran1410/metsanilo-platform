@@ -37,7 +37,7 @@ For a deployment or production-like environment, run `npm run db:preflight` befo
 
 Seeding is intentionally guarded: use `SEED_DRY_RUN=true npm run db:seed` to validate inputs without writing, and set `SEED_ALLOW_EXISTING=true` only after reviewing an existing shop before an idempotent update. The seed refuses to run if the database contains a different shop.
 
-Open `http://localhost:3000/fi`, switch to English at `/en`, and open `/manager` with `MANAGER_USERNAME` and `MANAGER_PASSWORD`.
+Open `http://localhost:3000/fi`, switch to English at `/en`, and open `/manager`. Admin users sign in with their email and password.
 
 ## Turso migration and seed
 
@@ -59,7 +59,8 @@ npm run db:seed
 | `TURSO_DATABASE_URL` | Production Turso/libSQL URL |
 | `TURSO_AUTH_TOKEN` | Least-privilege production database token |
 | `SHOP_ID` | Stable server-selected tenant identity; must match the seeded shop |
-| `MANAGER_USERNAME`, `MANAGER_PASSWORD` | Protected Manager access; password must be 16+ characters |
+| `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD` | One-time seed values for the first Admin; the password is hashed before storage and the Admin must change it after first login |
+| `ADMIN_SESSION_SECRET` | Secret used to sign admin sessions; at least 32 characters in production |
 
 The operator-only migration/seed environment additionally requires the following values. These do not need to be stored in Vercel after seeding:
 
