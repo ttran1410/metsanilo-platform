@@ -20,6 +20,11 @@ export function ManagerView({
   const [message, setMessage] = useState("");
   const [detail, setDetail] = useState<OrderDetail | null>(null);
 
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.assign("/manager/login");
+  }
+
   async function status(order: Order, next: "CONFIRMED" | "PICKING" | "READY" | "OUT_FOR_DELIVERY" | "PICKED_UP" | "DELIVERED" | "CUSTOMER_DECLINED" | "CANCELLED" | "CANCELLED_BY_CUSTOMER" | "REJECTED" | "NO_SHOW" | "REFUNDED") {
     setMessage("");
     const needsReason = ["CUSTOMER_DECLINED", "CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "REFUNDED"].includes(next);
@@ -116,7 +121,10 @@ export function ManagerView({
     <main className="shell py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><div className="text-xs font-bold tracking-[.2em]">METSÄNILO</div><h1 className="text-3xl font-bold">Manager</h1></div>
-        <Link className="btn btn-secondary" href="/fi">Public shop</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link className="btn btn-secondary" href="/fi">Public shop</Link>
+          <button className="btn btn-secondary" type="button" onClick={() => void logout()}>Sign out</button>
+        </div>
       </div>
       {message && <p className="card mt-5" role="status">{message}</p>}
 
