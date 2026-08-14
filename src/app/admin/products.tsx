@@ -11,18 +11,18 @@ export function ProductModule({ initialProducts }: { initialProducts: ProductRow
   function field(name: keyof typeof blank, value: string | boolean) { setForm((current) => ({ ...current, [name]: value })); }
   async function create(event: FormEvent) {
     event.preventDefault(); setMessage("");
-    const response = await fetch("/api/manager/products", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...form, packages: [{ labelFi: "Peruspakkaus", labelEn: "Standard package", volumeMl: 1000, priceCents: 0, active: true }] }) });
+    const response = await fetch("/api/admin/products", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...form, packages: [{ labelFi: "Peruspakkaus", labelEn: "Standard package", volumeMl: 1000, priceCents: 0, active: true }] }) });
     const body = await response.json(); if (!response.ok) return setMessage(body.message ?? body.code ?? "Request failed");
     setRows((current) => [...current, body.data]); setForm(blank); setMessage("Product created. Add packages through the API until package editor is enabled in the next UI slice.");
   }
   async function toggle(row: ProductRow) {
-    const response = await fetch(`/api/manager/products/${row.product.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "active", active: !row.product.active }) });
+    const response = await fetch(`/api/admin/products/${row.product.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "active", active: !row.product.active }) });
     const body = await response.json(); if (!response.ok) return setMessage(body.message ?? body.code ?? "Request failed");
     setRows((current) => current.map((item) => item.product.id === row.product.id ? body.data : item)); setMessage("Product state updated.");
   }
   async function remove(row: ProductRow) {
     if (!window.confirm("Delete this product only if it is unreferenced?")) return;
-    const response = await fetch(`/api/manager/products/${row.product.id}`, { method: "DELETE" }); const body = await response.json();
+    const response = await fetch(`/api/admin/products/${row.product.id}`, { method: "DELETE" }); const body = await response.json();
     if (!response.ok) return setMessage(body.message ?? body.code ?? "Product is in use");
     setRows((current) => current.filter((item) => item.product.id !== row.product.id)); setMessage("Product deleted.");
   }

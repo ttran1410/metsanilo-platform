@@ -37,7 +37,7 @@ For a deployment or production-like environment, run `npm run db:preflight` befo
 
 Seeding is intentionally guarded: use `SEED_DRY_RUN=true npm run db:seed` to validate inputs without writing, and set `SEED_ALLOW_EXISTING=true` only after reviewing an existing shop before an idempotent update. The seed refuses to run if the database contains a different shop.
 
-Open `http://localhost:3000/fi`, switch to English at `/en`, and open `/manager`. Admin users sign in with their email and password.
+Open `http://localhost:3000/fi`, switch to English at `/en`, and open `/admin`. Admin users sign in with their email and password.
 
 ## Turso migration and seed
 
@@ -101,7 +101,7 @@ After starting locally or deploying, smoke-check:
 3. Pickup shows its configured address/instructions before submit and on success.
 4. Delivery shows “Delivery to be agreed”; a success response has no delivery fee or final total.
 5. Repeating one idempotency key returns one reference and reserves capacity once.
-6. `/manager` challenges unauthenticated access; confirm/cancel and capacity/sold-out changes survive refresh.
+6. `/admin` challenges unauthenticated access; confirm/cancel and capacity/sold-out changes survive refresh.
 7. Audit rows exist for order creation/status, capacity reserve/release/update, and sold-out set/clear.
 
 ## Vercel deployment

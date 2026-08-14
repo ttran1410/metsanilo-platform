@@ -8,14 +8,14 @@ export function OperationsSettings() {
   const [methods, setMethods] = useState<Method[]>([]);
   const [message, setMessage] = useState("");
   async function load() {
-    const response = await fetch("/api/manager/payment-methods");
+    const response = await fetch("/api/admin/payment-methods");
     const body = await response.json();
     if (response.ok) setMethods(body.data);
     else setMessage(body.code ?? "Operational settings unavailable");
   }
   useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, []);
   async function toggle(method: Method) {
-    const response = await fetch("/api/manager/payment-methods", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ method: method.method, enabled: !method.enabled }) });
+    const response = await fetch("/api/admin/payment-methods", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ method: method.method, enabled: !method.enabled }) });
     const body = await response.json();
     if (!response.ok) return setMessage(body.code ?? body.message ?? "Request failed");
     setMethods((rows) => rows.map((row) => row.method === method.method ? body.data : row));
