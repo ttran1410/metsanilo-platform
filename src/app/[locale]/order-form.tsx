@@ -24,6 +24,8 @@ export function OrderForm({
   idempotencyKey: initialIdempotencyKey,
   privacyNoticeUrl,
   contact,
+  initialProductId,
+  initialPackageId,
 }: {
   locale: Locale;
   products: PublicProduct[];
@@ -31,14 +33,17 @@ export function OrderForm({
   idempotencyKey: string;
   privacyNoticeUrl?: string;
   contact: Contact;
+  initialProductId?: string;
+  initialPackageId?: string;
 }) {
   const t = copy[locale];
   const smsNumber = contact.phone.replace(/[^+\d]/g, "");
   const whatsappNumber = contact.phone.replace(/\D/g, "").replace(/^0/, "358");
-  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const resolvedInitialProductId = initialProductId === undefined ? (products[0]?.id ?? "") : initialProductId;
+  const [productId, setProductId] = useState(resolvedInitialProductId);
   const product = products.find((item) => item.id === productId);
-  const defaultPackage = products[0]?.packages.find((item) => item.volumeMl === 10000) ?? products[0]?.packages[0];
-  const [packageId, setPackageId] = useState(defaultPackage?.id ?? "");
+  const defaultPackage = product?.packages.find((item) => item.volumeMl === 10000) ?? product?.packages[0];
+  const [packageId, setPackageId] = useState(initialPackageId ?? defaultPackage?.id ?? "");
   const selectedPackage = product?.packages.find((item) => item.id === packageId) ?? product?.packages[0];
   const [quantity, setQuantity] = useState(1);
   const [date, setDate] = useState("");
