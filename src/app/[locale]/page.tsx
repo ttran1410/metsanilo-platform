@@ -6,6 +6,7 @@ import { getPublicCatalog } from "@/domain/availability";
 import { formatEuros, formatLitres, isLocale, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
 import { OrderForm, type PublicProduct } from "./order-form";
+import { ProductGallery } from "./product-gallery";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -78,7 +79,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
       </section>
       <section id="catalog" className="shell section" aria-labelledby="catalog-title">
         <div className="section-heading"><div><p className="eyebrow">{locale === "fi" ? "Saatavuus" : "Availability"}</p><h2 id="catalog-title">{locale === "fi" ? "Valitse marjat ja pakkaus" : "Choose berries and a package"}</h2></div></div>
-        <div className="catalog-grid">{[...productMap.values()].map((product) => <article className="catalog-card" key={product.id}>{product.media[0] && <img className="catalog-product-image" src={product.media[0].url} alt={product.media[0].alt} />}<h3>{product.name}</h3><div className="package-list">{product.packages.map((pkg) => <div className="package-row" key={pkg.id}><span>{pkg.label}<small>{formatLitres(pkg.volumeMl, locale)} l</small></span><strong>{formatEuros(pkg.priceCents, locale)}</strong></div>)}</div><a className="btn" href="#order">{locale === "fi" ? "Valitse ja tilaa" : "Choose and order"}</a></article>)}</div>
+        <div className="catalog-grid">{[...productMap.values()].map((product) => <article className="catalog-card" key={product.id}><ProductGallery images={product.media} previousLabel={locale === "fi" ? "Edellinen kuva" : "Previous image"} nextLabel={locale === "fi" ? "Seuraava kuva" : "Next image"} slideLabel={locale === "fi" ? "Tuotekuva" : "Product image"} /><h3>{product.name}</h3><div className="package-list">{product.packages.map((pkg) => <div className="package-row" key={pkg.id}><span>{pkg.label}<small>{formatLitres(pkg.volumeMl, locale)} l</small></span><strong>{formatEuros(pkg.priceCents, locale)}</strong></div>)}</div><a className="btn" href="#order">{locale === "fi" ? "Valitse ja tilaa" : "Choose and order"}</a></article>)}</div>
       </section>
       <section id="order" className="shell section" aria-labelledby="order-title">
         <h2 id="order-title" className="text-3xl font-bold text-[var(--forest)]">{t.shopHeading}</h2>
