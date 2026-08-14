@@ -159,15 +159,12 @@ export function OrderForm({
         <fieldset className="form-step">
         <legend><span>01</span> {locale === "fi" ? "Valitse marja ja pakkaus" : "Choose berries and package"}</legend>
         <div className="selection-label">{locale === "fi" ? "Tuote" : "Product"} *</div>
-        <div className="selection-grid product-selection">
+        <div className="reserve-product-grid">
           {products.map((item) => {
             const available = item.packages.some((pkg) => item.dates.some((dateItem) => dateItem.acceptsOrders && !dateItem.soldOut && dateItem.remainingMl >= pkg.volumeMl));
-            return <label className={`selection-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}>
-              <input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} />
-              <span className="selection-card-copy"><strong>{item.name}</strong><small>{item.description || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span>
-              <span className="selection-check" aria-hidden="true">✓</span>
-            </label>;
+            return <label className={`reserve-product-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}><input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} /><span className="reserve-product-image">{item.media[0] ? <img src={item.media[0].url} alt="" /> : <span aria-hidden="true">M</span>}</span><span className="reserve-product-card-copy"><strong>{item.name}</strong><small>{item.description?.split(/[.!?]/)[0] || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span><span className={`availability-badge reserve-product-status${available ? "" : " unavailable"}`}>{available ? (locale === "fi" ? "Saatavilla" : "Available") : (locale === "fi" ? "Ei saatavilla" : "Unavailable")}</span><span className="selection-check" aria-hidden="true">✓</span></label>;
           })}
+          {Array.from({ length: Math.max(0, 3 - products.length) }).map((_, index) => <div className="reserve-product-card reserve-coming-soon" key={`coming-soon-${index}`}><span className="reserve-product-image"><span aria-hidden="true">+</span></span><span className="reserve-product-card-copy"><strong>{locale === "fi" ? "Tulossa pian" : "Coming soon"}</strong><small>{locale === "fi" ? "Uusi kauden sato lisätään pian." : "Another seasonal harvest will be added soon."}</small></span></div>)}
         </div>
         <div className="selection-label">{t.package} *</div>
         <div className="selection-grid package-selection">
