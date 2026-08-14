@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Link from "next/link";
 import type { auditEntries, availability, orderNotes, orderPayments, orders, products } from "@/db/schema";
 
 type Order = typeof orders.$inferSelect;
@@ -126,12 +125,9 @@ export function ManagerView({
 
   return (
     <main className="shell py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><div className="text-xs font-bold tracking-[.2em]">METSÄNILO</div><h1 className="text-3xl font-bold">Manager</h1></div>
-        <div className="flex flex-wrap gap-2">
-          <Link className="btn btn-secondary" href="/fi">Public shop</Link>
-          <button className="btn btn-secondary" type="button" onClick={() => void logout()}>Sign out</button>
-        </div>
+      <div className="admin-workspace-intro">
+        <div><p className="eyebrow">RESERVATIONS &amp; CAPACITY</p><h1>Operations workspace</h1><p>Keep today’s reservations, fulfillment dates and stock capacity moving.</p></div>
+        <button className="btn btn-secondary" type="button" onClick={() => void logout()}>Sign out</button>
       </div>
       {message && <p className="card mt-5" role="status">{message}</p>}
 
