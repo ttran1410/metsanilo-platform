@@ -12,11 +12,13 @@ export function ManagerView({
   initialAvailability,
   canViewOrders,
   canManageAvailability,
+  mode = "all",
 }: {
   initialOrders: Order[];
   initialAvailability: AvailabilityRow[];
   canViewOrders: boolean;
   canManageAvailability: boolean;
+  mode?: "all" | "orders" | "availability";
 }) {
   const [orderRows, setOrderRows] = useState(initialOrders);
   const [availabilityRows, setAvailabilityRows] = useState(initialAvailability);
@@ -131,7 +133,7 @@ export function ManagerView({
       </div>
       {message && <p className="card mt-5" role="status">{message}</p>}
 
-      {canViewOrders && <section id="orders" className="mt-8">
+      {canViewOrders && (mode === "all" || mode === "orders") && <section id="orders" className="mt-8">
         <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-2xl font-bold">Orders</h2><p className="text-sm text-slate-600">Search by reference, customer or phone.</p></div><div className="flex flex-wrap gap-2"><input className="rounded-lg border p-3" aria-label="Search orders" placeholder="Search orders" value={search} onChange={(event) => setSearch(event.target.value)} /><select className="rounded-lg border p-3" aria-label="Filter order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option>{["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED", "CANCELLED", "REFUNDED"].map((status) => <option key={status} value={status}>{status}</option>)}</select></div></div>
         <div className="mt-3 grid gap-3">
           {filteredOrders.length === 0 && <div className="card">No matching orders.</div>}
@@ -145,7 +147,7 @@ export function ManagerView({
                   {order.fulfillmentMethod === "DELIVERY" && <p>Delivery to be agreed · {order.streetAddress}, {order.postalCode} {order.city}</p>}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button className="btn btn-secondary" onClick={() => void openDetail(order)}>Details</button>
+                  <a className="btn btn-secondary" href={`/admin/orders/${order.id}`}>Open order</a>
                   {order.status === "NEW" && <><button className="btn" onClick={() => void status(order, "CONFIRMED")}>Confirm</button><button className="btn btn-secondary" onClick={() => void status(order, "CUSTOMER_DECLINED")}>Customer declined</button><button className="btn bg-[var(--berry)]" onClick={() => void status(order, "CANCELLED")}>Cancel</button></>}
                   {order.status === "CONFIRMED" && <><button className="btn" onClick={() => void status(order, "PICKING")}>Start picking</button><button className="btn bg-[var(--berry)]" onClick={() => void status(order, "CANCELLED")}>Cancel</button></>}
                   {order.status === "PICKING" && <button className="btn" onClick={() => void status(order, "READY")}>Mark ready</button>}
@@ -168,7 +170,7 @@ export function ManagerView({
         </div>
       </section>}
 
-      {canManageAvailability && <section id="availability" className="mt-10">
+      {canManageAvailability && (mode === "all" || mode === "availability") && <section id="availability" className="mt-10">
         <h2 className="text-2xl font-bold">Plan availability</h2>
         <form className="card mt-3 grid gap-3" onSubmit={plan}>
           <p className="text-sm">DAY applies every date, WEEK every 7 days, MONTH on the same day each month, and CUSTOM to comma-separated dates.</p>
@@ -190,7 +192,7 @@ export function ManagerView({
         </form>
       </section>}
 
-      <section className="mt-10">
+      {canManageAvailability && (mode === "all" || mode === "availability") && <section className="mt-10">
         <h2 className="text-2xl font-bold">Today and future capacity</h2>
         <div className="mt-3 grid gap-3">
           {availabilityRows.map((row) => (
@@ -205,7 +207,7 @@ export function ManagerView({
             </form>
           ))}
         </div>
-      </section>
+      </section>}
     </main>
   );
 }
