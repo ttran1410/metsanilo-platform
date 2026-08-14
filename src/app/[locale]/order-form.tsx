@@ -8,6 +8,7 @@ import { copy } from "@/lib/i18n";
 export type PublicProduct = {
   id: string;
   name: string;
+  media: Array<{ id: string; url: string; alt: string; isPrimary: boolean }>;
   packages: Array<{ id: string; label: string; volumeMl: number; priceCents: number }>;
   dates: Array<{ date: string; remainingMl: number; acceptsOrders: boolean; soldOut: boolean }>;
 };
