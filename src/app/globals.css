@@ -105,20 +105,16 @@ button, select, input, textarea { min-height: 44px; }
 .order-intro-note span { color: var(--berry); font-size: .72rem; font-weight: 800; letter-spacing: .14em; }
 .order-intro-note p { margin: 0; color: var(--muted); line-height: 1.65; }
 .order-intro-lede { max-width: 38rem; margin: 1.25rem 0 0; color: var(--muted); font-size: 1.05rem; line-height: 1.65; }
-.message-booking-banner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(20rem, .8fr); align-items: center; gap: 2rem; margin-top: 3rem; padding: 1.35rem; border: 1px solid #c9d9ce; border-radius: 1.25rem; background: #edf5ef; }
+.message-booking-banner { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; margin: 0 0 1.5rem; padding: .8rem 1rem; border: 1px solid #c9d9ce; border-radius: .85rem; background: #edf5ef; }
 .message-booking-copy { display: grid; gap: .45rem; }
 .message-booking-kicker { color: var(--moss); font-size: .68rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
-.message-booking-copy h3 { margin: 0; font-family: var(--serif); font-size: clamp(1.65rem, 3vw, 2.35rem); font-weight: 500; letter-spacing: -.025em; }
-.message-booking-copy p { max-width: 35rem; margin: 0; color: var(--muted); line-height: 1.55; }
-.message-booking-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
-.message-action { display: flex; min-height: 4.25rem; align-items: center; justify-content: space-between; gap: .75rem; border: 1px solid #a9c3b0; border-radius: .85rem; background: var(--paper); color: var(--ink); padding: .8rem 1rem; text-decoration: none; transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
+.message-booking-copy strong { font-size: .9rem; }
+.message-booking-actions { display: flex; gap: .5rem; }
+.message-action { display: inline-flex; min-height: 2.55rem; align-items: center; justify-content: space-between; gap: .6rem; border: 1px solid #a9c3b0; border-radius: .65rem; background: var(--paper); color: var(--ink); padding: .5rem .7rem; font-size: .78rem; font-weight: 750; text-decoration: none; transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
 .message-action:hover { border-color: var(--forest); box-shadow: 0 8px 20px rgb(23 55 43 / 10%); transform: translateY(-1px); }
-.message-action > span:first-child { display: grid; gap: .2rem; }
-.message-action strong { font-size: .95rem; }
-.message-action small { color: var(--muted); font-size: .75rem; }
 .message-action > span:last-child { color: var(--moss); font-size: 1.25rem; }
 .message-action-whatsapp { background: var(--forest); border-color: var(--forest); color: white; }
-.message-action-whatsapp small, .message-action-whatsapp > span:last-child { color: #c9d9ce; }
+.message-action-whatsapp > span:last-child { color: #c9d9ce; }
 .reservation-form { display: grid; gap: 1.5rem; margin-top: 3.5rem; }
 .reservation-fields { padding: clamp(1.5rem, 4vw, 3rem); border: 1px solid var(--line); border-radius: 1.75rem; background: var(--paper); }
 .required-note { margin: 0 0 1rem; color: var(--muted); font-size: .76rem; }
@@ -158,6 +154,9 @@ button, select, input, textarea { min-height: 44px; }
 .availability-row { display: flex; min-height: 3rem; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem 0; border-bottom: 1px solid var(--line); font-size: .86rem; }
 .availability-hint { margin: -.35rem 0 0; color: var(--muted); font-size: .82rem; }
 .choice-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
+.form-step:has(.fulfillment-date-field) { grid-template-columns: minmax(12rem, .72fr) minmax(0, 1.28fr); }
+.form-step:has(.fulfillment-date-field) legend, .form-step:has(.fulfillment-date-field) > .grid { grid-column: 1 / -1; }
+.form-step:has(.fulfillment-date-field) .choice-grid { grid-column: 2; }
 .choice-card { display: flex; min-height: 6.5rem; align-items: flex-start; gap: .75rem; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; cursor: pointer; }
 .choice-card.selected { border-color: var(--forest); background: #f3f7f4; box-shadow: inset 0 0 0 1px var(--forest); }
 .choice-card input { min-height: auto; margin-top: .2rem; accent-color: var(--forest); }
@@ -170,7 +169,7 @@ button, select, input, textarea { min-height: 44px; }
 .privacy-check { display: flex; align-items: flex-start; gap: .75rem; color: var(--muted); font-size: .84rem; line-height: 1.55; }
 .privacy-check { font-size: .95rem; }
 .privacy-check input { min-height: auto; margin-top: .25rem; accent-color: var(--forest); }
-.contact-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+.contact-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
 .contact-notes { grid-column: 1 / -1; }
 .inline-help-card { margin-top: .25rem; }
 .reservation-sidebar { position: sticky; top: 1.5rem; display: grid; gap: 1rem; }
@@ -402,10 +401,14 @@ button, select, input, textarea { min-height: 44px; }
   .catalog-content > .btn { width: 100%; }
   .reservation-fields { padding: 1.25rem; border-radius: 1.25rem; }
   .message-booking-banner { gap: 1.25rem; margin-top: 2rem; padding: 1.15rem; border-radius: 1rem; }
-  .message-booking-actions { grid-template-columns: 1fr; }
+  .message-booking-banner { margin-top: 0; }
+  .message-booking-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .message-action { justify-content: center; }
   .form-step { padding-block: 2rem; }
   .form-step legend { font-size: 1.5rem; }
   .choice-grid, .product-selection, .package-selection, .contact-grid, .reservation-sidebar { grid-template-columns: 1fr; }
+  .form-step:has(.fulfillment-date-field) { grid-template-columns: 1fr; }
+  .form-step:has(.fulfillment-date-field) .choice-grid { grid-column: 1; }
   .contact-notes { grid-column: auto; }
   .selection-card { min-height: 5.8rem; }
   .reservation-summary-bar { position: fixed; right: .75rem; bottom: .75rem; left: .75rem; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; border-radius: 1rem; padding: .85rem; }
