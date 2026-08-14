@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { createDatabase } from "@/db/client";
 import { authAccounts, authSessions, authUsers, authVerifications } from "@/db/schema";
+import { hashPassword, verifyPassword } from "@/domain/passwords";
 
 /**
  * Parallel Better Auth instance. It is intentionally exposed under a separate
@@ -24,6 +25,10 @@ export const betterAuthInstance = betterAuth({
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
+  },
+  password: {
+    hash: async (password: string) => hashPassword(password),
+    verify: async ({ hash, password }: { hash: string; password: string }) => verifyPassword(password, hash),
   },
   session: {
     expiresIn: 60 * 60 * 8,

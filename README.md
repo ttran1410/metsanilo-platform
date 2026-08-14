@@ -121,7 +121,8 @@ but the existing production login and shop RBAC continue to use the current
 provider until account synchronization and permission mapping are explicitly
 verified. Do not enable Better Auth in production by changing credentials or
 login routes without completing that migration and a rollback test.
-The endpoint is disabled unless `BETTER_AUTH_ENABLED=true`.
+The Better Auth endpoint is active at `/api/auth/better/*`. Set `BETTER_AUTH_SECRET` and
+`BETTER_AUTH_URL` in each environment before deploying.
 
 ## Rollback
 

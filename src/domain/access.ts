@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, userPermissions, users } from "@/db/schema";
+import { auditEntries, authAccounts, authUsers, userPermissions, users } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { readSession, SESSION_COOKIE } from "./session";
 import { assertPassword, hashPassword, verifyPassword } from "./passwords";
+import { betterAuthInstance } from "@/lib/better-auth";
 
 export const PERMISSIONS = [
   "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.write",
@@ -28,6 +29,17 @@ function usernameFromRequest(request: Request) {
 
 export async function currentUser(database: Database, request: Request) {
   const shopId = env().SHOP_ID;
+  // Better Auth is now the source of session truth. The shop users table remains
+  // authoritative for active status and role/permission mapping.
+  try {
+    const betterSession = await betterAuthInstance.api.getSession({ headers: request.headers });
+    if (betterSession?.user?.id) {
+      const mapped = await database.query.users.findFirst({ where: and(eq(users.id, betterSession.user.id), eq(users.shopId, shopId), eq(users.active, true)) });
+      if (mapped) return mapped;
+    }
+  } catch {
+    // Fall through for legacy Basic Auth during the rollout window.
+  }
   const cookie = request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1];
   const session = readSession(cookie);
   const identifier = session?.email ?? usernameFromRequest(request);
@@ -62,7 +74,11 @@ export async function createUser(database: Database, request: Request, input: { 
   try { assertPassword(input.password); } catch (error) { throw new DomainError("VALIDATION_ERROR", error instanceof Error ? error.message : "Invalid password", 422); }
   const id = randomUUID(); const createdAt = new Date().toISOString();
   try {
-    await database.insert(users).values({ id, shopId: env().SHOP_ID, username: email, email, passwordHash: hashPassword(input.password), mustChangePassword: false, displayName, role: input.role, active: true, createdAt });
+    const passwordHash = hashPassword(input.password);
+    await database.insert(users).values({ id, shopId: env().SHOP_ID, username: email, email, passwordHash, mustChangePassword: false, displayName, role: input.role, active: true, createdAt });
+    const now = new Date();
+    await database.insert(authUsers).values({ id, name: displayName, email, emailVerified: true, image: null, createdAt: now, updatedAt: now });
+    await database.insert(authAccounts).values({ id: randomUUID(), accountId: id, providerId: "credential", userId: id, password: passwordHash, createdAt: now, updatedAt: now });
   } catch (error) {
     if (String(error).toLowerCase().includes("unique")) throw new DomainError("DUPLICATE_USER", "Username already exists", 409);
     throw error;
