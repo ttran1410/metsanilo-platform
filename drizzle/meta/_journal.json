@@ -64,6 +64,13 @@
       "when": 1786640000000,
       "tag": "0008_email_password_users",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786640100000,
+      "tag": "0009_email_only_username",
+      "breakpoints": true
     }
   ]
 }
