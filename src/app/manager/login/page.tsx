@@ -1,0 +1,2 @@
+import { LoginForm } from "./form";
+export default function ManagerLoginPage() { return <main className="min-h-screen bg-slate-950 px-4 py-16"><div className="mx-auto max-w-md rounded-2xl bg-white p-8 shadow-xl"><p className="text-sm font-bold tracking-widest text-emerald-700">METSÄNILO OPERATIONS</p><h1 className="mt-3 text-3xl font-bold text-slate-900">Sign in</h1><p className="mt-2 text-slate-600">Use your shop portal account to continue.</p><LoginForm /></div></main>; }

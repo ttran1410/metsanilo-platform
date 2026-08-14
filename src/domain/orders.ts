@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, customers, orderNotes, orderPayments, orders, packages, products, shops } from "@/db/schema";
+import { auditEntries, availability, customers, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
@@ -231,6 +231,8 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
         updatedAt: createdAt,
       };
       await tx.insert(orders).values(created);
+      await tx.insert(notifications).values({ id: randomUUID(), shopId: SHOP_ID, eventKey: `order:${orderId}:new:v1`, category: "NEW_ORDER", title: "New order", body: `Order ${reference} is waiting for review.`, orderId, createdAt }).onConflictDoNothing({ target: [notifications.shopId, notifications.eventKey] });
+      await tx.insert(outboxJobs).values({ id: randomUUID(), shopId: SHOP_ID, eventKey: `order:${orderId}:new:v1`, type: "NOTIFICATION", payloadJson: JSON.stringify({ category: "NEW_ORDER", orderId, reference }), status: "PENDING", scheduledFor: createdAt, attempts: 0, createdAt }).onConflictDoNothing({ target: [outboxJobs.shopId, outboxJobs.eventKey] });
       await tx.insert(auditEntries).values([
         {
           id: randomUUID(),

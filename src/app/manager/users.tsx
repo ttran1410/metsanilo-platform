@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 type User = { id: string; username: string; displayName: string; role: "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR"; permissions: string[] };
-const permissions = ["orders.read", "orders.update", "orders.transition", "orders.payment.write", "catalog.product.write", "catalog.package.write", "availability.write", "availability.sold_out", "delivery.override", "cms.edit", "cms.publish", "media.write", "invoices.issue", "invoices.download", "picking.write", "pickers.manage"];
+const permissions = ["orders.read", "orders.update", "orders.transition", "orders.payment.write", "customers.read", "customers.write", "catalog.product.write", "catalog.package.write", "availability.write", "availability.sold_out", "delivery.override", "cms.edit", "cms.publish", "media.write", "invoices.issue", "invoices.download", "picking.write", "pickers.manage"];
 
 export function UserModule() {
   const [users, setUsers] = useState<User[]>([]); const [message, setMessage] = useState("");

@@ -8,3 +8,7 @@ export async function searchCustomers(database: Database, query: string) {
   if (value.length < 2) return [];
   return database.select().from(customers).where(and(eq(customers.shopId, env().SHOP_ID), or(like(customers.mobile, `%${value}%`), like(customers.email, `%${value.toLowerCase()}%`), like(customers.name, `%${value}%`)))).limit(25);
 }
+
+export async function listCustomers(database: Database) {
+  return database.select().from(customers).where(eq(customers.shopId, env().SHOP_ID)).limit(100);
+}

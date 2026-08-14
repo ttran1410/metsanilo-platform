@@ -4,13 +4,14 @@ import type { Database } from "@/db/client";
 import { auditEntries, userPermissions, users } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
+import { readSession, SESSION_COOKIE } from "./session";
 
 export const PERMISSIONS = [
   "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.write",
   "catalog.product.write", "catalog.product.delete_unreferenced", "catalog.package.write",
   "availability.write", "availability.sold_out", "delivery.override", "cms.edit", "cms.publish",
   "media.write", "invoices.issue", "invoices.download", "picking.write", "pickers.manage",
-  "shop_users.manage", "shop_permissions.assign", "settings.operational", "audit.read",
+  "customers.read", "customers.write", "shop_users.manage", "shop_permissions.assign", "settings.operational", "audit.read",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
@@ -26,7 +27,8 @@ function usernameFromRequest(request: Request) {
 
 export async function currentUser(database: Database, request: Request) {
   const shopId = env().SHOP_ID;
-  const username = usernameFromRequest(request);
+  const cookie = request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1];
+  const username = readSession(cookie) ?? usernameFromRequest(request);
   const user = await database.query.users.findFirst({ where: and(eq(users.shopId, shopId), eq(users.username, username), eq(users.active, true)) });
   if (user) return user;
   if (username === env().MANAGER_USERNAME) return { id: "legacy-admin", shopId, username, displayName: username, role: "ADMIN" as const, active: true, createdAt: "legacy" };

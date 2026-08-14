@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
+import { readSession, SESSION_COOKIE } from "@/domain/session";
 
 function equal(left: string, right: string) {
   const a = Buffer.from(left);
@@ -8,6 +9,8 @@ function equal(left: string, right: string) {
 }
 
 export function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/manager/login" || request.nextUrl.pathname.startsWith("/api/auth/")) return NextResponse.next();
+  if (readSession(request.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
   const password = process.env.MANAGER_PASSWORD;
   if (!password || password.length < 16) {
     return new NextResponse("Manager access is not configured.", { status: 503 });
@@ -28,10 +31,8 @@ export function proxy(request: NextRequest) {
       // Invalid Authorization header falls through to a generic challenge.
     }
   }
-  return new NextResponse("Authentication required.", {
-    status: 401,
-    headers: { "www-authenticate": 'Basic realm="METSÄNILO Manager", charset="UTF-8"' },
-  });
+  if (request.nextUrl.pathname.startsWith("/api/")) return new NextResponse("Authentication required.", { status: 401, headers: { "www-authenticate": 'Basic realm="METSÄNILO Manager", charset="UTF-8"' } });
+  return NextResponse.redirect(new URL("/manager/login", request.url));
 }
 
 export const config = { matcher: ["/manager/:path*", "/api/manager/:path*"] };

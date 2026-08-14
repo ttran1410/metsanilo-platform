@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { eq } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
-import { availability, customers, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
+import { availability, customers, notifications, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { createUser, requirePermission, setUserPermission } from "@/domain/access";
 import { createExternalOrder, createHistoricalOrder, runAutomation } from "@/domain/operations";
 import { addOrderNote, confirmPickup, getManagerOrder, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder } from "@/domain/orders";
@@ -103,6 +103,7 @@ describe("public order transaction and API", () => {
     const row = await database.query.availability.findFirst({ where: eq(availability.id, "availability-main") });
     expect(row?.reservedMl).toBe(5000);
     expect(await database.select().from(orders)).toHaveLength(1);
+    expect(await database.select().from(notifications)).toHaveLength(1);
   });
 
   it("allows only one of two concurrent customers to take the last package", async () => {
