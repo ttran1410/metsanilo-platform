@@ -11,9 +11,13 @@ type OrderDetail = { order: Order; notes: Array<typeof orderNotes.$inferSelect>;
 export function ManagerView({
   initialOrders,
   initialAvailability,
+  canViewOrders,
+  canManageAvailability,
 }: {
   initialOrders: Order[];
   initialAvailability: AvailabilityRow[];
+  canViewOrders: boolean;
+  canManageAvailability: boolean;
 }) {
   const [orderRows, setOrderRows] = useState(initialOrders);
   const [availabilityRows, setAvailabilityRows] = useState(initialAvailability);
@@ -128,7 +132,7 @@ export function ManagerView({
       </div>
       {message && <p className="card mt-5" role="status">{message}</p>}
 
-      <section className="mt-8">
+      {canViewOrders && <section id="orders" className="mt-8">
         <h2 className="text-2xl font-bold">Orders</h2>
         <div className="mt-3 grid gap-3">
           {orderRows.length === 0 && <div className="card">No orders.</div>}
@@ -161,9 +165,9 @@ export function ManagerView({
             </article>
           ))}
         </div>
-      </section>
+      </section>}
 
-      <section className="mt-10">
+      {canManageAvailability && <section id="availability" className="mt-10">
         <h2 className="text-2xl font-bold">Plan availability</h2>
         <form className="card mt-3 grid gap-3" onSubmit={plan}>
           <p className="text-sm">DAY applies every date, WEEK every 7 days, MONTH on the same day each month, and CUSTOM to comma-separated dates.</p>
@@ -183,7 +187,7 @@ export function ManagerView({
             <button className="btn" type="submit">Apply plan</button>
           </div>
         </form>
-      </section>
+      </section>}
 
       <section className="mt-10">
         <h2 className="text-2xl font-bold">Today and future capacity</h2>

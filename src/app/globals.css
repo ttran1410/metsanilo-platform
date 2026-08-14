@@ -48,3 +48,10 @@ button, select, input, textarea { min-height: 44px; }
 .error { color: #a1122f; }
 .success { border-color: #7aa287; background: #f4fbf5; }
 .pill { display: inline-flex; border-radius: 999px; padding: .25rem .55rem; background: #e7efe9; color: var(--forest); font-size: .875rem; font-weight: 700; }
+.admin-shell-header { position: sticky; top: 0; z-index: 20; border-bottom: 1px solid #ccd4ca; background: #152a1d; color: white; padding: .85rem 1rem; box-shadow: 0 4px 16px rgb(22 61 45 / 15%); }
+.admin-shell-brand { width: min(100%, 72rem); margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.admin-shell-brand .eyebrow { color: #fbbf24; }
+.admin-shell-brand h1 { margin: .2rem 0 0; font-size: 1.35rem; }
+.admin-nav { width: min(100%, 72rem); margin: .75rem auto 0; display: flex; gap: .4rem; overflow-x: auto; padding-bottom: .15rem; }
+.admin-nav a { flex: 0 0 auto; border: 1px solid rgb(255 255 255 / 25%); border-radius: .55rem; padding: .55rem .75rem; font-size: .85rem; font-weight: 700; color: #f8f9fa; text-decoration: none; }
+.admin-nav a:hover, .admin-nav a:focus-visible { background: #f59e0b; color: #152a1d; }
