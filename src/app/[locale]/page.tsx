@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -6,7 +5,7 @@ import { db } from "@/db/client";
 import { getPublicCatalog } from "@/domain/availability";
 import { formatEuros, formatLitres, isLocale, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
-import { OrderForm, type PublicProduct } from "./order-form";
+import type { PublicProduct } from "./order-form";
 import { ProductGallery } from "./product-gallery";
 import { LocaleDocument } from "./locale-document";
 
@@ -84,7 +83,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           <p className="hero-lede">{locale === "fi" ? "Käsin poimittuja, huolellisesti puhdistettuja metsämustikoita. Varaa satosi verkossa ja nouda Porista." : "Hand-picked, carefully cleaned wild blueberries. Reserve your harvest online and collect it in Pori."}</p>
           <div className="hero-actions">
             <a className="btn btn-light" href="#catalog">{locale === "fi" ? "Tutustu satoon" : "Explore the harvest"}<span aria-hidden="true">↓</span></a>
-            <a className="text-link" href="#order">{locale === "fi" ? "Siirry varaukseen" : "Go to reservation"}<span aria-hidden="true">→</span></a>
+            <a className="text-link" href={`/${locale}/reserve`}>{locale === "fi" ? "Siirry varaukseen" : "Go to reservation"}<span aria-hidden="true">→</span></a>
           </div>
           <dl className="hero-facts">
             <div><dt>{locale === "fi" ? "Alkuperä" : "Origin"}</dt><dd>Satakunta</dd></div>
@@ -117,33 +116,11 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           <div className="catalog-content">
             <div className="catalog-title-row"><div><p className="product-kicker">{locale === "fi" ? "Metsämarja" : "Wild berry"}</p><h3>{product.name}</h3></div><span className={`availability-badge${available ? "" : " unavailable"}`}>{available ? (locale === "fi" ? "Saatavilla" : "Available") : t.soldOut}</span></div>
             {product.description && <p className="catalog-description">{product.description}</p>}
-            <div className="package-list">{product.packages.map((pkg) => { const litres = pkg.volumeMl / 1000; const unitPriceCents = litres > 0 ? Math.round(pkg.priceCents / litres) : pkg.priceCents; return <div className="package-card" key={pkg.id}><span><strong>{pkg.label}</strong><small>{formatLitres(pkg.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"} · {locale === "fi" ? "puhdistettu" : "cleaned"}</small></span><strong className="package-price">{formatEuros(pkg.priceCents, locale)}</strong></div>; })}</div>
+            <div className="package-list">{product.packages.slice(0, 3).map((pkg) => { const litres = pkg.volumeMl / 1000; const unitPriceCents = litres > 0 ? Math.round(pkg.priceCents / litres) : pkg.priceCents; const packageAvailable = product.dates.some((date) => date.acceptsOrders && !date.soldOut && date.remainingMl >= pkg.volumeMl); return packageAvailable ? <a className="package-card" href={`/${locale}/reserve?product=${encodeURIComponent(product.id)}&package=${encodeURIComponent(pkg.id)}`} key={pkg.id}><span><strong>{pkg.label}</strong><small>{formatLitres(pkg.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"} · {locale === "fi" ? "puhdistettu" : "cleaned"}</small></span><strong className="package-price">{formatEuros(pkg.priceCents, locale)}</strong></a> : <div className="package-card package-card-unavailable" key={pkg.id}><span><strong>{pkg.label}</strong><small>{locale === "fi" ? "Loppuunmyyty" : "Sold out"}</small></span><strong className="package-price">{formatEuros(pkg.priceCents, locale)}</strong></div>; })}{product.packages.length > 3 && <p className="package-more-note">{locale === "fi" ? `+ ${product.packages.length - 3} pakkausta varauslomakkeella` : `+ ${product.packages.length - 3} more packages on the reservation page`}</p>}</div>
             <p className="food-safe-note">{locale === "fi" ? "Pakattu puhtaisiin elintarvikekäyttöön hyväksyttyihin pakkauksiin." : "Packed in clean, food-safe containers."}</p>
-            <a className="btn btn-accent" href="#order">{locale === "fi" ? "Varaa tämä tuote" : "Reserve this product"}<span aria-hidden="true">→</span></a>
+            {available ? <a className="btn btn-accent" href={`/${locale}/reserve?product=${encodeURIComponent(product.id)}`}>{locale === "fi" ? "Varaa tämä tuote" : "Reserve this product"}<span aria-hidden="true">→</span></a> : <span className="btn btn-disabled" aria-disabled="true">{t.soldOut}</span>}
           </div>
-        </article>})}</div>
-      </section>
-
-      <section id="order" className="order-section" aria-labelledby="order-title">
-        <div className="shell">
-          <div className="order-intro">
-            <div><p className="eyebrow">{locale === "fi" ? "Varaa verkossa" : "Reserve online"}</p><h2 id="order-title">{t.shopHeading}</h2><p className="order-intro-lede">{locale === "fi" ? "Valitse tuotteet, noutopäivä ja yhteystietosi. Vahvistamme varauksen henkilökohtaisesti." : "Choose your products, pickup date and contact details. We’ll confirm your reservation personally."}</p></div>
-            <div className="order-intro-note"><span>01—03</span><p>{t.pending}</p></div>
-          </div>
-        <OrderForm
-          locale={locale}
-          products={products}
-          idempotencyKey={randomUUID()}
-          privacyNoticeUrl={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}
-          pickup={{
-            name: locale === "fi" ? data.shop.pickupNameFi : data.shop.pickupNameEn,
-            address: data.shop.pickupAddress,
-            instructions: locale === "fi" ? data.shop.pickupInstructionsFi : data.shop.pickupInstructionsEn,
-            time: data.shop.pickupTime,
-          }}
-          contact={{ phone: data.shop.contactPhone, email: data.shop.contactEmail, hours: data.shop.contactHours }}
-        />
-        </div>
+        </article>})}{Array.from({ length: Math.max(0, 3 - products.length) }).map((_, index) => <article className="catalog-card coming-soon-card" key={`coming-soon-${index}`}><div className="catalog-media"><div className="hero-placeholder"><span>+</span></div><span className="catalog-index">0{products.length + index + 1}</span></div><div className="catalog-content"><p className="eyebrow">{locale === "fi" ? "Tulossa pian" : "Coming soon"}</p><h3>{locale === "fi" ? "Uusi sato" : "New harvest"}</h3><p className="catalog-description">{locale === "fi" ? "Valikoimamme täydentyy kauden aikana." : "Our seasonal selection will grow during the harvest."}</p></div></article>)}</div>
       </section>
 
       <footer className="storefront-footer">
@@ -153,7 +130,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           <div><span>{locale === "fi" ? "Tietoa" : "Information"}</span><Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link></div>
         </div>
       </footer>
-      <a className="mobile-reserve-cta" href="#order">{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}<span aria-hidden="true">→</span></a>
+      <a className="mobile-reserve-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}<span aria-hidden="true">→</span></a>
     </main>
   );
 }
