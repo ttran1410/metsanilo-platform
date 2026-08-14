@@ -29,6 +29,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
       product = {
         id: row.product.id,
         name: locale === "fi" ? row.product.nameFi : row.product.nameEn,
+        media: data.media.filter((image) => image.productId === row.product.id).map((image) => ({ id: image.id, url: image.url, alt: locale === "fi" ? image.altFi : image.altEn, isPrimary: image.isPrimary })),
         packages: [],
         dates: [],
       };
@@ -77,7 +78,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
       </section>
       <section id="catalog" className="shell section" aria-labelledby="catalog-title">
         <div className="section-heading"><div><p className="eyebrow">{locale === "fi" ? "Saatavuus" : "Availability"}</p><h2 id="catalog-title">{locale === "fi" ? "Valitse marjat ja pakkaus" : "Choose berries and a package"}</h2></div></div>
-        <div className="catalog-grid">{[...productMap.values()].map((product) => <article className="catalog-card" key={product.id}><h3>{product.name}</h3><div className="package-list">{product.packages.map((pkg) => <div className="package-row" key={pkg.id}><span>{pkg.label}<small>{formatLitres(pkg.volumeMl, locale)} l</small></span><strong>{formatEuros(pkg.priceCents, locale)}</strong></div>)}</div><a className="btn" href="#order">{locale === "fi" ? "Valitse ja tilaa" : "Choose and order"}</a></article>)}</div>
+        <div className="catalog-grid">{[...productMap.values()].map((product) => <article className="catalog-card" key={product.id}>{product.media[0] && <img className="catalog-product-image" src={product.media[0].url} alt={product.media[0].alt} />}<h3>{product.name}</h3><div className="package-list">{product.packages.map((pkg) => <div className="package-row" key={pkg.id}><span>{pkg.label}<small>{formatLitres(pkg.volumeMl, locale)} l</small></span><strong>{formatEuros(pkg.priceCents, locale)}</strong></div>)}</div><a className="btn" href="#order">{locale === "fi" ? "Valitse ja tilaa" : "Choose and order"}</a></article>)}</div>
       </section>
       <section id="order" className="shell section" aria-labelledby="order-title">
         <h2 id="order-title" className="text-3xl font-bold text-[var(--forest)]">{t.shopHeading}</h2>

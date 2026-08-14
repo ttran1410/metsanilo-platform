@@ -1,0 +1,11 @@
+import { del } from "@vercel/blob";
+import { and, eq } from "drizzle-orm";
+import { db } from "@/db/client";
+import { auditEntries, mediaAttachments, mediaAssets } from "@/db/schema";
+import { requirePermission } from "@/domain/access";
+import { DomainError } from "@/domain/errors";
+import { env } from "@/lib/env";
+import { failure, success } from "../../../response";
+
+export const runtime = "nodejs";
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) { try { const actor = await requirePermission(db(), request, "media.write"); const { id } = await context.params; const row = await db().select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments).innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId)).where(and(eq(mediaAttachments.assetId, id), eq(mediaAttachments.shopId, env().SHOP_ID))).limit(1); if (!row[0]) throw new DomainError("NOT_FOUND", "Image not found", 404); await del(row[0].asset.url); await db().delete(mediaAttachments).where(and(eq(mediaAttachments.assetId, id), eq(mediaAttachments.shopId, env().SHOP_ID))); await db().delete(mediaAssets).where(and(eq(mediaAssets.id, id), eq(mediaAssets.shopId, env().SHOP_ID))); await db().insert(auditEntries).values({ id: crypto.randomUUID(), shopId: env().SHOP_ID, actor: actor.email ?? actor.id, action: "media.deleted", entityType: "product", entityId: row[0].attachment.productId ?? "", detailsJson: JSON.stringify({ assetId: id }), createdAt: new Date().toISOString() }); return success({ deleted: true }); } catch (error) { return failure(error); } }

@@ -148,6 +148,39 @@ export const products = sqliteTable(
   ],
 );
 
+export const mediaAssets = sqliteTable(
+  "media_assets",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    url: text("url").notNull(),
+    pathname: text("pathname").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    altFi: text("alt_fi").notNull(),
+    altEn: text("alt_en").notNull(),
+    captionFi: text("caption_fi").notNull().default(""),
+    captionEn: text("caption_en").notNull().default(""),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [index("media_assets_shop_idx").on(table.shopId)],
+);
+
+export const mediaAttachments = sqliteTable(
+  "media_attachments",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    assetId: text("asset_id").notNull().references(() => mediaAssets.id),
+    productId: text("product_id").references(() => products.id),
+    pageKey: text("page_key"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isPrimary: integer("is_primary", { mode: "boolean" }).notNull().default(false),
+  },
+  (table) => [index("media_attachments_product_idx").on(table.shopId, table.productId, table.sortOrder)],
+);
+
 export const packages = sqliteTable(
   "packages",
   {

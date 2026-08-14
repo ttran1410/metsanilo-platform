@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, orders, packages, products } from "@/db/schema";
+import { auditEntries, availability, mediaAttachments, mediaAssets, orders, packages, products } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 
@@ -75,7 +75,10 @@ export async function listManagerProducts(database: Database) {
     if (!group) { group = { product: row.product, packages: [] }; grouped.set(row.product.id, group); }
     if (row.package) group.packages.push(row.package);
   }
-  return [...grouped.values()];
+  const media = await database.select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments)
+    .innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId))
+    .where(eq(mediaAttachments.shopId, shopId)).orderBy(asc(mediaAttachments.sortOrder));
+  return [...grouped.values()].map((item) => ({ ...item, media: media.filter((row) => row.attachment.productId === item.product.id).map((row) => ({ ...row.asset, sortOrder: row.attachment.sortOrder, isPrimary: row.attachment.isPrimary })) }));
 }
 
 export async function createProduct(database: Database, input: ProductInput & { packages: PackageInput[] }) {

@@ -26,7 +26,7 @@ export default async function ManagerPage() {
   const allowed = async (permission: Permission) => {
     try { await requirePermission(db(), request, permission); return true; } catch { return false; }
   };
-  const [ordersAllowed, availabilityAllowed, productsAllowed] = await Promise.all([allowed("orders.read"), allowed("availability.write"), allowed("catalog.product.write")]);
+  const [ordersAllowed, availabilityAllowed, productsAllowed, mediaAllowed] = await Promise.all([allowed("orders.read"), allowed("availability.write"), allowed("catalog.product.write"), allowed("media.write")]);
   const [orders, availability, products] = await Promise.all([
     ordersAllowed ? listManagerOrders(db()) : Promise.resolve([]),
     availabilityAllowed ? listManagerAvailability(db()) : Promise.resolve([]),
@@ -47,7 +47,7 @@ export default async function ManagerPage() {
     {(ordersAllowed || availabilityAllowed) && <ManagerView initialOrders={orders} initialAvailability={availability} canViewOrders={ordersAllowed} canManageAvailability={availabilityAllowed} />}
     {navigation[3].enabled && <div id="customers"><CustomersModule /></div>}
     {navigation[4].enabled && <div id="manual-orders"><ManualOrdersModule products={products} /></div>}
-    {productsAllowed && <div id="products" className="shell pb-10"><ProductModule initialProducts={products} /></div>}
+    {productsAllowed && <div id="products" className="shell pb-10"><ProductModule initialProducts={products} canManageMedia={mediaAllowed} /></div>}
     {navigation[6].enabled && <div id="settings"><OperationsSettings /></div>}
     {navigation[7].enabled && <div id="users"><UserModule /></div>}
   </>;

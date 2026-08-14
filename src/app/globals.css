@@ -75,4 +75,5 @@ button, select, input, textarea { min-height: 44px; }
 .customer-dialog-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 1rem; background: rgb(15 23 42 / 55%); }
 .customer-dialog { width: min(100%, 58rem); max-height: min(90vh, 46rem); overflow: auto; border-radius: 1rem; background: white; padding: clamp(1.25rem, 4vw, 2rem); box-shadow: 0 24px 80px rgb(15 23 42 / 30%); }
 .customer-history-row, .customer-audit-row { display: flex; justify-content: space-between; gap: 1rem; border: 1px solid #dbe4e0; border-radius: .75rem; padding: .75rem; }
+.catalog-product-image { width: 100%; aspect-ratio: 4 / 3; border-radius: .75rem; object-fit: cover; margin-bottom: 1rem; }
 @media (max-width: 760px) { .dashboard-alert, .dashboard-grid { display: grid; grid-template-columns: 1fr; } .dashboard-alert-btn { width: fit-content; } }

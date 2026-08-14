@@ -19,10 +19,11 @@ export type Permission = (typeof PERMISSIONS)[number];
 export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
 
 /** Admin and Manager receive the full implemented operational catalogue.
- * Staff and Content Creator start empty and require explicit grants. */
+ * Staff and Content Creator receive the basic content/media editing grants. */
 export function defaultPermissionsForRole(role: Role): Permission[] {
   if (role === "ADMIN" || role === "MANAGER") return [...PERMISSIONS];
-  if (role === "STAFF") return PERMISSIONS.filter((permission) => permission.startsWith("orders.") || permission.startsWith("delivery.") || permission.startsWith("availability.") || permission.startsWith("customers.") || permission.startsWith("catalog."));
+  if (role === "STAFF") return PERMISSIONS.filter((permission) => permission.startsWith("orders.") || permission.startsWith("delivery.") || permission.startsWith("availability.") || permission.startsWith("customers.") || permission.startsWith("catalog.") || permission === "cms.edit" || permission === "media.write");
+  if (role === "CONTENT_CREATOR") return ["cms.edit", "media.write"];
   return [];
 }
 
