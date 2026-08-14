@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { OrderReceipt } from "@/domain/orders";
 import { formatEuros, formatLitres, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
@@ -55,6 +55,20 @@ export function OrderForm({
     () => product?.dates.filter((item) => item.acceptsOrders && !item.soldOut && item.remainingMl >= (selectedPackage?.volumeMl ?? Infinity) * quantity) ?? [],
     [product, selectedPackage, quantity],
   );
+  const defaultDate = useMemo(() => {
+    if (orderableDates.length === 0) return "";
+    const toLocalIso = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+    const today = new Date();
+    const todayIso = toLocalIso(today);
+    today.setDate(today.getDate() + 1);
+    const tomorrowIso = toLocalIso(today);
+    const nextAvailableDate = orderableDates.find((item) => item.date >= tomorrowIso);
+    return nextAvailableDate?.date ?? orderableDates.find((item) => item.date === todayIso)?.date ?? orderableDates[0].date;
+  }, [orderableDates]);
+
+  useEffect(() => {
+    if (!date || !orderableDates.some((item) => item.date === date)) setDate(defaultDate);
+  }, [date, defaultDate, orderableDates]);
 
   function changeProduct(nextId: string) {
     const next = products.find((item) => item.id === nextId);
@@ -131,7 +145,27 @@ export function OrderForm({
   if (products.length === 0) return <div className="card mt-6">{t.closed}</div>;
 
   return (
-    <form className="reservation-form" onSubmit={submit} noValidate>
+    <>
+      {contact.phone && (
+        <section className="message-booking-banner" aria-labelledby="message-booking-title">
+          <div className="message-booking-copy">
+            <span className="message-booking-kicker">{locale === "fi" ? "Nopea varaus" : "Quick booking"}</span>
+            <h3 id="message-booking-title">{locale === "fi" ? "Etkö halua täyttää lomaketta?" : "Prefer not to fill in the form?"}</h3>
+            <p>{locale === "fi" ? "Lähetä meille viesti. Vahvistamme tuotteen, määrän ja noutoajan henkilökohtaisesti." : "Send us a message. We’ll confirm the product, quantity and pickup time personally."}</p>
+          </div>
+          <div className="message-booking-actions">
+            <a className="message-action" href={`sms:${smsNumber}`}>
+              <span><strong>SMS</strong><small>{locale === "fi" ? "Lähetä viesti" : "Send a message"}</small></span>
+              <span aria-hidden="true">→</span>
+            </a>
+            <a className="message-action message-action-whatsapp" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">
+              <span><strong>WhatsApp</strong><small>{locale === "fi" ? "Avaa WhatsApp" : "Open WhatsApp"}</small></span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </section>
+      )}
+      <form className="reservation-form" onSubmit={submit} noValidate>
       <div className="reservation-fields">
         <p className="required-note">{t.required}</p>
         {error && <div className="error form-error" role="alert" tabIndex={-1}>{error}</div>}
@@ -209,7 +243,6 @@ export function OrderForm({
         {privacyNoticeUrl && <a className="font-bold underline" href={privacyNoticeUrl} target="_blank" rel="noreferrer">{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</a>}
         <label className="privacy-check"><input name="privacyAcknowledged" type="checkbox" required /> <span>{t.privacy} *</span></label>
       </div>
-      {contact.phone && <div className="help-card inline-help-card"><span>{locale === "fi" ? "Tarvitsetko apua?" : "Need help?"}</span><strong>{locale === "fi" ? "Voit varata myös viestillä." : "You can also reserve by message."}</strong><div><a href={`sms:${smsNumber}`}>{locale === "fi" ? "Tekstiviesti" : "Send SMS"}</a><a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">WhatsApp</a></div></div>}
       </div>
       <div className="reservation-summary-bar">
         <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {date || (locale === "fi" ? "päivä valitsematta" : "date not selected")}</small></div>
@@ -217,6 +250,7 @@ export function OrderForm({
         <div className="summary-total"><span>{locale === "fi" ? "Yhteensä" : "Total"}</span><strong>{formatEuros(subtotalCents, locale)}</strong></div>
         <button className="btn btn-accent submit-button" disabled={submitting || !date || !selectedPackage} type="submit">{submitting ? "…" : t.submit}<span aria-hidden="true">→</span></button>
       </div>
-    </form>
+      </form>
+    </>
   );
 }
