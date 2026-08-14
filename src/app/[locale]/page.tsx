@@ -83,6 +83,8 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
   const tomorrowIso = toLocalIso(today);
   const nextPickupDate = nextPickupDates.find((date) => date >= tomorrowIso) ?? nextPickupDates.find((date) => date === todayIso) ?? nextPickupDates[0];
   const nextPickupLabel = nextPickupDate ? `${nextPickupDate === tomorrowIso ? (locale === "fi" ? "Huomenna" : "Tomorrow") : new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-US", { month: "short", day: "numeric" }).format(new Date(`${nextPickupDate}T12:00:00`))} · ${nextPickupDate}` : (locale === "fi" ? "Ei päivää saatavilla" : "No date available");
+  const nextPickupRemainingMl = nextPickupDate ? products.reduce((total, product) => total + (product.dates.find((date) => date.date === nextPickupDate && date.acceptsOrders && !date.soldOut)?.remainingMl ?? 0), 0) : 0;
+  const nextPickupCapacityLabel = nextPickupDate ? `${formatLitres(nextPickupRemainingMl, locale)} l ${locale === "fi" ? "jäljellä" : "remaining"}` : "";
   const heroImage = products.flatMap((product) => product.media).find((image) => image.isPrimary) ?? products[0]?.media[0];
   const seasonYear = new Date().getFullYear();
   return (
@@ -116,7 +118,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             <a className="btn btn-light" href="#catalog">{locale === "fi" ? "Tutustu satoon" : "Explore the harvest"}<span aria-hidden="true">↓</span></a>
             <a className="text-link" href={`/${locale}/reserve`}>{locale === "fi" ? "Siirry varaukseen" : "Go to reservation"}<span aria-hidden="true">→</span></a>
           </div>
-          <p className="next-pickup-pill"><span aria-hidden="true">▣</span>{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: {nextPickupLabel}</p>
+          <p className="next-pickup-pill"><span aria-hidden="true">▣</span>{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: {nextPickupLabel}{nextPickupCapacityLabel && <><b aria-hidden="true">·</b><strong>{nextPickupCapacityLabel}</strong></>}</p>
           <dl className="hero-facts">
             <div><dt>{locale === "fi" ? "Alkuperä" : "Origin"}</dt><dd>Satakunta</dd></div>
             <div><dt>{locale === "fi" ? "Nouto" : "Pickup"}</dt><dd>Pori</dd></div>
