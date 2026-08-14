@@ -40,6 +40,10 @@ button, select, input, textarea { min-height: 44px; }
 .nav-season { margin: 0; color: var(--muted); font-size: .78rem; letter-spacing: .08em; }
 .locale-switch { display: inline-flex; min-height: 2.75rem; justify-self: end; align-items: center; gap: 1rem; border-bottom: 1px solid var(--ink); font-size: .82rem; font-weight: 700; text-decoration: none; }
 .locale-switch span { color: var(--berry); }
+.storefront-nav-links { display: flex; align-items: center; justify-content: center; gap: 1.15rem; }
+.storefront-nav-links a { color: var(--muted); font-size: .72rem; font-weight: 750; text-decoration: none; white-space: nowrap; }
+.storefront-nav-links a:hover { color: var(--forest); text-decoration: underline; text-underline-offset: .25rem; }
+.storefront-nav-links .nav-reserve-link { color: var(--berry); }
 
 .storefront-hero { display: grid; min-height: 46rem; grid-template-columns: minmax(0, 1.03fr) minmax(22rem, .97fr); border-radius: 0 0 2rem 2rem; background: var(--forest); color: #fffdf7; }
 .hero-copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: clamp(3rem, 7vw, 6.5rem) clamp(2rem, 6vw, 5.25rem); }
@@ -338,9 +342,45 @@ button, select, input, textarea { min-height: 44px; }
 .gallery-indicator::after { display: block; width: .42rem; height: .42rem; margin: auto; border: 1px solid white; border-radius: 50%; content: ""; }
 .gallery-indicator.active::after { background: white; }
 .mobile-reserve-cta { display: none; }
+.info-page { min-height: 100vh; }
+.info-hero { padding: clamp(5rem, 10vw, 8.5rem) 1rem 3.5rem; text-align: center; }
+.info-hero h1 { max-width: 62rem; margin: .9rem auto 0; color: var(--forest); font-family: var(--serif); font-size: clamp(3.2rem, 7vw, 6.1rem); font-weight: 500; letter-spacing: -.055em; line-height: .96; }
+.info-hero > p:last-child { max-width: 48rem; margin: 1.25rem auto 0; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
+.info-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2rem; padding-bottom: clamp(4rem, 8vw, 7rem); }
+.info-step-card { display: grid; min-height: 20rem; align-content: start; justify-items: center; border: 1px solid var(--line); border-radius: 1.5rem; background: var(--paper); padding: 2.8rem 2rem 2.4rem; text-align: center; box-shadow: 0 8px 20px rgb(23 55 43 / 6%); }
+.info-number { display: grid; width: 4.5rem; height: 4.5rem; place-items: center; border-radius: 1.2rem; background: var(--moss); color: white; font-size: 1.55rem; font-weight: 800; }
+.info-step-card:nth-child(2) .info-number { background: var(--berry); }
+.info-step-card:nth-child(3) .info-number { background: var(--forest); }
+.info-step-card h2 { margin: 1.65rem 0 .75rem; font-family: var(--serif); font-size: 1.8rem; font-weight: 500; line-height: 1.05; }
+.info-step-card p { max-width: 20rem; margin: 0; color: var(--muted); line-height: 1.65; }
+.info-cta { display: grid; justify-items: center; margin-bottom: clamp(4rem, 8vw, 7rem); border-radius: 1.5rem; background: var(--forest); color: white; padding: clamp(3rem, 6vw, 4.5rem) 1.5rem; text-align: center; }
+.info-cta h2 { margin: 0; font-family: var(--serif); font-size: clamp(2rem, 4vw, 3rem); font-weight: 500; }
+.info-cta p { margin: .85rem 0 1.5rem; color: #a9d8be; }
+.review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; padding-bottom: 4rem; }
+.review-card { min-height: 16rem; border: 1px solid var(--line); border-radius: 1.5rem; background: var(--paper); padding: 2rem; box-shadow: 0 8px 20px rgb(23 55 43 / 6%); }
+.review-card-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.review-card h2 { margin: 0; color: var(--forest); font-size: 1.25rem; }
+.review-stars { color: #e59b11; font-size: 1.35rem; letter-spacing: .12em; }
+.review-quote { margin: 1.2rem 0 1.7rem; color: var(--muted); font-size: 1.05rem; font-style: italic; line-height: 1.65; }
+.review-product { display: inline-flex; border-radius: .45rem; background: #e7eee9; color: #708078; padding: .45rem .7rem; font-size: .78rem; }
+.review-invite { display: grid; justify-items: center; margin-bottom: clamp(4rem, 8vw, 7rem); border: 1px solid var(--line); border-radius: 1.5rem; background: var(--paper); padding: clamp(2.5rem, 6vw, 4rem); text-align: center; }
+.review-invite h2 { margin: .7rem 0 .75rem; font-family: var(--serif); font-size: clamp(2rem, 4vw, 3rem); font-weight: 500; }
+.review-invite > p:not(.eyebrow) { max-width: 38rem; margin: 0 0 1.5rem; color: var(--muted); line-height: 1.65; }
+.story-card { margin-bottom: clamp(4rem, 8vw, 7rem); border: 1px solid var(--line); border-radius: 1.5rem; background: var(--paper); padding: clamp(2rem, 6vw, 4.8rem); box-shadow: 0 8px 20px rgb(23 55 43 / 6%); }
+.story-quote { margin: 0; color: var(--forest); font-family: var(--serif); font-size: clamp(1.65rem, 3vw, 2.35rem); font-style: italic; font-weight: 600; line-height: 1.3; }
+.story-body { max-width: 62rem; margin: 2.2rem 0 0; color: var(--muted); font-size: 1.1rem; line-height: 1.75; }
+.value-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin-top: 3rem; }
+.value-card { border: 1px solid; border-radius: 1.2rem; padding: 1.8rem 2rem; }
+.value-card h2 { margin: 0 0 .65rem; font-size: 1.25rem; }
+.value-card p { margin: 0; color: var(--muted); line-height: 1.6; }
+.value-card-green { border-color: #b8efd4; background: #effcf4; }
+.value-card-green h2 { color: var(--moss); }
+.value-card-gold { border-color: #f3dfa5; background: #fff9e8; }
+.value-card-gold h2 { color: #8b4312; }
 
 @media (max-width: 960px) {
   .nav-season { display: none; }
+  .storefront-nav-links { display: none; }
   .storefront-nav { grid-template-columns: 1fr auto; }
   .storefront-hero { min-height: auto; grid-template-columns: 1fr; }
   .hero-copy { min-height: 38rem; }
@@ -382,6 +422,15 @@ button, select, input, textarea { min-height: 44px; }
   .admin-user-copy { display: none; }
   .admin-user-menu summary { border: 0; padding: .2rem; }
   .storefront-nav { min-height: 5.25rem; }
+  .info-hero { padding-top: 4.5rem; padding-bottom: 2.5rem; }
+  .info-hero h1 { font-size: clamp(3rem, 15vw, 4.5rem); }
+  .info-grid, .review-grid, .value-grid { grid-template-columns: 1fr; gap: 1rem; }
+  .info-step-card { min-height: 0; padding: 2rem 1.35rem; }
+  .review-card { min-height: 0; padding: 1.45rem; }
+  .review-card-head { align-items: flex-start; flex-direction: column; gap: .55rem; }
+  .story-card { padding: 1.45rem; }
+  .story-quote { font-size: 1.65rem; }
+  .value-card { padding: 1.35rem; }
   .brand-mark { width: 2.3rem; height: 2rem; }
   .locale-switch { gap: .5rem; }
   .storefront-hero { width: 100%; border-radius: 0 0 1.25rem 1.25rem; }

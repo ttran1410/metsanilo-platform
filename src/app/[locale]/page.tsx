@@ -70,6 +70,12 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             <span><strong>METSÄNILO</strong></span>
           </Link>
           <p className="nav-season">{locale === "fi" ? `Satakunnan metsistä · Kausi ${seasonYear}` : `From Satakunta forests · Season ${seasonYear}`}</p>
+          <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
+            <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
+            <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>
+            <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
+            <Link className="nav-reserve-link" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa" : "Reserve"}</Link>
+          </nav>
           <Link className="locale-switch" href={`/${otherLocale}`} hrefLang={otherLocale}>
             {t.switchLocale}<span aria-hidden="true">↗</span>
           </Link>
