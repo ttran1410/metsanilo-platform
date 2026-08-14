@@ -69,12 +69,11 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
             <span><strong>METSÄNILO</strong></span>
           </Link>
-          <p className="nav-season">{locale === "fi" ? `Satakunnan metsistä · Kausi ${seasonYear}` : `From Satakunta forests · Season ${seasonYear}`}</p>
           <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
+            <Link className="nav-reserve-link" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa tuotteet" : "Reserve products"}</Link>
             <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
             <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>
             <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
-            <Link className="nav-reserve-link" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa" : "Reserve"}</Link>
           </nav>
           <Link className="locale-switch" href={`/${otherLocale}`} hrefLang={otherLocale}>
             {t.switchLocale}<span aria-hidden="true">↗</span>
@@ -131,7 +130,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
 
       <footer className="storefront-footer">
         <div className="shell footer-grid">
-          <div><strong>METSÄNILO</strong><p>{locale === "fi" ? "Metsästä pöytään, Satakunnassa." : "From forest to table, in Satakunta."}</p></div>
+          <div><strong>METSÄNILO</strong><p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${seasonYear}` : `From Satakunta forest to table · Season ${seasonYear}`}</p></div>
           <div><span>{locale === "fi" ? "Yhteys" : "Contact"}</span>{data.shop.contactPhone && <a href={`tel:${data.shop.contactPhone}`}>{data.shop.contactPhone}</a>}{data.shop.contactEmail && <a href={`mailto:${data.shop.contactEmail}`}>{data.shop.contactEmail}</a>}</div>
           <div><span>{locale === "fi" ? "Tietoa" : "Information"}</span><Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link></div>
         </div>
