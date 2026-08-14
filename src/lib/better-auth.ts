@@ -25,10 +25,10 @@ export const betterAuthInstance = betterAuth({
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
-  },
-  password: {
-    hash: async (password: string) => hashPassword(password),
-    verify: async ({ hash, password }: { hash: string; password: string }) => verifyPassword(password, hash),
+    password: {
+      hash: async (password: string) => hashPassword(password),
+      verify: async ({ hash, password }: { hash: string; password: string }) => verifyPassword(password, hash),
+    },
   },
   session: {
     expiresIn: 60 * 60 * 8,
