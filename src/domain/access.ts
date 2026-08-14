@@ -21,7 +21,9 @@ export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
 /** Admin and Manager receive the full implemented operational catalogue.
  * Staff and Content Creator start empty and require explicit grants. */
 export function defaultPermissionsForRole(role: Role): Permission[] {
-  return role === "ADMIN" || role === "MANAGER" ? [...PERMISSIONS] : [];
+  if (role === "ADMIN" || role === "MANAGER") return [...PERMISSIONS];
+  if (role === "STAFF") return PERMISSIONS.filter((permission) => permission.startsWith("orders.") || permission.startsWith("delivery.") || permission.startsWith("availability.") || permission.startsWith("customers.") || permission.startsWith("catalog."));
+  return [];
 }
 
 function usernameFromRequest(request: Request) {

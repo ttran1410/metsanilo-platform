@@ -304,16 +304,20 @@ describe("order operations", () => {
 });
 
 describe("shop roles and permissions", () => {
-  it("seeds Manager defaults but requires explicit Staff grants", async () => {
+  it("seeds Manager and Staff operational defaults", async () => {
     resetEnvForTests();
     const adminRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("manager:secret").toString("base64")}` } });
     const staff = await createUser(database, adminRequest, { email: "picker@example.com", password: "Pick3r!pass", displayName: "Picker", role: "STAFF" });
     const manager = await createUser(database, adminRequest, { email: "manager@example.com", password: "Manag3r!pass", displayName: "Manager", role: "MANAGER" });
     const managerGrants = await database.select().from(userPermissions).where(eq(userPermissions.userId, manager.id));
     expect(managerGrants.length).toBeGreaterThan(0);
-    expect((await database.select().from(userPermissions).where(eq(userPermissions.userId, staff.id))).length).toBe(0);
+    const staffGrants = await database.select().from(userPermissions).where(eq(userPermissions.userId, staff.id));
+    expect(staffGrants.map((grant) => grant.permission)).toContain("orders.read");
+    expect(staffGrants.map((grant) => grant.permission)).toContain("catalog.product.write");
+    expect(staffGrants.map((grant) => grant.permission)).toContain("delivery.override");
+    expect(staffGrants.map((grant) => grant.permission)).not.toContain("shop_users.manage");
     const staffRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("picker@example.com:secret").toString("base64")}` } });
-    await expect(requirePermission(database, staffRequest, "orders.read")).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(requirePermission(database, staffRequest, "orders.read")).resolves.toMatchObject({ email: "picker@example.com" });
     await setUserPermission(database, adminRequest, { userId: staff.id, permission: "orders.read", granted: true });
     await expect(requirePermission(database, staffRequest, "orders.read")).resolves.toMatchObject({ email: "picker@example.com" });
   });
