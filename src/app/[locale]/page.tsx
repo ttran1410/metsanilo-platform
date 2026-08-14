@@ -8,6 +8,7 @@ import { copy } from "@/lib/i18n";
 import type { PublicProduct } from "./order-form";
 import { ProductGallery } from "./product-gallery";
 import { LocaleDocument } from "./locale-document";
+import { MobileNav } from "./mobile-nav";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -74,6 +75,14 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
 
   const shopName = locale === "fi" ? data.shop.nameFi : data.shop.nameEn;
   const products = [...productMap.values()];
+  const nextPickupDates = products.flatMap((product) => product.dates.filter((date) => date.acceptsOrders && !date.soldOut).map((date) => date.date)).filter((date, index, dates) => dates.indexOf(date) === index).sort();
+  const toLocalIso = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+  const today = new Date();
+  const todayIso = toLocalIso(today);
+  today.setDate(today.getDate() + 1);
+  const tomorrowIso = toLocalIso(today);
+  const nextPickupDate = nextPickupDates.find((date) => date >= tomorrowIso) ?? nextPickupDates.find((date) => date === todayIso) ?? nextPickupDates[0];
+  const nextPickupLabel = nextPickupDate ? `${nextPickupDate === tomorrowIso ? (locale === "fi" ? "Huomenna" : "Tomorrow") : new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-US", { month: "short", day: "numeric" }).format(new Date(`${nextPickupDate}T12:00:00`))} · ${nextPickupDate}` : (locale === "fi" ? "Ei päivää saatavilla" : "No date available");
   const heroImage = products.flatMap((product) => product.media).find((image) => image.isPrimary) ?? products[0]?.media[0];
   const seasonYear = new Date().getFullYear();
   return (
@@ -86,11 +95,12 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             <span><strong>METSÄNILO</strong></span>
           </Link>
           <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
-            <Link className="nav-reserve-link" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa tuotteet" : "Reserve products"}</Link>
+            <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa tuotteet" : "Reserve products"}</Link>
             <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
             <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>
             <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
           </nav>
+          <MobileNav locale={locale} />
           <Link className="locale-switch" href={`/${otherLocale}`} hrefLang={otherLocale}>
             {t.switchLocale}<span aria-hidden="true">↗</span>
           </Link>
@@ -106,10 +116,11 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             <a className="btn btn-light" href="#catalog">{locale === "fi" ? "Tutustu satoon" : "Explore the harvest"}<span aria-hidden="true">↓</span></a>
             <a className="text-link" href={`/${locale}/reserve`}>{locale === "fi" ? "Siirry varaukseen" : "Go to reservation"}<span aria-hidden="true">→</span></a>
           </div>
+          <p className="next-pickup-pill"><span aria-hidden="true">▣</span>{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: {nextPickupLabel}</p>
           <dl className="hero-facts">
             <div><dt>{locale === "fi" ? "Alkuperä" : "Origin"}</dt><dd>Satakunta</dd></div>
             <div><dt>{locale === "fi" ? "Nouto" : "Pickup"}</dt><dd>Pori</dd></div>
-            <div><dt>{locale === "fi" ? "Maksu" : "Payment"}</dt><dd>{locale === "fi" ? "Vahvistuksen jälkeen" : "After confirmation"}</dd></div>
+            <div><dt>{locale === "fi" ? "Maksu" : "Payment"}</dt><dd>{locale === "fi" ? "Noudettaessa / toimitettaessa" : "On pickup / delivery"}</dd></div>
           </dl>
         </div>
         <div className="hero-visual" aria-hidden={!heroImage}>
