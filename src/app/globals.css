@@ -377,7 +377,7 @@ button, select, input, textarea { min-height: 44px; }
 .gallery-indicator.active::after { background: white; }
 .mobile-reserve-cta { display: none; }
 .info-page { min-height: 100vh; }
-.info-hero { padding: clamp(5rem, 10vw, 8.5rem) 1rem 3.5rem; text-align: center; }
+.info-hero { padding: clamp(3.25rem, 5vw, 5rem) 1rem 2.75rem; text-align: center; }
 .info-hero h1 { max-width: 62rem; margin: .9rem auto 0; color: var(--forest); font-family: var(--serif); font-size: clamp(3.2rem, 7vw, 6.1rem); font-weight: 500; letter-spacing: -.055em; line-height: .96; }
 .info-hero > p:last-child { max-width: 48rem; margin: 1.25rem auto 0; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
 .info-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2rem; padding-bottom: clamp(4rem, 8vw, 7rem); }
@@ -453,6 +453,9 @@ button, select, input, textarea { min-height: 44px; }
   .reservation-summary-bar { grid-template-columns: minmax(0, 1fr) auto auto; }
   .summary-meta { display: none; }
   .message-booking-banner { grid-template-columns: 1fr; }
+  .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; padding-bottom: 4.5rem; }
+  .review-grid { gap: 1.25rem; padding-bottom: 3.5rem; }
+  .info-step-card { min-height: 17rem; padding: 2.1rem 1.35rem 1.8rem; }
 }
 
 @media (max-width: 760px) {
@@ -481,7 +484,7 @@ button, select, input, textarea { min-height: 44px; }
   .admin-user-copy { display: none; }
   .admin-user-menu summary { border: 0; padding: .2rem; }
   .storefront-nav { min-height: 5.25rem; }
-  .info-hero { padding-top: 4.5rem; padding-bottom: 2.5rem; }
+  .info-hero { padding-top: 3rem; padding-bottom: 2rem; }
   .info-hero h1 { font-size: clamp(3rem, 15vw, 4.5rem); }
   .info-grid, .review-grid, .value-grid { grid-template-columns: 1fr; gap: 1rem; }
   .info-step-card { min-height: 0; padding: 2rem 1.35rem; }
