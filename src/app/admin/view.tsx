@@ -147,7 +147,7 @@ export function ManagerView({
                   {order.fulfillmentMethod === "DELIVERY" && <p>Delivery to be agreed · {order.streetAddress}, {order.postalCode} {order.city}</p>}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button className="btn btn-secondary" onClick={() => void openDetail(order)}>Details</button>
+                  <a className="btn btn-secondary" href={`/admin/orders/${order.id}`}>Open order</a>
                   {order.status === "NEW" && <><button className="btn" onClick={() => void status(order, "CONFIRMED")}>Confirm</button><button className="btn btn-secondary" onClick={() => void status(order, "CUSTOMER_DECLINED")}>Customer declined</button><button className="btn bg-[var(--berry)]" onClick={() => void status(order, "CANCELLED")}>Cancel</button></>}
                   {order.status === "CONFIRMED" && <><button className="btn" onClick={() => void status(order, "PICKING")}>Start picking</button><button className="btn bg-[var(--berry)]" onClick={() => void status(order, "CANCELLED")}>Cancel</button></>}
                   {order.status === "PICKING" && <button className="btn" onClick={() => void status(order, "READY")}>Mark ready</button>}
