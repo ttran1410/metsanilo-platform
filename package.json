@@ -13,7 +13,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "db:preflight": "tsx scripts/preflight.ts"
+    "db:preflight": "tsx scripts/preflight.ts",
+    "db:release": "tsx scripts/release.ts"
   },
   "dependencies": {
     "@libsql/client": "0.17.4",

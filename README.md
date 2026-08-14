@@ -107,9 +107,11 @@ After starting locally or deploying, smoke-check:
 ## Vercel deployment
 
 1. Create/link the Vercel project and add the runtime variables from the first table above to Production. Do not expose secrets with `NEXT_PUBLIC_` names.
-2. Apply the Turso migration and reviewed seed from a trusted operator machine.
+2. From a trusted operator machine, run `npm run db:release`. This applies every pending migration, runs the guarded seed, and verifies the active bootstrap Admin.
 3. Deploy this branch with `vercel --prod` (or the connected Git branch), then run the smoke checks against the assigned HTTPS URL.
 4. The bilingual privacy notice is published at `/fi/tietosuoja` and `/en/privacy`. Treat production launch as blocked until the real seller/shop inputs, pickup details, catalog/price/capacity, retention choices, and Finnish consumer-law wording are approved. The app never invents these values.
+
+`db:release` requires the production Turso credentials, bootstrap Admin values, and all reviewed shop/catalog seed values. It never resets the database; existing shops require the explicit `SEED_ALLOW_EXISTING=true` review flag.
 
 ## Rollback
 
