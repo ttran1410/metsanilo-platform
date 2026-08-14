@@ -92,6 +92,13 @@
       "when": 1786640400000,
       "tag": "0012_sync_users_to_better_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786640500000,
+      "tag": "0013_default_role_permissions",
+      "breakpoints": true
     }
   ]
 }
