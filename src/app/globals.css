@@ -44,6 +44,7 @@ button, select, input, textarea { min-height: 44px; }
 .storefront-nav-links a { color: var(--muted); font-size: .72rem; font-weight: 750; text-decoration: none; white-space: nowrap; }
 .storefront-nav-links a:hover { color: var(--forest); text-decoration: underline; text-underline-offset: .25rem; }
 .storefront-nav-links a.nav-link-active { color: var(--berry); }
+.mobile-nav-menu { display: none; }
 
 .storefront-hero { display: grid; min-height: 46rem; grid-template-columns: minmax(0, 1.03fr) minmax(22rem, .97fr); border-radius: 0 0 2rem 2rem; background: var(--forest); color: #fffdf7; }
 .hero-copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: clamp(3rem, 7vw, 6.5rem) clamp(2rem, 6vw, 5.25rem); }
@@ -407,7 +408,16 @@ button, select, input, textarea { min-height: 44px; }
 @media (max-width: 960px) {
   .nav-season { display: none; }
   .storefront-nav-links { display: none; }
-  .storefront-nav { grid-template-columns: 1fr auto; }
+  .storefront-nav { grid-template-columns: minmax(0, 1fr) auto auto; gap: .7rem; }
+  .mobile-nav-menu { position: relative; display: block; }
+  .mobile-nav-menu summary { display: inline-flex; min-height: 2.7rem; align-items: center; gap: .4rem; border: 1px solid var(--line); border-radius: .7rem; background: var(--paper); color: var(--forest); padding: .45rem .65rem; font-size: .72rem; font-weight: 800; cursor: pointer; list-style: none; }
+  .mobile-nav-menu summary::-webkit-details-marker { display: none; }
+  .mobile-nav-menu[open] summary { border-color: var(--moss); background: #edf5ef; }
+  .mobile-nav-icon { display: grid; gap: .16rem; }
+  .mobile-nav-icon i { display: block; width: .85rem; height: 1px; background: currentColor; }
+  .mobile-nav-menu nav { position: absolute; top: calc(100% + .5rem); right: 0; z-index: 20; display: grid; min-width: 12rem; gap: .2rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); padding: .4rem; box-shadow: 0 16px 32px rgb(23 55 43 / 15%); }
+  .mobile-nav-menu nav a { border-radius: .5rem; color: var(--ink); padding: .7rem .75rem; font-size: .8rem; font-weight: 750; text-decoration: none; }
+  .mobile-nav-menu nav a:hover, .mobile-nav-menu nav a.nav-link-active { background: #edf5ef; color: var(--berry); }
   .storefront-hero { min-height: auto; grid-template-columns: 1fr; }
   .hero-copy { min-height: 38rem; }
   .hero-visual { height: 34rem; margin: 0 1.5rem 1.5rem; }

@@ -8,6 +8,7 @@ import { copy } from "@/lib/i18n";
 import type { PublicProduct } from "./order-form";
 import { ProductGallery } from "./product-gallery";
 import { LocaleDocument } from "./locale-document";
+import { MobileNav } from "./mobile-nav";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -91,6 +92,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>
             <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
           </nav>
+          <MobileNav locale={locale} />
           <Link className="locale-switch" href={`/${otherLocale}`} hrefLang={otherLocale}>
             {t.switchLocale}<span aria-hidden="true">↗</span>
           </Link>
