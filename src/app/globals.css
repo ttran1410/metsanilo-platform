@@ -122,11 +122,11 @@ button, select, input, textarea { min-height: 44px; }
 .catalog-content > .btn { align-self: flex-start; }
 
 .order-section { padding-block: clamp(5rem, 9vw, 8rem); border-top: 1px solid var(--line); background: var(--oat); }
-.reserve-page-section { min-height: calc(100vh - 6rem); }
+.reserve-page-section { min-height: 0; padding-block: clamp(3.25rem, 5vw, 5rem); }
 .reserve-page-section h1 { margin: .75rem 0 0; font-family: var(--serif); font-size: clamp(3.25rem, 6vw, 5.25rem); font-weight: 500; letter-spacing: -.045em; line-height: .95; }
 .reserve-selection-notice { margin-top: 2rem; border: 1px solid #e0b6bf; border-radius: .85rem; background: #f8eaed; color: var(--berry); padding: .9rem 1rem; font-weight: 700; }
-.order-intro { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(18rem, .55fr); align-items: end; gap: 4rem; }
-.order-intro-note { display: grid; gap: .85rem; }
+.order-intro { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(18rem, .55fr); align-items: end; gap: 2.5rem; }
+.order-intro-note { display: grid; gap: .85rem; max-width: 24rem; padding: .9rem 1.1rem; border: 1px solid var(--line); border-radius: .8rem; background: rgb(255 253 247 / 58%); }
 .order-intro-note span { color: var(--berry); font-size: .72rem; font-weight: 800; letter-spacing: .14em; }
 .order-intro-note p { margin: 0; color: var(--muted); line-height: 1.65; }
 .order-intro-lede { max-width: 38rem; margin: 1.25rem 0 0; color: var(--muted); font-size: 1.05rem; line-height: 1.65; }
@@ -506,6 +506,7 @@ button, select, input, textarea { min-height: 44px; }
   .promise-strip p:first-child { border-left: 0; }
   .promise-strip p:last-child { border-bottom: 0; }
   .storefront-section, .order-section { padding-block: 4.75rem; }
+  .reserve-page-section { padding-block: 2.75rem 3.5rem; }
   .section-heading h2, .order-intro h2 { font-size: clamp(3rem, 14vw, 4.5rem); }
   .catalog-grid, .reservation-form { margin-top: 2.5rem; }
   .catalog-card { border-radius: 1.25rem; }
