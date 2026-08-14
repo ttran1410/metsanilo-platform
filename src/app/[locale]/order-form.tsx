@@ -8,6 +8,7 @@ import { copy } from "@/lib/i18n";
 export type PublicProduct = {
   id: string;
   name: string;
+  description: string;
   media: Array<{ id: string; url: string; alt: string; isPrimary: boolean }>;
   packages: Array<{ id: string; label: string; volumeMl: number; priceCents: number }>;
   dates: Array<{ date: string; remainingMl: number; acceptsOrders: boolean; soldOut: boolean }>;
@@ -130,11 +131,12 @@ export function OrderForm({
   if (products.length === 0) return <div className="card mt-6">{t.closed}</div>;
 
   return (
-    <form className="card mt-6 grid gap-6" onSubmit={submit} noValidate>
-      <p className="text-sm">{t.required}</p>
-      {error && <div className="error rounded-md border border-current p-3" role="alert" tabIndex={-1}>{error}</div>}
-      <fieldset className="grid gap-4">
-        <legend className="text-xl font-bold">1. {t.package} &amp; {t.date}</legend>
+    <form className="reservation-form" onSubmit={submit} noValidate>
+      <div className="reservation-fields">
+        <p className="required-note">{t.required}</p>
+        {error && <div className="error form-error" role="alert" tabIndex={-1}>{error}</div>}
+      <fieldset className="form-step">
+        <legend><span>01</span> {t.package} &amp; {t.date}</legend>
         <label className="field">
           <span>{locale === "fi" ? "Tuote" : "Product"} *</span>
           <select value={productId} onChange={(event) => changeProduct(event.target.value)}>
@@ -158,7 +160,7 @@ export function OrderForm({
         )}
         <div className="grid gap-2" aria-live="polite">
           {product?.dates.map((item) => (
-            <div key={item.date} className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 py-2">
+            <div key={item.date} className="availability-row">
               <span>{item.date}</span>
               <span className="pill">
                 {item.soldOut ? t.soldOut : item.acceptsOrders ? `${t.remaining}: ${formatLitres(item.remainingMl, locale)} l` : t.closed}
@@ -175,15 +177,17 @@ export function OrderForm({
         </label>
       </fieldset>
 
-      <fieldset className="grid gap-3">
-        <legend className="text-xl font-bold">2. {t.method}</legend>
-        <label className="flex min-h-11 items-center gap-3"><input type="radio" checked={method === "PICKUP"} onChange={() => setMethod("PICKUP")} /> {t.pickup}</label>
-        <label className="flex min-h-11 items-center gap-3"><input type="radio" checked={method === "DELIVERY"} onChange={() => setMethod("DELIVERY")} /> {t.delivery}</label>
+      <fieldset className="form-step">
+        <legend><span>02</span> {t.method}</legend>
+        <div className="choice-grid">
+          <label className={`choice-card${method === "PICKUP" ? " selected" : ""}`}><input type="radio" checked={method === "PICKUP"} onChange={() => setMethod("PICKUP")} /> <span><strong>{t.pickup}</strong><small>{locale === "fi" ? "Nouda sovittuna päivänä Porista" : "Collect on the agreed date in Pori"}</small></span></label>
+          <label className={`choice-card${method === "DELIVERY" ? " selected" : ""}`}><input type="radio" checked={method === "DELIVERY"} onChange={() => setMethod("DELIVERY")} /> <span><strong>{t.delivery}</strong><small>{locale === "fi" ? "Sovitaan erikseen" : "Arranged separately"}</small></span></label>
+        </div>
         {method === "PICKUP" ? (
-          <div className="rounded-lg bg-slate-100 p-4"><strong>{pickup.name}</strong><br />{pickup.address}<br />{pickup.instructions}<br />{pickup.time}</div>
+          <div className="pickup-card"><span>{locale === "fi" ? "Noutopaikka" : "Pickup point"}</span><strong>{pickup.name}</strong><p>{pickup.address}<br />{pickup.instructions}<br />{pickup.time}</p></div>
         ) : (
           <div className="grid gap-4">
-            <p className="font-bold text-[var(--berry)]">{t.deliveryPending}</p>
+            <p className="delivery-note">{t.deliveryPending}</p>
             <label className="field"><span>{t.street} *</span><input name="streetAddress" required minLength={2} maxLength={160} /></label>
             <label className="field"><span>{t.postalCode} *</span><input name="postalCode" required inputMode="numeric" pattern="[0-9]{5}" maxLength={5} /></label>
             <label className="field"><span>{t.city} *</span><input name="city" required minLength={2} maxLength={100} /></label>
@@ -191,8 +195,8 @@ export function OrderForm({
         )}
       </fieldset>
 
-      <fieldset className="grid gap-4">
-        <legend className="text-xl font-bold">3. {t.details}</legend>
+      <fieldset className="form-step">
+        <legend><span>03</span> {t.details}</legend>
         <label className="field"><span>{t.name} *</span><input name="customerName" required minLength={2} maxLength={120} autoComplete="name" /></label>
         <label className="field"><span>{t.mobile} *</span><input name="mobile" required type="tel" minLength={7} maxLength={30} autoComplete="tel" /></label>
         <label className="field"><span>{t.email}</span><input name="email" type="email" maxLength={254} autoComplete="email" /></label>
@@ -200,11 +204,19 @@ export function OrderForm({
       </fieldset>
       <div className="grid gap-2">
         {privacyNoticeUrl && <a className="font-bold underline" href={privacyNoticeUrl} target="_blank" rel="noreferrer">{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</a>}
-        <label className="flex items-start gap-3"><input className="mt-1" name="privacyAcknowledged" type="checkbox" required /> <span>{t.privacy} *</span></label>
+        <label className="privacy-check"><input name="privacyAcknowledged" type="checkbox" required /> <span>{t.privacy} *</span></label>
       </div>
-      <div className="summary-card"><div><span>{locale === "fi" ? "Yhteensä" : "Total"}</span><strong>{formatLitres(totalLitres * 1000, locale)} l · {formatEuros(subtotalCents, locale)}</strong></div><p>{t.pending}</p>{method === "DELIVERY" && <p>{t.deliveryPending}</p>}</div>
-      {contact.phone && <div className="card grid gap-2 bg-white"><strong>{locale === "fi" ? "Tarvitsetko apua tilaukseen?" : "Need help with your order?"}</strong><p>{locale === "fi" ? "Voit tilata myös viestillä." : "You can also order by message."}</p><div className="flex flex-wrap gap-2"><a className="btn btn-secondary" href={`sms:${smsNumber}`}>{locale === "fi" ? "Lähetä tekstiviesti" : "Send SMS"}</a><a className="btn btn-secondary" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">WhatsApp</a></div></div>}
-      <button className="btn" disabled={submitting || !date || !selectedPackage} type="submit">{submitting ? "…" : t.submit}</button>
+      </div>
+      <aside className="reservation-sidebar">
+        <div className="summary-card">
+          <p className="summary-label">{locale === "fi" ? "Varauksesi" : "Your reservation"}</p>
+          <div><span>{selectedPackage?.label ?? t.package}</span><strong>{formatEuros(subtotalCents, locale)}</strong></div>
+          <dl><div><dt>{locale === "fi" ? "Määrä" : "Amount"}</dt><dd>{formatLitres(totalLitres * 1000, locale)} l</dd></div><div><dt>{t.method}</dt><dd>{method === "PICKUP" ? t.pickup : t.delivery}</dd></div>{date && <div><dt>{t.date}</dt><dd>{date}</dd></div>}</dl>
+          <p>{t.pending}</p>{method === "DELIVERY" && <p>{t.deliveryPending}</p>}
+          <button className="btn btn-accent submit-button" disabled={submitting || !date || !selectedPackage} type="submit">{submitting ? "…" : t.submit}<span aria-hidden="true">→</span></button>
+        </div>
+        {contact.phone && <div className="help-card"><span>{locale === "fi" ? "Tarvitsetko apua?" : "Need help?"}</span><strong>{locale === "fi" ? "Voit varata myös viestillä." : "You can also reserve by message."}</strong><div><a href={`sms:${smsNumber}`}>{locale === "fi" ? "Tekstiviesti" : "Send SMS"}</a><a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">WhatsApp</a></div></div>}
+      </aside>
     </form>
   );
 }

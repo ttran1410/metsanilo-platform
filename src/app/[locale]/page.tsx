@@ -32,6 +32,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
       product = {
         id: row.product.id,
         name: locale === "fi" ? row.product.nameFi : row.product.nameEn,
+        description: locale === "fi" ? row.product.descriptionFi : row.product.descriptionEn,
         media: data.media.filter((image) => image.productId === row.product.id).map((image) => ({ id: image.id, url: image.url, alt: locale === "fi" ? image.altFi : image.altEn, isPrimary: image.isPrimary })),
         packages: [],
         dates: [],
@@ -114,8 +115,10 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           return <article className="catalog-card" key={product.id}>
           <div className="catalog-media"><ProductGallery images={product.media} previousLabel={locale === "fi" ? "Edellinen kuva" : "Previous image"} nextLabel={locale === "fi" ? "Seuraava kuva" : "Next image"} slideLabel={locale === "fi" ? "Tuotekuva" : "Product image"} /><span className="catalog-index">0{productIndex + 1}</span></div>
           <div className="catalog-content">
-            <div className="catalog-title-row"><div><p className="product-kicker">{locale === "fi" ? "Metsämarja" : "Wild berry"}</p><h3>{product.name}</h3></div><span className={`availability-dot${available ? "" : " unavailable"}`}>{available ? (locale === "fi" ? "Saatavilla" : "Available") : t.soldOut}</span></div>
-            <div className="package-list">{product.packages.map((pkg) => { const litres = pkg.volumeMl / 1000; const unitPriceCents = litres > 0 ? Math.round(pkg.priceCents / litres) : pkg.priceCents; return <div className="package-row" key={pkg.id}><span><strong>{pkg.label}</strong><small>{formatLitres(pkg.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"} · {locale === "fi" ? "puhdistettu" : "cleaned"}</small></span><strong>{formatEuros(pkg.priceCents, locale)}</strong></div>; })}</div>
+            <div className="catalog-title-row"><div><p className="product-kicker">{locale === "fi" ? "Metsämarja" : "Wild berry"}</p><h3>{product.name}</h3></div><span className={`availability-badge${available ? "" : " unavailable"}`}>{available ? (locale === "fi" ? "Saatavilla" : "Available") : t.soldOut}</span></div>
+            {product.description && <p className="catalog-description">{product.description}</p>}
+            <div className="package-list">{product.packages.map((pkg) => { const litres = pkg.volumeMl / 1000; const unitPriceCents = litres > 0 ? Math.round(pkg.priceCents / litres) : pkg.priceCents; return <div className="package-card" key={pkg.id}><span><strong>{pkg.label}</strong><small>{formatLitres(pkg.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"} · {locale === "fi" ? "puhdistettu" : "cleaned"}</small></span><strong className="package-price">{formatEuros(pkg.priceCents, locale)}</strong></div>; })}</div>
+            <p className="food-safe-note">{locale === "fi" ? "Pakattu puhtaisiin elintarvikekäyttöön hyväksyttyihin pakkauksiin." : "Packed in clean, food-safe containers."}</p>
             <a className="btn btn-accent" href="#order">{locale === "fi" ? "Varaa tämä tuote" : "Reserve this product"}<span aria-hidden="true">→</span></a>
           </div>
         </article>})}</div>
