@@ -113,6 +113,17 @@ After starting locally or deploying, smoke-check:
 
 `db:release` requires the production Turso credentials, bootstrap Admin values, and all reviewed shop/catalog seed values. It never resets the database; existing shops require the explicit `SEED_ALLOW_EXISTING=true` review flag.
 
+## Better Auth rollout
+
+Better Auth is currently installed as a parallel, isolated endpoint at
+`/api/auth/better/*`. Its Drizzle/SQLite tables are added by migration `0011`,
+but the existing production login and shop RBAC continue to use the current
+provider until account synchronization and permission mapping are explicitly
+verified. Do not enable Better Auth in production by changing credentials or
+login routes without completing that migration and a rollback test.
+The Better Auth endpoint is active at `/api/auth/better/*`. Set `BETTER_AUTH_SECRET` and
+`BETTER_AUTH_URL` in each environment before deploying.
+
 ## Rollback
 
 Promote the preceding known-good Vercel deployment (Dashboard **Deployments → … → Promote to Production**, or the equivalent Vercel CLI command). Do not roll back the Turso schema for this additive release. If intake must stop immediately, set manual sold-out on every live date or deactivate the shop directly through a reviewed database operation. Existing orders and audit history must be retained. Revoke the deployment’s Turso token if credentials may have been exposed.

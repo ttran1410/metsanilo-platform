@@ -4,6 +4,8 @@ import { listManagerAvailability } from "@/domain/availability";
 import { listManagerOrders } from "@/domain/orders";
 import { listManagerProducts } from "@/domain/products";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { currentUser } from "@/domain/access";
 import { ManagerView } from "./view";
 import { ProductModule } from "./products";
 import { UserModule } from "./users";
@@ -16,8 +18,10 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export default async function ManagerPage() {
-  const authorization = (await headers()).get("authorization");
-  const request = new Request("http://internal/admin", { headers: authorization ? { authorization } : undefined });
+  const incomingHeaders = await headers();
+  const request = new Request("http://internal/admin", { headers: incomingHeaders });
+  const actor = await currentUser(db(), request);
+  if (actor.mustChangePassword) redirect("/admin/change-password");
   const allowed = async (permission: "orders.read" | "availability.write" | "catalog.product.write") => {
     try { await requirePermission(db(), request, permission); return true; } catch { return false; }
   };

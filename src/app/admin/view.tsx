@@ -21,7 +21,7 @@ export function ManagerView({
   const [detail, setDetail] = useState<OrderDetail | null>(null);
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch("/api/auth/better/sign-out", { method: "POST" });
     window.location.assign("/admin/login");
   }
 
