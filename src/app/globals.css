@@ -70,4 +70,6 @@ button, select, input, textarea { min-height: 44px; }
 .capacity-track span { display: block; height: 100%; border-radius: inherit; background: var(--moss); }
 .actionable-order { display: flex; align-items: center; justify-content: space-between; gap: .75rem; border: 1px solid #e2e8f0; border-radius: .7rem; padding: .7rem; text-decoration: none; }
 .actionable-order:hover, .actionable-order:focus-visible { border-color: var(--moss); background: #f4fbf5; }
+.audit-timeline { display: grid; gap: .5rem; border-top: 1px solid #e2e8f0; padding-top: .75rem; }
+.audit-event { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .5rem; border-left: 3px solid #cbd5e1; padding: .35rem .5rem; font-size: .8rem; }
 @media (max-width: 760px) { .dashboard-alert, .dashboard-grid { display: grid; grid-template-columns: 1fr; } .dashboard-alert-btn { width: fit-content; } }

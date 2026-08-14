@@ -286,14 +286,15 @@ export async function getManagerOrder(database: Database, orderId: string) {
   const { SHOP_ID } = env();
   const order = await database.query.orders.findFirst({ where: and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID)) });
   if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
-  const [notes, payments] = await Promise.all([
+  const [notes, payments, audit] = await Promise.all([
     database.select().from(orderNotes).where(and(eq(orderNotes.orderId, orderId), eq(orderNotes.shopId, SHOP_ID))).orderBy(desc(orderNotes.createdAt)),
     database.select().from(orderPayments).where(and(eq(orderPayments.orderId, orderId), eq(orderPayments.shopId, SHOP_ID))).orderBy(desc(orderPayments.recordedAt)),
+    database.select().from(auditEntries).where(and(eq(auditEntries.entityType, "order"), eq(auditEntries.entityId, orderId), eq(auditEntries.shopId, SHOP_ID))).orderBy(desc(auditEntries.createdAt)),
   ]);
   const paidCents = payments.filter((payment) => payment.kind === "PAYMENT").reduce((sum, payment) => sum + payment.amountCents, 0);
   const refundedCents = payments.filter((payment) => payment.kind === "REFUND").reduce((sum, payment) => sum + payment.amountCents, 0);
   const totalCents = order.finalTotalCents ?? 0;
-  return { order, notes, payments, paymentSummary: { paidCents, refundedCents, outstandingCents: Math.max(0, totalCents - paidCents + refundedCents), status: refundedCents >= totalCents && totalCents > 0 ? "REFUNDED" : refundedCents > 0 ? "PARTIALLY_REFUNDED" : paidCents >= totalCents && totalCents > 0 ? "PAID" : "PENDING" } };
+  return { order, notes, payments, audit, paymentSummary: { paidCents, refundedCents, outstandingCents: Math.max(0, totalCents - paidCents + refundedCents), status: refundedCents >= totalCents && totalCents > 0 ? "REFUNDED" : refundedCents > 0 ? "PARTIALLY_REFUNDED" : paidCents >= totalCents && totalCents > 0 ? "PAID" : "PENDING" } };
 }
 
 export async function addOrderNote(database: Database, input: { orderId: string; body: string }) {

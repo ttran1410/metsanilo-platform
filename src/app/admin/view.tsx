@@ -2,11 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import type { availability, orderNotes, orderPayments, orders, products } from "@/db/schema";
+import type { auditEntries, availability, orderNotes, orderPayments, orders, products } from "@/db/schema";
 
 type Order = typeof orders.$inferSelect;
 type AvailabilityRow = { availability: typeof availability.$inferSelect; product: typeof products.$inferSelect };
-type OrderDetail = { order: Order; notes: Array<typeof orderNotes.$inferSelect>; payments: Array<typeof orderPayments.$inferSelect> };
+type OrderDetail = { order: Order; notes: Array<typeof orderNotes.$inferSelect>; payments: Array<typeof orderPayments.$inferSelect>; audit: Array<typeof auditEntries.$inferSelect>; paymentSummary: { paidCents: number; refundedCents: number; outstandingCents: number; status: string } };
 
 export function ManagerView({
   initialOrders,
@@ -23,6 +23,9 @@ export function ManagerView({
   const [availabilityRows, setAvailabilityRows] = useState(initialAvailability);
   const [message, setMessage] = useState("");
   const [detail, setDetail] = useState<OrderDetail | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const filteredOrders = orderRows.filter((order) => (statusFilter === "ALL" || order.status === statusFilter) && `${order.publicReference} ${order.customerName} ${order.mobile}`.toLowerCase().includes(search.toLowerCase()));
 
   async function logout() {
     await fetch("/api/auth/better/sign-out", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
@@ -133,10 +136,10 @@ export function ManagerView({
       {message && <p className="card mt-5" role="status">{message}</p>}
 
       {canViewOrders && <section id="orders" className="mt-8">
-        <h2 className="text-2xl font-bold">Orders</h2>
+        <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-2xl font-bold">Orders</h2><p className="text-sm text-slate-600">Search by reference, customer or phone.</p></div><div className="flex flex-wrap gap-2"><input className="rounded-lg border p-3" aria-label="Search orders" placeholder="Search orders" value={search} onChange={(event) => setSearch(event.target.value)} /><select className="rounded-lg border p-3" aria-label="Filter order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option>{["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED", "CANCELLED", "REFUNDED"].map((status) => <option key={status} value={status}>{status}</option>)}</select></div></div>
         <div className="mt-3 grid gap-3">
-          {orderRows.length === 0 && <div className="card">No orders.</div>}
-          {orderRows.map((order) => (
+          {filteredOrders.length === 0 && <div className="card">No matching orders.</div>}
+          {filteredOrders.map((order) => (
             <article className="card" key={order.id}>
               <div className="flex flex-wrap justify-between gap-3">
                 <div>
@@ -157,10 +160,12 @@ export function ManagerView({
               {detail?.order.id === order.id && <div className="mt-4 grid gap-3 border-t pt-4">
                 <h4 className="font-bold">Order detail</h4>
                 <p>Item: {(detail.order.itemSubtotalCents / 100).toFixed(2)} € · Delivery: {detail.order.deliveryFeeCents === null ? "to be agreed" : `${(detail.order.deliveryFeeCents / 100).toFixed(2)} €`} · Total: {detail.order.finalTotalCents === null ? "to be agreed" : `${(detail.order.finalTotalCents / 100).toFixed(2)} €`}</p>
+                <p className="text-sm"><strong>Payment summary:</strong> {detail.paymentSummary.status} · Paid {(detail.paymentSummary.paidCents / 100).toFixed(2)} € · Refunded {(detail.paymentSummary.refundedCents / 100).toFixed(2)} € · Outstanding {(detail.paymentSummary.outstandingCents / 100).toFixed(2)} €</p>
                 {detail.order.fulfillmentMethod === "DELIVERY" && detail.order.status !== "CANCELLED" && <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void detailAction(event, "fee")}><label className="field"><span>Delivery fee (€)</span><input name="feeEuros" type="number" min="0" step="0.01" defaultValue={detail.order.deliveryFeeCents === null ? "" : (detail.order.deliveryFeeCents / 100).toFixed(2)} required /></label><button className="btn" type="submit">Save fee</button></form>}
                 <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => void detailAction(event, "payment")}><label className="field"><span>Payment (€)</span><input name="paymentEuros" type="number" min="0.01" step="0.01" required /></label><label className="field"><span>Method</span><select name="method" defaultValue="CASH"><option value="CASH">Cash</option><option value="BANK_TRANSFER">Bank transfer</option><option value="MOBILEPAY">MobilePay</option><option value="CARD">Card</option><option value="OTHER">Other</option></select></label><label className="field"><span>Reference</span><input name="reference" maxLength={200} /></label><button className="btn" type="submit">Record payment</button></form>
                 <form className="flex items-end gap-2" onSubmit={(event) => void detailAction(event, "note")}><label className="field grow"><span>Internal note</span><textarea name="body" maxLength={2000} required /></label><button className="btn" type="submit">Add note</button></form>
                 <div className="text-sm"><strong>Payments:</strong> {detail.payments.length ? detail.payments.map((payment) => `${(payment.amountCents / 100).toFixed(2)} € ${payment.method}`).join(" · ") : "None"}<br /><strong>Notes:</strong> {detail.notes.length ? detail.notes.map((note) => note.body).join(" · ") : "None"}</div>
+                <div className="audit-timeline"><strong>Audit timeline</strong>{detail.audit.length ? detail.audit.map((entry) => <div className="audit-event" key={entry.id}><span className="pill">{entry.action.replace("order.", "")}</span><span>{entry.actor}</span><time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString("fi-FI")}</time></div>) : <p className="text-sm text-slate-600">No audit events.</p>}</div>
               </div>}
             </article>
           ))}
