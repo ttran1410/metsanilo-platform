@@ -135,22 +135,32 @@ export function OrderForm({
       <div className="reservation-fields">
         <p className="required-note">{t.required}</p>
         {error && <div className="error form-error" role="alert" tabIndex={-1}>{error}</div>}
-      <fieldset className="form-step">
-        <legend><span>01</span> {t.package} &amp; {t.date}</legend>
-        <label className="field">
-          <span>{locale === "fi" ? "Tuote" : "Product"} *</span>
-          <select value={productId} onChange={(event) => changeProduct(event.target.value)}>
-            {products.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
-        </label>
-        <label className="field">
-          <span>{t.package} *</span>
-          <select value={selectedPackage?.id ?? ""} onChange={(event) => { setPackageId(event.target.value); setQuantity(1); setDate(""); }}>
-            {product?.packages.map((item) => (
-              <option key={item.id} value={item.id}>{item.label} — {formatLitres(item.volumeMl, locale)} l — {formatEuros(item.priceCents, locale)}</option>
-            ))}
-          </select>
-        </label>
+        <fieldset className="form-step">
+        <legend><span>01</span> {locale === "fi" ? "Valitse marja ja pakkaus" : "Choose berries and package"}</legend>
+        <div className="selection-label">{locale === "fi" ? "Tuote" : "Product"} *</div>
+        <div className="selection-grid product-selection">
+          {products.map((item) => {
+            const available = item.packages.some((pkg) => item.dates.some((dateItem) => dateItem.acceptsOrders && !dateItem.soldOut && dateItem.remainingMl >= pkg.volumeMl));
+            return <label className={`selection-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}>
+              <input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} />
+              <span className="selection-card-copy"><strong>{item.name}</strong><small>{item.description || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span>
+              <span className="selection-check" aria-hidden="true">✓</span>
+            </label>;
+          })}
+        </div>
+        <div className="selection-label">{t.package} *</div>
+        <div className="selection-grid package-selection">
+          {product?.packages.map((item) => {
+            const litres = item.volumeMl / 1000;
+            const unitPriceCents = litres > 0 ? Math.round(item.priceCents / litres) : item.priceCents;
+            return <label className={`selection-card package-selection-card${item.id === selectedPackage?.id ? " selected" : ""}`} key={item.id}>
+              <input type="radio" name="packageId" value={item.id} checked={item.id === selectedPackage?.id} onChange={() => { setPackageId(item.id); setQuantity(1); setDate(""); }} />
+              <span className="selection-card-copy"><strong>{item.label}</strong><small>{formatLitres(item.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"}</small></span>
+              <strong className="selection-price">{formatEuros(item.priceCents, locale)}</strong>
+              <span className="selection-check" aria-hidden="true">✓</span>
+            </label>;
+          })}
+        </div>
         {selectedPackage?.volumeMl === 10000 && (
           <label className="field">
             <span>{locale === "fi" ? "Määrä" : "Quantity"} *</span>
@@ -158,16 +168,6 @@ export function OrderForm({
             <small>{locale === "fi" ? "10 litran pakkaukselle voit valita määrän." : "Quantity can be selected for the 10 litre package."}</small>
           </label>
         )}
-        <div className="grid gap-2" aria-live="polite">
-          {product?.dates.map((item) => (
-            <div key={item.date} className="availability-row">
-              <span>{item.date}</span>
-              <span className="pill">
-                {item.soldOut ? t.soldOut : item.acceptsOrders ? `${t.remaining}: ${formatLitres(item.remainingMl, locale)} l` : t.closed}
-              </span>
-            </div>
-          ))}
-        </div>
         <label className="field">
           <span>{t.date} *</span>
           <select required value={date} onChange={(event) => setDate(event.target.value)} aria-invalid={Boolean(fieldErrors.fulfillmentDate)}>
@@ -175,7 +175,8 @@ export function OrderForm({
             {orderableDates.map((item) => <option key={item.date} value={item.date}>{item.date}</option>)}
           </select>
         </label>
-      </fieldset>
+        <p className="availability-hint" aria-live="polite">{orderableDates.length > 0 ? (locale === "fi" ? `${orderableDates.length} noutopäivää saatavilla` : `${orderableDates.length} pickup dates available`) : t.closed}</p>
+        </fieldset>
 
       <fieldset className="form-step">
         <legend><span>02</span> {t.method}</legend>
@@ -197,26 +198,25 @@ export function OrderForm({
 
       <fieldset className="form-step">
         <legend><span>03</span> {t.details}</legend>
-        <label className="field"><span>{t.name} *</span><input name="customerName" required minLength={2} maxLength={120} autoComplete="name" /></label>
-        <label className="field"><span>{t.mobile} *</span><input name="mobile" required type="tel" minLength={7} maxLength={30} autoComplete="tel" /></label>
-        <label className="field"><span>{t.email}</span><input name="email" type="email" maxLength={254} autoComplete="email" /></label>
-        <label className="field"><span>{t.notes}</span><textarea name="notes" maxLength={1000} rows={3} /></label>
+        <div className="contact-grid">
+          <label className="field"><span>{t.name} *</span><input name="customerName" required minLength={2} maxLength={120} autoComplete="name" /></label>
+          <label className="field"><span>{t.mobile} *</span><input name="mobile" required type="tel" minLength={7} maxLength={30} autoComplete="tel" /></label>
+          <label className="field"><span>{t.email}</span><input name="email" type="email" maxLength={254} autoComplete="email" /></label>
+          <label className="field contact-notes"><span>{t.notes}</span><textarea name="notes" maxLength={1000} rows={3} /></label>
+        </div>
       </fieldset>
       <div className="grid gap-2">
         {privacyNoticeUrl && <a className="font-bold underline" href={privacyNoticeUrl} target="_blank" rel="noreferrer">{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</a>}
         <label className="privacy-check"><input name="privacyAcknowledged" type="checkbox" required /> <span>{t.privacy} *</span></label>
       </div>
+      {contact.phone && <div className="help-card inline-help-card"><span>{locale === "fi" ? "Tarvitsetko apua?" : "Need help?"}</span><strong>{locale === "fi" ? "Voit varata myös viestillä." : "You can also reserve by message."}</strong><div><a href={`sms:${smsNumber}`}>{locale === "fi" ? "Tekstiviesti" : "Send SMS"}</a><a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">WhatsApp</a></div></div>}
       </div>
-      <aside className="reservation-sidebar">
-        <div className="summary-card">
-          <p className="summary-label">{locale === "fi" ? "Varauksesi" : "Your reservation"}</p>
-          <div><span>{selectedPackage?.label ?? t.package}</span><strong>{formatEuros(subtotalCents, locale)}</strong></div>
-          <dl><div><dt>{locale === "fi" ? "Määrä" : "Amount"}</dt><dd>{formatLitres(totalLitres * 1000, locale)} l</dd></div><div><dt>{t.method}</dt><dd>{method === "PICKUP" ? t.pickup : t.delivery}</dd></div>{date && <div><dt>{t.date}</dt><dd>{date}</dd></div>}</dl>
-          <p>{t.pending}</p>{method === "DELIVERY" && <p>{t.deliveryPending}</p>}
-          <button className="btn btn-accent submit-button" disabled={submitting || !date || !selectedPackage} type="submit">{submitting ? "…" : t.submit}<span aria-hidden="true">→</span></button>
-        </div>
-        {contact.phone && <div className="help-card"><span>{locale === "fi" ? "Tarvitsetko apua?" : "Need help?"}</span><strong>{locale === "fi" ? "Voit varata myös viestillä." : "You can also reserve by message."}</strong><div><a href={`sms:${smsNumber}`}>{locale === "fi" ? "Tekstiviesti" : "Send SMS"}</a><a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">WhatsApp</a></div></div>}
-      </aside>
+      <div className="reservation-summary-bar">
+        <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {date || (locale === "fi" ? "päivä valitsematta" : "date not selected")}</small></div>
+        <div className="summary-meta"><span>{method === "PICKUP" ? t.pickup : t.delivery}</span><span>{formatLitres(totalLitres * 1000, locale)} l</span></div>
+        <div className="summary-total"><span>{locale === "fi" ? "Yhteensä" : "Total"}</span><strong>{formatEuros(subtotalCents, locale)}</strong></div>
+        <button className="btn btn-accent submit-button" disabled={submitting || !date || !selectedPackage} type="submit">{submitting ? "…" : t.submit}<span aria-hidden="true">→</span></button>
+      </div>
     </form>
   );
 }
