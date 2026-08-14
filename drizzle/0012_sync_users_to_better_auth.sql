@@ -7,6 +7,7 @@ SELECT id, display_name, lower(email), 1, NULL,
        CAST(strftime('%s', created_at) AS INTEGER) * 1000
 FROM users
 WHERE email IS NOT NULL;
+--> statement-breakpoint
 
 INSERT OR IGNORE INTO auth_accounts (id, account_id, provider_id, user_id, password, created_at, updated_at)
 SELECT 'credential-' || id, id, 'credential', id, password_hash,
