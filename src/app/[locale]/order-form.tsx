@@ -60,16 +60,17 @@ export function OrderForm({
     () => product?.dates.filter((item) => item.acceptsOrders && !item.soldOut && item.remainingMl >= (selectedPackage?.volumeMl ?? Infinity) * quantity) ?? [],
     [product, selectedPackage, quantity],
   );
+  const visibleOrderableDates = orderableDates.slice(0, 7);
   const defaultDate = useMemo(() => {
-    if (orderableDates.length === 0) return "";
+    if (visibleOrderableDates.length === 0) return "";
     const toLocalIso = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
     const today = new Date();
     const todayIso = toLocalIso(today);
     today.setDate(today.getDate() + 1);
     const tomorrowIso = toLocalIso(today);
-    const nextAvailableDate = orderableDates.find((item) => item.date >= tomorrowIso);
-    return nextAvailableDate?.date ?? orderableDates.find((item) => item.date === todayIso)?.date ?? orderableDates[0].date;
-  }, [orderableDates]);
+    const nextAvailableDate = visibleOrderableDates.find((item) => item.date >= tomorrowIso);
+    return nextAvailableDate?.date ?? visibleOrderableDates.find((item) => item.date === todayIso)?.date ?? visibleOrderableDates[0].date;
+  }, [visibleOrderableDates]);
 
   useEffect(() => {
     if (!date || !orderableDates.some((item) => item.date === date)) setDate(defaultDate);
@@ -191,7 +192,7 @@ export function OrderForm({
 
       <fieldset className="form-step">
         <legend><span>02</span> {t.method}</legend>
-        <label className="field fulfillment-date-field"><span>{t.date} *</span><select required value={date} onChange={(event) => setDate(event.target.value)} aria-invalid={Boolean(fieldErrors.fulfillmentDate)}><option value="">—</option>{orderableDates.map((item) => <option key={item.date} value={item.date}>{item.date}</option>)}</select><small className="availability-hint" aria-live="polite">{orderableDates.length > 0 ? (locale === "fi" ? `${orderableDates.length} noutopäivää saatavilla` : `${orderableDates.length} pickup dates available`) : t.closed}</small></label>
+        <div className="field fulfillment-date-field" aria-invalid={Boolean(fieldErrors.fulfillmentDate)}><span>{t.date} *</span><div className="date-chip-grid" role="radiogroup" aria-label={t.date}>{visibleOrderableDates.map((item) => { const chipDate = new Date(`${item.date}T12:00:00`); const label = new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { weekday: "short", day: "numeric", month: "numeric" }).format(chipDate); return <label className={`date-chip${date === item.date ? " selected" : ""}`} key={item.date}><input type="radio" name="fulfillmentDate" value={item.date} checked={date === item.date} onChange={() => setDate(item.date)} /><span>{label}</span></label>; })}</div><small className="availability-hint" aria-live="polite">{orderableDates.length > 0 ? (locale === "fi" ? `${Math.min(orderableDates.length, 7)} noutopäivää näytetään` : `Showing ${Math.min(orderableDates.length, 7)} pickup dates`) : t.closed}</small></div>
         <div className="choice-grid">
           <label className={`choice-card${method === "PICKUP" ? " selected" : ""}`}><input type="radio" checked={method === "PICKUP"} onChange={() => setMethod("PICKUP")} /> <span><strong>{t.pickup}</strong><small>{locale === "fi" ? "Nouda sovittuna päivänä Porista" : "Collect on the agreed date in Pori"}</small></span></label>
           <label className={`choice-card${method === "DELIVERY" ? " selected" : ""}`}><input type="radio" checked={method === "DELIVERY"} onChange={() => setMethod("DELIVERY")} /> <span><strong>{t.delivery}</strong><small>{locale === "fi" ? "Sovitaan toimituksesta" : "Delivery to be agreed"}</small></span></label>
