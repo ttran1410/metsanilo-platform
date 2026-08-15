@@ -203,6 +203,12 @@ button, select, input, textarea { min-height: 3.25rem; }
 .availability-row { display: flex; min-height: 3rem; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem 0; border-bottom: 1px solid var(--line); font-size: .86rem; }
 .availability-hint { margin: -.35rem 0 0; color: var(--muted); font-size: .82rem; }
 .choice-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
+.date-chip-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem; }
+.date-chip { position: relative; display: grid; min-height: 3.5rem; place-items: center; border: 1px solid #a7aaa3; border-radius: .7rem; background: var(--paper); color: var(--ink); padding: .55rem .45rem; text-align: center; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
+.date-chip:hover { border-color: var(--moss); }
+.date-chip.selected { border: 2px solid var(--forest); background: #edf5ef; box-shadow: inset 0 0 0 1px var(--forest); color: var(--forest); font-weight: 800; }
+.date-chip input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.date-chip:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 3px; }
 .form-step:has(.fulfillment-date-field) { grid-template-columns: minmax(12rem, .72fr) minmax(0, 1.28fr); }
 .form-step:has(.fulfillment-date-field) legend, .form-step:has(.fulfillment-date-field) > .grid { grid-column: 1 / -1; }
 .form-step:has(.fulfillment-date-field) .choice-grid { grid-column: 2; }
@@ -554,6 +560,7 @@ button, select, input, textarea { min-height: 3.25rem; }
   .form-step { padding-block: 2rem; }
   .form-step legend { font-size: 1.5rem; }
   .choice-grid, .product-selection, .package-selection, .contact-grid, .delivery-fields, .reservation-sidebar { grid-template-columns: 1fr; }
+  .date-chip-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .form-step:has(.fulfillment-date-field) { grid-template-columns: 1fr; }
   .form-step:has(.fulfillment-date-field) .choice-grid { grid-column: 1; }
   .contact-notes { grid-column: auto; }
