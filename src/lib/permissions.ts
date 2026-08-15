@@ -7,10 +7,10 @@ export const PERMISSIONS = [
   "delivery.read", "delivery.write", "delivery.override",
   "cms.read", "cms.edit", "cms.publish",
   "media.read", "media.write",
-  "customers.read", "customers.write", "customers.anonymize", "customers.consent.read", "customers.consent.write",
+  "customers.read", "customers.write", "customers.anonymize", "customers.identity.resolve", "customers.consent.read", "customers.consent.write",
   "reviews.read", "reviews.create", "reviews.moderate", "reviews.feature", "reviews.visibility",
   "shop_users.read", "shop_users.manage", "shop_users.password_reset", "shop_permissions.read", "shop_permissions.assign",
-  "settings.read", "settings.operational", "audit.read",
+  "settings.read", "settings.operational", "settings.sources.read", "settings.sources.manage", "settings.fulfillment.read", "settings.fulfillment.manage", "audit.read",
 ] as const;
 
 export const COMING_SOON_PERMISSIONS = [

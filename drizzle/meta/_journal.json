@@ -134,6 +134,27 @@
       "when": 1786805148184,
       "tag": "0018_reviews_and_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1786815762671,
+      "tag": "0019_magical_crusher_hogan",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1786815945500,
+      "tag": "0020_nice_fantastic_four",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1786817000000,
+      "tag": "0021_customer_consent_status",
+      "breakpoints": true
     }
   ]
 }

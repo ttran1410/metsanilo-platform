@@ -20,7 +20,6 @@ export async function adminNavigation(request: Request) {
     { id: "dashboard", label: "Overview", group: "Operations", enabled: await hasAdminPermission(request, "dashboard.read") },
     { id: "orders", label: "Orders", group: "Operations", enabled: await hasAdminPermission(request, "orders.read") },
     { id: "availability", label: "Harvest availability", group: "Operations", enabled: await hasAdminPermission(request, "availability.read") },
-    { id: "manual-orders", label: "Phone & message orders", group: "Operations", enabled: await hasAdminPermission(request, "orders.create") },
     { id: "customers", label: "Customers", group: "Catalog & customers", enabled: await hasAdminPermission(request, "customers.read") },
     { id: "reviews", label: "Reviews", group: "Catalog & customers", enabled: await hasAdminPermission(request, "reviews.read") },
     { id: "products", label: "Product catalog", group: "Catalog & customers", enabled: await hasAdminPermission(request, "catalog.product.read") },

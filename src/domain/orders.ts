@@ -1,11 +1,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, customers, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
+import { auditEntries, availability, customers, fulfillmentLocations, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
-import { normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
+import { normalizeEmail, normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
 import { assertPaymentMethodEnabled, type PaymentMethod } from "./payment-methods";
 
 const nowIso = () => new Date().toISOString();
@@ -169,14 +169,16 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
       const orderId = randomUUID();
       const reference = publicReference();
       const pickup = input.fulfillmentMethod === "PICKUP";
-      const normalizedEmail = input.email?.toLowerCase() || null;
+      const configuredLocation = await tx.query.fulfillmentLocations.findFirst({ where: and(eq(fulfillmentLocations.shopId, SHOP_ID), eq(fulfillmentLocations.type, pickup ? "PICKUP" : "DELIVERY_ORIGIN"), eq(fulfillmentLocations.active, true), eq(fulfillmentLocations.isDefault, true)) });
+      const locationSnapshot = configuredLocation ? JSON.stringify({ id: configuredLocation.id, type: configuredLocation.type, nameFi: configuredLocation.nameFi, nameEn: configuredLocation.nameEn, address: configuredLocation.address, instructionsFi: configuredLocation.instructionsFi, instructionsEn: configuredLocation.instructionsEn }) : null;
+      const normalizedEmail = normalizeEmail(input.email);
       const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, mobile)) });
       const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.email, normalizedEmail)) }) : undefined;
       const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id) || Boolean(mobileMatch && normalizedEmail && mobileMatch.email && mobileMatch.email !== normalizedEmail && !emailMatch);
       const consentGranted = input.marketingConsent === true;
       const customer = (conflict || (!mobileMatch && !emailMatch))
-        ? { id: randomUUID(), shopId: SHOP_ID, name: input.customerName, mobile, email: normalizedEmail, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, marketingConsent: consentGranted, marketingConsentAt: consentGranted ? createdAt : null, marketingConsentSource: consentGranted ? "ORDER_FORM" as const : null, marketingConsentUpdatedBy: null, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt }
-        : { ...(mobileMatch ?? emailMatch!), name: input.customerName, email: normalizedEmail ?? (mobileMatch ?? emailMatch)!.email, ...(consentGranted ? { marketingConsent: true, marketingConsentAt: createdAt, marketingConsentSource: "ORDER_FORM" as const, marketingConsentUpdatedBy: null } : {}), updatedAt: createdAt };
+        ? { id: randomUUID(), shopId: SHOP_ID, name: input.customerName, mobile, email: normalizedEmail, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, marketingConsent: consentGranted, marketingConsentStatus: consentGranted ? "CONSENTED" as const : "NOT_CONSENTED" as const, marketingConsentAt: consentGranted ? createdAt : null, marketingConsentSource: consentGranted ? "ORDER_FORM" as const : null, marketingConsentUpdatedBy: null, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt }
+        : { ...(mobileMatch ?? emailMatch!), name: input.customerName, email: normalizedEmail ?? (mobileMatch ?? emailMatch)!.email, ...(consentGranted ? { marketingConsent: true, marketingConsentStatus: "CONSENTED" as const, marketingConsentAt: createdAt, marketingConsentSource: "ORDER_FORM" as const, marketingConsentUpdatedBy: null } : {}), updatedAt: createdAt };
       if (conflict || (!mobileMatch && !emailMatch)) await tx.insert(customers).values(customer);
       else await tx.update(customers).set({ name: customer.name, email: customer.email, updatedAt: createdAt }).where(eq(customers.id, customer.id));
       const created = {
@@ -212,6 +214,8 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
             : row.shop.pickupInstructionsEn
           : null,
         pickupTime: pickup ? row.shop.pickupTime : null,
+        pickupLocationSnapshotJson: pickup ? locationSnapshot : null,
+        deliveryOriginSnapshotJson: pickup ? null : locationSnapshot,
         notes: input.notes || null,
         orderSource: "WEBSITE",
         historicalEntry: false,
@@ -283,6 +287,18 @@ export async function listManagerOrders(database: Database) {
   return database.select().from(orders).where(eq(orders.shopId, SHOP_ID)).orderBy(desc(orders.createdAt));
 }
 
+export async function listManagerOrdersWithPaymentSummary(database: Database) {
+  const rows = await listManagerOrders(database);
+  const payments = await database.select().from(orderPayments).where(eq(orderPayments.shopId, env().SHOP_ID));
+  const byOrder = new Map<string, number>();
+  for (const payment of payments) if (payment.kind === "PAYMENT") byOrder.set(payment.orderId, (byOrder.get(payment.orderId) ?? 0) + payment.amountCents);
+  return rows.map((order) => {
+    const paidCents = byOrder.get(order.id) ?? 0;
+    const outstandingCents = order.finalTotalCents === null ? null : Math.max(0, order.finalTotalCents - paidCents);
+    return { ...order, paidCents, outstandingCents, paymentStatus: outstandingCents === null ? "PENDING_FEE" : outstandingCents > 0 ? "UNPAID" : "PAID" };
+  });
+}
+
 export async function getManagerOrder(database: Database, orderId: string) {
   const { SHOP_ID } = env();
   const order = await database.query.orders.findFirst({ where: and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID)) });
@@ -296,6 +312,84 @@ export async function getManagerOrder(database: Database, orderId: string) {
   const refundedCents = payments.filter((payment) => payment.kind === "REFUND").reduce((sum, payment) => sum + payment.amountCents, 0);
   const totalCents = order.finalTotalCents ?? 0;
   return { order, notes, payments, audit, paymentSummary: { paidCents, refundedCents, outstandingCents: Math.max(0, totalCents - paidCents + refundedCents), status: refundedCents >= totalCents && totalCents > 0 ? "REFUNDED" : refundedCents > 0 ? "PARTIALLY_REFUNDED" : paidCents >= totalCents && totalCents > 0 ? "PAID" : "PENDING" } };
+}
+
+const completedOrderStatuses = ["PICKED_UP", "DELIVERED", "CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "CUSTOMER_DECLINED", "REFUNDED"] as const;
+
+export type ManagerOrderUpdate = {
+  orderId: string;
+  expectedVersion: number;
+  productId?: string;
+  packageId?: string;
+  quantity?: number;
+  fulfillmentDate?: string;
+  fulfillmentMethod?: "PICKUP" | "DELIVERY";
+  customerName?: string;
+  mobile?: string;
+  email?: string | null;
+  streetAddress?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  deliveryFeeCents?: number | null;
+  agreedItemSubtotalCents?: number;
+  adjustmentReason?: string;
+};
+
+/** Update an open order while keeping catalog snapshots and capacity consistent. */
+export async function updateManagerOrder(database: Database, input: ManagerOrderUpdate) {
+  const { SHOP_ID } = env();
+  return database.transaction(async (tx) => {
+    const current = await tx.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
+    if (!current) throw new DomainError("NOT_FOUND", "Order not found", 404);
+    if (current.version !== input.expectedVersion) throw new DomainError("STALE_VERSION", "Order changed", 409);
+    if ((completedOrderStatuses as readonly string[]).includes(current.status)) throw new DomainError("ORDER_LOCKED", "Completed or closed orders only allow notes, payment corrections, and refunds", 409);
+    const productId = input.productId ?? current.productId;
+    const packageId = input.packageId ?? current.packageId;
+    const quantity = input.quantity ?? current.quantity;
+    const fulfillmentDate = input.fulfillmentDate ?? current.fulfillmentDate;
+    const fulfillmentMethod = input.fulfillmentMethod ?? current.fulfillmentMethod;
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) throw new DomainError("VALIDATION_ERROR", "Quantity must be between 1 and 100", 422);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fulfillmentDate)) throw new DomainError("VALIDATION_ERROR", "Fulfillment date is invalid", 422);
+    const catalog = await tx.select({ product: products, package: packages, shop: shops }).from(products)
+      .innerJoin(packages, and(eq(packages.id, packageId), eq(packages.productId, products.id), eq(packages.shopId, SHOP_ID)))
+      .innerJoin(shops, and(eq(shops.id, SHOP_ID), eq(shops.id, products.shopId)))
+      .where(and(eq(products.id, productId), eq(products.shopId, SHOP_ID))).limit(1);
+    const row = catalog[0];
+    if (!row || !row.product.active || !row.package.active) throw new DomainError("NOT_AVAILABLE", "Product or package is unavailable", 409);
+    if (fulfillmentDate < row.product.availableFrom || fulfillmentDate > row.product.availableThrough || fulfillmentDate < todayInTimezone(row.shop.timezone)) throw new DomainError("DATE_CLOSED", "Fulfillment date is outside the product window", 409);
+    if (row.package.volumeMl !== 10000 && quantity !== 1) throw new DomainError("INVALID_QUANTITY", "Only the 10 litre package supports multiple quantity", 422);
+    const itemSubtotalCents = row.package.priceCents * quantity;
+    const agreed = input.agreedItemSubtotalCents;
+    if (agreed !== undefined && (!Number.isSafeInteger(agreed) || agreed < 0)) throw new DomainError("VALIDATION_ERROR", "Items price must be a non-negative amount", 422);
+    const finalItemSubtotal = agreed ?? itemSubtotalCents;
+    if (finalItemSubtotal !== itemSubtotalCents && (input.adjustmentReason ?? "").trim().length < 2) throw new DomainError("VALIDATION_ERROR", "Adjustment reason is required when changing the catalog price", 422);
+    const deliveryFeeCents = fulfillmentMethod === "PICKUP" ? 0 : (input.deliveryFeeCents === undefined ? current.deliveryFeeCents : input.deliveryFeeCents);
+    if (deliveryFeeCents !== null && (!Number.isSafeInteger(deliveryFeeCents) || deliveryFeeCents < 0)) throw new DomainError("VALIDATION_ERROR", "Delivery fee must be non-negative", 422);
+    const finalTotalCents = deliveryFeeCents === null ? null : finalItemSubtotal + deliveryFeeCents;
+    const totalVolumeMl = row.package.volumeMl * quantity;
+    const capacityChanged = !current.historicalEntry && (current.productId !== productId || current.fulfillmentDate !== fulfillmentDate || current.volumeMl !== totalVolumeMl);
+    const now = nowIso();
+    if (capacityChanged) {
+      const released = await tx.update(availability).set({ reservedMl: sql`${availability.reservedMl} - ${current.volumeMl}`, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.shopId, SHOP_ID), eq(availability.productId, current.productId), eq(availability.businessDate, current.fulfillmentDate), gte(availability.reservedMl, current.volumeMl))).run();
+      if (released.rowsAffected !== 1) throw new DomainError("CAPACITY_CHANGED", "The original capacity reservation is no longer available", 409);
+      const target = await tx.query.availability.findFirst({ where: and(eq(availability.shopId, SHOP_ID), eq(availability.productId, productId), eq(availability.businessDate, fulfillmentDate)) });
+      if (!target || !target.acceptsOrders || target.manualSoldOut || target.capacityMl - target.reservedMl < totalVolumeMl) throw new DomainError("CAPACITY_CHANGED", "Not enough capacity for the selected date", 409);
+      const reserved = await tx.update(availability).set({ reservedMl: sql`${availability.reservedMl} + ${totalVolumeMl}`, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.id, target.id), gte(sql`${availability.capacityMl} - ${availability.reservedMl}`, totalVolumeMl))).run();
+      if (reserved.rowsAffected !== 1) throw new DomainError("CAPACITY_CHANGED", "Capacity changed while saving", 409);
+    }
+    const configuredLocation = await tx.query.fulfillmentLocations.findFirst({ where: and(eq(fulfillmentLocations.shopId, SHOP_ID), eq(fulfillmentLocations.type, fulfillmentMethod === "PICKUP" ? "PICKUP" : "DELIVERY_ORIGIN"), eq(fulfillmentLocations.active, true), eq(fulfillmentLocations.isDefault, true)) });
+    const locationSnapshot = configuredLocation ? JSON.stringify({ id: configuredLocation.id, type: configuredLocation.type, nameFi: configuredLocation.nameFi, nameEn: configuredLocation.nameEn, address: configuredLocation.address, instructionsFi: configuredLocation.instructionsFi, instructionsEn: configuredLocation.instructionsEn }) : null;
+    let mobile = current.mobile;
+    if (input.mobile !== undefined) {
+      try { mobile = normalizeMobile(input.mobile); } catch { throw new DomainError("VALIDATION_ERROR", "Invalid phone", 422, { mobile: "INVALID_PHONE" }); }
+    }
+    const email = input.email === undefined ? current.email : normalizeEmail(input.email);
+    const customerName = input.customerName?.trim() || current.customerName;
+    const changed = await tx.update(orders).set({ productId, packageId, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity, volumeMl: totalVolumeMl, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents, finalTotalCents, fulfillmentDate, fulfillmentMethod, customerName, mobile, email, streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress?.trim() || null, postalCode: input.postalCode === undefined ? current.postalCode : input.postalCode?.trim() || null, city: input.city === undefined ? current.city : input.city?.trim() || null, pickupLocationSnapshotJson: fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, version: sql`${orders.version} + 1`, updatedAt: now }).where(and(eq(orders.id, current.id), eq(orders.version, input.expectedVersion))).run();
+    if (changed.rowsAffected !== 1) throw new DomainError("STALE_VERSION", "Order changed", 409);
+    await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.updated", entityType: "order", entityId: current.id, detailsJson: JSON.stringify({ before: { productId: current.productId, packageId: current.packageId, quantity: current.quantity, fulfillmentDate: current.fulfillmentDate, fulfillmentMethod: current.fulfillmentMethod, itemSubtotalCents: current.itemSubtotalCents, deliveryFeeCents: current.deliveryFeeCents }, after: { productId, packageId, quantity, fulfillmentDate, fulfillmentMethod, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents }, adjustmentReason: input.adjustmentReason?.trim() || null, capacityChanged }), createdAt: now });
+    return { ...current, productId, packageId, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity, volumeMl: totalVolumeMl, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents, finalTotalCents, fulfillmentDate, fulfillmentMethod, customerName, mobile, email, streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress?.trim() || null, postalCode: input.postalCode === undefined ? current.postalCode : input.postalCode?.trim() || null, city: input.city === undefined ? current.city : input.city?.trim() || null, pickupLocationSnapshotJson: fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, version: current.version + 1, updatedAt: now };
+  });
 }
 
 export async function addOrderNote(database: Database, input: { orderId: string; body: string }) {

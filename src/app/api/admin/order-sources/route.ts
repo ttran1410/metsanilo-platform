@@ -1,0 +1,16 @@
+import { randomUUID } from "node:crypto";
+import { and, asc, eq } from "drizzle-orm";
+import { z } from "zod";
+import { db } from "@/db/client";
+import { orderSources } from "@/db/schema";
+import { requirePermission } from "@/domain/access";
+import { DomainError } from "@/domain/errors";
+import { env } from "@/lib/env";
+import { failure, success } from "../../response";
+
+const input = z.object({ key: z.string().trim().min(2).max(40).regex(/^[A-Z0-9_]+$/), labelFi: z.string().trim().min(2).max(80), labelEn: z.string().trim().min(2).max(80), active: z.boolean().default(true), sortOrder: z.number().int().min(0).default(0) });
+const defaults = [{ key: "WEBSITE", labelFi: "Verkkosivu", labelEn: "Website" }, { key: "SMS", labelFi: "SMS", labelEn: "SMS" }, { key: "WHATSAPP", labelFi: "WhatsApp", labelEn: "WhatsApp" }, { key: "FACEBOOK", labelFi: "Facebook-viesti", labelEn: "Facebook message" }, { key: "PHONE", labelFi: "Puhelin", labelEn: "Phone" }, { key: "OTHER", labelFi: "Muu", labelEn: "Other" }];
+async function ensureDefaults() { const shopId = env().SHOP_ID; const rows = await db().select().from(orderSources).where(eq(orderSources.shopId, shopId)); if (rows.length) return rows; const now = new Date().toISOString(); await db().insert(orderSources).values(defaults.map((item, index) => ({ id: randomUUID(), shopId, ...item, active: true, sortOrder: index, createdAt: now, updatedAt: now }))); return db().select().from(orderSources).where(eq(orderSources.shopId, shopId)); }
+export async function GET(request: Request) { try { await requirePermission(db(), request, "settings.sources.read"); return success((await ensureDefaults()).sort((a, b) => a.sortOrder - b.sortOrder)); } catch (error) { return failure(error); } }
+export async function POST(request: Request) { try { const actor = await requirePermission(db(), request, "settings.sources.manage"); const parsed = input.safeParse(await request.json()); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid order source", 422); const now = new Date().toISOString(); const [row] = await db().insert(orderSources).values({ id: randomUUID(), shopId: env().SHOP_ID, ...parsed.data, createdAt: now, updatedAt: now }).returning(); if (!row) throw new DomainError("CREATE_FAILED", "Order source could not be created", 500); return success({ ...row, updatedBy: actor.email ?? actor.id }, 201); } catch (error) { return failure(error); } }
+export async function PATCH(request: Request) { try { const actor = await requirePermission(db(), request, "settings.sources.manage"); const body = await request.json() as { id?: string } & Partial<z.infer<typeof input>>; if (!body.id) throw new DomainError("VALIDATION_ERROR", "Source id is required", 422); const parsed = input.partial().safeParse(body); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid order source", 422); const [row] = await db().update(orderSources).set({ ...parsed.data, updatedAt: new Date().toISOString() }).where(and(eq(orderSources.id, body.id), eq(orderSources.shopId, env().SHOP_ID))).returning(); if (!row) throw new DomainError("NOT_FOUND", "Order source not found", 404); return success({ ...row, updatedBy: actor.email ?? actor.id }); } catch (error) { return failure(error); } }
