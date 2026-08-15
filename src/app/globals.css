@@ -211,6 +211,7 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .package-selection-card .selection-price { margin-left: auto; color: var(--berry); font-family: var(--serif); font-size: 1.35rem; font-weight: 500; white-space: nowrap; }
 .field, .form-field, .review-form-field, .admin-login-field { display: grid; align-content: start; gap: var(--form-field-gap); }
 .field > span, .form-field > label { color: var(--ink); font-size: 1rem; font-weight: 750; letter-spacing: 0; }
+.field:has(:required) > span::after, .form-field:has(:required) > label::after { content: " *"; color: var(--form-control-error-border); font-weight: 800; }
 .field > small, .form-field > small { color: var(--muted); font-size: .875rem; }
 .form-control,
 .field :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
