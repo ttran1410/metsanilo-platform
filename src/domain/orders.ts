@@ -287,6 +287,18 @@ export async function listManagerOrders(database: Database) {
   return database.select().from(orders).where(eq(orders.shopId, SHOP_ID)).orderBy(desc(orders.createdAt));
 }
 
+export async function listManagerOrdersWithPaymentSummary(database: Database) {
+  const rows = await listManagerOrders(database);
+  const payments = await database.select().from(orderPayments).where(eq(orderPayments.shopId, env().SHOP_ID));
+  const byOrder = new Map<string, number>();
+  for (const payment of payments) if (payment.kind === "PAYMENT") byOrder.set(payment.orderId, (byOrder.get(payment.orderId) ?? 0) + payment.amountCents);
+  return rows.map((order) => {
+    const paidCents = byOrder.get(order.id) ?? 0;
+    const outstandingCents = order.finalTotalCents === null ? null : Math.max(0, order.finalTotalCents - paidCents);
+    return { ...order, paidCents, outstandingCents, paymentStatus: outstandingCents === null ? "PENDING_FEE" : outstandingCents > 0 ? "UNPAID" : "PAID" };
+  });
+}
+
 export async function getManagerOrder(database: Database, orderId: string) {
   const { SHOP_ID } = env();
   const order = await database.query.orders.findFirst({ where: and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID)) });
