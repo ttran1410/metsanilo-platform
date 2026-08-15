@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AdminNotice, AdminPageHeader } from "./presentation";
 
 type Product = { product: { id: string; nameFi: string }; packages: Array<{ id: string; labelFi: string; volumeMl: number; priceCents: number }> };
@@ -11,9 +11,11 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
   const [productId, setProductId] = useState(products[0]?.product.id ?? "");
   const [packageId, setPackageId] = useState(products[0]?.packages[0]?.id ?? "");
   const [quantity, setQuantity] = useState(1);
+  const [sourceOptions, setSourceOptions] = useState<Array<{ key: string; labelEn: string }>>([]);
   const selectedProduct = products.find((row) => row.product.id === productId);
   const selectedPackage = selectedProduct?.packages.find((item) => item.id === packageId);
   const calculatedSubtotal = useMemo(() => (selectedPackage?.priceCents ?? 0) * quantity, [selectedPackage, quantity]);
+  useEffect(() => { void fetch("/api/admin/order-sources").then(async (response) => response.ok ? setSourceOptions((await response.json()).data.filter((item: { active: boolean }) => item.active)) : undefined).catch(() => undefined); }, []);
   function selectProduct(value: string) { setProductId(value); setPackageId(products.find((row) => row.product.id === value)?.packages[0]?.id ?? ""); }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,7 +51,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
     <label className="field"><span>Customer name</span><input name="customerName" required /></label>
     <label className="field"><span>Mobile</span><input name="mobile" inputMode="tel" required /></label>
     <label className="field"><span>Email</span><input name="email" type="email" /></label>
-    <label className="field"><span>Source</span><select name="source"><option value="PHONE">Phone</option><option value="SMS">SMS</option><option value="WHATSAPP">WhatsApp</option><option value="FACEBOOK">Facebook Message</option></select></label>
+    <label className="field"><span>Source</span><select name="source" defaultValue="PHONE">{(sourceOptions.length ? sourceOptions : [{ key: "PHONE", labelEn: "Phone" }, { key: "SMS", labelEn: "SMS" }, { key: "WHATSAPP", labelEn: "WhatsApp" }, { key: "FACEBOOK", labelEn: "Facebook message" }]).map((source) => <option key={source.key} value={source.key}>{source.labelEn}</option>)}</select></label>
     <label className="field"><span>Fulfillment method</span><select name="fulfillmentMethod"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select></label>
     <fieldset className="md:col-span-2 grid gap-3 rounded-lg border p-3 md:grid-cols-3"><legend>Customer address</legend><label className="field md:col-span-3"><span>Street address</span><input name="streetAddress" placeholder="Customer street address" /></label><label className="field"><span>Postal code</span><input name="postalCode" inputMode="numeric" /></label><label className="field md:col-span-2"><span>City</span><input name="city" /></label></fieldset>
     {historical && <><label className="field"><span>Completed status</span><select name="completedStatus"><option value="PICKED_UP">Picked up</option><option value="DELIVERED">Delivered</option></select></label><label className="field"><span>Payment status</span><select name="paymentStatus" defaultValue="PAID"><option value="PAID">Paid</option><option value="UNPAID">Unpaid</option></select></label><label className="field"><span>Payment received (€)</span><input name="paymentEuros" type="number" min="0" step="0.01" placeholder={(calculatedSubtotal / 100).toFixed(2)} /></label><label className="field"><span>Payment method</span><select name="paymentMethod"><option value="CASH">Cash</option><option value="MOBILEPAY">MobilePay</option><option value="CARD">Card</option><option value="BANK_TRANSFER">Bank transfer</option></select></label><label className="field"><span>Reason / evidence note</span><input name="reason" required minLength={2} /></label></>}
