@@ -21,6 +21,12 @@ export const betterAuthInstance = betterAuth({
     },
   }),
   baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins: [
+    "https://metsanilo.vercel.app",
+    "https://metsanilo-platform.vercel.app",
+    "https://metsanilo-metsanilo.vercel.app",
+    ...(process.env.BETTER_AUTH_URL ? [new URL(process.env.BETTER_AUTH_URL).origin] : []),
+  ],
   secret: process.env.BETTER_AUTH_SECRET || "local-development-better-auth-secret-change-me",
   emailAndPassword: {
     enabled: true,
