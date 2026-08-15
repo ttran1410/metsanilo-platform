@@ -9,6 +9,7 @@ import type { PublicProduct } from "./order-form";
 import { ProductGallery } from "./product-gallery";
 import { LocaleDocument } from "./locale-document";
 import { MobileNav } from "./mobile-nav";
+import { listPublishedReviews } from "@/domain/reviews";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -79,6 +80,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
 
   const shopName = locale === "fi" ? data.shop.nameFi : data.shop.nameEn;
   const products = [...productMap.values()];
+  const publishedReviews = data.shop.reviewsVisible ? (await listPublishedReviews(db())).filter((review) => review.featured).slice(0, 3) : [];
   const nextPickupDates = products.flatMap((product) => product.dates.filter((date) => date.acceptsOrders && !date.soldOut).map((date) => date.date)).filter((date, index, dates) => dates.indexOf(date) === index).sort();
   const toLocalIso = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
   const today = new Date();
@@ -103,7 +105,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
             <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link>
             <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
-            <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>
+            {data.shop.reviewsVisible && <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>}
             <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
           </nav>
           <MobileNav locale={locale} />
@@ -163,10 +165,11 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
         </article>})}{Array.from({ length: Math.max(0, 3 - products.length) }).map((_, index) => <article className="catalog-card coming-soon-card" key={`coming-soon-${index}`}><div className="catalog-media"><div className="hero-placeholder"><span>+</span></div></div><div className="catalog-content"><p className="eyebrow">{locale === "fi" ? "Tulossa pian" : "Coming soon"}</p><h3>{locale === "fi" ? "Uusi sato" : "New harvest"}</h3><p className="catalog-description">{locale === "fi" ? "Valikoimamme täydentyy kauden aikana." : "Our seasonal selection will grow during the harvest."}</p></div></article>)}</div>
       </section>
 
+      {data.shop.reviewsVisible && publishedReviews.length > 0 && <section className="shell storefront-section homepage-reviews" aria-labelledby="homepage-reviews-title"><div className="section-heading"><div><p className="eyebrow">{locale === "fi" ? "Asiakaskokemuksia" : "Customer reviews"}</p><h2 id="homepage-reviews-title">{locale === "fi" ? "Mitä asiakkaamme sanovat" : "What customers say"}</h2></div><Link className="text-link" href={`/${locale}/reviews`}>{locale === "fi" ? "Katso kaikki" : "Read all reviews"} →</Link></div><div className="review-grid">{publishedReviews.map((review) => <article className="review-card" key={review.id}><div className="review-card-head"><h3>{review.displayName}</h3><span className="review-stars" aria-label={`${review.rating} stars`}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span></div><p className="review-quote">“{review.displayText || review.originalText}”</p></article>)}</div></section>}
       <footer className="storefront-footer">
         <div className="shell footer-grid">
           <div><strong>METSÄNILO</strong><p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${seasonYear}` : `From Satakunta forest to table · Season ${seasonYear}`}</p></div>
-          <div><span>{locale === "fi" ? "Tutustu" : "Explore"}</span><Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link><Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten varaus toimii" : "How it works"}</Link><Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link><Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link></div>
+          <div><span>{locale === "fi" ? "Tutustu" : "Explore"}</span><Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link><Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten varaus toimii" : "How it works"}</Link>{data.shop.reviewsVisible && <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>}<Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link></div>
           <div><span>{locale === "fi" ? "Yhteys" : "Contact"}</span>{data.shop.contactPhone && <a href={`tel:${data.shop.contactPhone}`}>{data.shop.contactPhone}</a>}{data.shop.contactEmail && <a href={`mailto:${data.shop.contactEmail}`}>{data.shop.contactEmail}</a>}</div>
           <div><span>{locale === "fi" ? "Tietoa" : "Information"}</span><Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link></div>
         </div>

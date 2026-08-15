@@ -127,6 +127,13 @@
       "when": 1786803084485,
       "tag": "0017_customer_marketing_consent",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1786805148184,
+      "tag": "0018_reviews_and_visibility",
+      "breakpoints": true
     }
   ]
 }

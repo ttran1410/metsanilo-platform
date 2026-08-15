@@ -8,5 +8,5 @@ export default async function AboutPage({ params }: { params: Promise<{ locale: 
   const { locale: rawLocale } = await params;
   if (!isLocale(rawLocale)) notFound();
   const data = await getPublicCatalog(db());
-  return <InfoPage locale={rawLocale as Locale} kind="about" contactPhone={data?.shop.contactPhone} contactEmail={data?.shop.contactEmail} />;
+  return <InfoPage locale={rawLocale as Locale} kind="about" contactPhone={data?.shop.contactPhone} contactEmail={data?.shop.contactEmail} reviewsVisible={data?.shop.reviewsVisible ?? true} />;
 }
