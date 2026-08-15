@@ -1,11 +1,13 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 export function AdminPageHeader({ eyebrow, title, description, meta, actions }: { eyebrow?: string; title: string; description?: string; meta?: ReactNode; actions?: ReactNode }) {
   return <div className="admin-page-header"><div><p className="eyebrow">{eyebrow ?? "METSÄNILO OPERATIONS"}</p><h1>{title}</h1>{description && <p className="admin-page-lede">{description}</p>}</div>{(meta || actions) && <div className="admin-page-meta">{meta}{actions && <div className="admin-page-actions">{actions}</div>}</div>}</div>;
 }
 
 export function AdminNotice({ children, tone = "neutral", live = false }: { children: ReactNode; tone?: "neutral" | "error" | "success"; live?: boolean }) {
-  return <div className={`admin-notice admin-notice-${tone}`} role={live ? "status" : tone === "error" ? "alert" : undefined}>{children}</div>;
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (live && tone === "error") ref.current?.focus(); }, [live, tone, children]);
+  return <div ref={ref} className={`admin-notice admin-notice-${tone}`} role={live ? (tone === "error" ? "alert" : "status") : tone === "error" ? "alert" : undefined} tabIndex={tone === "error" ? -1 : undefined}>{children}</div>;
 }
 
 export function AdminLoadingState({ label = "Loading…" }: { label?: string }) {

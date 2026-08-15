@@ -23,7 +23,8 @@ export function ManagerView({
 }) {
   const [orderRows, setOrderRows] = useState(initialOrders);
   const [availabilityRows, setAvailabilityRows] = useState(initialAvailability);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(""); const [messageTone, setMessageTone] = useState<"success" | "error">("success");
+  const feedback = (text: string, tone: "success" | "error") => { setMessage(text); setMessageTone(tone); };
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -45,14 +46,14 @@ export function ManagerView({
       body: JSON.stringify({ status: next, expectedVersion: order.version, reason, contactChannel: next === "CONFIRMED" ? "PHONE" : undefined }),
     });
     const body = await response.json();
-    if (!response.ok) return setMessage(body.code ?? "Request failed");
+    if (!response.ok) return feedback(body.code ?? "Request failed", "error");
     setOrderRows((rows) => rows.map((row) => (row.id === order.id ? body.data : row)));
     setMessage(`Order ${order.publicReference}: ${next}`);
   }
 
   async function openDetail(order: Order) {
     const response = await fetch(`/api/admin/orders/${order.id}`); const body = await response.json();
-    if (!response.ok) return setMessage(body.code ?? "Request failed");
+    if (!response.ok) return feedback(body.code ?? "Request failed", "error");
     setDetail(body.data);
   }
 
@@ -68,7 +69,7 @@ export function ManagerView({
         : { amountCents: Math.round(Number(values.get("paymentEuros")) * 100), method: values.get("method"), reference: values.get("reference") };
     const response = await fetch(`/api/admin/orders/${detail.order.id}/${endpoint}`, { method: action === "fee" ? "PUT" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
     const body = await response.json();
-    if (!response.ok) return setMessage(body.code ?? body.message ?? "Request failed");
+    if (!response.ok) return feedback(body.code ?? body.message ?? "Request failed", "error");
     if (action === "fee") setDetail((current) => current ? { ...current, order: body.data } : current);
     else await openDetail(detail.order);
     event.currentTarget.reset(); setMessage("Order updated.");
@@ -89,7 +90,7 @@ export function ManagerView({
       }),
     });
     const body = await response.json();
-    if (!response.ok) return setMessage(body.code ?? "Request failed");
+    if (!response.ok) return feedback(body.code ?? "Request failed", "error");
     setAvailabilityRows((rows) =>
       rows.map((item) => item.availability.id === row.availability.id ? { ...item, availability: body.data } : item),
     );
@@ -111,7 +112,7 @@ export function ManagerView({
       }),
     });
     const body = await response.json();
-    if (!response.ok) return setMessage(body.code ?? body.message ?? "Request failed");
+    if (!response.ok) return feedback(body.code ?? body.message ?? "Request failed", "error");
     const planned = body.data as Array<typeof availability.$inferSelect>;
     setAvailabilityRows((rows) => {
       const byId = new Map(rows.map((row) => [row.availability.id, row]));
@@ -129,7 +130,7 @@ export function ManagerView({
   return (
     <main className="shell py-8">
       <AdminPageHeader eyebrow="RESERVATIONS & CAPACITY" title={mode === "availability" ? "Harvest availability" : "Orders"} description={mode === "availability" ? "Plan harvest capacity and keep sold-out dates accurate." : "Review reservations, confirm customers, and move each order to its next step."} />
-      {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
+      {message && <AdminNotice tone={messageTone} live>{message}</AdminNotice>}
 
       {canViewOrders && (mode === "all" || mode === "orders") && <section id="orders" className="admin-orders-section mt-8">
         <div className="admin-orders-toolbar"><div><p className="admin-section-kicker">Order queue</p><h2>Orders</h2><p className="admin-section-description">Search by reference, customer or phone.</p></div><div className="admin-filter-bar"><input className="rounded-lg border p-3" aria-label="Search orders" placeholder="Search orders" value={search} onChange={(event) => setSearch(event.target.value)} /><select className="rounded-lg border p-3" aria-label="Filter order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option>{["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED", "CANCELLED", "REFUNDED"].map((status) => <option key={status} value={status}>{status}</option>)}</select></div></div>

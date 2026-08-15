@@ -211,6 +211,7 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .package-selection-card .selection-price { margin-left: auto; color: var(--berry); font-family: var(--serif); font-size: 1.35rem; font-weight: 500; white-space: nowrap; }
 .field, .form-field, .review-form-field, .admin-login-field { display: grid; align-content: start; gap: var(--form-field-gap); }
 .field > span, .form-field > label { color: var(--ink); font-size: 1rem; font-weight: 750; letter-spacing: 0; }
+.field:has(:required) > span::after, .form-field:has(:required) > label::after { content: " *"; color: var(--form-control-error-border); font-weight: 800; }
 .field > small, .form-field > small { color: var(--muted); font-size: .875rem; }
 .form-control,
 .field :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
@@ -328,6 +329,8 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .pill { display: inline-flex; border-radius: 999px; padding: .3rem .6rem; background: #e2ece5; color: var(--forest); font-size: .76rem; font-weight: 700; }
 .admin-app { --form-control-background: #fffefa; --form-control-border: #c8d2ca; --form-control-radius: .7rem; --form-control-min-height: 2.75rem; --form-control-padding-block: .55rem; --form-field-gap: .45rem; --form-textarea-min-height: 6.5rem; min-height: 100vh; background: var(--canvas); color: var(--ink); }
 .admin-app label:has(input[type="checkbox"], input[type="radio"]) { min-height: var(--form-control-min-height); cursor: pointer; }
+.admin-app .checkbox-field { display: flex; min-height: 3rem; align-items: center; justify-content: space-between; gap: .75rem; }
+.admin-app .checkbox-field input[type="checkbox"], .admin-app .checkbox-field input[type="radio"] { width: 1.25rem; min-width: 1.25rem; height: 1.25rem; padding: 0; }
 .admin-login-page { --form-control-background: #fffefa; --form-control-border: var(--line); --form-control-radius: .65rem; --form-field-gap: .45rem; min-height: 100vh; display: grid; place-items: center; background: var(--canvas); padding: 2rem 1.25rem; color: var(--ink); }
 .admin-login-frame { width: min(100%, 31rem); }
 .admin-login-brand { display: flex; align-items: center; gap: .75rem; margin: 0 auto 1.5rem; width: fit-content; color: var(--forest); }
