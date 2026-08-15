@@ -13,6 +13,7 @@ export function ManagerView({
   initialOrders,
   initialAvailability,
   canViewOrders,
+  canViewAvailability = false,
   canManageAvailability,
   canExportOrders = false,
   mode = "all",
@@ -21,6 +22,7 @@ export function ManagerView({
   initialOrders: Order[];
   initialAvailability: AvailabilityRow[];
   canViewOrders: boolean;
+  canViewAvailability?: boolean;
   canManageAvailability: boolean;
   canExportOrders?: boolean;
   mode?: "all" | "orders" | "availability";
@@ -202,7 +204,7 @@ export function ManagerView({
         </div>
       </section>}
 
-      {canManageAvailability && (mode === "all" || mode === "availability") && <section id="availability" className="admin-availability-section mt-10">
+      {canViewAvailability && (mode === "all" || mode === "availability") && <section id="availability" className="admin-availability-section mt-10">
         {workspace && <>
           <div className="admin-section-heading"><div><p className="admin-section-kicker">Operations workspace</p><h2>7-day availability board</h2><p className="admin-section-description">Capacity, package fit and fulfilment queues stay in sync with the customer catalogue.</p></div></div>
           <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -215,7 +217,7 @@ export function ManagerView({
             {(["picking", "pickup", "delivery"] as const).map((queue) => <section className="card" key={queue}><div className="flex items-center justify-between"><h3 className="font-bold">{queue === "picking" ? "Picking queue" : queue === "pickup" ? "Pickup queue" : "Delivery queue"}</h3><span className="pill">{workspace.queues[queue].length}</span></div>{workspace.queues[queue].length === 0 ? <p className="mt-3 text-sm text-slate-600">Nothing queued.</p> : <div className="mt-3 grid gap-2">{workspace.queues[queue].map((order) => <a className="rounded-lg border p-3 hover:border-[var(--forest)]" href={`/admin/orders/${order.id}`} key={order.id}><div className="flex items-center justify-between gap-2"><strong>{order.publicReference}</strong><span className="pill">{order.status}</span></div><p className="text-sm">{order.customerName} · {order.productNameFi}</p><p className="text-xs text-slate-600">{order.fulfillmentDate} · {order.quantity} pcs</p></a>)}</div>}</section>)}
           </div>
         </>}
-        <div className="admin-section-heading"><div><p className="admin-section-kicker">Harvest planning</p><h2>Plan availability</h2><p className="admin-section-description">Set capacity and fulfillment dates for each seasonal product.</p></div></div>
+        {canManageAvailability && <><div className="admin-section-heading"><div><p className="admin-section-kicker">Harvest planning</p><h2>Plan availability</h2><p className="admin-section-description">Set capacity and fulfillment dates for each seasonal product.</p></div></div>
         <form className="card mt-3 grid gap-3" onSubmit={plan}>
           <p className="text-sm">DAY applies every date, WEEK every 7 days, MONTH on the same day each month, and CUSTOM to comma-separated dates.</p>
           <div className="grid gap-3 md:grid-cols-3">
@@ -233,11 +235,9 @@ export function ManagerView({
             <label className="field"><span>Internal reason (required when sold out)</span><input name="soldOutReason" maxLength={500} /></label>
             <button className="btn" type="submit">Apply plan</button>
           </div>
-        </form>
-      </section>}
+        </form></>}
 
-      {canManageAvailability && (mode === "all" || mode === "availability") && <section className="admin-availability-section mt-10">
-        <div className="admin-section-heading"><div><p className="admin-section-kicker">Capacity control</p><h2>Today and future capacity</h2><p className="admin-section-description">Review reserved volume and adjust availability before customers reserve.</p></div></div>
+        {canManageAvailability && <><div className="admin-section-heading"><div><p className="admin-section-kicker">Capacity control</p><h2>Today and future capacity</h2><p className="admin-section-description">Review reserved volume and adjust availability before customers reserve.</p></div></div>
         <div className="mt-3 grid gap-3">
           {availabilityRows.length === 0 && <AdminEmptyState title="No availability planned" description="Create a plan above to add harvest dates." />}{availabilityRows.map((row) => (
             <form className="card grid gap-3 md:grid-cols-[1fr_10rem_1fr_auto] md:items-end" key={`${row.availability.id}:${row.availability.version}`} onSubmit={(event) => { event.preventDefault(); void save(row, event.currentTarget); }}>
@@ -250,7 +250,7 @@ export function ManagerView({
               <button className="btn" type="submit">Save</button>
             </form>
           ))}
-        </div>
+        </div></>}
       </section>}
     </main>
   );
