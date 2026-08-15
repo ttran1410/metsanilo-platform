@@ -683,8 +683,10 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 }
 
 @media (max-width: 760px) {
-  .admin-orders-table-wrap { display: none; }
-  .admin-orders-table-wrap + .mt-3 { display: grid; }
+  .admin-orders-table-wrap { display: block; overflow-x: auto; }
+  .admin-orders-table-wrap + .mt-3 { display: none; }
+  .admin-orders-table { min-width: 48rem; }
+  .admin-orders-table th, .admin-orders-table td { padding: .7rem .65rem; }
   .admin-users-toolbar, .admin-user-detail-header, .admin-list-heading { align-items: flex-start; flex-direction: column; }
   .admin-users-toolbar .btn { width: 100%; }
   .admin-user-create-form, .admin-users-layout { grid-template-columns: 1fr; }
