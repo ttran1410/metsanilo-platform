@@ -353,6 +353,11 @@ button, select, input, textarea { min-height: 3.25rem; }
 .admin-section-kicker { margin: 0 0 .2rem; color: var(--moss); font-size: .66rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
 .section-inline-heading h3 { margin: 0; color: var(--forest); font-family: var(--sans); font-size: 1.2rem; font-weight: 750; }
 .admin-section-description { margin: .3rem 0 0; color: var(--muted); font-size: .82rem; }
+.admin-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
+.admin-section-heading h2 { margin: 0; color: var(--forest); font-family: var(--sans); font-size: 1.35rem; font-weight: 750; }
+.admin-availability-section > form.card { border-radius: 1rem; }
+.admin-availability-section .capacity-track { height: .8rem; }
+.admin-availability-section .card small { color: var(--muted); }
 .admin-users-page .admin-users-module > .shell { width: 100%; }
 .admin-users-page .admin-users-module > .shell > h2 { display: none; }
 .admin-notice { border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); padding: .85rem 1rem; color: var(--ink); line-height: 1.5; }
@@ -563,6 +568,7 @@ button, select, input, textarea { min-height: 3.25rem; }
   .admin-order-actions { justify-content: flex-start; max-width: none; width: 100%; }
   .admin-customer-card { align-items: flex-start; flex-direction: column; }
   .admin-customer-actions { justify-content: flex-start; width: 100%; }
+  .admin-section-heading { align-items: flex-start; flex-direction: column; }
   .admin-menu-toggle { display: inline-flex; min-height: 2.75rem; align-items: center; gap: .5rem; border: 1px solid var(--line); border-radius: .7rem; background: var(--paper); color: var(--forest); padding: .45rem .7rem; font-size: .8rem; font-weight: 750; }
   .admin-menu-icon { display: grid; gap: .18rem; }
   .admin-menu-icon i { display: block; width: .9rem; height: 2px; background: currentColor; }

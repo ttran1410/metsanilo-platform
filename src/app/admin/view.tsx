@@ -168,8 +168,8 @@ export function ManagerView({
         </div>
       </section>}
 
-      {canManageAvailability && (mode === "all" || mode === "availability") && <section id="availability" className="mt-10">
-        <h2 className="text-2xl font-bold">Plan availability</h2>
+      {canManageAvailability && (mode === "all" || mode === "availability") && <section id="availability" className="admin-availability-section mt-10">
+        <div className="admin-section-heading"><div><p className="admin-section-kicker">Harvest planning</p><h2>Plan availability</h2><p className="admin-section-description">Set capacity and fulfillment dates for each seasonal product.</p></div></div>
         <form className="card mt-3 grid gap-3" onSubmit={plan}>
           <p className="text-sm">DAY applies every date, WEEK every 7 days, MONTH on the same day each month, and CUSTOM to comma-separated dates.</p>
           <div className="grid gap-3 md:grid-cols-3">
@@ -190,8 +190,8 @@ export function ManagerView({
         </form>
       </section>}
 
-      {canManageAvailability && (mode === "all" || mode === "availability") && <section className="mt-10">
-        <h2 className="text-2xl font-bold">Today and future capacity</h2>
+      {canManageAvailability && (mode === "all" || mode === "availability") && <section className="admin-availability-section mt-10">
+        <div className="admin-section-heading"><div><p className="admin-section-kicker">Capacity control</p><h2>Today and future capacity</h2><p className="admin-section-description">Review reserved volume and adjust availability before customers reserve.</p></div></div>
         <div className="mt-3 grid gap-3">
           {availabilityRows.length === 0 && <AdminEmptyState title="No availability planned" description="Create a plan above to add harvest dates." />}{availabilityRows.map((row) => (
             <form className="card grid gap-3 md:grid-cols-[1fr_10rem_1fr_auto] md:items-end" key={`${row.availability.id}:${row.availability.version}`} onSubmit={(event) => { event.preventDefault(); void save(row, event.currentTarget); }}>
