@@ -99,7 +99,7 @@ export function ManagerView({
       ? { body: values.get("body") }
       : action === "fee"
         ? { expectedVersion: detail.order.version, deliveryFeeCents: Math.round(Number(values.get("feeEuros")) * 100) }
-        : { amountCents: Math.round(Number(values.get("paymentEuros")) * 100), method: values.get("method"), reference: values.get("reference") };
+        : { amountCents: Math.round(Number(values.get("paymentEuros")) * 100), method: values.get("method"), reference: String(values.get("reference") ?? "").trim() || undefined };
     const response = await fetch(`/api/admin/orders/${detail.order.id}/${endpoint}`, { method: action === "fee" ? "PUT" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
     const body = await response.json();
     if (!response.ok) return feedback(body.code ?? body.message ?? "Request failed", "error");
