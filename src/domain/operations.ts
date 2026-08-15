@@ -1,18 +1,19 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, eq, lt } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, customers, notifications, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
+import { auditEntries, customers, fulfillmentLocations, notifications, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
 import { submitOrder, transitionOrder } from "./orders";
+import { normalizeEmail, normalizeMobile } from "./order-input";
 
 const nowIso = () => new Date().toISOString();
 
 export async function createExternalOrder(database: Database, input: {
   productId: string; packageId: string; quantity: number; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY";
   customerName: string; mobile: string; email?: string; streetAddress?: string; postalCode?: string; city?: string; notes?: string;
-  status: "NEW" | "CONFIRMED"; source: "PHONE" | "OTHER"; deliveryFeeCents?: number;
+  status: "NEW" | "CONFIRMED"; source: "PHONE" | "SMS" | "WHATSAPP" | "FACEBOOK" | "WEBSITE" | "OTHER"; deliveryFeeCents?: number;
 }) {
   const receipt = await submitOrder(database, {
     locale: "fi", ...input, idempotencyKey: `external-${randomBytes(12).toString("hex")}`,
@@ -31,7 +32,7 @@ export async function createHistoricalOrder(database: Database, input: {
   productId: string; packageId: string; quantity: number; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY";
   customerName: string; mobile: string; email?: string; streetAddress?: string; postalCode?: string; city?: string;
   itemSubtotalCents?: number; deliveryFeeCents?: number; completedStatus: "PICKED_UP" | "DELIVERED"; completedAt: string;
-  source: "PHONE" | "OTHER"; reason: string; paymentAmountCents?: number;
+  source: "PHONE" | "SMS" | "WHATSAPP" | "FACEBOOK" | "WEBSITE" | "OTHER"; reason: string; paymentAmountCents?: number; paymentMethod?: "CASH" | "BANK_TRANSFER" | "MOBILEPAY" | "CARD" | "OTHER";
 }) {
   const shopId = env().SHOP_ID;
   if (input.reason.trim().length < 2 || input.quantity < 1) throw new DomainError("VALIDATION_ERROR", "Historical reason and quantity are required", 422);
@@ -43,14 +44,17 @@ export async function createHistoricalOrder(database: Database, input: {
     const volumeMl = row.package.volumeMl * input.quantity;
     const subtotal = input.itemSubtotalCents ?? row.package.priceCents * input.quantity;
     const deliveryFee = input.fulfillmentMethod === "PICKUP" ? 0 : input.deliveryFeeCents ?? null;
-    const id = randomUUID(); const createdAt = nowIso(); const normalizedEmail = input.email?.toLowerCase() || null;
-    const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, shopId), eq(customers.mobile, input.mobile)) });
+    const configuredLocation = await tx.query.fulfillmentLocations.findFirst({ where: and(eq(fulfillmentLocations.shopId, shopId), eq(fulfillmentLocations.type, input.fulfillmentMethod === "PICKUP" ? "PICKUP" : "DELIVERY_ORIGIN"), eq(fulfillmentLocations.active, true), eq(fulfillmentLocations.isDefault, true)) });
+    const locationSnapshot = configuredLocation ? JSON.stringify({ id: configuredLocation.id, type: configuredLocation.type, nameFi: configuredLocation.nameFi, nameEn: configuredLocation.nameEn, address: configuredLocation.address, instructionsFi: configuredLocation.instructionsFi, instructionsEn: configuredLocation.instructionsEn }) : null;
+    const id = randomUUID(); const createdAt = nowIso(); const normalizedEmail = normalizeEmail(input.email); let normalizedMobile: string;
+    try { normalizedMobile = normalizeMobile(input.mobile); } catch { throw new DomainError("VALIDATION_ERROR", "Invalid phone", 422, { mobile: "INVALID_PHONE" }); }
+    const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, shopId), eq(customers.mobile, normalizedMobile)) });
     const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, shopId), eq(customers.email, normalizedEmail)) }) : undefined;
     const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id);
-    const customer = (conflict || (!mobileMatch && !emailMatch)) ? { id: randomUUID(), shopId, name: input.customerName.trim(), mobile: input.mobile, email: normalizedEmail, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt } : (mobileMatch ?? emailMatch)!;
+    const customer = (conflict || (!mobileMatch && !emailMatch)) ? { id: randomUUID(), shopId, name: input.customerName.trim(), mobile: normalizedMobile, email: normalizedEmail, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt } : (mobileMatch ?? emailMatch)!;
     if (conflict || (!mobileMatch && !emailMatch)) await tx.insert(customers).values(customer);
-    await tx.insert(orders).values({ id, shopId, publicReference: `H-${randomBytes(5).toString("hex").toUpperCase()}`, idempotencyKey: `historical-${id}`, productId: row.product.id, packageId: row.package.id, customerId: customer.id, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity: input.quantity, volumeMl, itemSubtotalCents: subtotal, deliveryFeeCents: deliveryFee, finalTotalCents: deliveryFee === null ? null : subtotal + deliveryFee, fulfillmentDate: input.fulfillmentDate, fulfillmentMethod: input.fulfillmentMethod, customerName: input.customerName.trim(), mobile: input.mobile, email: normalizedEmail, streetAddress: input.streetAddress || null, postalCode: input.postalCode || null, city: input.city || null, pickupName: null, pickupAddress: null, pickupInstructions: null, pickupTime: null, notes: input.reason.trim(), statusReason: input.reason.trim(), contactedAt: null, contactedBy: null, contactChannel: null, fulfillmentStartedAt: null, readyAt: null, dispatchedAt: input.completedStatus === "DELIVERED" ? input.completedAt : null, completedAt: input.completedAt, pickupConfirmedAt: input.completedStatus === "PICKED_UP" ? input.completedAt : null, pickupConfirmedBy: input.completedStatus === "PICKED_UP" ? "manager" : null, locale: "fi", status: input.completedStatus, version: 1, orderSource: input.source, historicalEntry: true, createdAt, updatedAt: createdAt });
-    if (input.paymentAmountCents && input.paymentAmountCents > 0) await tx.insert(orderPayments).values({ id: randomUUID(), shopId, orderId: id, amountCents: input.paymentAmountCents, kind: "PAYMENT", method: "OTHER", reference: "historical entry", recordedAt: input.completedAt, actor: "manager" });
+    await tx.insert(orders).values({ id, shopId, publicReference: `H-${randomBytes(5).toString("hex").toUpperCase()}`, idempotencyKey: `historical-${id}`, productId: row.product.id, packageId: row.package.id, customerId: customer.id, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity: input.quantity, volumeMl, itemSubtotalCents: subtotal, deliveryFeeCents: deliveryFee, finalTotalCents: deliveryFee === null ? null : subtotal + deliveryFee, fulfillmentDate: input.fulfillmentDate, fulfillmentMethod: input.fulfillmentMethod, customerName: input.customerName.trim(), mobile: normalizedMobile, email: normalizedEmail, streetAddress: input.streetAddress || null, postalCode: input.postalCode || null, city: input.city || null, pickupName: null, pickupAddress: null, pickupInstructions: null, pickupTime: null, pickupLocationSnapshotJson: input.fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: input.fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, notes: input.reason.trim(), statusReason: input.reason.trim(), contactedAt: null, contactedBy: null, contactChannel: null, fulfillmentStartedAt: null, readyAt: null, dispatchedAt: input.completedStatus === "DELIVERED" ? input.completedAt : null, completedAt: input.completedAt, pickupConfirmedAt: input.completedStatus === "PICKED_UP" ? input.completedAt : null, pickupConfirmedBy: input.completedStatus === "PICKED_UP" ? "manager" : null, locale: "fi", status: input.completedStatus, version: 1, orderSource: input.source, historicalEntry: true, createdAt, updatedAt: createdAt });
+    if (input.paymentAmountCents && input.paymentAmountCents > 0) await tx.insert(orderPayments).values({ id: randomUUID(), shopId, orderId: id, amountCents: input.paymentAmountCents, kind: "PAYMENT", method: input.paymentMethod ?? "OTHER", reference: "historical entry", recordedAt: input.completedAt, actor: "manager" });
     await tx.insert(auditEntries).values({ id: randomUUID(), shopId, actor: "manager", action: "order.historical_created", entityType: "order", entityId: id, detailsJson: JSON.stringify({ status: input.completedStatus, reason: input.reason, source: input.source }), createdAt });
     return (await tx.query.orders.findFirst({ where: eq(orders.id, id) }))!;
   });

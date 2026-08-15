@@ -1,11 +1,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, customers, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
+import { auditEntries, availability, customers, fulfillmentLocations, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
-import { normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
+import { normalizeEmail, normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
 import { assertPaymentMethodEnabled, type PaymentMethod } from "./payment-methods";
 
 const nowIso = () => new Date().toISOString();
@@ -169,7 +169,9 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
       const orderId = randomUUID();
       const reference = publicReference();
       const pickup = input.fulfillmentMethod === "PICKUP";
-      const normalizedEmail = input.email?.toLowerCase() || null;
+      const configuredLocation = await tx.query.fulfillmentLocations.findFirst({ where: and(eq(fulfillmentLocations.shopId, SHOP_ID), eq(fulfillmentLocations.type, pickup ? "PICKUP" : "DELIVERY_ORIGIN"), eq(fulfillmentLocations.active, true), eq(fulfillmentLocations.isDefault, true)) });
+      const locationSnapshot = configuredLocation ? JSON.stringify({ id: configuredLocation.id, type: configuredLocation.type, nameFi: configuredLocation.nameFi, nameEn: configuredLocation.nameEn, address: configuredLocation.address, instructionsFi: configuredLocation.instructionsFi, instructionsEn: configuredLocation.instructionsEn }) : null;
+      const normalizedEmail = normalizeEmail(input.email);
       const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, mobile)) });
       const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.email, normalizedEmail)) }) : undefined;
       const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id) || Boolean(mobileMatch && normalizedEmail && mobileMatch.email && mobileMatch.email !== normalizedEmail && !emailMatch);
@@ -212,6 +214,8 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
             : row.shop.pickupInstructionsEn
           : null,
         pickupTime: pickup ? row.shop.pickupTime : null,
+        pickupLocationSnapshotJson: pickup ? locationSnapshot : null,
+        deliveryOriginSnapshotJson: pickup ? null : locationSnapshot,
         notes: input.notes || null,
         orderSource: "WEBSITE",
         historicalEntry: false,

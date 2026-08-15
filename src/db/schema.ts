@@ -20,6 +20,33 @@ export const shops = sqliteTable("shops", {
     reviewsVisible: integer("reviews_visible", { mode: "boolean" }).notNull().default(true),
 });
 
+export const orderSources = sqliteTable("order_sources", {
+  id: text("id").primaryKey(),
+  shopId: text("shop_id").notNull().references(() => shops.id),
+  key: text("key").notNull(),
+  labelFi: text("label_fi").notNull(),
+  labelEn: text("label_en").notNull(),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [uniqueIndex("order_sources_shop_key_unique").on(table.shopId, table.key), index("order_sources_shop_active_idx").on(table.shopId, table.active, table.sortOrder)]);
+
+export const fulfillmentLocations = sqliteTable("fulfillment_locations", {
+  id: text("id").primaryKey(),
+  shopId: text("shop_id").notNull().references(() => shops.id),
+  type: text("type", { enum: ["PICKUP", "DELIVERY_ORIGIN"] }).notNull(),
+  nameFi: text("name_fi").notNull(),
+  nameEn: text("name_en").notNull(),
+  address: text("address").notNull(),
+  instructionsFi: text("instructions_fi").notNull().default(""),
+  instructionsEn: text("instructions_en").notNull().default(""),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [index("fulfillment_locations_shop_type_idx").on(table.shopId, table.type, table.active)]);
+
 export const customers = sqliteTable(
   "customers",
   {
@@ -296,6 +323,8 @@ export const orders = sqliteTable(
     pickupAddress: text("pickup_address"),
     pickupInstructions: text("pickup_instructions"),
     pickupTime: text("pickup_time"),
+    pickupLocationSnapshotJson: text("pickup_location_snapshot_json"),
+    deliveryOriginSnapshotJson: text("delivery_origin_snapshot_json"),
     notes: text("notes"),
     orderSource: text("order_source").notNull().default("WEBSITE"),
     historicalEntry: integer("historical_entry", { mode: "boolean" }).notNull().default(false),

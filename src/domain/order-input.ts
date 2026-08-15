@@ -10,7 +10,7 @@ export const orderInputSchema = z
     fulfillmentMethod: z.enum(["PICKUP", "DELIVERY"]),
     customerName: z.string().trim().min(2).max(120),
     mobile: z.string().trim().min(7).max(30),
-    email: z.union([z.email().max(254), z.literal("")]).optional(),
+    email: z.preprocess((value) => typeof value === "string" ? value.trim().toLowerCase() : value, z.union([z.email().max(254), z.literal("")]).optional()),
     streetAddress: z.string().trim().max(160).optional(),
     postalCode: z.string().trim().max(10).optional(),
     city: z.string().trim().max(100).optional(),
@@ -32,10 +32,15 @@ export const orderInputSchema = z
 export type OrderInput = z.infer<typeof orderInputSchema>;
 
 export function normalizeMobile(value: string) {
-  const compact = value.replace(/[\s()-]/g, "");
-  const normalized = compact.startsWith("0") ? `+358${compact.slice(1)}` : compact;
+  const compact = value.trim().replace(/[\s().-]/g, "");
+  const normalized = compact.startsWith("00") ? `+${compact.slice(2)}` : compact.startsWith("0") ? `+358${compact.slice(1)}` : compact.startsWith("358") ? `+${compact}` : compact;
   if (!/^\+[1-9]\d{6,14}$/.test(normalized)) {
     throw new Error("INVALID_PHONE");
   }
   return normalized;
+}
+
+export function normalizeEmail(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  return normalized || null;
 }
