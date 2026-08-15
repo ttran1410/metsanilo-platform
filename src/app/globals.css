@@ -209,7 +209,7 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .selection-card.selected .selection-check { opacity: 1; }
 .package-selection-card { min-height: 5.35rem; align-items: center; }
 .package-selection-card .selection-price { margin-left: auto; color: var(--berry); font-family: var(--serif); font-size: 1.35rem; font-weight: 500; white-space: nowrap; }
-.field, .form-field, .review-form-field, .admin-login-field { display: grid; gap: var(--form-field-gap); }
+.field, .form-field, .review-form-field, .admin-login-field { display: grid; align-content: start; gap: var(--form-field-gap); }
 .field > span, .form-field > label { color: var(--ink); font-size: 1rem; font-weight: 750; letter-spacing: 0; }
 .field > small, .form-field > small { color: var(--muted); font-size: .875rem; }
 .form-control,
@@ -260,7 +260,7 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .quantity-control input { text-align: center; }
 .stepper { min-height: 3.25rem; border: 1px solid var(--forest); border-radius: .5rem; background: var(--forest); color: white; font-size: 1.35rem; cursor: pointer; }
 .availability-row { display: flex; min-height: 3rem; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem 0; border-bottom: 1px solid var(--line); font-size: .86rem; }
-.availability-hint { margin: -.35rem 0 0; color: var(--muted); font-size: .82rem; }
+.availability-hint { margin: 0; color: var(--muted); font-size: .82rem; }
 .choice-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
 .date-chip-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem; }
 .date-chip { position: relative; display: grid; min-height: 3.5rem; place-items: center; border: 1px solid #a7aaa3; border-radius: .7rem; background: var(--paper); color: var(--ink); padding: .55rem .45rem; text-align: center; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
