@@ -13,7 +13,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const parsed = command.safeParse(await request.json()); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422);
     const { id } = await params;
-    await requirePermission(db(), request, parsed.data.action === "delete" ? "catalog.product.delete_unreferenced" : "catalog.product.write");
+    await requirePermission(db(), request, parsed.data.action === "delete" ? "catalog.product.delete" : "catalog.product.write");
     if (parsed.data.action === "delete") return success(await deleteProduct(db(), id));
     if (parsed.data.action === "active") return success(await setProductActive(db(), id, parsed.data.active));
     return success(await updateProduct(db(), id, parsed.data.product));
@@ -21,5 +21,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try { await requirePermission(db(), request, "catalog.product.delete_unreferenced"); return success(await deleteProduct(db(), (await params).id)); } catch (error) { return failure(error); }
+  try { await requirePermission(db(), request, "catalog.product.delete"); return success(await deleteProduct(db(), (await params).id)); } catch (error) { return failure(error); }
 }

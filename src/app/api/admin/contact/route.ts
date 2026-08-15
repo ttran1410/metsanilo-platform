@@ -16,7 +16,7 @@ const command = z.object({
 
 export async function GET(request: Request) {
   try {
-    await requirePermission(db(), request, "settings.operational");
+    await requirePermission(db(), request, "settings.read");
     const shop = await db().query.shops.findFirst({ where: eq(shops.id, env().SHOP_ID) });
     return success({ phone: shop?.contactPhone ?? "", email: shop?.contactEmail ?? "", hours: shop?.contactHours ?? "" });
   } catch (error) { return failure(error); }

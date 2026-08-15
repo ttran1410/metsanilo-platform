@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, authAccounts, authUsers, userPermissions, users } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -7,26 +7,25 @@ import { DomainError } from "./errors";
 import { readSession, SESSION_COOKIE } from "./session";
 import { assertPassword, hashPassword, verifyPassword } from "./passwords";
 import { betterAuthInstance } from "@/lib/better-auth";
+import { COMING_SOON_PERMISSIONS, defaultPermissionsForRole, PERMISSIONS, type Permission, type Role } from "@/lib/permissions";
 
-export const PERMISSIONS = [
-  "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.write", "orders.export",
-  "catalog.product.write", "catalog.product.delete_unreferenced", "catalog.package.write",
-  "availability.write", "availability.sold_out", "delivery.override", "cms.edit", "cms.publish",
-  "media.write", "invoices.issue", "invoices.download", "picking.write", "pickers.manage",
-  "customers.read", "customers.write", "reviews.read", "reviews.create", "reviews.moderate", "reviews.feature", "reviews.visibility", "shop_users.manage", "shop_permissions.assign", "settings.operational", "audit.read",
-] as const;
-export type Permission = (typeof PERMISSIONS)[number];
-export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
+export { COMING_SOON_PERMISSIONS, PERMISSIONS, defaultPermissionsForRole } from "@/lib/permissions";
+export type { Permission, Role } from "@/lib/permissions";
+
+/** Temporary aliases keep existing grants and callers working while the
+ * permission editor migrates users to the clearer read/write names. */
+const LEGACY_PERMISSION_ALIASES: Partial<Record<string, Permission>> = {
+  "catalog.product.delete_unreferenced": "catalog.product.delete",
+};
+
+export function normalizePermission(permission: string): Permission | null {
+  return (PERMISSIONS as readonly string[]).includes(permission)
+    ? permission as Permission
+    : LEGACY_PERMISSION_ALIASES[permission] ?? null;
+}
 
 /** Admin and Manager receive the full implemented operational catalogue.
  * Staff and Content Creator receive the basic content/media editing grants. */
-export function defaultPermissionsForRole(role: Role): Permission[] {
-  if (role === "ADMIN" || role === "MANAGER") return [...PERMISSIONS];
-  if (role === "STAFF") return PERMISSIONS.filter((permission) => (permission.startsWith("orders.") && permission !== "orders.export") || permission.startsWith("delivery.") || permission.startsWith("availability.") || permission.startsWith("customers.") || permission.startsWith("reviews.") && permission !== "reviews.feature" && permission !== "reviews.visibility" || permission.startsWith("catalog.") || permission === "cms.edit" || permission === "media.write");
-  if (role === "CONTENT_CREATOR") return ["cms.edit", "media.write"];
-  return [];
-}
-
 function usernameFromRequest(request: Request) {
   const authorization = request.headers.get("authorization");
   if (!authorization?.startsWith("Basic ")) throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
@@ -62,8 +61,11 @@ export async function currentUser(database: Database, request: Request) {
 export async function requirePermission(database: Database, request: Request, permission: Permission) {
   const actor = await currentUser(database, request);
   if (actor.role === "ADMIN" || actor.role === "MANAGER") return actor;
-  const grant = await database.query.userPermissions.findFirst({ where: and(eq(userPermissions.userId, actor.id), eq(userPermissions.shopId, actor.shopId), eq(userPermissions.permission, permission), eq(userPermissions.granted, true)) });
-  if (!grant) throw new DomainError("FORBIDDEN", `Permission required: ${permission}`, 403);
+  const normalized = normalizePermission(permission);
+  if (!normalized) throw new DomainError("FORBIDDEN", `Permission is not available: ${permission}`, 403);
+  const legacyNames = Object.entries(LEGACY_PERMISSION_ALIASES).filter(([, target]) => target === normalized).map(([name]) => name);
+  const grant = await database.query.userPermissions.findFirst({ where: and(eq(userPermissions.userId, actor.id), eq(userPermissions.shopId, actor.shopId), legacyNames.length ? or(eq(userPermissions.permission, normalized), ...legacyNames.map((name) => eq(userPermissions.permission, name))) : eq(userPermissions.permission, normalized)) });
+  if (grant ? !grant.granted : !defaultPermissionsForRole(actor.role).includes(normalized)) throw new DomainError("FORBIDDEN", `Permission required: ${permission}`, 403);
   return actor;
 }
 
@@ -72,7 +74,13 @@ export async function listUsers(database: Database, request: Request) {
   const shopId = env().SHOP_ID;
   const rows = await database.select().from(users).where(eq(users.shopId, shopId));
   const grants = await database.select().from(userPermissions).where(eq(userPermissions.shopId, shopId));
-  return rows.map((user) => ({ ...user, permissions: [...new Set([...grants.filter((grant) => grant.userId === user.id && grant.granted).map((grant) => grant.permission as Permission), ...defaultPermissionsForRole(user.role)])] }));
+  return rows.map((user) => {
+    const defaults = defaultPermissionsForRole(user.role);
+    const userGrants = grants.filter((grant) => grant.userId === user.id);
+    const revoked = new Set(userGrants.filter((grant) => !grant.granted).map((grant) => normalizePermission(grant.permission)).filter(Boolean));
+    const added = userGrants.filter((grant) => grant.granted).map((grant) => normalizePermission(grant.permission)).filter(Boolean) as Permission[];
+    return { ...user, permissions: [...new Set([...defaults.filter((permission) => !revoked.has(permission)), ...added])] };
+  });
 }
 
 export async function createUser(database: Database, request: Request, input: { email: string; displayName: string; role: Role; password: string }) {
@@ -102,11 +110,13 @@ export async function setUserPermission(database: Database, request: Request, in
   const actor = await requirePermission(database, request, "shop_permissions.assign");
   const target = await database.query.users.findFirst({ where: and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID)) });
   if (!target) throw new DomainError("NOT_FOUND", "User not found", 404);
+  const permission = normalizePermission(input.permission);
+  if (!permission) throw new DomainError("VALIDATION_ERROR", "Permission is not available", 422);
   if (target.role !== "STAFF" && target.role !== "CONTENT_CREATOR") throw new DomainError("FORBIDDEN", "Only Staff and Content Creator permissions are assignable", 403);
   const updatedAt = new Date().toISOString();
-  await database.insert(userPermissions).values({ id: randomUUID(), shopId: env().SHOP_ID, userId: target.id, permission: input.permission, granted: input.granted, updatedAt }).onConflictDoUpdate({ target: [userPermissions.userId, userPermissions.permission], set: { granted: input.granted, updatedAt } });
-  await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor: actor.email ?? actor.username ?? actor.id, action: input.granted ? "user.permission_granted" : "user.permission_revoked", entityType: "user", entityId: target.id, detailsJson: JSON.stringify({ permission: input.permission }), createdAt: updatedAt });
-  return { userId: target.id, permission: input.permission, granted: input.granted };
+  await database.insert(userPermissions).values({ id: randomUUID(), shopId: env().SHOP_ID, userId: target.id, permission, granted: input.granted, updatedAt }).onConflictDoUpdate({ target: [userPermissions.userId, userPermissions.permission], set: { granted: input.granted, updatedAt } });
+  await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor: actor.email ?? actor.username ?? actor.id, action: input.granted ? "user.permission_granted" : "user.permission_revoked", entityType: "user", entityId: target.id, detailsJson: JSON.stringify({ permission }), createdAt: updatedAt });
+  return { userId: target.id, permission, granted: input.granted };
 }
 
 function zodEmail(value: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
