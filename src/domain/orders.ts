@@ -5,7 +5,7 @@ import { auditEntries, availability, customers, notifications, orderNotes, order
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
-import { normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
+import { normalizeEmail, normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
 import { assertPaymentMethodEnabled, type PaymentMethod } from "./payment-methods";
 
 const nowIso = () => new Date().toISOString();
@@ -169,7 +169,7 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
       const orderId = randomUUID();
       const reference = publicReference();
       const pickup = input.fulfillmentMethod === "PICKUP";
-      const normalizedEmail = input.email?.toLowerCase() || null;
+      const normalizedEmail = normalizeEmail(input.email);
       const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, mobile)) });
       const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.email, normalizedEmail)) }) : undefined;
       const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id) || Boolean(mobileMatch && normalizedEmail && mobileMatch.email && mobileMatch.email !== normalizedEmail && !emailMatch);
