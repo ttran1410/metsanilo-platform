@@ -31,6 +31,7 @@ export async function getCustomerProfile(database: Database, customerId: string)
     finalTotalCents: orders.finalTotalCents,
     createdAt: orders.createdAt,
   }).from(orders).where(and(eq(orders.shopId, env().SHOP_ID), eq(orders.customerId, customerId))).orderBy(desc(orders.createdAt)).limit(50);
+  const identityConflicts = await database.select({ id: customers.id, name: customers.name, mobile: customers.mobile, email: customers.email }).from(customers).where(and(eq(customers.shopId, env().SHOP_ID), eq(customers.mobile, customer.mobile))).limit(20);
   const audit = await database.select({
     id: auditEntries.id,
     action: auditEntries.action,
@@ -38,5 +39,17 @@ export async function getCustomerProfile(database: Database, customerId: string)
     detailsJson: auditEntries.detailsJson,
     createdAt: auditEntries.createdAt,
   }).from(auditEntries).where(and(eq(auditEntries.shopId, env().SHOP_ID), eq(auditEntries.entityType, "customer"), eq(auditEntries.entityId, customerId))).orderBy(desc(auditEntries.createdAt)).limit(30);
-  return { customer, orders: customerOrders, audit };
+  const completedOrders = customerOrders.filter((order) => !["CANCELLED", "REJECTED", "NO_SHOW", "CUSTOMER_DECLINED"].includes(order.status));
+  return {
+    customer,
+    orders: customerOrders,
+    audit,
+    metrics: {
+      lifetimeLitres: completedOrders.reduce((total, order) => total + order.volumeMl, 0),
+      totalSpendCents: completedOrders.reduce((total, order) => total + (order.finalTotalCents ?? 0), 0),
+      totalOrders: completedOrders.length,
+      lastFulfillmentDate: completedOrders[0]?.fulfillmentDate ?? null,
+    },
+    identityConflicts,
+  };
 }
