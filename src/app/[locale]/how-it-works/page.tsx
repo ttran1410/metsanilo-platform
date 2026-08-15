@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
+import { db } from "@/db/client";
+import { getPublicCatalog } from "@/domain/availability";
 import { isLocale, type Locale } from "@/lib/format";
 import { InfoPage } from "../info-page";
 
 export default async function HowItWorksPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale: rawLocale } = await params;
   if (!isLocale(rawLocale)) notFound();
-  return <InfoPage locale={rawLocale as Locale} kind="how-it-works" />;
+  const data = await getPublicCatalog(db());
+  return <InfoPage locale={rawLocale as Locale} kind="how-it-works" contactPhone={data?.shop.contactPhone} contactEmail={data?.shop.contactEmail} />;
 }

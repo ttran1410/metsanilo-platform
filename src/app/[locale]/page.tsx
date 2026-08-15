@@ -82,7 +82,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
   today.setDate(today.getDate() + 1);
   const tomorrowIso = toLocalIso(today);
   const nextPickupDate = nextPickupDates.find((date) => date >= tomorrowIso) ?? nextPickupDates.find((date) => date === todayIso) ?? nextPickupDates[0];
-  const nextPickupLabel = nextPickupDate ? `${nextPickupDate === tomorrowIso ? (locale === "fi" ? "Huomenna" : "Tomorrow") : new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-US", { month: "short", day: "numeric" }).format(new Date(`${nextPickupDate}T12:00:00`))} · ${nextPickupDate}` : (locale === "fi" ? "Ei päivää saatavilla" : "No date available");
+  const nextPickupLabel = nextPickupDate ? `${nextPickupDate === tomorrowIso ? (locale === "fi" ? "Huomenna" : "Tomorrow") : new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${nextPickupDate}T12:00:00`))}` : (locale === "fi" ? "Ei noutopäivää saatavilla" : "No pickup date available");
   const nextPickupRemainingMl = nextPickupDate ? products.reduce((total, product) => total + (product.dates.find((date) => date.date === nextPickupDate && date.acceptsOrders && !date.soldOut)?.remainingMl ?? 0), 0) : 0;
   const nextPickupCapacityLabel = nextPickupDate ? `${formatLitres(nextPickupRemainingMl, locale)} l ${locale === "fi" ? "jäljellä" : "remaining"}` : "";
   const heroImage = products.flatMap((product) => product.media).find((image) => image.isPrimary) ?? products[0]?.media[0];
@@ -97,7 +97,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             <span><strong>METSÄNILO</strong></span>
           </Link>
           <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
-            <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa tuotteet" : "Reserve products"}</Link>
+            <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link>
             <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
             <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>
             <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
@@ -111,22 +111,21 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
 
       <section className="shell storefront-hero" aria-labelledby="hero-title">
         <div className="hero-copy">
-          <p className="eyebrow">{locale === "fi" ? "Villi · Puhdas · Satakunnasta" : "Wild · Clean · From Satakunta"}</p>
-          <h1 id="hero-title">{locale === "fi" ? <>Metsän maku,<br /><em>talteen kesästä.</em></> : <>The taste of the forest,<br /><em>saved from summer.</em></>}</h1>
-          <p className="hero-lede">{locale === "fi" ? "Käsin poimittuja, huolellisesti puhdistettuja metsämustikoita. Varaa satosi verkossa ja nouda Porista." : "Hand-picked, carefully cleaned wild blueberries. Reserve your harvest online and collect it in Pori."}</p>
-          <div className="hero-actions">
-            <a className="btn btn-light" href="#catalog">{locale === "fi" ? "Tutustu satoon" : "Explore the harvest"}<span aria-hidden="true">↓</span></a>
-            <a className="text-link" href={`/${locale}/reserve`}>{locale === "fi" ? "Siirry varaukseen" : "Go to reservation"}<span aria-hidden="true">→</span></a>
+          <p className="eyebrow">{locale === "fi" ? "Satakunnan metsistä" : "From Satakunta forests"}</p>
+          <h1 id="hero-title">{locale === "fi" ? "Tuoreet marjat suoraan metsästä" : "Fresh berries from the forest"}</h1>
+          <p className="hero-lede">{locale === "fi" ? "Huolellisesti puhdistettuja metsämustikoita. Tee varaus ennakkoon – ei ennakkomaksua." : "Carefully cleaned wild blueberries. Reserve ahead – no prepayment."}</p>
+          <div className="hero-highlights" aria-label={locale === "fi" ? "Tärkeät tiedot" : "Key information"}>
+            <span className="highlight-chip"><span aria-hidden="true">▣</span>{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: <strong>{nextPickupLabel}</strong></span>
+            {nextPickupCapacityLabel && <span className="highlight-chip"><span aria-hidden="true">🫐</span><strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong> {locale === "fi" ? "jäljellä yhteensä" : "total remaining"}</span>}
+            <span className="highlight-chip"><span aria-hidden="true">✓</span>{locale === "fi" ? "Maksu noudettaessa tai toimitettaessa" : "Pay at pickup or delivery"}</span>
           </div>
-          <p className="next-pickup-pill"><span aria-hidden="true">▣</span>{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: {nextPickupLabel}{nextPickupCapacityLabel && <><b aria-hidden="true">·</b><strong>{nextPickupCapacityLabel}</strong></>}</p>
-          <dl className="hero-facts">
-            <div><dt>{locale === "fi" ? "Alkuperä" : "Origin"}</dt><dd>Satakunta</dd></div>
-            <div><dt>{locale === "fi" ? "Nouto" : "Pickup"}</dt><dd>Pori</dd></div>
-            <div><dt>{locale === "fi" ? "Maksu" : "Payment"}</dt><dd>{locale === "fi" ? "Noudettaessa / toimitettaessa" : "On pickup / delivery"}</dd></div>
-          </dl>
+          <div className="hero-actions">
+            <Link className="btn btn-light hero-primary-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve products"}<span aria-hidden="true">→</span></Link>
+            <a className="btn btn-hero-secondary" href="#catalog">{locale === "fi" ? "Katso valikoima" : "Explore harvest"}<span aria-hidden="true">↓</span></a>
+          </div>
         </div>
         <div className="hero-visual" aria-hidden={!heroImage}>
-          {heroImage ? <Image src={heroImage.url} alt={heroImage.alt} fill priority unoptimized sizes="(max-width: 960px) 100vw, 48vw" /> : <div className="hero-placeholder"><span>M</span></div>}
+          {heroImage ? <Image src={heroImage.url} alt={heroImage.alt || (locale === "fi" ? "Tuoreita puhdistettuja metsämarjoja Satakunnasta" : "Fresh cleaned wild berries from Satakunta")} fill priority unoptimized sizes="(max-width: 960px) 100vw, 48vw" /> : <div className="hero-placeholder"><span>M</span></div>}
           <div className="harvest-seal"><span>{locale === "fi" ? "Kauden" : "Seasonal"}</span><strong>{locale === "fi" ? "SATO" : "HARVEST"}</strong><span>{seasonYear}</span></div>
           <p className="hero-caption">{locale === "fi" ? "Puhdistettu ja valmis pakastettavaksi" : "Cleaned and ready for freezing"}</p>
         </div>
@@ -134,7 +133,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
 
       <section className="promise-strip" aria-label={locale === "fi" ? "Metsänilon lupaus" : "The Metsänilo promise"}>
         <div className="shell">
-          {[locale === "fi" ? "Suoraan Satakunnan metsistä" : "Direct from Satakunta forests", locale === "fi" ? "Puhdistettu käsin" : "Carefully cleaned by hand", locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"].map((item, index) => <p key={item}><span>0{index + 1}</span>{item}</p>)}
+          {[locale === "fi" ? "Suoraan Satakunnan metsistä" : "Direct from Satakunta forests", locale === "fi" ? "Poimittu ja toimitettu samana päivänä" : "Picked and delivered the same day", locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"].map((item, index) => <p key={item}><span>0{index + 1}</span>{item}</p>)}
         </div>
       </section>
 
@@ -163,7 +162,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
       <footer className="storefront-footer">
         <div className="shell footer-grid">
           <div><strong>METSÄNILO</strong><p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${seasonYear}` : `From Satakunta forest to table · Season ${seasonYear}`}</p></div>
-          <div><span>{locale === "fi" ? "Tutustu" : "Explore"}</span><Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa tuotteet" : "Reserve products"}</Link><Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link><Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link><Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link></div>
+          <div><span>{locale === "fi" ? "Tutustu" : "Explore"}</span><Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link><Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten varaus toimii" : "How it works"}</Link><Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link><Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link></div>
           <div><span>{locale === "fi" ? "Yhteys" : "Contact"}</span>{data.shop.contactPhone && <a href={`tel:${data.shop.contactPhone}`}>{data.shop.contactPhone}</a>}{data.shop.contactEmail && <a href={`mailto:${data.shop.contactEmail}`}>{data.shop.contactEmail}</a>}</div>
           <div><span>{locale === "fi" ? "Tietoa" : "Information"}</span><Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link></div>
         </div>

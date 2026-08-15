@@ -154,6 +154,7 @@ export function OrderForm({
       <form className="reservation-form" onSubmit={submit} noValidate>
       <div className="reservation-fields">
       {contact.phone && <section className="message-booking-banner" aria-labelledby="message-booking-title"><div className="message-booking-copy"><span className="message-booking-kicker">{locale === "fi" ? "Nopea varaus" : "Quick booking"}</span><strong id="message-booking-title">{locale === "fi" ? "Varaa viestillä" : "Prefer to message us?"}</strong></div><div className="message-booking-actions"><a className="message-action" href={`sms:${smsNumber}`}><strong>SMS</strong><span aria-hidden="true">→</span></a><a className="message-action message-action-whatsapp" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer"><strong>WhatsApp</strong><span aria-hidden="true">→</span></a></div></section>}
+        <div className="senior-trust-strip" role="note"><span>✓ {locale === "fi" ? "Poimittu ja toimitettu saman päivän aikana" : "Picked and delivered the same day"}</span><span>✓ {locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</span></div>
         <p className="required-note">{t.required}</p>
         {error && <div className="error form-error" role="alert" tabIndex={-1}>{error}</div>}
         <fieldset className="form-step">
@@ -221,7 +222,7 @@ export function OrderForm({
       </div>
       </div>
       <div className="reservation-summary-bar">
-        <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {date || (locale === "fi" ? "päivä valitsematta" : "date not selected")}</small></div>
+        <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {quantity} {locale === "fi" ? "kpl" : quantity === 1 ? "item" : "items"} · {date || (locale === "fi" ? "päivä valitsematta" : "date not selected")}</small></div>
         <div className="summary-meta"><span>{method === "PICKUP" ? t.pickup : t.delivery}</span><span>{formatLitres(totalLitres * 1000, locale)} l</span></div>
         <div className={`summary-total${method === "DELIVERY" ? " summary-total-delivery" : ""}`}><span>{method === "DELIVERY" ? t.productTotal : (locale === "fi" ? "Yhteensä" : "Total")}</span><strong>{formatEuros(subtotalCents, locale)}</strong>{method === "DELIVERY" && <small>{t.deliveryFeePending}<br />{t.excludesDeliveryFee}</small>}</div>
         <button className="btn btn-accent submit-button" disabled={submitting || !date || !selectedPackage} type="submit">{submitting ? "…" : t.submit}<span aria-hidden="true">→</span></button>
