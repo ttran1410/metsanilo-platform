@@ -33,6 +33,22 @@
   --form-textarea-min-height: 7.5rem;
   --serif: "Iowan Old Style", Baskerville, Georgia, "Times New Roman", serif;
   --sans: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+  /* METSÄNILO Operations semantic aliases. Keep these separate from storefront
+     tokens so the portal can evolve without changing customer-facing surfaces. */
+  --ops-canvas: #f4f0e7;
+  --ops-surface: #fffcf6;
+  --ops-surface-muted: #e9e4d9;
+  --ops-ink: #1d2822;
+  --ops-ink-muted: #657068;
+  --ops-spruce: #17372b;
+  --ops-focus: #c26b35;
+  --ops-success: #2f6b4f;
+  --ops-warning: #b45309;
+  --ops-danger: #9b2e42;
+  --ops-neutral: #4b5563;
+  --ops-control-height: 2.75rem;
+  --ops-control-height-mobile: 3rem;
+  --ops-radius: .85rem;
 }
 
 * { box-sizing: border-box; }
@@ -329,7 +345,7 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .error:not(.form-error) { color: var(--error); }
 .success { border-color: #7aa287; background: #f4fbf5; }
 .pill { display: inline-flex; border-radius: 999px; padding: .3rem .6rem; background: #e2ece5; color: var(--forest); font-size: .76rem; font-weight: 700; }
-.admin-app { --form-control-background: #fffefa; --form-control-border: #c8d2ca; --form-control-radius: .7rem; --form-control-min-height: 2.75rem; --form-control-padding-block: .55rem; --form-field-gap: .45rem; --form-textarea-min-height: 6.5rem; min-height: 100vh; background: var(--canvas); color: var(--ink); }
+.admin-app { --form-control-background: #fffefa; --form-control-border: #c8d2ca; --form-control-radius: .7rem; --form-control-min-height: var(--ops-control-height); --form-control-padding-block: .55rem; --form-field-gap: .45rem; --form-textarea-min-height: 6.5rem; min-height: 100vh; background: var(--ops-canvas); color: var(--ops-ink); }
 .admin-app label:has(input[type="checkbox"], input[type="radio"]) { min-height: var(--form-control-min-height); cursor: pointer; }
 .admin-app .checkbox-field { display: flex; min-height: 3rem; align-items: center; justify-content: space-between; gap: .75rem; }
 .admin-app .checkbox-field input[type="checkbox"], .admin-app .checkbox-field input[type="radio"] { width: 1.25rem; min-width: 1.25rem; height: 1.25rem; padding: 0; }
@@ -353,7 +369,7 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .admin-login-footer { margin: 1rem 0 0; color: var(--muted); font-size: .75rem; text-align: center; }
 .admin-login-footer a { color: var(--forest); font-weight: 750; text-decoration: underline; text-underline-offset: .15rem; }
 .admin-app .shell { width: min(100% - 3rem, 78rem); }
-.admin-shell-header { position: sticky; top: 0; z-index: 20; min-height: 4.75rem; border-bottom: 1px solid var(--line); background: var(--paper); color: var(--ink); padding: .8rem 1.25rem; box-shadow: 0 4px 18px rgb(23 55 43 / 6%); }
+.admin-shell-header { position: sticky; top: 0; z-index: 20; min-height: 4.75rem; border-bottom: 1px solid var(--line); background: var(--ops-surface); color: var(--ops-ink); padding: .8rem 1.25rem; box-shadow: 0 4px 18px rgb(23 55 43 / 6%); }
 .admin-shell-brand { width: min(100%, 76rem); margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .admin-brand { display: inline-flex; align-items: center; gap: .75rem; color: var(--ink); text-decoration: none; }
 .admin-brand > span:last-child { display: grid; gap: .15rem; }
@@ -365,6 +381,10 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .admin-brand-mark i:nth-child(2) { top: .03rem; left: .68rem; }
 .admin-brand-mark i:nth-child(3) { top: .55rem; left: 1.2rem; transform: rotate(82deg) scale(.86); background: var(--berry); }
 .admin-header-actions { display: flex; align-items: center; gap: .65rem; }
+.admin-quick-tools { display: flex; align-items: center; gap: .45rem; }
+.admin-quick-tool { display: inline-flex; min-height: 2.65rem; align-items: center; gap: .45rem; border: 1px solid var(--line); border-radius: 999px; background: var(--ops-surface); color: var(--ops-ink-muted); padding: .45rem .75rem; font-size: .72rem; font-weight: 750; text-decoration: none; }
+.admin-quick-tool:hover { border-color: var(--ops-spruce); color: var(--ops-spruce); background: var(--ops-surface-muted); }
+.admin-quick-tool kbd { border: 1px solid var(--line); border-radius: .3rem; background: var(--ops-surface-muted); padding: .1rem .3rem; font-size: .62rem; font-weight: 700; }
 .admin-user-state { display: inline-flex; align-items: center; gap: .45rem; border: 1px solid var(--line); border-radius: 999px; color: var(--forest); padding: .5rem .7rem; font-size: .7rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .admin-user-state i { width: .45rem; height: .45rem; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 .2rem rgb(47 107 79 / 14%); }
 .admin-public-link { display: inline-flex; min-height: 2.4rem; align-items: center; gap: .55rem; border-radius: 999px; background: var(--berry); color: white; padding: .55rem .85rem; font-size: .75rem; font-weight: 750; text-decoration: none; }
@@ -382,7 +402,7 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .admin-user-dropdown button { color: var(--berry); font-weight: 750; }
 .admin-user-divider { height: 1px; margin: .25rem .4rem; background: var(--line); }
 .admin-menu-toggle { display: none; }
-.admin-sidebar { position: fixed; top: 4.75rem; bottom: 0; left: 0; z-index: 15; display: flex; width: 16rem; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--line); background: #eeeae0; padding: 1.35rem .85rem; }
+.admin-sidebar { position: fixed; top: 4.75rem; bottom: 0; left: 0; z-index: 15; display: flex; width: 16rem; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--line); background: var(--ops-surface-muted); padding: 1.35rem .85rem; }
 .admin-nav { display: grid; gap: 1.35rem; }
 .admin-nav-group { display: grid; gap: .3rem; }
 .admin-nav-group-label { padding: 0 .75rem .3rem; color: var(--muted); font-size: .65rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
@@ -398,7 +418,12 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .admin-workspace-intro { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding-top: 1.5rem; }
 .admin-workspace-intro h1 { margin: .35rem 0 0; color: var(--forest); font-family: var(--sans); font-size: clamp(2rem, 3.4vw, 3rem); font-weight: 750; letter-spacing: -.035em; line-height: 1.05; }
 .admin-workspace-intro p:not(.eyebrow) { max-width: 38rem; margin: .65rem 0 0; color: var(--muted); line-height: 1.55; }
-.admin-app .card { border-color: #dce3db; border-radius: 1.15rem; background: var(--paper); box-shadow: 0 8px 24px rgb(23 55 43 / 6%); }
+.admin-app .card { border-color: #dce3db; border-radius: var(--ops-radius); background: var(--ops-surface); box-shadow: 0 8px 24px rgb(23 55 43 / 6%); }
+.ops-tabular { font-variant-numeric: tabular-nums; }
+.ops-status-success { background: #e8f3ec; color: var(--ops-success); }
+.ops-status-warning { background: #fff2df; color: var(--ops-warning); }
+.ops-status-danger { background: #f9e8ec; color: var(--ops-danger); }
+.ops-status-neutral { background: #eceff1; color: var(--ops-neutral); }
 .admin-app .btn { min-height: 2.8rem; border-radius: .7rem; gap: .6rem; padding: .65rem 1rem; font-size: .8rem; }
 .admin-app .btn-secondary { background: #e4ece5; }
 .admin-app section > h2 { color: var(--forest); font-family: var(--sans); font-size: clamp(1.7rem, 2.7vw, 2.25rem); font-weight: 750; letter-spacing: -.025em; }
@@ -694,6 +719,7 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
   .dashboard-alert, .dashboard-grid { display: grid; grid-template-columns: 1fr; }
   .dashboard-alert-btn { width: fit-content; }
   .admin-header-actions { gap: .35rem; }
+  .admin-quick-tools { display: none; }
   .admin-user-state { display: none; }
   .admin-workspace-intro { align-items: flex-start; flex-direction: column; }
   .admin-page-header { align-items: flex-start; flex-direction: column; gap: .75rem; }
@@ -723,7 +749,7 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 
 @media (max-width: 620px) {
   .shell { width: min(100% - 1.25rem, 75rem); }
-  .admin-app { --form-control-min-height: 3rem; --form-control-padding-block: .65rem; }
+  .admin-app { --form-control-min-height: var(--ops-control-height-mobile); --form-control-padding-block: .65rem; }
   .admin-app .shell { width: min(100% - 1.25rem, 76rem); }
   .admin-app .btn { min-height: 3rem; }
   .admin-shell-header { padding-inline: .7rem; }
