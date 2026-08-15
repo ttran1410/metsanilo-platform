@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { auditEntries, availability, orderNotes, orderPayments, orders, products } from "@/db/schema";
+import { AdminEmptyState, AdminNotice, AdminPageHeader } from "./presentation";
 
 type Order = typeof orders.$inferSelect;
 type AvailabilityRow = { availability: typeof availability.$inferSelect; product: typeof products.$inferSelect };
@@ -127,26 +128,23 @@ export function ManagerView({
 
   return (
     <main className="shell py-8">
-      <div className="admin-workspace-intro">
-        <div><p className="eyebrow">RESERVATIONS &amp; CAPACITY</p><h1>Operations workspace</h1><p>Keep today’s reservations, fulfillment dates and stock capacity moving.</p></div>
-        <button className="btn btn-secondary" type="button" onClick={() => void logout()}>Sign out</button>
-      </div>
-      {message && <p className="card mt-5" role="status">{message}</p>}
+      <AdminPageHeader eyebrow="RESERVATIONS & CAPACITY" title={mode === "availability" ? "Harvest availability" : "Orders"} description={mode === "availability" ? "Plan harvest capacity and keep sold-out dates accurate." : "Review reservations, confirm customers, and move each order to its next step."} />
+      {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
 
-      {canViewOrders && (mode === "all" || mode === "orders") && <section id="orders" className="mt-8">
-        <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-2xl font-bold">Orders</h2><p className="text-sm text-slate-600">Search by reference, customer or phone.</p></div><div className="flex flex-wrap gap-2"><input className="rounded-lg border p-3" aria-label="Search orders" placeholder="Search orders" value={search} onChange={(event) => setSearch(event.target.value)} /><select className="rounded-lg border p-3" aria-label="Filter order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option>{["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED", "CANCELLED", "REFUNDED"].map((status) => <option key={status} value={status}>{status}</option>)}</select></div></div>
+      {canViewOrders && (mode === "all" || mode === "orders") && <section id="orders" className="admin-orders-section mt-8">
+        <div className="admin-orders-toolbar"><div><p className="admin-section-kicker">Order queue</p><h2>Orders</h2><p className="admin-section-description">Search by reference, customer or phone.</p></div><div className="admin-filter-bar"><input className="rounded-lg border p-3" aria-label="Search orders" placeholder="Search orders" value={search} onChange={(event) => setSearch(event.target.value)} /><select className="rounded-lg border p-3" aria-label="Filter order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option>{["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED", "CANCELLED", "REFUNDED"].map((status) => <option key={status} value={status}>{status}</option>)}</select></div></div>
         <div className="mt-3 grid gap-3">
-          {filteredOrders.length === 0 && <div className="card">No matching orders.</div>}
+          {filteredOrders.length === 0 && <AdminEmptyState title="No matching orders" description="Try another search or status filter." />}
           {filteredOrders.map((order) => (
-            <article className="card" key={order.id}>
-              <div className="flex flex-wrap justify-between gap-3">
+            <article className="admin-order-card card" key={order.id}>
+              <div className="admin-order-card-main">
                 <div>
                   <h3 className="font-bold">{order.publicReference} <span className="pill">{order.status}</span></h3>
                   <p>{order.customerName} · {order.mobile} · {order.productNameFi} / {order.packageLabelFi}</p>
                   <p>{order.fulfillmentDate} · {order.fulfillmentMethod} · {(order.volumeMl / 1000).toLocaleString("fi-FI")} l</p>
                   {order.fulfillmentMethod === "DELIVERY" && <p>Delivery to be agreed · {order.streetAddress}, {order.postalCode} {order.city}</p>}
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="admin-order-actions">
                   <a className="btn btn-secondary" href={`/admin/orders/${order.id}`}>Open order</a>
                   {order.status === "NEW" && <><button className="btn" onClick={() => void status(order, "CONFIRMED")}>Confirm</button><button className="btn btn-secondary" onClick={() => void status(order, "CUSTOMER_DECLINED")}>Customer declined</button><button className="btn bg-[var(--berry)]" onClick={() => void status(order, "CANCELLED")}>Cancel</button></>}
                   {order.status === "CONFIRMED" && <><button className="btn" onClick={() => void status(order, "PICKING")}>Start picking</button><button className="btn bg-[var(--berry)]" onClick={() => void status(order, "CANCELLED")}>Cancel</button></>}
@@ -170,8 +168,8 @@ export function ManagerView({
         </div>
       </section>}
 
-      {canManageAvailability && (mode === "all" || mode === "availability") && <section id="availability" className="mt-10">
-        <h2 className="text-2xl font-bold">Plan availability</h2>
+      {canManageAvailability && (mode === "all" || mode === "availability") && <section id="availability" className="admin-availability-section mt-10">
+        <div className="admin-section-heading"><div><p className="admin-section-kicker">Harvest planning</p><h2>Plan availability</h2><p className="admin-section-description">Set capacity and fulfillment dates for each seasonal product.</p></div></div>
         <form className="card mt-3 grid gap-3" onSubmit={plan}>
           <p className="text-sm">DAY applies every date, WEEK every 7 days, MONTH on the same day each month, and CUSTOM to comma-separated dates.</p>
           <div className="grid gap-3 md:grid-cols-3">
@@ -192,10 +190,10 @@ export function ManagerView({
         </form>
       </section>}
 
-      {canManageAvailability && (mode === "all" || mode === "availability") && <section className="mt-10">
-        <h2 className="text-2xl font-bold">Today and future capacity</h2>
+      {canManageAvailability && (mode === "all" || mode === "availability") && <section className="admin-availability-section mt-10">
+        <div className="admin-section-heading"><div><p className="admin-section-kicker">Capacity control</p><h2>Today and future capacity</h2><p className="admin-section-description">Review reserved volume and adjust availability before customers reserve.</p></div></div>
         <div className="mt-3 grid gap-3">
-          {availabilityRows.map((row) => (
+          {availabilityRows.length === 0 && <AdminEmptyState title="No availability planned" description="Create a plan above to add harvest dates." />}{availabilityRows.map((row) => (
             <form className="card grid gap-3 md:grid-cols-[1fr_10rem_1fr_auto] md:items-end" key={`${row.availability.id}:${row.availability.version}`} onSubmit={(event) => { event.preventDefault(); void save(row, event.currentTarget); }}>
               <div><strong>{row.product.nameFi}</strong><br />{row.availability.businessDate}<br /><small>Reserved: {row.availability.reservedMl / 1000} l · v{row.availability.version}</small></div>
               <label className="field"><span>Capacity (litres)</span><input name="capacityLitres" type="number" min={row.availability.reservedMl / 1000} step="0.001" defaultValue={row.availability.capacityMl / 1000} required /></label>
