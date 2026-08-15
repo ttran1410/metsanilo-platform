@@ -97,7 +97,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             <span><strong>METSÄNILO</strong></span>
           </Link>
           <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
-            <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa tuotteet" : "Reserve products"}</Link>
+            <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link>
             <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
             <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>
             <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
@@ -113,7 +113,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
         <div className="hero-copy">
           <p className="eyebrow">{locale === "fi" ? "Satakunnan metsistä" : "From Satakunta forests"}</p>
           <h1 id="hero-title">{locale === "fi" ? "Tuoreet marjat suoraan metsästä" : "Fresh berries from the forest"}</h1>
-          <p className="hero-lede">{locale === "fi" ? "Huolellisesti puhdistettuja metsämustikoita. Varaa ennakkoon – ei ennakkomaksua." : "Carefully cleaned wild blueberries. Reserve ahead – no prepayment."}</p>
+          <p className="hero-lede">{locale === "fi" ? "Huolellisesti puhdistettuja metsämustikoita. Tee varaus ennakkoon – ei ennakkomaksua." : "Carefully cleaned wild blueberries. Reserve ahead – no prepayment."}</p>
           <div className="hero-highlights" aria-label={locale === "fi" ? "Tärkeät tiedot" : "Key information"}>
             <span className="highlight-chip"><span aria-hidden="true">▣</span>{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: <strong>{nextPickupLabel}</strong></span>
             {nextPickupCapacityLabel && <span className="highlight-chip"><span aria-hidden="true">🫐</span><strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong> {locale === "fi" ? "jäljellä yhteensä" : "total remaining"}</span>}
@@ -162,7 +162,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
       <footer className="storefront-footer">
         <div className="shell footer-grid">
           <div><strong>METSÄNILO</strong><p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${seasonYear}` : `From Satakunta forest to table · Season ${seasonYear}`}</p></div>
-          <div><span>{locale === "fi" ? "Tutustu" : "Explore"}</span><Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa tuotteet" : "Reserve products"}</Link><Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link><Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link><Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link></div>
+          <div><span>{locale === "fi" ? "Tutustu" : "Explore"}</span><Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link><Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten varaus toimii" : "How it works"}</Link><Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link><Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link></div>
           <div><span>{locale === "fi" ? "Yhteys" : "Contact"}</span>{data.shop.contactPhone && <a href={`tel:${data.shop.contactPhone}`}>{data.shop.contactPhone}</a>}{data.shop.contactEmail && <a href={`mailto:${data.shop.contactEmail}`}>{data.shop.contactEmail}</a>}</div>
           <div><span>{locale === "fi" ? "Tietoa" : "Information"}</span><Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link></div>
         </div>

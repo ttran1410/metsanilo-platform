@@ -7,7 +7,7 @@ import { MobileNav } from "./mobile-nav";
 type InfoKind = "how-it-works" | "reviews" | "about";
 
 const navCopy = {
-  fi: { how: "Miten varaus toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa tuotteet", contact: "Yhteys" },
+  fi: { how: "Miten varaus toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjat", contact: "Yhteys" },
   en: { how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve products", contact: "Contact" },
 } satisfies Record<Locale, Record<string, string>>;
 
