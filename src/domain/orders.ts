@@ -173,9 +173,10 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
       const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, mobile)) });
       const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.email, normalizedEmail)) }) : undefined;
       const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id) || Boolean(mobileMatch && normalizedEmail && mobileMatch.email && mobileMatch.email !== normalizedEmail && !emailMatch);
+      const consentGranted = input.marketingConsent === true;
       const customer = (conflict || (!mobileMatch && !emailMatch))
-        ? { id: randomUUID(), shopId: SHOP_ID, name: input.customerName, mobile, email: normalizedEmail, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt }
-        : { ...(mobileMatch ?? emailMatch!), name: input.customerName, email: normalizedEmail ?? (mobileMatch ?? emailMatch)!.email, updatedAt: createdAt };
+        ? { id: randomUUID(), shopId: SHOP_ID, name: input.customerName, mobile, email: normalizedEmail, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, marketingConsent: consentGranted, marketingConsentAt: consentGranted ? createdAt : null, marketingConsentSource: consentGranted ? "ORDER_FORM" as const : null, marketingConsentUpdatedBy: null, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt }
+        : { ...(mobileMatch ?? emailMatch!), name: input.customerName, email: normalizedEmail ?? (mobileMatch ?? emailMatch)!.email, ...(consentGranted ? { marketingConsent: true, marketingConsentAt: createdAt, marketingConsentSource: "ORDER_FORM" as const, marketingConsentUpdatedBy: null } : {}), updatedAt: createdAt };
       if (conflict || (!mobileMatch && !emailMatch)) await tx.insert(customers).values(customer);
       else await tx.update(customers).set({ name: customer.name, email: customer.email, updatedAt: createdAt }).where(eq(customers.id, customer.id));
       const created = {

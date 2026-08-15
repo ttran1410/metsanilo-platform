@@ -15,6 +15,7 @@ export const orderInputSchema = z
     postalCode: z.string().trim().max(10).optional(),
     city: z.string().trim().max(100).optional(),
     notes: z.string().trim().max(1000).optional(),
+    marketingConsent: z.boolean().optional(),
     idempotencyKey: z.string().min(16).max(100),
   })
   .superRefine((input, ctx) => {
