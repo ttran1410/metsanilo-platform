@@ -93,3 +93,13 @@ These primitives are re-exported from `presentation.tsx` during migration so exi
 ## Phase 3B — Orders-specific patterns
 
 Orders uses the primitives as a high-velocity operational queue: quick-view chips, date-range and source filters, a sticky selection toolbar, row-level transition menus, and equivalent mobile cards. The detail route is the command center with a lifecycle stepper, customer contact actions, fulfillment snapshots, customer delivery address, payment/fee controls, exceptions, notes and audit. The edit route presents a capacity delta preview and an explicit price-override/reason flow; the server remains authoritative for atomic capacity and optimistic-version checks.
+
+## Phase 6 — Capacity & harvest planning
+
+`/admin/availability` is a seven-day operations board, not a CRUD form. Each day card aggregates product/date availability rows and shows capacity, reserved volume, remaining litres, utilization and a semantic state: open, near capacity or sold out/locked. Product rows retain package-fit detail and expose explicit Edit and Lock/Reopen actions only when the resolved permission allows them.
+
+- Quick views are **Next 7 days**, **Near capacity**, **Sold out** and **Needs attention**. Empty dates remain visible so missing plans are actionable rather than silently omitted.
+- Manual sold-out locking requires a reason and is audited. Reopening is explicit; confirmed reservations cannot be invalidated and the API rejects capacity below already-reserved volume.
+- Batch planning provides a client-side date preview for daily, weekly and selected-weekday patterns. The availability API remains authoritative for product windows, conflicts, historical dates, reservations and optimistic versions.
+- Picking, pickup-ready and delivery queues are read-only summaries linked to the unified Orders workspace. Capacity remains sourced from the existing availability/order model, so homepage, reserve and Operations use the same remaining-volume and sold-out rules.
+- Desktop uses a seven-column board; narrow screens use horizontally scrollable day cards and stacked queue cards. Weather or harvest conditions are captured as a manual reason until a real forecast integration exists.
