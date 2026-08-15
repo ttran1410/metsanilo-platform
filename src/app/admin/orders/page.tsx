@@ -11,5 +11,5 @@ export default async function OrdersPage() {
   const { request } = await adminContext();
   const allowed = await hasAdminPermission(request, "orders.read");
   if (!allowed) return <AdminRouteFrame><main className="shell py-10"><p className="card" role="alert">You do not have access to orders.</p></main></AdminRouteFrame>;
-  return <AdminRouteFrame><ManagerView initialOrders={await listManagerOrders(db())} initialAvailability={[]} canViewOrders canManageAvailability={false} mode="orders" /></AdminRouteFrame>;
+  return <AdminRouteFrame><ManagerView initialOrders={await listManagerOrders(db())} initialAvailability={[]} canViewOrders canManageAvailability={false} canExportOrders={await hasAdminPermission(request, "orders.export")} mode="orders" /></AdminRouteFrame>;
 }

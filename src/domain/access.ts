@@ -9,7 +9,7 @@ import { assertPassword, hashPassword, verifyPassword } from "./passwords";
 import { betterAuthInstance } from "@/lib/better-auth";
 
 export const PERMISSIONS = [
-  "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.write",
+  "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.write", "orders.export",
   "catalog.product.write", "catalog.product.delete_unreferenced", "catalog.package.write",
   "availability.write", "availability.sold_out", "delivery.override", "cms.edit", "cms.publish",
   "media.write", "invoices.issue", "invoices.download", "picking.write", "pickers.manage",
@@ -22,7 +22,7 @@ export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
  * Staff and Content Creator receive the basic content/media editing grants. */
 export function defaultPermissionsForRole(role: Role): Permission[] {
   if (role === "ADMIN" || role === "MANAGER") return [...PERMISSIONS];
-  if (role === "STAFF") return PERMISSIONS.filter((permission) => permission.startsWith("orders.") || permission.startsWith("delivery.") || permission.startsWith("availability.") || permission.startsWith("customers.") || permission.startsWith("catalog.") || permission === "cms.edit" || permission === "media.write");
+  if (role === "STAFF") return PERMISSIONS.filter((permission) => (permission.startsWith("orders.") && permission !== "orders.export") || permission.startsWith("delivery.") || permission.startsWith("availability.") || permission.startsWith("customers.") || permission.startsWith("catalog.") || permission === "cms.edit" || permission === "media.write");
   if (role === "CONTENT_CREATOR") return ["cms.edit", "media.write"];
   return [];
 }

@@ -311,6 +311,17 @@ export async function addOrderNote(database: Database, input: { orderId: string;
   return (await database.query.orderNotes.findFirst({ where: eq(orderNotes.id, id) }))!;
 }
 
+export async function addDeliveryException(database: Database, input: { orderId: string; type: string; nextAction: string; note?: string; rescheduledDate?: string }) {
+  const { SHOP_ID } = env();
+  const allowed = ["CUSTOMER_UNAVAILABLE", "ADDRESS_ISSUE", "DELIVERY_DELAYED", "DELIVERY_FAILED", "RESCHEDULED"];
+  if (!allowed.includes(input.type) || input.nextAction.trim().length < 1 || input.nextAction.length > 120) throw new DomainError("VALIDATION_ERROR", "Invalid delivery exception", 422);
+  const order = await database.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
+  if (!order || order.fulfillmentMethod !== "DELIVERY") throw new DomainError("NOT_FOUND", "Delivery order not found", 404);
+  const createdAt = nowIso();
+  await database.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: `order.delivery_exception.${input.type.toLowerCase()}`, entityType: "order", entityId: order.id, detailsJson: JSON.stringify({ type: input.type, nextAction: input.nextAction.trim(), note: input.note?.trim() || null, rescheduledDate: input.rescheduledDate || null }), createdAt });
+  return { createdAt, type: input.type, nextAction: input.nextAction.trim(), note: input.note?.trim() || null, rescheduledDate: input.rescheduledDate || null };
+}
+
 export async function setDeliveryFee(database: Database, input: { orderId: string; expectedVersion: number; deliveryFeeCents: number }) {
   const { SHOP_ID } = env();
   if (!Number.isSafeInteger(input.deliveryFeeCents) || input.deliveryFeeCents < 0) throw new DomainError("VALIDATION_ERROR", "Delivery fee must be non-negative cents", 422);
