@@ -212,6 +212,8 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
             : row.shop.pickupInstructionsEn
           : null,
         pickupTime: pickup ? row.shop.pickupTime : null,
+        pickupLocationSnapshotJson: null,
+        deliveryOriginSnapshotJson: null,
         notes: input.notes || null,
         orderSource: "WEBSITE",
         historicalEntry: false,
