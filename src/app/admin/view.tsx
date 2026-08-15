@@ -14,6 +14,7 @@ export function ManagerView({
   initialAvailability,
   canViewOrders,
   canManageAvailability,
+  canExportOrders = false,
   mode = "all",
   workspace,
 }: {
@@ -21,6 +22,7 @@ export function ManagerView({
   initialAvailability: AvailabilityRow[];
   canViewOrders: boolean;
   canManageAvailability: boolean;
+  canExportOrders?: boolean;
   mode?: "all" | "orders" | "availability";
   workspace?: AvailabilityWorkspace;
 }) {
@@ -31,7 +33,10 @@ export function ManagerView({
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const filteredOrders = orderRows.filter((order) => (statusFilter === "ALL" || order.status === statusFilter) && `${order.publicReference} ${order.customerName} ${order.mobile}`.toLowerCase().includes(search.toLowerCase()));
+  const [dateFilter, setDateFilter] = useState("");
+  const [methodFilter, setMethodFilter] = useState("ALL");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const filteredOrders = orderRows.filter((order) => (statusFilter === "ALL" || order.status === statusFilter) && (methodFilter === "ALL" || order.fulfillmentMethod === methodFilter) && (!dateFilter || order.fulfillmentDate === dateFilter) && `${order.publicReference} ${order.customerName} ${order.mobile}`.toLowerCase().includes(search.toLowerCase()));
 
   async function logout() {
     await fetch("/api/auth/better/sign-out", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
@@ -52,6 +57,28 @@ export function ManagerView({
     if (!response.ok) return feedback(body.code ?? "Request failed", "error");
     setOrderRows((rows) => rows.map((row) => (row.id === order.id ? body.data : row)));
     setMessage(`Order ${order.publicReference}: ${next}`);
+  }
+
+  async function bulkTransition(next: "CONFIRMED" | "PICKING" | "READY" | "OUT_FOR_DELIVERY" | "PICKED_UP" | "DELIVERED") {
+    const selected = orderRows.filter((order) => selectedIds.includes(order.id));
+    if (!selected.length) return;
+    if (!window.confirm(`Apply ${next} to ${selected.length} order(s)? Orders with an invalid status will be skipped.`)) return;
+    const updated: Order[] = [];
+    let skipped = 0;
+    for (const order of selected) {
+      const response = await fetch(`/api/admin/orders/${order.id}/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: next, expectedVersion: order.version }) });
+      const body = await response.json();
+      if (response.ok) updated.push(body.data as Order); else skipped += 1;
+    }
+    setOrderRows((rows) => rows.map((row) => updated.find((item) => item.id === row.id) ?? row));
+    setSelectedIds([]);
+    feedback(`${updated.length} order(s) updated${skipped ? `, ${skipped} skipped because they changed or were not eligible` : ""}.`, skipped ? "error" : "success");
+  }
+
+  function exportOrders() {
+    const header = ["Reference", "Customer", "Mobile", "Date", "Method", "Product", "Package", "Quantity", "Status", "Item subtotal", "Delivery fee", "Total"];
+    const csv = [header, ...filteredOrders.map((order) => [order.publicReference, order.customerName, order.mobile, order.fulfillmentDate, order.fulfillmentMethod, order.productNameFi, order.packageLabelFi, order.quantity, order.status, (order.itemSubtotalCents / 100).toFixed(2), order.deliveryFeeCents === null ? "pending" : (order.deliveryFeeCents / 100).toFixed(2), order.finalTotalCents === null ? "pending" : (order.finalTotalCents / 100).toFixed(2)])].map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = `metsanilo-orders-${dateFilter || "filtered"}.csv`; link.click(); URL.revokeObjectURL(url);
   }
 
   async function openDetail(order: Order) {
@@ -136,18 +163,19 @@ export function ManagerView({
       {message && <AdminNotice tone={messageTone} live>{message}</AdminNotice>}
 
       {canViewOrders && (mode === "all" || mode === "orders") && <section id="orders" className="admin-orders-section mt-8">
-        <div className="admin-orders-toolbar"><div><p className="admin-section-kicker">Order queue</p><h2>Orders</h2><p className="admin-section-description">Search by reference, customer or phone.</p></div><div className="admin-filter-bar"><input className="rounded-lg border p-3" aria-label="Search orders" placeholder="Search orders" value={search} onChange={(event) => setSearch(event.target.value)} /><select className="rounded-lg border p-3" aria-label="Filter order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option>{["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED", "CANCELLED", "REFUNDED"].map((status) => <option key={status} value={status}>{status}</option>)}</select></div></div>
+        <div className="admin-orders-toolbar"><div><p className="admin-section-kicker">Order queue</p><h2>Orders</h2><p className="admin-section-description">Search, filter and safely move reservations through fulfilment.</p></div><div className="admin-filter-bar"><input className="rounded-lg border p-3" aria-label="Search orders" placeholder="Search orders" value={search} onChange={(event) => setSearch(event.target.value)} /><input className="rounded-lg border p-3" aria-label="Filter fulfilment date" type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} /><select className="rounded-lg border p-3" aria-label="Filter order status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="ALL">All statuses</option>{["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED", "CANCELLED", "REFUNDED"].map((status) => <option key={status} value={status}>{status}</option>)}</select><select className="rounded-lg border p-3" aria-label="Filter fulfilment method" value={methodFilter} onChange={(event) => setMethodFilter(event.target.value)}><option value="ALL">Pickup & delivery</option><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select>{canExportOrders && <button className="btn btn-secondary" type="button" onClick={exportOrders}>Export CSV</button>}</div></div>
+        {filteredOrders.length > 0 && <div className="card mt-3 flex flex-wrap items-center gap-2"><label className="flex items-center gap-2"><input type="checkbox" checked={filteredOrders.every((order) => selectedIds.includes(order.id))} onChange={(event) => setSelectedIds(event.target.checked ? filteredOrders.map((order) => order.id) : [])} /> Select filtered ({filteredOrders.length})</label><span className="text-sm text-slate-600">{selectedIds.length} selected</span>{selectedIds.length > 0 && <><button className="btn" type="button" onClick={() => void bulkTransition("CONFIRMED")}>Confirm</button><button className="btn" type="button" onClick={() => void bulkTransition("PICKING")}>Start picking</button><button className="btn" type="button" onClick={() => void bulkTransition("READY")}>Mark ready</button><button className="btn" type="button" onClick={() => void bulkTransition("OUT_FOR_DELIVERY")}>Dispatch delivery</button><button className="btn" type="button" onClick={() => void bulkTransition("PICKED_UP")}>Confirm pickup</button><button className="btn" type="button" onClick={() => void bulkTransition("DELIVERED")}>Mark delivered</button></>}</div>}
         <div className="mt-3 grid gap-3">
           {filteredOrders.length === 0 && <AdminEmptyState title="No matching orders" description="Try another search or status filter." />}
           {filteredOrders.map((order) => (
             <article className="admin-order-card card" key={order.id}>
               <div className="admin-order-card-main">
-                <div>
+                <div className="flex gap-3"><input type="checkbox" aria-label={`Select ${order.publicReference}`} checked={selectedIds.includes(order.id)} onChange={(event) => setSelectedIds((ids) => event.target.checked ? [...ids, order.id] : ids.filter((id) => id !== order.id))} /><div>
                   <h3 className="font-bold">{order.publicReference} <span className="pill">{order.status}</span></h3>
                   <p>{order.customerName} · {order.mobile} · {order.productNameFi} / {order.packageLabelFi}</p>
                   <p>{order.fulfillmentDate} · {order.fulfillmentMethod} · {(order.volumeMl / 1000).toLocaleString("fi-FI")} l</p>
                   {order.fulfillmentMethod === "DELIVERY" && <p>Delivery to be agreed · {order.streetAddress}, {order.postalCode} {order.city}</p>}
-                </div>
+                </div></div>
                 <div className="admin-order-actions">
                   <a className="btn btn-secondary" href={`/admin/orders/${order.id}`}>Open order</a>
                   {order.status === "NEW" && <><button className="btn" onClick={() => void status(order, "CONFIRMED")}>Confirm</button><button className="btn btn-secondary" onClick={() => void status(order, "CUSTOMER_DECLINED")}>Customer declined</button><button className="btn bg-[var(--berry)]" onClick={() => void status(order, "CANCELLED")}>Cancel</button></>}
