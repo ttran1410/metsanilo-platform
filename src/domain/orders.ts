@@ -350,9 +350,17 @@ export async function recordPayment(database: Database, input: { orderId: string
     if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
     if (order.status === "CANCELLED") throw new DomainError("INVALID_ORDER", "Cancelled order cannot be paid", 409);
     if (order.finalTotalCents === null) throw new DomainError("DELIVERY_FEE_PENDING", "Set the delivery fee before recording payment", 409);
+    let effectiveTotalCents = order.finalTotalCents;
+    if (order.historicalEntry && effectiveTotalCents === 0) {
+      const packageRow = await tx.query.packages.findFirst({ where: and(eq(packages.id, order.packageId), eq(packages.shopId, SHOP_ID)) });
+      if (packageRow) {
+        effectiveTotalCents = packageRow.priceCents * order.quantity;
+        await tx.update(orders).set({ itemSubtotalCents: effectiveTotalCents, finalTotalCents: effectiveTotalCents, updatedAt: nowIso() }).where(eq(orders.id, order.id));
+      }
+    }
     const previous = await tx.select().from(orderPayments).where(and(eq(orderPayments.orderId, order.id), eq(orderPayments.shopId, SHOP_ID)));
     const paidCents = previous.filter((payment) => payment.kind === "PAYMENT").reduce((sum, payment) => sum + payment.amountCents, 0);
-    if (paidCents + input.amountCents > order.finalTotalCents) throw new DomainError("PAYMENT_EXCEEDS_TOTAL", "Payment exceeds order total", 409);
+    if (paidCents + input.amountCents > effectiveTotalCents) throw new DomainError("PAYMENT_EXCEEDS_TOTAL", "Payment exceeds order total", 409);
     const id = randomUUID(); const recordedAt = nowIso();
     await tx.insert(orderPayments).values({ id, shopId: SHOP_ID, orderId: order.id, amountCents: input.amountCents, kind: "PAYMENT", method: input.method, reference: input.reference?.trim() || null, recordedAt, actor: "manager" });
     await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.payment_recorded", entityType: "order", entityId: order.id, detailsJson: JSON.stringify({ paymentId: id, amountCents: input.amountCents, method: input.method }), createdAt: recordedAt });
