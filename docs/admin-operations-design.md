@@ -79,9 +79,12 @@ Before a module is considered migrated, verify: route-level list/detail/edit sep
 
 `src/app/admin/ui/primitives.tsx` is the shared entry point for presentation primitives. It intentionally contains no data fetching or domain mutations:
 
-- `AdminCard` for consistent surface structure.
+- `AdminCard`, `AdminDataTable` and `AdminRecordCard` for consistent surfaces across desktop/mobile.
 - `AdminStatusBadge` for canonical lifecycle/payment/warning tones.
-- `AdminFieldError` for inline, announced validation feedback.
+- `AdminFieldError`, `AdminFeedback` and the existing loading/empty states for announced feedback.
+- `AdminFilterBar` and `AdminSelectionToolbar` for consistent queue controls.
+- `AdminConfirmDialog` for explicit reversible/destructive confirmation.
+- `AdminTimeline` for audit/activity presentation.
 - `AdminPermissionGate` for rendering an action only when its server-resolved permission allows it.
 - `formatAdminMoney` and `formatAdminReference` for locale-safe, tabular operational values.
 
