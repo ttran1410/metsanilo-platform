@@ -43,6 +43,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
 
   const productMap = new Map<string, PublicProduct>();
   for (const row of data.rows) {
+    if (!row.product.showOnHomepage) continue;
     let product = productMap.get(row.product.id);
     if (!product) {
       product = {
@@ -61,14 +62,17 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
         label: locale === "fi" ? row.package.labelFi : row.package.labelEn,
         volumeMl: row.package.volumeMl,
         priceCents: row.package.priceCents,
+        isDefault: row.package.isDefault,
+        sortOrder: row.package.sortOrder,
       });
     }
-    if (!product.dates.some((item) => item.date === row.availability.businessDate)) {
+    const availabilityRow = row.availability;
+    if (availabilityRow && !product.dates.some((item) => item.date === availabilityRow.businessDate)) {
       product.dates.push({
-        date: row.availability.businessDate,
-        remainingMl: row.availability.capacityMl - row.availability.reservedMl,
-        acceptsOrders: row.availability.acceptsOrders,
-        soldOut: row.availability.manualSoldOut || row.availability.capacityMl === row.availability.reservedMl,
+        date: availabilityRow.businessDate,
+        remainingMl: availabilityRow.capacityMl - availabilityRow.reservedMl,
+        acceptsOrders: availabilityRow.acceptsOrders,
+        soldOut: availabilityRow.manualSoldOut || availabilityRow.capacityMl === availabilityRow.reservedMl,
       });
     }
   }

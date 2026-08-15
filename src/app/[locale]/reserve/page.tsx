@@ -18,10 +18,12 @@ export default async function ReservePage({ params, searchParams }: { params: Pr
   if (!data) return <main className="shell py-12"><div className="card">Shop is not configured.</div></main>;
   const productMap = new Map<string, PublicProduct>();
   for (const row of data.rows) {
+    if (!row.product.showOnReserve) continue;
     const product = productMap.get(row.product.id) ?? { id: row.product.id, name: locale === "fi" ? row.product.nameFi : row.product.nameEn, description: locale === "fi" ? row.product.descriptionFi : row.product.descriptionEn, media: [], packages: [], dates: [] };
     if (!productMap.has(row.product.id)) productMap.set(row.product.id, product);
-    if (!product.packages.some((item) => item.id === row.package.id)) product.packages.push({ id: row.package.id, label: locale === "fi" ? row.package.labelFi : row.package.labelEn, volumeMl: row.package.volumeMl, priceCents: row.package.priceCents });
-    if (!product.dates.some((item) => item.date === row.availability.businessDate)) product.dates.push({ date: row.availability.businessDate, remainingMl: row.availability.capacityMl - row.availability.reservedMl, acceptsOrders: row.availability.acceptsOrders, soldOut: row.availability.manualSoldOut || row.availability.capacityMl === row.availability.reservedMl });
+    if (!product.packages.some((item) => item.id === row.package.id)) product.packages.push({ id: row.package.id, label: locale === "fi" ? row.package.labelFi : row.package.labelEn, volumeMl: row.package.volumeMl, priceCents: row.package.priceCents, isDefault: row.package.isDefault, sortOrder: row.package.sortOrder });
+    const availabilityRow = row.availability;
+    if (availabilityRow && !product.dates.some((item) => item.date === availabilityRow.businessDate)) product.dates.push({ date: availabilityRow.businessDate, remainingMl: availabilityRow.capacityMl - availabilityRow.reservedMl, acceptsOrders: availabilityRow.acceptsOrders, soldOut: availabilityRow.manualSoldOut || availabilityRow.capacityMl === availabilityRow.reservedMl });
   }
   for (const product of productMap.values()) product.media = data.media.filter((image) => image.productId === product.id).map((image) => ({ id: image.id, url: image.url, alt: locale === "fi" ? image.altFi : image.altEn, isPrimary: image.isPrimary }));
   const products = [...productMap.values()]; const query = await searchParams; const requestedProduct = query.product ? products.find((item) => item.id === query.product) : undefined; const productAvailable = (product: PublicProduct) => product.packages.some((pkg) => product.dates.some((date) => date.acceptsOrders && !date.soldOut && date.remainingMl >= pkg.volumeMl));

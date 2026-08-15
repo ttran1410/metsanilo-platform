@@ -10,7 +10,7 @@ export type PublicProduct = {
   name: string;
   description: string;
   media: Array<{ id: string; url: string; alt: string; isPrimary: boolean }>;
-  packages: Array<{ id: string; label: string; volumeMl: number; priceCents: number }>;
+  packages: Array<{ id: string; label: string; volumeMl: number; priceCents: number; isDefault?: boolean; sortOrder?: number }>;
   dates: Array<{ date: string; remainingMl: number; acceptsOrders: boolean; soldOut: boolean }>;
 };
 
@@ -42,7 +42,7 @@ export function OrderForm({
   const resolvedInitialProductId = initialProductId === undefined ? (products[0]?.id ?? "") : initialProductId;
   const [productId, setProductId] = useState(resolvedInitialProductId);
   const product = products.find((item) => item.id === productId);
-  const defaultPackage = product?.packages.find((item) => item.volumeMl === 10000) ?? product?.packages[0];
+  const defaultPackage = product?.packages.find((item) => item.isDefault && item.volumeMl === 10000) ?? product?.packages.find((item) => item.isDefault) ?? product?.packages.find((item) => item.volumeMl === 10000) ?? product?.packages.slice().sort((a, b) => b.volumeMl - a.volumeMl)[0];
   const [packageId, setPackageId] = useState(initialPackageId ?? defaultPackage?.id ?? "");
   const selectedPackage = product?.packages.find((item) => item.id === packageId) ?? product?.packages[0];
   const [quantity, setQuantity] = useState(1);
@@ -79,7 +79,7 @@ export function OrderForm({
   function changeProduct(nextId: string) {
     const next = products.find((item) => item.id === nextId);
     setProductId(nextId);
-    const nextPackage = next?.packages.find((item) => item.volumeMl === 10000) ?? next?.packages[0];
+    const nextPackage = next?.packages.find((item) => item.isDefault) ?? next?.packages.find((item) => item.volumeMl === 10000) ?? next?.packages.slice().sort((a, b) => b.volumeMl - a.volumeMl)[0];
     setPackageId(nextPackage?.id ?? "");
     setQuantity(1);
     setDate("");

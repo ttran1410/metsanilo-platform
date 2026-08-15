@@ -113,6 +113,13 @@
       "when": 1786723000000,
       "tag": "0015_cms_media",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1786724000000,
+      "tag": "0016_catalog_management",
+      "breakpoints": true
     }
   ]
 }

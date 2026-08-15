@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, lt, or } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, availability, mediaAttachments, mediaAssets, orders, packages, products } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -18,6 +18,8 @@ type ProductInput = {
   availableFrom: string;
   availableThrough: string;
   active: boolean;
+  showOnHomepage?: boolean;
+  showOnReserve?: boolean;
 };
 
 type PackageInput = {
@@ -26,6 +28,8 @@ type PackageInput = {
   volumeMl: number;
   priceCents: number;
   active: boolean;
+  sortOrder?: number;
+  isDefault?: boolean;
 };
 
 function cleanText(value: string, field: string, max: number, required = true) {
@@ -48,6 +52,7 @@ function validateProduct(input: ProductInput) {
     nameFi: cleanText(input.nameFi, "nameFi", 120), nameEn: cleanText(input.nameEn, "nameEn", 120),
     descriptionFi: cleanText(input.descriptionFi, "descriptionFi", 5000, false), descriptionEn: cleanText(input.descriptionEn, "descriptionEn", 5000, false),
     availableFrom: input.availableFrom, availableThrough: input.availableThrough, active: input.active,
+    showOnHomepage: input.showOnHomepage ?? true, showOnReserve: input.showOnReserve ?? true,
   };
 }
 
@@ -57,6 +62,7 @@ function validatePackage(input: PackageInput) {
   return {
     labelFi: cleanText(input.labelFi, "labelFi", 120), labelEn: cleanText(input.labelEn, "labelEn", 120),
     volumeMl: input.volumeMl, priceCents: input.priceCents, active: input.active,
+    sortOrder: input.sortOrder ?? 0, isDefault: input.isDefault ?? false,
   };
 }
 
@@ -68,7 +74,7 @@ export async function listManagerProducts(database: Database) {
   const shopId = env().SHOP_ID;
   const rows = await database.select({ product: products, package: packages }).from(products)
     .leftJoin(packages, and(eq(packages.productId, products.id), eq(packages.shopId, products.shopId)))
-    .where(eq(products.shopId, shopId)).orderBy(asc(products.nameFi), asc(packages.volumeMl));
+    .where(eq(products.shopId, shopId)).orderBy(asc(products.nameFi), asc(packages.sortOrder), asc(packages.volumeMl));
   const grouped = new Map<string, { product: typeof products.$inferSelect; packages: Array<typeof packages.$inferSelect> }>();
   for (const row of rows) {
     let group = grouped.get(row.product.id);
@@ -78,7 +84,7 @@ export async function listManagerProducts(database: Database) {
   const media = await database.select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments)
     .innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId))
     .where(eq(mediaAttachments.shopId, shopId)).orderBy(asc(mediaAttachments.sortOrder));
-  return [...grouped.values()].map((item) => ({ ...item, media: media.filter((row) => row.attachment.productId === item.product.id).map((row) => ({ ...row.asset, sortOrder: row.attachment.sortOrder, isPrimary: row.attachment.isPrimary })) }));
+  return [...grouped.values()].map((item) => ({ ...item, packages: [...item.packages].sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.sortOrder - b.sortOrder || b.volumeMl - a.volumeMl), media: media.filter((row) => row.attachment.productId === item.product.id).map((row) => ({ ...row.asset, attachmentId: row.attachment.id, sortOrder: row.attachment.sortOrder, isPrimary: row.attachment.isPrimary })) }));
 }
 
 export async function createProduct(database: Database, input: ProductInput & { packages: PackageInput[] }) {
@@ -90,7 +96,9 @@ export async function createProduct(database: Database, input: ProductInput & { 
   await database.transaction(async (tx) => {
     try {
       await tx.insert(products).values({ id, shopId, ...product });
-      await tx.insert(packages).values(packageValues.map((item) => ({ id: randomUUID(), shopId, productId: id, ...item })));
+      const explicitDefaultIndex = packageValues.findIndex((item) => item.isDefault);
+      const fallbackIndex = explicitDefaultIndex >= 0 ? explicitDefaultIndex : Math.max(0, packageValues.findIndex((item) => item.volumeMl === 10000) >= 0 ? packageValues.findIndex((item) => item.volumeMl === 10000) : packageValues.reduce((best, item, index, all) => item.volumeMl > all[best].volumeMl ? index : best, 0));
+      await tx.insert(packages).values(packageValues.map((item, index) => ({ id: randomUUID(), shopId, productId: id, ...item, sortOrder: index, isDefault: index === fallbackIndex })));
     } catch (error) {
       const databaseError = error as { cause?: { message?: string; cause?: { message?: string } } };
       const message = `${String(error)} ${databaseError.cause?.message ?? ""} ${databaseError.cause?.cause?.message ?? ""}`.toLowerCase();
@@ -107,8 +115,14 @@ export async function updateProduct(database: Database, id: string, input: Produ
   const product = validateProduct(input);
   const current = await database.query.products.findFirst({ where: and(eq(products.id, id), eq(products.shopId, shopId)) });
   if (!current) throw new DomainError("NOT_FOUND", "Product not found", 404);
+  const activeOrders = await database.select({ id: orders.id, fulfillmentDate: orders.fulfillmentDate }).from(orders).where(and(eq(orders.productId, id), eq(orders.shopId, shopId), inArray(orders.status, ["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY"])));
+  const conflictingOrder = activeOrders.find((order) => order.fulfillmentDate < product.availableFrom || order.fulfillmentDate > product.availableThrough);
+  if (conflictingOrder) throw new DomainError("PRODUCT_WINDOW_CONFLICT", "Availability window would exclude an active order", 409, { orderId: conflictingOrder.id });
+  const conflictingAvailability = await database.select({ id: availability.id, reservedMl: availability.reservedMl }).from(availability).where(and(eq(availability.productId, id), eq(availability.shopId, shopId), or(lt(availability.businessDate, product.availableFrom), gt(availability.businessDate, product.availableThrough)), gt(availability.reservedMl, 0))).limit(1);
+  if (conflictingAvailability.length) throw new DomainError("PRODUCT_WINDOW_CONFLICT", "Availability window would exclude reserved harvest capacity", 409, { availabilityId: conflictingAvailability[0].id });
   try { await database.update(products).set(product).where(and(eq(products.id, id), eq(products.shopId, shopId))); }
   catch (error) { if (String(error).toLowerCase().includes("unique")) throw new DomainError("DUPLICATE_PRODUCT", "Product code or slug already exists", 409); throw error; }
+  await database.update(availability).set({ acceptsOrders: false, manualSoldOut: true, manualSoldOutReason: "Outside product availability window" }).where(and(eq(availability.productId, id), eq(availability.shopId, shopId), or(lt(availability.businessDate, product.availableFrom), gt(availability.businessDate, product.availableThrough))));
   await audit(database, "product.updated", "product", id, { from: { code: current.code, slug: current.slug }, to: { code: product.code, slug: product.slug } });
   return (await listManagerProducts(database)).find((item) => item.product.id === id)!;
 }
@@ -140,7 +154,12 @@ export async function createPackage(database: Database, productId: string, input
   const product = await database.query.products.findFirst({ where: and(eq(products.id, productId), eq(products.shopId, shopId)) });
   if (!product) throw new DomainError("NOT_FOUND", "Product not found", 404);
   const item = validatePackage(input); const id = randomUUID();
-  await database.insert(packages).values({ id, shopId, productId, ...item });
+  const existing = await database.select({ id: packages.id, volumeMl: packages.volumeMl, isDefault: packages.isDefault }).from(packages).where(and(eq(packages.productId, productId), eq(packages.shopId, shopId)));
+  const makeDefault = item.isDefault === true || (!existing.some((row) => row.isDefault) && (item.volumeMl === 10000 || item.volumeMl >= Math.max(0, ...existing.map((row) => row.volumeMl))));
+  await database.transaction(async (tx) => {
+    if (makeDefault) await tx.update(packages).set({ isDefault: false }).where(and(eq(packages.productId, productId), eq(packages.shopId, shopId)));
+    await tx.insert(packages).values({ id, shopId, productId, ...item, isDefault: makeDefault, sortOrder: existing.length });
+  });
   await audit(database, "package.created", "package", id, { productId });
   return (await database.query.packages.findFirst({ where: eq(packages.id, id) }))!;
 }
@@ -149,9 +168,31 @@ export async function updatePackage(database: Database, id: string, input: Packa
   const shopId = env().SHOP_ID; const item = validatePackage(input);
   const current = await database.query.packages.findFirst({ where: and(eq(packages.id, id), eq(packages.shopId, shopId)) });
   if (!current) throw new DomainError("NOT_FOUND", "Package not found", 404);
-  await database.update(packages).set(item).where(and(eq(packages.id, id), eq(packages.shopId, shopId)));
+  if (current.isDefault && !item.active) throw new DomainError("DEFAULT_PACKAGE_REQUIRED", "Choose another default package before deactivating this package", 409);
+  await database.update(packages).set({ ...item, isDefault: current.isDefault }).where(and(eq(packages.id, id), eq(packages.shopId, shopId)));
   await audit(database, "package.updated", "package", id, { productId: current.productId });
   return (await database.query.packages.findFirst({ where: eq(packages.id, id) }))!;
+}
+
+export async function setDefaultPackage(database: Database, id: string) {
+  const shopId = env().SHOP_ID;
+  const current = await database.query.packages.findFirst({ where: and(eq(packages.id, id), eq(packages.shopId, shopId)) });
+  if (!current) throw new DomainError("NOT_FOUND", "Package not found", 404);
+  if (!current.active) throw new DomainError("DEFAULT_PACKAGE_REQUIRED", "Only active packages can be default", 409);
+  await database.transaction(async (tx) => {
+    await tx.update(packages).set({ isDefault: false }).where(and(eq(packages.productId, current.productId), eq(packages.shopId, shopId)));
+    await tx.update(packages).set({ isDefault: true }).where(and(eq(packages.id, id), eq(packages.shopId, shopId)));
+  });
+  await audit(database, "package.default_changed", "package", id, { productId: current.productId });
+  return (await database.query.packages.findFirst({ where: eq(packages.id, id) }))!;
+}
+
+export async function reorderPackages(database: Database, productId: string, packageIds: string[]) {
+  const shopId = env().SHOP_ID;
+  const existing = await database.select({ id: packages.id }).from(packages).where(and(eq(packages.productId, productId), eq(packages.shopId, shopId)));
+  if (existing.length !== packageIds.length || existing.some((row) => !packageIds.includes(row.id))) throw new DomainError("VALIDATION_ERROR", "Package order must include every package for this product", 422);
+  await database.transaction(async (tx) => { for (const [index, packageId] of packageIds.entries()) await tx.update(packages).set({ sortOrder: index }).where(and(eq(packages.id, packageId), eq(packages.shopId, shopId), eq(packages.productId, productId))); });
+  return listManagerProducts(database);
 }
 
 export async function deletePackage(database: Database, id: string) {
