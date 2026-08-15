@@ -2,11 +2,14 @@ import { and, desc, eq, like, or } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, customers, orders } from "@/db/schema";
 import { env } from "@/lib/env";
+import { normalizeMobile } from "./order-input";
 
 export async function searchCustomers(database: Database, query: string) {
   const value = query.trim();
   if (value.length < 2) return [];
-  return database.select().from(customers).where(and(eq(customers.shopId, env().SHOP_ID), or(like(customers.mobile, `%${value}%`), like(customers.email, `%${value.toLowerCase()}%`), like(customers.name, `%${value}%`)))).limit(25);
+  let normalizedMobile = value;
+  try { normalizedMobile = normalizeMobile(value); } catch { /* Search may be a name or email. */ }
+  return database.select().from(customers).where(and(eq(customers.shopId, env().SHOP_ID), or(like(customers.mobile, `%${normalizedMobile}%`), like(customers.mobile, `%${value}%`), like(customers.email, `%${value.toLowerCase()}%`), like(customers.name, `%${value}%`)))).limit(25);
 }
 
 export async function listCustomers(database: Database) {
