@@ -1,5 +1,6 @@
 import { UserModule } from "../users";
 import { AdminRouteFrame } from "../route-frame";
 import { AdminPageHeader } from "../presentation";
+import { adminContext, hasAdminPermission } from "../portal-auth";
 export const dynamic = "force-dynamic";
-export default function UsersPage() { return <AdminRouteFrame permission="shop_users.manage"><main className="shell admin-users-page"><AdminPageHeader eyebrow="ADMINISTRATION" title="Users & permissions" description="Manage staff access and operational permissions." /><div className="admin-users-module"><UserModule /></div></main></AdminRouteFrame>; }
+export default async function UsersPage() { const { request } = await adminContext(); const canManageUsers = await hasAdminPermission(request, "shop_users.manage"); const canAssignPermissions = await hasAdminPermission(request, "shop_permissions.assign"); const canResetPasswords = await hasAdminPermission(request, "shop_users.password_reset"); return <AdminRouteFrame permission="shop_users.read"><main className="shell admin-users-page"><AdminPageHeader eyebrow="ADMINISTRATION" title="Users & permissions" description="Manage staff access and operational permissions." /><div className="admin-users-module"><UserModule canManageUsers={canManageUsers} canAssignPermissions={canAssignPermissions} canResetPasswords={canResetPasswords} /></div></main></AdminRouteFrame>; }

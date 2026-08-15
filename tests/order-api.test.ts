@@ -317,8 +317,11 @@ describe("shop roles and permissions", () => {
     expect(managerGrants.length).toBeGreaterThan(0);
     const staffGrants = await database.select().from(userPermissions).where(eq(userPermissions.userId, staff.id));
     expect(staffGrants.map((grant) => grant.permission)).toContain("orders.read");
-    expect(staffGrants.map((grant) => grant.permission)).toContain("catalog.product.write");
-    expect(staffGrants.map((grant) => grant.permission)).toContain("delivery.override");
+    expect(staffGrants.map((grant) => grant.permission)).toContain("orders.create");
+    expect(staffGrants.map((grant) => grant.permission)).toContain("orders.payment.write");
+    expect(staffGrants.map((grant) => grant.permission)).toContain("catalog.product.read");
+    expect(staffGrants.map((grant) => grant.permission)).not.toContain("catalog.product.write");
+    expect(staffGrants.map((grant) => grant.permission)).not.toContain("delivery.override");
     expect(staffGrants.map((grant) => grant.permission)).not.toContain("shop_users.manage");
     const staffRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("picker@example.com:secret").toString("base64")}` } });
     await expect(requirePermission(database, staffRequest, "orders.read")).resolves.toMatchObject({ email: "picker@example.com" });
