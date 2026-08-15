@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { packages, products } from "@/db/schema";
+import { AdminNotice, AdminPageHeader } from "./presentation";
 
 type ProductRow = { product: typeof products.$inferSelect; packages: Array<typeof packages.$inferSelect>; media?: Array<{ id: string; url: string; altFi: string; altEn: string; isPrimary: boolean }> };
 const blank = { code: "", slug: "", nameFi: "", nameEn: "", descriptionFi: "", descriptionEn: "", availableFrom: "", availableThrough: "", active: true };
@@ -35,7 +36,7 @@ export function ProductModule({ initialProducts, canManageMedia }: { initialProd
     event.currentTarget.reset(); setMessage("Image uploaded.");
   }
   async function removeMedia(row: ProductRow, mediaId: string) { if (!window.confirm("Remove this image?")) return; const response = await fetch(`/api/admin/media/${mediaId}`, { method: "DELETE" }); const body = await response.json(); if (!response.ok) return setMessage(body.message ?? "Image removal failed"); setRows((current) => current.map((item) => item.product.id === row.product.id ? { ...item, media: (item.media ?? []).filter((image) => image.id !== mediaId) } : item)); setMessage("Image removed."); }
-  return <section className="mt-10"><h2 className="text-2xl font-bold">Products &amp; packages</h2>{message && <p className="card mt-3" role="status">{message}</p>}
+  return <section className="shell pb-10"><AdminPageHeader eyebrow="CATALOG" title="Product catalog" description="Manage seasonal products, packages, and customer-facing media." />{message && <AdminNotice tone="success" live>{message}</AdminNotice>}
     <form className="card mt-3 grid gap-3" onSubmit={create}><h3 className="font-bold">Create product</h3>
       <div className="grid gap-3 md:grid-cols-2"><label className="field"><span>Code</span><input required value={form.code} onChange={(e) => field("code", e.target.value)} placeholder="BERRIES" /></label><label className="field"><span>Slug</span><input required value={form.slug} onChange={(e) => field("slug", e.target.value)} placeholder="berries" /></label></div>
       <div className="grid gap-3 md:grid-cols-2"><label className="field"><span>Name (Finnish)</span><input required value={form.nameFi} onChange={(e) => field("nameFi", e.target.value)} /></label><label className="field"><span>Name (English)</span><input required value={form.nameEn} onChange={(e) => field("nameEn", e.target.value)} /></label></div>
