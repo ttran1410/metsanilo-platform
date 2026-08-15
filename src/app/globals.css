@@ -197,6 +197,10 @@ button, select, input, textarea { min-height: 3.25rem; }
 .field input, .field select { min-height: 3.25rem; }
 .field textarea { min-height: 7.5rem; resize: vertical; }
 .field input:hover, .field select:hover, .field textarea:hover { border-color: var(--forest); }
+.field.field-invalid input, .field.field-invalid select, .field.field-invalid textarea, .review-form-field.field-invalid input, .review-form-field.field-invalid textarea { border-color: var(--berry); background: #fff7f8; box-shadow: 0 0 0 2px rgb(93 43 70 / 12%); }
+.reserve-product-grid.field-invalid, .package-selection.field-invalid, .fulfillment-date-field.field-invalid .date-chip-grid, .review-rating-field.field-invalid .review-rating-options { border-radius: .8rem; outline: 2px solid var(--berry); outline-offset: 4px; }
+.field-error-message { display: block; margin: -.45rem 0 0; color: var(--berry) !important; font-size: .82rem !important; font-weight: 750; line-height: 1.4; }
+.field > .field-error-message { margin-top: 0; }
 .quantity-control { display: grid; max-width: 15rem; grid-template-columns: 3.25rem minmax(5rem, 7rem) 3.25rem; align-items: center; gap: .5rem; }
 .quantity-control input { text-align: center; }
 .stepper { min-height: 3.25rem; border: 1px solid var(--forest); border-radius: .5rem; background: var(--forest); color: white; font-size: 1.35rem; cursor: pointer; }
@@ -652,11 +656,11 @@ button, select, input, textarea { min-height: 3.25rem; }
   .contact-notes { grid-column: auto; }
   .selection-card { min-height: 5.8rem; }
   .reserve-product-grid { grid-template-columns: 1fr; }
-  .reserve-product-card { min-height: 0; grid-template-columns: 5.5rem minmax(0, 1fr); align-items: center; gap: .7rem; padding: .55rem; }
-  .reserve-product-image { height: 5rem; }
-  .reserve-product-card-copy { padding: .25rem .35rem; }
+  .reserve-product-card { min-height: 0; grid-template-columns: 5.5rem minmax(0, 1fr); grid-template-rows: auto 1fr; align-items: center; gap: .2rem .7rem; padding: .55rem; }
+  .reserve-product-image { grid-column: 1; grid-row: 1 / span 2; height: 5rem; }
+  .reserve-product-card-copy { grid-column: 2; grid-row: 2; align-self: start; padding: .2rem .35rem .25rem; }
   .reserve-product-card-copy strong { font-size: 1.15rem; }
-  .reserve-product-status { top: .8rem; left: 6.65rem; }
+  .reserve-product-status { position: static; grid-column: 2; grid-row: 1; align-self: end; justify-self: start; max-width: calc(100% - 2.5rem); margin: .2rem .35rem 0; }
   .reservation-summary-bar { position: fixed; right: .75rem; bottom: .75rem; left: .75rem; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; border-radius: 1rem; padding: .85rem; }
   .summary-total { justify-items: end; }
   .summary-total strong { font-size: 1.45rem; }

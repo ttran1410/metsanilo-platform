@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { OrderReceipt } from "@/domain/orders";
 import { formatEuros, formatLitres, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
+import { CustomerFieldError, customerValidationCopy, focusFirstCustomerFieldError } from "./customer-form-validation";
+import { localizeServerFieldErrors, validateReservationFields, type ReservationField } from "./order-form-validation";
 
 export type PublicProduct = {
   id: string;
@@ -51,7 +53,7 @@ export function OrderForm({
   const [idempotencyKey, setIdempotencyKey] = useState(initialIdempotencyKey);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>();
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<ReservationField, string>>>({});
   const [receipt, setReceipt] = useState<OrderReceipt>();
   const subtotalCents = (selectedPackage?.priceCents ?? 0) * quantity;
   const totalLitres = ((selectedPackage?.volumeMl ?? 0) * quantity) / 1000;
@@ -85,12 +87,53 @@ export function OrderForm({
     setDate("");
   }
 
+  function clearFieldError(field: string) {
+    if (!(field in fieldErrors)) return;
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[field as ReservationField];
+      return next;
+    });
+  }
+
+  function handleFormChange(event: React.FormEvent<HTMLFormElement>) {
+    const target = event.target;
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+      clearFieldError(target.name);
+    }
+  }
+
+  function showFieldErrors(nextErrors: Partial<Record<ReservationField, string>>, form: HTMLFormElement) {
+    setFieldErrors(nextErrors);
+    focusFirstCustomerFieldError(form, nextErrors);
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    const validationErrors = validateReservationFields({
+      productId,
+      packageId: selectedPackage?.id ?? "",
+      fulfillmentDate: date,
+      fulfillmentMethod: method,
+      customerName: String(values.get("customerName") ?? ""),
+      mobile: String(values.get("mobile") ?? ""),
+      email: String(values.get("email") ?? ""),
+      streetAddress: String(values.get("streetAddress") ?? ""),
+      postalCode: String(values.get("postalCode") ?? ""),
+      city: String(values.get("city") ?? ""),
+    }, locale);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setError(customerValidationCopy[locale].checkHighlighted);
+      showFieldErrors(validationErrors, form);
+      return;
+    }
+
     setSubmitting(true);
     setError(undefined);
     setFieldErrors({});
-    const values = new FormData(event.currentTarget);
     const payload = {
       locale,
       productId,
@@ -116,7 +159,8 @@ export function OrderForm({
       const body = await response.json();
       if (!response.ok) {
         setError(`${t.error} (${body.code ?? "RETRY_LATER"})`);
-        setFieldErrors(body.fieldErrors ?? {});
+        const serverErrors = localizeServerFieldErrors(body.fieldErrors, locale);
+        showFieldErrors(serverErrors, form);
         return;
       }
       setReceipt(body.data);
@@ -151,35 +195,37 @@ export function OrderForm({
 
   return (
     <>
-      <form className="reservation-form" onSubmit={submit} noValidate>
+      <form className="reservation-form" onSubmit={submit} onChange={handleFormChange} noValidate>
       <div className="reservation-fields">
       {contact.phone && <section className="message-booking-banner" aria-labelledby="message-booking-title"><div className="message-booking-copy"><span className="message-booking-kicker">{locale === "fi" ? "Nopea varaus" : "Quick booking"}</span><strong id="message-booking-title">{locale === "fi" ? "Varaa viestillä" : "Prefer to message us?"}</strong></div><div className="message-booking-actions"><a className="message-action" href={`sms:${smsNumber}`}><strong>SMS</strong><span aria-hidden="true">→</span></a><a className="message-action message-action-whatsapp" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer"><strong>WhatsApp</strong><span aria-hidden="true">→</span></a></div></section>}
         <div className="senior-trust-strip" role="note"><span>✓ {locale === "fi" ? "Poimittu ja toimitettu saman päivän aikana" : "Picked and delivered the same day"}</span><span>✓ {locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</span></div>
-        <p className="required-note">{t.required}</p>
+        <p className="required-note">{customerValidationCopy[locale].requiredNote}</p>
         {error && <div className="error form-error" role="alert" tabIndex={-1}>{error}</div>}
         <fieldset className="form-step">
         <legend><span>01</span> {locale === "fi" ? "Valitse marja ja pakkaus" : "Choose berries and package"}</legend>
         <div className="selection-label">{locale === "fi" ? "Tuote" : "Product"} *</div>
-        <div className="reserve-product-grid">
+        <div className={`reserve-product-grid${fieldErrors.productId ? " field-invalid" : ""}`} data-field="productId" aria-invalid={Boolean(fieldErrors.productId)} aria-describedby={fieldErrors.productId ? "productId-error" : undefined}>
           {products.map((item) => {
             const available = item.packages.some((pkg) => item.dates.some((dateItem) => dateItem.acceptsOrders && !dateItem.soldOut && dateItem.remainingMl >= pkg.volumeMl));
-            return <label className={`reserve-product-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}><input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} /><span className="reserve-product-image">{item.media[0] ? <img src={item.media[0].url} alt="" /> : <span aria-hidden="true">M</span>}</span><span className="reserve-product-card-copy"><strong>{item.name}</strong><small>{item.description?.split(/[.!?]/)[0] || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span><span className={`availability-badge reserve-product-status${available ? "" : " unavailable"}`}>{available ? (locale === "fi" ? "Saatavilla" : "Available") : (locale === "fi" ? "Ei saatavilla" : "Unavailable")}</span><span className="selection-check" aria-hidden="true">✓</span></label>;
+            return <label className={`reserve-product-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}><input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} aria-describedby={fieldErrors.productId ? "productId-error" : undefined} /><span className="reserve-product-image">{item.media[0] ? <img src={item.media[0].url} alt="" /> : <span aria-hidden="true">M</span>}</span><span className="reserve-product-card-copy"><strong>{item.name}</strong><small>{item.description?.split(/[.!?]/)[0] || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span><span className={`availability-badge reserve-product-status${available ? "" : " unavailable"}`}>{available ? (locale === "fi" ? "Saatavilla" : "Available") : (locale === "fi" ? "Ei saatavilla" : "Unavailable")}</span><span className="selection-check" aria-hidden="true">✓</span></label>;
           })}
           {Array.from({ length: Math.max(0, 3 - products.length) }).map((_, index) => <div className="reserve-product-card reserve-coming-soon" aria-disabled="true" key={`coming-soon-${index}`}><span className="reserve-product-image"><span aria-hidden="true">+</span></span><span className="reserve-product-card-copy"><strong>{locale === "fi" ? "Tulossa pian" : "Coming soon"}</strong><small>{locale === "fi" ? "Uusi kauden sato lisätään pian." : "Another seasonal harvest will be added soon."}</small></span><span className="availability-badge reserve-product-status coming-soon-status">{locale === "fi" ? "Tulossa pian" : "Coming soon"}</span></div>)}
         </div>
+        <CustomerFieldError field="productId" error={fieldErrors.productId} />
         <div className="selection-label">{t.package} *</div>
-        <div className="selection-grid package-selection">
+        <div className={`selection-grid package-selection${fieldErrors.packageId ? " field-invalid" : ""}`} data-field="packageId" aria-invalid={Boolean(fieldErrors.packageId)} aria-describedby={fieldErrors.packageId ? "packageId-error" : undefined}>
           {product?.packages.map((item) => {
             const litres = item.volumeMl / 1000;
             const unitPriceCents = litres > 0 ? Math.round(item.priceCents / litres) : item.priceCents;
             return <label className={`selection-card package-selection-card${item.id === selectedPackage?.id ? " selected" : ""}`} key={item.id}>
-              <input type="radio" name="packageId" value={item.id} checked={item.id === selectedPackage?.id} onChange={() => { setPackageId(item.id); setQuantity(1); setDate(""); }} />
+              <input type="radio" name="packageId" value={item.id} checked={item.id === selectedPackage?.id} onChange={() => { setPackageId(item.id); setQuantity(1); setDate(""); }} aria-describedby={fieldErrors.packageId ? "packageId-error" : undefined} />
               <span className="selection-card-copy"><strong>{item.label}</strong><small>{formatLitres(item.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"}</small></span>
               <strong className="selection-price">{formatEuros(item.priceCents, locale)}</strong>
               <span className="selection-check" aria-hidden="true">✓</span>
             </label>;
           })}
         </div>
+        <CustomerFieldError field="packageId" error={fieldErrors.packageId} />
         {selectedPackage?.volumeMl === 10000 && (
           <label className="field">
             <span>{locale === "fi" ? "Määrä" : "Quantity"} *</span>
@@ -191,7 +237,7 @@ export function OrderForm({
 
       <fieldset className="form-step">
         <legend><span>02</span> {t.method}</legend>
-        <div className="field fulfillment-date-field" aria-invalid={Boolean(fieldErrors.fulfillmentDate)}><span>{t.date} *</span><div className="date-chip-grid" role="radiogroup" aria-label={t.date}>{visibleOrderableDates.map((item) => { const chipDate = new Date(`${item.date}T12:00:00`); const label = new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { weekday: "short", day: "numeric", month: "numeric" }).format(chipDate); return <label className={`date-chip${date === item.date ? " selected" : ""}`} key={item.date}><input type="radio" name="fulfillmentDate" value={item.date} checked={date === item.date} onChange={() => setDate(item.date)} /><span>{label}</span></label>; })}</div><small className="availability-hint" aria-live="polite">{orderableDates.length > 0 ? (locale === "fi" ? `${Math.min(orderableDates.length, 7)} noutopäivää näytetään` : `Showing ${Math.min(orderableDates.length, 7)} pickup dates`) : t.closed}</small></div>
+        <div className={`field fulfillment-date-field${fieldErrors.fulfillmentDate ? " field-invalid" : ""}`} data-field="fulfillmentDate" aria-invalid={Boolean(fieldErrors.fulfillmentDate)} aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined}><span>{t.date} *</span><div className="date-chip-grid" role="radiogroup" aria-label={t.date}>{visibleOrderableDates.map((item) => { const chipDate = new Date(`${item.date}T12:00:00`); const label = new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { weekday: "short", day: "numeric", month: "numeric" }).format(chipDate); return <label className={`date-chip${date === item.date ? " selected" : ""}`} key={item.date}><input type="radio" name="fulfillmentDate" value={item.date} checked={date === item.date} onChange={() => setDate(item.date)} aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined} /><span>{label}</span></label>; })}</div><small className="availability-hint" aria-live="polite">{orderableDates.length > 0 ? (locale === "fi" ? `${Math.min(orderableDates.length, 7)} noutopäivää näytetään` : `Showing ${Math.min(orderableDates.length, 7)} pickup dates`) : t.closed}</small><CustomerFieldError field="fulfillmentDate" error={fieldErrors.fulfillmentDate} /></div>
         <div className="choice-grid">
           <label className={`choice-card${method === "PICKUP" ? " selected" : ""}`}><input type="radio" checked={method === "PICKUP"} onChange={() => setMethod("PICKUP")} /> <span><strong>{t.pickup}</strong><small>{locale === "fi" ? "Nouda sovittuna päivänä Porista" : "Collect on the agreed date in Pori"}</small></span></label>
           <label className={`choice-card${method === "DELIVERY" ? " selected" : ""}`}><input type="radio" checked={method === "DELIVERY"} onChange={() => setMethod("DELIVERY")} /> <span><strong>{t.delivery}</strong><small>{locale === "fi" ? "Sovitaan toimituksesta" : "Delivery to be agreed"}</small></span></label>
@@ -200,9 +246,9 @@ export function OrderForm({
           <div className="pickup-card"><span>{locale === "fi" ? "Noutopaikka" : "Pickup point"}</span><strong>{pickup.name}</strong><p>{pickup.address}<br />{pickup.instructions}<br />{pickup.time}</p></div>
         ) : (
           <div className="delivery-fields grid gap-4">
-            <label className="field"><span>{t.street} *</span><input name="streetAddress" required minLength={2} maxLength={160} /></label>
-            <label className="field"><span>{t.postalCode}</span><input name="postalCode" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} /></label>
-            <label className="field"><span>{t.city}</span><input name="city" defaultValue="Pori" minLength={2} maxLength={100} /></label>
+            <label className={`field${fieldErrors.streetAddress ? " field-invalid" : ""}`} data-field="streetAddress"><span>{t.street} *</span><input name="streetAddress" required minLength={2} maxLength={160} aria-invalid={Boolean(fieldErrors.streetAddress)} aria-describedby={fieldErrors.streetAddress ? "streetAddress-error" : undefined} /><CustomerFieldError field="streetAddress" error={fieldErrors.streetAddress} /></label>
+            <label className={`field${fieldErrors.postalCode ? " field-invalid" : ""}`} data-field="postalCode"><span>{t.postalCode}</span><input name="postalCode" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} aria-invalid={Boolean(fieldErrors.postalCode)} aria-describedby={fieldErrors.postalCode ? "postalCode-error" : undefined} /><CustomerFieldError field="postalCode" error={fieldErrors.postalCode} /></label>
+            <label className={`field${fieldErrors.city ? " field-invalid" : ""}`} data-field="city"><span>{t.city}</span><input name="city" defaultValue="Pori" minLength={2} maxLength={100} aria-invalid={Boolean(fieldErrors.city)} aria-describedby={fieldErrors.city ? "city-error" : undefined} /><CustomerFieldError field="city" error={fieldErrors.city} /></label>
           </div>
         )}
       </fieldset>
@@ -210,9 +256,9 @@ export function OrderForm({
       <fieldset className="form-step">
         <legend><span>03</span> {t.details}</legend>
         <div className="contact-grid">
-          <label className="field"><span>{t.name} *</span><input name="customerName" required minLength={2} maxLength={120} autoComplete="name" /></label>
-          <label className="field"><span>{t.mobile} *</span><input name="mobile" required type="tel" minLength={7} maxLength={30} autoComplete="tel" /></label>
-          <label className="field"><span>{t.email}</span><input name="email" type="email" maxLength={254} autoComplete="email" /></label>
+          <label className={`field${fieldErrors.customerName ? " field-invalid" : ""}`} data-field="customerName"><span>{t.name} *</span><input name="customerName" required minLength={2} maxLength={120} autoComplete="name" aria-invalid={Boolean(fieldErrors.customerName)} aria-describedby={fieldErrors.customerName ? "customerName-error" : undefined} /><CustomerFieldError field="customerName" error={fieldErrors.customerName} /></label>
+          <label className={`field${fieldErrors.mobile ? " field-invalid" : ""}`} data-field="mobile"><span>{t.mobile} *</span><input name="mobile" required type="tel" minLength={7} maxLength={30} autoComplete="tel" aria-invalid={Boolean(fieldErrors.mobile)} aria-describedby={fieldErrors.mobile ? "mobile-error" : undefined} /><CustomerFieldError field="mobile" error={fieldErrors.mobile} /></label>
+          <label className={`field${fieldErrors.email ? " field-invalid" : ""}`} data-field="email"><span>{t.email}</span><input name="email" type="email" maxLength={254} autoComplete="email" aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? "email-error" : undefined} /><CustomerFieldError field="email" error={fieldErrors.email} /></label>
           <label className="field contact-notes"><span>{t.notes}</span><textarea name="notes" maxLength={1000} rows={3} /></label>
         </div>
       </fieldset>
@@ -224,7 +270,7 @@ export function OrderForm({
         <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {quantity} {locale === "fi" ? "kpl" : quantity === 1 ? "item" : "items"} · {date || (locale === "fi" ? "päivä valitsematta" : "date not selected")}</small></div>
         <div className="summary-meta"><span>{method === "PICKUP" ? t.pickup : t.delivery}</span><span>{formatLitres(totalLitres * 1000, locale)} l</span></div>
         <div className={`summary-total${method === "DELIVERY" ? " summary-total-delivery" : ""}`}><span>{method === "DELIVERY" ? t.productTotal : (locale === "fi" ? "Yhteensä" : "Total")}</span><strong>{formatEuros(subtotalCents, locale)}</strong>{method === "DELIVERY" && <small>{t.deliveryFeePending}<br />{t.excludesDeliveryFee}</small>}</div>
-        <button className="btn btn-accent submit-button" disabled={submitting || !date || !selectedPackage} type="submit">{submitting ? "…" : t.submit}<span aria-hidden="true">→</span></button>
+        <button className="btn btn-accent submit-button" disabled={submitting} type="submit">{submitting ? "…" : t.submit}<span aria-hidden="true">→</span></button>
       </div>
       </form>
     </>
