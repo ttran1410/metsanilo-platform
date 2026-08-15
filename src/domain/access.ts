@@ -13,7 +13,7 @@ export const PERMISSIONS = [
   "catalog.product.write", "catalog.product.delete_unreferenced", "catalog.package.write",
   "availability.write", "availability.sold_out", "delivery.override", "cms.edit", "cms.publish",
   "media.write", "invoices.issue", "invoices.download", "picking.write", "pickers.manage",
-  "customers.read", "customers.write", "shop_users.manage", "shop_permissions.assign", "settings.operational", "audit.read",
+  "customers.read", "customers.write", "reviews.read", "reviews.create", "reviews.moderate", "reviews.feature", "reviews.visibility", "shop_users.manage", "shop_permissions.assign", "settings.operational", "audit.read",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
@@ -22,7 +22,7 @@ export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
  * Staff and Content Creator receive the basic content/media editing grants. */
 export function defaultPermissionsForRole(role: Role): Permission[] {
   if (role === "ADMIN" || role === "MANAGER") return [...PERMISSIONS];
-  if (role === "STAFF") return PERMISSIONS.filter((permission) => (permission.startsWith("orders.") && permission !== "orders.export") || permission.startsWith("delivery.") || permission.startsWith("availability.") || permission.startsWith("customers.") || permission.startsWith("catalog.") || permission === "cms.edit" || permission === "media.write");
+  if (role === "STAFF") return PERMISSIONS.filter((permission) => (permission.startsWith("orders.") && permission !== "orders.export") || permission.startsWith("delivery.") || permission.startsWith("availability.") || permission.startsWith("customers.") || permission.startsWith("reviews.") && permission !== "reviews.feature" && permission !== "reviews.visibility" || permission.startsWith("catalog.") || permission === "cms.edit" || permission === "media.write");
   if (role === "CONTENT_CREATOR") return ["cms.edit", "media.write"];
   return [];
 }

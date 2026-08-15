@@ -17,6 +17,7 @@ export const shops = sqliteTable("shops", {
     contactPhone: text("contact_phone").notNull().default(""),
     contactEmail: text("contact_email").notNull().default(""),
     contactHours: text("contact_hours").notNull().default(""),
+    reviewsVisible: integer("reviews_visible", { mode: "boolean" }).notNull().default(true),
 });
 
 export const customers = sqliteTable(
@@ -37,6 +38,35 @@ export const customers = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [index("customers_shop_mobile_idx").on(table.shopId, table.mobile), index("customers_shop_email_idx").on(table.shopId, table.email)],
+);
+
+export const reviews = sqliteTable(
+  "reviews",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    customerId: text("customer_id").references(() => customers.id),
+    orderId: text("order_id").references(() => orders.id),
+    productId: text("product_id").references(() => products.id),
+    displayName: text("display_name").notNull(),
+    contact: text("contact"),
+    rating: integer("rating").notNull(),
+    originalText: text("original_text").notNull(),
+    displayText: text("display_text"),
+    source: text("source", { enum: ["PUBLIC_FORM", "MANUAL_IMPORT"] }).notNull().default("PUBLIC_FORM"),
+    status: text("status", { enum: ["PENDING", "PENDING_CONFIRMATION", "APPROVED", "REJECTED", "HIDDEN", "ARCHIVED"] }).notNull().default("PENDING"),
+    publicationAcknowledgement: integer("publication_acknowledgement", { mode: "boolean" }).notNull().default(false),
+    acknowledgementSource: text("acknowledgement_source", { enum: ["PUBLIC_FORM", "SMS", "WHATSAPP", "PHONE", "OTHER"] }),
+    acknowledgedAt: text("acknowledged_at"),
+    featured: integer("featured", { mode: "boolean" }).notNull().default(false),
+    featuredUntil: text("featured_until"),
+    moderationReason: text("moderation_reason"),
+    moderatedBy: text("moderated_by"),
+    moderatedAt: text("moderated_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("reviews_shop_status_idx").on(table.shopId, table.status, table.createdAt), index("reviews_shop_featured_idx").on(table.shopId, table.featured, table.featuredUntil)],
 );
 
 export const shopPaymentMethods = sqliteTable(
