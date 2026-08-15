@@ -13,7 +13,9 @@ export async function searchCustomers(database: Database, query: string) {
 }
 
 export async function listCustomers(database: Database) {
-  return database.select().from(customers).where(eq(customers.shopId, env().SHOP_ID)).orderBy(desc(customers.updatedAt)).limit(100);
+  const rows = await database.select().from(customers).where(eq(customers.shopId, env().SHOP_ID)).orderBy(desc(customers.updatedAt)).limit(100);
+  const customerOrders = await database.select({ customerId: orders.customerId, status: orders.status, volumeMl: orders.volumeMl, finalTotalCents: orders.finalTotalCents, fulfillmentDate: orders.fulfillmentDate }).from(orders).where(eq(orders.shopId, env().SHOP_ID));
+  return rows.map((customer) => { const related = customerOrders.filter((order) => order.customerId === customer.id && !["CANCELLED", "REJECTED", "NO_SHOW", "CUSTOMER_DECLINED"].includes(order.status)); return { ...customer, metrics: { totalOrders: related.length, lifetimeLitres: related.reduce((sum, order) => sum + order.volumeMl, 0), totalSpendCents: related.reduce((sum, order) => sum + (order.finalTotalCents ?? 0), 0), lastFulfillmentDate: related[0]?.fulfillmentDate ?? null } }; });
 }
 
 export async function getCustomerProfile(database: Database, customerId: string) {

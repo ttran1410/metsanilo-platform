@@ -148,6 +148,13 @@
       "when": 1786815945500,
       "tag": "0020_nice_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1786817000000,
+      "tag": "0021_customer_consent_status",
+      "breakpoints": true
     }
   ]
 }
