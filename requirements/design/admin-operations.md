@@ -1,6 +1,6 @@
 # METSÄNILO Operations — Admin UI Extension
 
-This document extends the shared brand system in [`/design.md`](../../design.md) for the internal operations portal. It does not replace the shared brand tokens, customer-site identity, domain logic, or API contracts.
+This document extends the shared brand system in [`DESIGN.md`](../../DESIGN.md) for the internal operations portal. It does not replace the shared brand tokens, customer-site identity, domain logic, or API contracts.
 
 ## Product role
 
@@ -8,7 +8,7 @@ METSÄNILO Operations is an order and fulfillment workspace with supporting cust
 
 ## Shared brand constraints
 
-- Use the shared forest green, warm canvas, paper surface, bilberry accent, line, focus, success, and error tokens from `design.md`.
+- Use the shared forest green, warm canvas, paper surface, bilberry accent, line, focus, success, error, and form tokens from `DESIGN.md`.
 - Keep the three-leaf METSÄNILO mark consistent with the storefront.
 - Use the shared humanist sans-serif for navigation, data, labels, controls, and status text.
 - Reserve the editorial serif for small page accents only; admin pages must be sans-serif-first and operationally scannable.
@@ -43,6 +43,14 @@ METSÄNILO Operations is an order and fulfillment workspace with supporting cust
 - Tablet: preserve sidebar where space allows; otherwise collapse it without hiding the current module.
 - Mobile: drawer navigation, stacked page headers, cards instead of wide data tables, and full-width primary actions.
 - Never introduce horizontal scrolling for core order, customer, availability, or catalog workflows.
+
+## Forms and validation
+
+- Admin forms use the shared form primitives and states from `DESIGN.md` and `src/app/globals.css`; they do not maintain a separate validation theme.
+- The admin portal may select the compact density variant (44px controls and 11px corners) through form token overrides on `.admin-app`. Customer-facing validation colors, focus treatment, error summaries, and inline-error spacing remain unchanged.
+- Labels stay visible above or beside controls. Placeholder-only fields are not permitted in new admin UI.
+- Inline errors follow their control or control group in normal document flow. Error summaries appear near the form start and receive focus after a failed submit.
+- Bare legacy controls inside `.admin-app` inherit the shared control states. New work should use `.form-field` or `.field` and `.form-control` explicitly so label, help, error, and accessibility relationships are clear.
 
 ## Accessibility
 

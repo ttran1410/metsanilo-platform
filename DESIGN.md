@@ -18,6 +18,8 @@ colors:
   focus: "#C26B35"
   success: "#2F6B4F"
   error: "#9B2E42"
+  error-soft: "#FFF1F3"
+  on-error-soft: "#7F1D32"
 typography:
   display:
     fontFamily: "Iowan Old Style, Baskerville, Georgia, serif"
@@ -104,15 +106,29 @@ components:
     rounded: "{rounded.md}"
     padding: "16px"
   error-message:
-    backgroundColor: "{colors.error}"
-    textColor: "{colors.on-primary}"
-    rounded: "{rounded.md}"
+    backgroundColor: "{colors.error-soft}"
+    textColor: "{colors.on-error-soft}"
+    borderColor: "{colors.error}"
+    rounded: "{rounded.sm}"
     padding: "16px"
   input:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
+    borderColor: "#A7AAA3"
     rounded: "{rounded.sm}"
     height: "52px"
+    states:
+      hoverBorderColor: "{colors.primary}"
+      focusBorderColor: "{colors.success}"
+      focusRingColor: "{colors.focus}"
+      invalidBorderColor: "{colors.error}"
+      invalidBackgroundColor: "#FFF7F8"
+  input-admin:
+    extends: "{components.input}"
+    borderColor: "#C8D2CA"
+    rounded: "11px"
+    height: "44px"
+    mobileHeight: "48px"
 ---
 
 ## Overview
@@ -148,6 +164,21 @@ Large editorial containers use 28px corners. Inputs use 8px corners for clarity.
 ## Components
 
 Product cards use edge-to-edge photography, clear package rows, and a single primary action. Reservation steps are separated by generous whitespace and numbered circular markers. Availability is shown with compact badges and readable dates. Every action must preserve a 44px minimum touch target.
+
+## Form system
+
+This file is the source of truth for form visuals across the customer site and the admin portal. [`requirements/06-form-and-field-specifications.md`](requirements/06-form-and-field-specifications.md) defines validation behavior and field-level business rules; admin-specific layout guidance lives in [`requirements/design/admin-operations.md`](requirements/design/admin-operations.md).
+
+All forms share the same label, control, focus, invalid, disabled, help-text, field-error, error-summary, and success-state foundations. New form UI must consume the shared `--form-*` CSS tokens and the `.form-field`/`.field`, `.form-control`, `.field-invalid`, `.field-error-message`, and `.form-error` primitives in `src/app/globals.css`. Existing specialized wrappers may alias those primitives, but must not redefine raw validation colors, borders, focus rings, or error spacing.
+
+- Customer controls use the comfortable 52px height and 8px radius. Admin controls may use the documented compact 44px height and 11px radius through wrapper-level token overrides, increasing to 48px on mobile; this is a density variant, not a separate form theme.
+- Labels remain visible. Placeholder text is supplemental and never replaces a label.
+- Hover changes only the border. Keyboard focus uses the orange 3px focus ring; valid focused controls also use a moss border. Invalid controls retain the error border and pale error surface while the focus ring remains independently visible.
+- A field error sits in normal document flow immediately after its control or control group. Do not use negative margins, absolute positioning, or overlapping shadows for validation feedback.
+- Submit failures provide a focusable error summary near the start of the form and field-level errors linked with `aria-describedby`. Move focus to the summary, then allow its links or the documented fallback to reach the first invalid field.
+- Disabled and read-only controls remain legible and visually distinct. Checkbox and radio hit areas must be at least 44px even when their visible indicator is smaller.
+- At narrow breakpoints, fields and control groups stack to one column, controls stay within the viewport, fixed-option groups distribute available width, and validation copy wraps without clipping or overlapping adjacent content.
+- Local form CSS may override only documented density tokens on a containing block. Add a new shared token here before introducing a new visual state.
 
 ## Do's and Don'ts
 

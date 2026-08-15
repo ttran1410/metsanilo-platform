@@ -12,6 +12,25 @@
   --muted: #657068;
   --line: #d8d3c8;
   --focus: #c26b35;
+  --success: #2f6b4f;
+  --error: #9b2e42;
+  --error-surface: #fff1f3;
+  --error-surface-text: #7f1d32;
+  --canvas: var(--cream);
+  --surface-muted: var(--oat);
+  --primary-soft: #dce8df;
+  --form-control-background: var(--paper);
+  --form-control-border: #a7aaa3;
+  --form-control-hover-border: var(--forest);
+  --form-control-focus-border: var(--moss);
+  --form-control-error-border: var(--error);
+  --form-control-error-background: #fff7f8;
+  --form-control-radius: .5rem;
+  --form-control-min-height: 3.25rem;
+  --form-control-padding-block: .8rem;
+  --form-control-padding-inline: .9rem;
+  --form-field-gap: .5rem;
+  --form-textarea-min-height: 7.5rem;
   --serif: "Iowan Old Style", Baskerville, Georgia, "Times New Roman", serif;
   --sans: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
 }
@@ -21,7 +40,8 @@ html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--cream); color: var(--ink); font-family: var(--sans); font-size: 1.0625rem; }
 a { color: inherit; }
 button, input, select, textarea { font: inherit; }
-button, select, input, textarea { min-height: 3.25rem; }
+button, select, textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height: var(--form-control-min-height); }
+input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; flex: 0 0 auto; accent-color: var(--forest); }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 ::selection { background: var(--berry); color: white; }
 
@@ -150,7 +170,7 @@ button, select, input, textarea { min-height: 3.25rem; }
 .reservation-form { display: grid; gap: 1.5rem; margin-top: 3.5rem; }
 .reservation-fields { padding: clamp(1.5rem, 4vw, 3rem); border: 1px solid var(--line); border-radius: 1.75rem; background: var(--paper); }
 .required-note { margin: 0 0 1rem; color: var(--muted); font-size: .76rem; }
-.form-error { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid currentColor; border-radius: .5rem; }
+.form-error { margin: 0 0 1.5rem; overflow-wrap: anywhere; border: 1px solid var(--form-control-error-border); border-radius: var(--form-control-radius); background: var(--error-surface); color: var(--error-surface-text); padding: 1rem; line-height: 1.5; }
 .form-step { display: grid; gap: 1.25rem; margin: 0; padding: 2.5rem 0; border: 0; border-top: 1px solid var(--line); }
 .form-step:first-of-type { border-top: 0; padding-top: 1.5rem; }
 .form-step legend { width: 100%; margin-bottom: .75rem; padding: 0; font-family: var(--serif); font-size: 1.75rem; font-weight: 500; }
@@ -189,23 +209,58 @@ button, select, input, textarea { min-height: 3.25rem; }
 .selection-card.selected .selection-check { opacity: 1; }
 .package-selection-card { min-height: 5.35rem; align-items: center; }
 .package-selection-card .selection-price { margin-left: auto; color: var(--berry); font-family: var(--serif); font-size: 1.35rem; font-weight: 500; white-space: nowrap; }
-.field { display: grid; gap: .5rem; }
-.field > span { color: var(--ink); font-size: .76rem; font-weight: 750; letter-spacing: .025em; }
-.field > span { font-size: 1rem; letter-spacing: 0; }
-.field > small { color: var(--muted); font-size: .875rem; }
-.field input, .field select, .field textarea { width: 100%; border: 1px solid #a7aaa3; border-radius: .5rem; background: var(--paper); color: var(--ink); padding: .8rem .9rem; transition: border-color 160ms ease, box-shadow 160ms ease; }
-.field input, .field select { min-height: 3.25rem; }
-.field textarea { min-height: 7.5rem; resize: vertical; }
-.field input:hover, .field select:hover, .field textarea:hover { border-color: var(--forest); }
-.field.field-invalid input, .field.field-invalid select, .field.field-invalid textarea, .review-form-field.field-invalid input, .review-form-field.field-invalid textarea { border-color: var(--berry); background: #fff7f8; box-shadow: 0 0 0 2px rgb(93 43 70 / 12%); }
-.reserve-product-grid.field-invalid, .package-selection.field-invalid, .fulfillment-date-field.field-invalid .date-chip-grid, .review-rating-field.field-invalid .review-rating-options { border-radius: .8rem; outline: 2px solid var(--berry); outline-offset: 4px; }
-.field-error-message { display: block; margin: -.45rem 0 0; color: var(--berry) !important; font-size: .82rem !important; font-weight: 750; line-height: 1.4; }
-.field > .field-error-message { margin-top: 0; }
+.field, .form-field, .review-form-field, .admin-login-field { display: grid; align-content: start; gap: var(--form-field-gap); }
+.field > span, .form-field > label { color: var(--ink); font-size: 1rem; font-weight: 750; letter-spacing: 0; }
+.field > small, .form-field > small { color: var(--muted); font-size: .875rem; }
+.form-control,
+.field :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+.review-form-field :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+.admin-login-field :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+.admin-app :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--form-control-border);
+  border-radius: var(--form-control-radius);
+  background: var(--form-control-background);
+  color: var(--ink);
+  padding: var(--form-control-padding-block) var(--form-control-padding-inline);
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.form-control, .field :is(input, select, textarea), .review-form-field :is(input, select, textarea), .admin-login-field :is(input, select, textarea) { width: 100%; }
+.form-control:hover,
+.field :is(input, select, textarea):hover,
+.review-form-field :is(input, select, textarea):hover,
+.admin-login-field :is(input, select, textarea):hover,
+.admin-app :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select, textarea):hover { border-color: var(--form-control-hover-border); }
+.form-control:focus-visible,
+.field :is(input, select, textarea):focus-visible,
+.review-form-field :is(input, select, textarea):focus-visible,
+.admin-login-field :is(input, select, textarea):focus-visible,
+.admin-app :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select, textarea):focus-visible { border-color: var(--form-control-focus-border); }
+.form-control:disabled,
+.field :is(input, select, textarea):disabled,
+.review-form-field :is(input, select, textarea):disabled,
+.admin-login-field :is(input, select, textarea):disabled,
+.admin-app :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select, textarea):disabled { background: var(--oat); color: var(--muted); cursor: not-allowed; opacity: .75; }
+.form-control[readonly],
+.field :is(input, textarea)[readonly],
+.review-form-field :is(input, textarea)[readonly],
+.admin-login-field :is(input, textarea)[readonly],
+.admin-app :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), textarea)[readonly] { background: color-mix(in srgb, var(--oat) 55%, var(--paper)); color: var(--muted); }
+.field textarea, .form-field textarea, textarea.form-control, .review-form-field textarea, .admin-login-field textarea, .admin-app textarea { min-height: var(--form-textarea-min-height); resize: vertical; }
+.field.field-invalid :is(input, select, textarea),
+.form-field.field-invalid :is(input, select, textarea),
+.review-form-field.field-invalid :is(input, select, textarea),
+.admin-login-field.field-invalid :is(input, select, textarea),
+.form-control[aria-invalid="true"],
+.admin-app :is(input, select, textarea)[aria-invalid="true"] { border-color: var(--form-control-error-border); background: var(--form-control-error-background); box-shadow: none; }
+.reserve-product-grid.field-invalid, .package-selection.field-invalid, .fulfillment-date-field.field-invalid .date-chip-grid, .review-rating-field.field-invalid .review-rating-options { border-radius: .8rem; outline: 2px solid var(--form-control-error-border); outline-offset: 2px; }
+.field-error-message { display: block; margin: 0; overflow-wrap: anywhere; color: var(--form-control-error-border) !important; font-size: .82rem !important; font-weight: 750; line-height: 1.4; }
 .quantity-control { display: grid; max-width: 15rem; grid-template-columns: 3.25rem minmax(5rem, 7rem) 3.25rem; align-items: center; gap: .5rem; }
 .quantity-control input { text-align: center; }
 .stepper { min-height: 3.25rem; border: 1px solid var(--forest); border-radius: .5rem; background: var(--forest); color: white; font-size: 1.35rem; cursor: pointer; }
 .availability-row { display: flex; min-height: 3rem; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem 0; border-bottom: 1px solid var(--line); font-size: .86rem; }
-.availability-hint { margin: -.35rem 0 0; color: var(--muted); font-size: .82rem; }
+.availability-hint { margin: 0; color: var(--muted); font-size: .82rem; }
 .choice-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
 .date-chip-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem; }
 .date-chip { position: relative; display: grid; min-height: 3.5rem; place-items: center; border: 1px solid #a7aaa3; border-radius: .7rem; background: var(--paper); color: var(--ink); padding: .55rem .45rem; text-align: center; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
@@ -268,11 +323,12 @@ button, select, input, textarea { min-height: 3.25rem; }
 .footer-grid a:hover { text-decoration: underline; }
 
 .card { border: 1px solid var(--line); border-radius: 1rem; background: var(--paper); padding: 1.25rem; box-shadow: 0 8px 30px rgb(22 61 45 / 8%); }
-.error { color: #9b2e42; }
+.error:not(.form-error) { color: var(--error); }
 .success { border-color: #7aa287; background: #f4fbf5; }
 .pill { display: inline-flex; border-radius: 999px; padding: .3rem .6rem; background: #e2ece5; color: var(--forest); font-size: .76rem; font-weight: 700; }
-.admin-app { min-height: 100vh; background: var(--canvas); color: var(--ink); }
-.admin-login-page { min-height: 100vh; display: grid; place-items: center; background: var(--canvas); padding: 2rem 1.25rem; color: var(--ink); }
+.admin-app { --form-control-background: #fffefa; --form-control-border: #c8d2ca; --form-control-radius: .7rem; --form-control-min-height: 2.75rem; --form-control-padding-block: .55rem; --form-field-gap: .45rem; --form-textarea-min-height: 6.5rem; min-height: 100vh; background: var(--canvas); color: var(--ink); }
+.admin-app label:has(input[type="checkbox"], input[type="radio"]) { min-height: var(--form-control-min-height); cursor: pointer; }
+.admin-login-page { --form-control-background: #fffefa; --form-control-border: var(--line); --form-control-radius: .65rem; --form-field-gap: .45rem; min-height: 100vh; display: grid; place-items: center; background: var(--canvas); padding: 2rem 1.25rem; color: var(--ink); }
 .admin-login-frame { width: min(100%, 31rem); }
 .admin-login-brand { display: flex; align-items: center; gap: .75rem; margin: 0 auto 1.5rem; width: fit-content; color: var(--forest); }
 .admin-login-brand > div { display: grid; gap: .15rem; }
@@ -282,10 +338,9 @@ button, select, input, textarea { min-height: 3.25rem; }
 .admin-login-card h1 { margin: .45rem 0 0; color: var(--forest); font-family: var(--sans); font-size: clamp(2rem, 6vw, 2.6rem); font-weight: 750; letter-spacing: -.035em; line-height: 1.05; }
 .admin-login-lede { margin: .7rem 0 0; color: var(--muted); line-height: 1.55; }
 .admin-login-form { display: grid; gap: 1rem; margin-top: 1.6rem; }
-.admin-login-field { display: grid; gap: .45rem; color: var(--ink); font-size: .84rem; font-weight: 750; }
-.admin-login-field input { width: 100%; min-height: 3.25rem; border: 1px solid var(--line); border-radius: .65rem; background: #fffefa; color: var(--ink); padding: .75rem .9rem; font-size: 1rem; }
-.admin-login-field input:focus { border-color: var(--moss); box-shadow: 0 0 0 3px rgb(47 107 79 / 14%); outline: 0; }
-.admin-login-error { margin: 0; border: 1px solid #e4b9c2; border-radius: .65rem; background: #fff1f3; color: #7f1d32; padding: .8rem .9rem; font-size: .85rem; line-height: 1.45; }
+.admin-login-field { color: var(--ink); font-size: .84rem; font-weight: 750; }
+.admin-login-field input { font-size: 1rem; }
+.admin-login-error { margin: 0; border: 1px solid var(--form-control-error-border); border-radius: var(--form-control-radius); background: var(--error-surface); color: var(--error-surface-text); padding: .8rem .9rem; font-size: .85rem; line-height: 1.45; }
 .admin-login-submit { display: inline-flex; min-height: 3.25rem; align-items: center; justify-content: center; gap: .65rem; border: 0; border-radius: .7rem; background: var(--forest); color: white; padding: .75rem 1rem; font-size: .95rem; font-weight: 750; cursor: pointer; }
 .admin-login-submit:hover { background: var(--moss); }
 .admin-login-submit:focus-visible { box-shadow: 0 0 0 3px var(--canvas), 0 0 0 6px var(--focus); outline: 0; }
@@ -341,8 +396,6 @@ button, select, input, textarea { min-height: 3.25rem; }
 .admin-app .card { border-color: #dce3db; border-radius: 1.15rem; background: var(--paper); box-shadow: 0 8px 24px rgb(23 55 43 / 6%); }
 .admin-app .btn { min-height: 2.8rem; border-radius: .7rem; gap: .6rem; padding: .65rem 1rem; font-size: .8rem; }
 .admin-app .btn-secondary { background: #e4ece5; }
-.admin-app input, .admin-app select, .admin-app textarea { border-color: #c8d2ca; border-radius: .7rem; background: #fffefa; }
-.admin-app input:focus, .admin-app select:focus, .admin-app textarea:focus { border-color: var(--moss); box-shadow: 0 0 0 3px rgb(47 107 79 / 12%); outline: 0; }
 .admin-app section > h2 { color: var(--forest); font-family: var(--sans); font-size: clamp(1.7rem, 2.7vw, 2.25rem); font-weight: 750; letter-spacing: -.025em; }
 .admin-page-heading { padding: 2rem 0 0; }
 .admin-profile-page .admin-page-heading { border-bottom: 1px solid var(--line); padding-bottom: 1.35rem; }
@@ -371,10 +424,10 @@ button, select, input, textarea { min-height: 3.25rem; }
 .admin-users-page .admin-users-module > .shell { width: 100%; }
 .admin-users-page .admin-users-module > .shell > h2 { display: none; }
 .admin-notice { border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); padding: .85rem 1rem; color: var(--ink); line-height: 1.5; }
-.admin-notice-error { border-color: #e4b9c2; background: #fff1f3; color: #7f1d32; }
+.admin-notice-error { border-color: var(--form-control-error-border); background: var(--error-surface); color: var(--error-surface-text); }
 .admin-notice-success { border-color: #b8d8c1; background: #eff9f0; color: var(--forest); }
 .admin-app .card[role="status"] { border-color: #b8d8c1; background: #eff9f0; color: var(--forest); }
-.admin-app .card[role="alert"] { border-color: #e4b9c2; background: #fff1f3; color: #7f1d32; }
+.admin-app .card[role="alert"] { border-color: var(--form-control-error-border); background: var(--error-surface); color: var(--error-surface-text); }
 .admin-state-card { display: flex; min-height: 5rem; align-items: center; justify-content: center; gap: .65rem; border: 1px dashed #bdcabe; border-radius: 1rem; background: rgb(255 252 246 / 60%); padding: 1.25rem; color: var(--muted); text-align: center; }
 .admin-state-card strong { color: var(--forest); }
 .admin-state-card span { display: block; }
@@ -496,11 +549,9 @@ button, select, input, textarea { min-height: 3.25rem; }
 .review-invite { display: grid; justify-items: center; margin-bottom: clamp(4rem, 8vw, 7rem); border: 1px solid var(--line); border-radius: 1.5rem; background: var(--paper); padding: clamp(2.5rem, 6vw, 4rem); text-align: center; }
 .review-invite h2 { margin: .7rem 0 .75rem; font-family: var(--serif); font-size: clamp(2rem, 4vw, 3rem); font-weight: 500; }
 .review-invite > p:not(.eyebrow) { max-width: 38rem; margin: 0 0 1.5rem; color: var(--muted); line-height: 1.65; }
-.review-form { display: grid; width: min(100%, 40rem); gap: 1.1rem; margin-top: 1rem; text-align: left; }
-.review-form-field { display: grid; gap: .45rem; }
+.review-form { --form-control-background: #fffefa; --form-control-border: #c9d8e6; --form-control-radius: .8rem; --form-field-gap: .45rem; --form-textarea-min-height: 8rem; display: grid; width: min(100%, 40rem); gap: 1.1rem; margin-top: 1rem; text-align: left; }
+.review-form .required-note, .review-form .form-error { margin-bottom: 0; }
 .review-form-field label, .review-rating-field legend { color: var(--forest); font-size: .8rem; font-weight: 750; }
-.review-form-field input, .review-form-field textarea { width: 100%; border: 1px solid #c9d8e6; border-radius: .8rem; background: #fffefa; color: var(--ink); padding: .8rem .9rem; }
-.review-form-field textarea { min-height: 8rem; resize: vertical; }
 .review-form-field input::placeholder, .review-form-field textarea::placeholder { color: #8a98a7; }
 .review-rating-field { display: grid; gap: .5rem; border: 0; margin: 0; padding: 0; }
 .review-rating-options { display: flex; gap: .25rem; }
@@ -595,7 +646,9 @@ button, select, input, textarea { min-height: 3.25rem; }
 
 @media (max-width: 620px) {
   .shell { width: min(100% - 1.25rem, 75rem); }
+  .admin-app { --form-control-min-height: 3rem; --form-control-padding-block: .65rem; }
   .admin-app .shell { width: min(100% - 1.25rem, 76rem); }
+  .admin-app .btn { min-height: 3rem; }
   .admin-shell-header { padding-inline: .7rem; }
   .admin-brand small { display: none; }
   .admin-brand strong { font-size: .78rem; }
@@ -611,6 +664,8 @@ button, select, input, textarea { min-height: 3.25rem; }
   .review-card { min-height: 0; padding: 1.45rem; }
   .review-card-head { align-items: flex-start; flex-direction: column; gap: .55rem; }
   .review-form { margin-top: .5rem; }
+  .review-rating-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .review-rating-options label { width: 100%; min-width: 0; }
   .story-card { padding: 1.45rem; }
   .story-quote { font-size: 1.65rem; }
   .value-card { padding: 1.35rem; }

@@ -203,6 +203,7 @@ export function OrderForm({
         {error && <div className="error form-error" role="alert" tabIndex={-1}>{error}</div>}
         <fieldset className="form-step">
         <legend><span>01</span> {locale === "fi" ? "Valitse marja ja pakkaus" : "Choose berries and package"}</legend>
+        <div className="form-field">
         <div className="selection-label">{locale === "fi" ? "Tuote" : "Product"} *</div>
         <div className={`reserve-product-grid${fieldErrors.productId ? " field-invalid" : ""}`} data-field="productId" aria-invalid={Boolean(fieldErrors.productId)} aria-describedby={fieldErrors.productId ? "productId-error" : undefined}>
           {products.map((item) => {
@@ -212,6 +213,8 @@ export function OrderForm({
           {Array.from({ length: Math.max(0, 3 - products.length) }).map((_, index) => <div className="reserve-product-card reserve-coming-soon" aria-disabled="true" key={`coming-soon-${index}`}><span className="reserve-product-image"><span aria-hidden="true">+</span></span><span className="reserve-product-card-copy"><strong>{locale === "fi" ? "Tulossa pian" : "Coming soon"}</strong><small>{locale === "fi" ? "Uusi kauden sato lisätään pian." : "Another seasonal harvest will be added soon."}</small></span><span className="availability-badge reserve-product-status coming-soon-status">{locale === "fi" ? "Tulossa pian" : "Coming soon"}</span></div>)}
         </div>
         <CustomerFieldError field="productId" error={fieldErrors.productId} />
+        </div>
+        <div className="form-field">
         <div className="selection-label">{t.package} *</div>
         <div className={`selection-grid package-selection${fieldErrors.packageId ? " field-invalid" : ""}`} data-field="packageId" aria-invalid={Boolean(fieldErrors.packageId)} aria-describedby={fieldErrors.packageId ? "packageId-error" : undefined}>
           {product?.packages.map((item) => {
@@ -226,6 +229,7 @@ export function OrderForm({
           })}
         </div>
         <CustomerFieldError field="packageId" error={fieldErrors.packageId} />
+        </div>
         {selectedPackage?.volumeMl === 10000 && (
           <label className="field">
             <span>{locale === "fi" ? "Määrä" : "Quantity"} *</span>
@@ -237,7 +241,7 @@ export function OrderForm({
 
       <fieldset className="form-step">
         <legend><span>02</span> {t.method}</legend>
-        <div className={`field fulfillment-date-field${fieldErrors.fulfillmentDate ? " field-invalid" : ""}`} data-field="fulfillmentDate" aria-invalid={Boolean(fieldErrors.fulfillmentDate)} aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined}><span>{t.date} *</span><div className="date-chip-grid" role="radiogroup" aria-label={t.date}>{visibleOrderableDates.map((item) => { const chipDate = new Date(`${item.date}T12:00:00`); const label = new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { weekday: "short", day: "numeric", month: "numeric" }).format(chipDate); return <label className={`date-chip${date === item.date ? " selected" : ""}`} key={item.date}><input type="radio" name="fulfillmentDate" value={item.date} checked={date === item.date} onChange={() => setDate(item.date)} aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined} /><span>{label}</span></label>; })}</div><small className="availability-hint" aria-live="polite">{orderableDates.length > 0 ? (locale === "fi" ? `${Math.min(orderableDates.length, 7)} noutopäivää näytetään` : `Showing ${Math.min(orderableDates.length, 7)} pickup dates`) : t.closed}</small><CustomerFieldError field="fulfillmentDate" error={fieldErrors.fulfillmentDate} /></div>
+        <div className={`field fulfillment-date-field${fieldErrors.fulfillmentDate ? " field-invalid" : ""}`} data-field="fulfillmentDate" aria-invalid={Boolean(fieldErrors.fulfillmentDate)} aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined}><span>{t.date} *</span><div className="date-chip-grid" role="radiogroup" aria-label={t.date}>{visibleOrderableDates.map((item) => { const chipDate = new Date(`${item.date}T12:00:00`); const label = new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { weekday: "short", day: "numeric", month: "numeric" }).format(chipDate); return <label className={`date-chip${date === item.date ? " selected" : ""}`} key={item.date}><input type="radio" name="fulfillmentDate" value={item.date} checked={date === item.date} onChange={() => setDate(item.date)} aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined} /><span>{label}</span></label>; })}</div>{orderableDates.length === 0 && <small className="availability-hint" aria-live="polite">{t.closed}</small>}<CustomerFieldError field="fulfillmentDate" error={fieldErrors.fulfillmentDate} /></div>
         <div className="choice-grid">
           <label className={`choice-card${method === "PICKUP" ? " selected" : ""}`}><input type="radio" checked={method === "PICKUP"} onChange={() => setMethod("PICKUP")} /> <span><strong>{t.pickup}</strong><small>{locale === "fi" ? "Nouda sovittuna päivänä Porista" : "Collect on the agreed date in Pori"}</small></span></label>
           <label className={`choice-card${method === "DELIVERY" ? " selected" : ""}`}><input type="radio" checked={method === "DELIVERY"} onChange={() => setMethod("DELIVERY")} /> <span><strong>{t.delivery}</strong><small>{locale === "fi" ? "Sovitaan toimituksesta" : "Delivery to be agreed"}</small></span></label>
