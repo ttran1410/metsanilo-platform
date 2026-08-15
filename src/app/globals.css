@@ -954,6 +954,11 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .admin-product-card .relative img { border: 1px solid var(--line); }
 .product-detail-links { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; margin: 1rem auto 0; max-width: 72rem; }
 .product-detail-links strong { margin-right: .35rem; }
+.admin-product-list-row { padding: 1.25rem; }
+.admin-product-list-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.admin-product-list-main h2 { margin: 0; font-size: 1.25rem; }
+.admin-product-list-main .admin-product-actions { max-width: 34rem; }
+@media (max-width: 720px) { .admin-product-list-main { flex-direction: column; } .admin-product-list-main .admin-product-actions { justify-content: flex-start; } }
 .product-availability-summary { display: grid; grid-template-columns: 1.5fr repeat(3, minmax(7rem, 1fr)) auto; gap: 1rem; align-items: center; margin-block: 1rem; }
 .product-availability-summary > div:not(:first-child) { display: grid; gap: .2rem; }
 .product-availability-summary > div strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
