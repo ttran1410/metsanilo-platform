@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import type { auditEntries, availability, orderNotes, orderPayments, orders, products } from "@/db/schema";
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminEmptyState, AdminNotice, AdminPageHeader } from "./presentation";
+import { OrdersListing } from "./orders-listing";
 
 type Order = typeof orders.$inferSelect;
 type AvailabilityRow = { availability: typeof availability.$inferSelect; product: typeof products.$inferSelect };
@@ -194,7 +195,7 @@ export function ManagerView({
     setMessage(`${planned.length} availability date(s) planned.`);
   }
 
-  if (mode === "orders" && canViewOrders) return <OrdersWorkspaceOperations initialOrders={initialOrders} canExportOrders={canExportOrders} canCreateOrders={canCreateOrders} canTransitionOrders={canTransitionOrders} />;
+  if (mode === "orders" && canViewOrders) return <OrdersListing initialOrders={initialOrders} canExport={canExportOrders} canCreate={canCreateOrders} canTransition={canTransitionOrders} />;
 
   return (
     <main className="shell py-8">
