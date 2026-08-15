@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, lte, or, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, availability, mediaAttachments, mediaAssets, packages, products, shops } from "@/db/schema";
 import { DomainError } from "./errors";
@@ -54,23 +54,19 @@ export async function getPublicCatalog(database: Database) {
   const today = todayInTimezone(shop.timezone);
   const rows = await database
     .select({ product: products, package: packages, availability })
-    .from(availability)
-    .innerJoin(
-      products,
-      and(eq(products.id, availability.productId), eq(products.shopId, availability.shopId)),
-    )
+    .from(products)
     .innerJoin(
       packages,
       and(eq(packages.productId, products.id), eq(packages.shopId, products.shopId)),
     )
+    .leftJoin(availability, and(eq(availability.productId, products.id), eq(availability.shopId, products.shopId), gte(availability.businessDate, today)))
     .where(
       and(
-        eq(availability.shopId, SHOP_ID),
-        gte(availability.businessDate, today),
-        lte(products.availableFrom, availability.businessDate),
-        gte(products.availableThrough, availability.businessDate),
+        eq(products.shopId, SHOP_ID),
         eq(products.active, true),
         eq(packages.active, true),
+        or(eq(products.showOnHomepage, true), eq(products.showOnReserve, true)),
+        or(sql`${availability.id} IS NULL`, and(lte(products.availableFrom, availability.businessDate), gte(products.availableThrough, availability.businessDate))),
       ),
     )
     .orderBy(asc(availability.businessDate));

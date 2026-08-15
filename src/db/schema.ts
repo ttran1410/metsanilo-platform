@@ -141,6 +141,8 @@ export const products = sqliteTable(
     availableFrom: text("available_from").notNull(),
     availableThrough: text("available_through").notNull(),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
+    showOnHomepage: integer("show_on_homepage", { mode: "boolean" }).notNull().default(true),
+    showOnReserve: integer("show_on_reserve", { mode: "boolean" }).notNull().default(true),
   },
   (table) => [
     uniqueIndex("products_shop_code_unique").on(table.shopId, table.code),
@@ -192,6 +194,8 @@ export const packages = sqliteTable(
     volumeMl: integer("volume_ml").notNull(),
     priceCents: integer("price_cents").notNull(),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [
     index("packages_shop_product_idx").on(table.shopId, table.productId),
