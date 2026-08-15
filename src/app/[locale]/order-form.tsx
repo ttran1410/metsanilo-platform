@@ -148,6 +148,7 @@ export function OrderForm({
       postalCode: method === "DELIVERY" ? values.get("postalCode") : undefined,
       city: method === "DELIVERY" ? values.get("city") : undefined,
       notes: values.get("notes"),
+      marketingConsent: values.get("marketingConsent") === "true",
       idempotencyKey,
     };
     try {
@@ -269,6 +270,7 @@ export function OrderForm({
       <div className="privacy-notice" role="note">
         <span>{t.privacy}</span>{privacyNoticeUrl && <> {locale === "fi" ? "Lue" : "Read"} <a className="font-bold underline" href={privacyNoticeUrl} target="_blank" rel="noreferrer">{locale === "fi" ? "tietosuojaseloste" : "the privacy notice"}</a>.</>}
       </div>
+      <label className="marketing-consent-field"><input type="checkbox" name="marketingConsent" value="true" /> <span>{locale === "fi" ? "Haluan saada METSÄNILO-kausitarjouksia tekstiviestillä tai WhatsAppilla." : "I would like to receive METSÄNILO seasonal offers by SMS or WhatsApp."}</span></label>
       </div>
       <div className="reservation-summary-bar">
         <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {quantity} {locale === "fi" ? "kpl" : quantity === 1 ? "item" : "items"} · {date || (locale === "fi" ? "päivä valitsematta" : "date not selected")}</small></div>

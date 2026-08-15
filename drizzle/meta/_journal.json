@@ -120,6 +120,13 @@
       "when": 1786724000000,
       "tag": "0016_catalog_management",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1786803084485,
+      "tag": "0017_customer_marketing_consent",
+      "breakpoints": true
     }
   ]
 }
