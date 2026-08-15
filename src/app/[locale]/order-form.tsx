@@ -154,6 +154,7 @@ export function OrderForm({
       <form className="reservation-form" onSubmit={submit} noValidate>
       <div className="reservation-fields">
       {contact.phone && <section className="message-booking-banner" aria-labelledby="message-booking-title"><div className="message-booking-copy"><span className="message-booking-kicker">{locale === "fi" ? "Nopea varaus" : "Quick booking"}</span><strong id="message-booking-title">{locale === "fi" ? "Varaa viestillä" : "Prefer to message us?"}</strong></div><div className="message-booking-actions"><a className="message-action" href={`sms:${smsNumber}`}><strong>SMS</strong><span aria-hidden="true">→</span></a><a className="message-action message-action-whatsapp" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer"><strong>WhatsApp</strong><span aria-hidden="true">→</span></a></div></section>}
+        <div className="senior-trust-strip" role="note"><span>✓ {locale === "fi" ? "Poimittu ja toimitettu saman päivän aikana" : "Picked and delivered the same day"}</span><span>✓ {locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</span></div>
         <p className="required-note">{t.required}</p>
         {error && <div className="error form-error" role="alert" tabIndex={-1}>{error}</div>}
         <fieldset className="form-step">
