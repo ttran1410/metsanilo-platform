@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { auditEntries, availability, orderNotes, orderPayments, orders, products } from "@/db/schema";
+import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminEmptyState, AdminNotice, AdminPageHeader } from "./presentation";
 
 type Order = typeof orders.$inferSelect;
@@ -14,12 +15,14 @@ export function ManagerView({
   canViewOrders,
   canManageAvailability,
   mode = "all",
+  workspace,
 }: {
   initialOrders: Order[];
   initialAvailability: AvailabilityRow[];
   canViewOrders: boolean;
   canManageAvailability: boolean;
   mode?: "all" | "orders" | "availability";
+  workspace?: AvailabilityWorkspace;
 }) {
   const [orderRows, setOrderRows] = useState(initialOrders);
   const [availabilityRows, setAvailabilityRows] = useState(initialAvailability);
@@ -170,6 +173,18 @@ export function ManagerView({
       </section>}
 
       {canManageAvailability && (mode === "all" || mode === "availability") && <section id="availability" className="admin-availability-section mt-10">
+        {workspace && <>
+          <div className="admin-section-heading"><div><p className="admin-section-kicker">Operations workspace</p><h2>7-day availability board</h2><p className="admin-section-description">Capacity, package fit and fulfilment queues stay in sync with the customer catalogue.</p></div></div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {workspace.dates.map((date) => {
+              const dayRows = workspace.rows.filter((row) => row.availability.businessDate === date);
+              return <article className="card" key={date}><p className="admin-section-kicker">{new Date(`${date}T12:00:00Z`).toLocaleDateString("fi-FI", { weekday: "short" })}</p><h3 className="font-bold">{date}</h3>{dayRows.length === 0 ? <p className="mt-2 text-sm text-slate-600">No planned availability</p> : <div className="mt-2 grid gap-2">{dayRows.map((row) => <div key={row.availability.id} className="rounded-lg border p-2"><div className="flex items-center justify-between gap-2"><strong>{row.product.nameFi}</strong>{row.soldOut ? <span className="pill bg-[var(--berry)] text-white">Sold out</span> : row.nearCapacity ? <span className="pill">Near capacity</span> : <span className="pill">Open</span>}</div><p className="text-sm">{(row.remainingMl / 1000).toLocaleString("fi-FI")} l left · {row.utilization}% reserved</p>{row.packages.length > 0 && <div className="mt-1 grid gap-1 text-xs text-slate-600">{row.packages.map((pkg) => <div key={pkg.id}>{pkg.volumeMl / 1000} l · {pkg.availableUnits} package{pkg.availableUnits === 1 ? "" : "s"}{pkg.isDefault ? " · default" : ""}</div>)}</div>}{row.availability.manualSoldOutReason && <p className="text-xs text-[var(--berry)]">Reason: {row.availability.manualSoldOutReason}</p>}</div>)}</div>}</article>;
+            })}
+          </div>
+          <div className="mt-6 grid gap-3 lg:grid-cols-3">
+            {(["picking", "pickup", "delivery"] as const).map((queue) => <section className="card" key={queue}><div className="flex items-center justify-between"><h3 className="font-bold">{queue === "picking" ? "Picking queue" : queue === "pickup" ? "Pickup queue" : "Delivery queue"}</h3><span className="pill">{workspace.queues[queue].length}</span></div>{workspace.queues[queue].length === 0 ? <p className="mt-3 text-sm text-slate-600">Nothing queued.</p> : <div className="mt-3 grid gap-2">{workspace.queues[queue].map((order) => <a className="rounded-lg border p-3 hover:border-[var(--forest)]" href={`/admin/orders/${order.id}`} key={order.id}><div className="flex items-center justify-between gap-2"><strong>{order.publicReference}</strong><span className="pill">{order.status}</span></div><p className="text-sm">{order.customerName} · {order.productNameFi}</p><p className="text-xs text-slate-600">{order.fulfillmentDate} · {order.quantity} pcs</p></a>)}</div>}</section>)}
+          </div>
+        </>}
         <div className="admin-section-heading"><div><p className="admin-section-kicker">Harvest planning</p><h2>Plan availability</h2><p className="admin-section-description">Set capacity and fulfillment dates for each seasonal product.</p></div></div>
         <form className="card mt-3 grid gap-3" onSubmit={plan}>
           <p className="text-sm">DAY applies every date, WEEK every 7 days, MONTH on the same day each month, and CUSTOM to comma-separated dates.</p>

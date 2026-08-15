@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, gte, lte, or, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, mediaAttachments, mediaAssets, packages, products, shops } from "@/db/schema";
+import { auditEntries, availability, mediaAttachments, mediaAssets, orders, packages, products, shops } from "@/db/schema";
 import { DomainError } from "./errors";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
@@ -89,6 +89,56 @@ export async function listManagerAvailability(database: Database) {
     .where(and(eq(availability.shopId, SHOP_ID), gte(availability.businessDate, today)))
     .orderBy(asc(availability.businessDate));
 }
+
+/**
+ * Read model for the Operations availability workspace. This deliberately
+ * composes the existing catalog, availability and order tables instead of
+ * introducing a second source of truth for capacity.
+ */
+export async function getAvailabilityWorkspace(database: Database) {
+  const { SHOP_ID } = env();
+  const shop = await database.query.shops.findFirst({ where: eq(shops.id, SHOP_ID) });
+  if (!shop) return { dates: [], rows: [], products: [], queues: { picking: [], pickup: [], delivery: [] } };
+  const today = todayInTimezone(shop.timezone);
+  const dates = Array.from({ length: 7 }, (_, index) => addDays(today, index));
+  const endDate = dates[dates.length - 1];
+  const [productRows, packageRows, availabilityRows, orderRows] = await Promise.all([
+    database.select().from(products).where(eq(products.shopId, SHOP_ID)),
+    database.select().from(packages).where(eq(packages.shopId, SHOP_ID)),
+    database.select().from(availability).where(and(eq(availability.shopId, SHOP_ID), gte(availability.businessDate, today), lte(availability.businessDate, endDate))),
+    database.select().from(orders).where(and(eq(orders.shopId, SHOP_ID), gte(orders.fulfillmentDate, today), lte(orders.fulfillmentDate, endDate))),
+  ]);
+  const packageByProduct = new Map<string, typeof packageRows>();
+  for (const item of packageRows) packageByProduct.set(item.productId, [...(packageByProduct.get(item.productId) ?? []), item]);
+  const productById = new Map(productRows.map((item) => [item.id, item]));
+  const rows = availabilityRows.map((item) => {
+    const productPackages = (packageByProduct.get(item.productId) ?? []).filter((pkg) => pkg.active).sort((a, b) => b.volumeMl - a.volumeMl);
+    const largestPackageMl = productPackages[0]?.volumeMl ?? 0;
+    const remainingMl = Math.max(0, item.capacityMl - item.reservedMl);
+    return {
+      availability: item,
+      product: productById.get(item.productId)!,
+      remainingMl,
+      utilization: item.capacityMl > 0 ? Math.round((item.reservedMl / item.capacityMl) * 100) : 0,
+      nearCapacity: remainingMl <= item.capacityMl * 0.2 || (largestPackageMl > 0 && remainingMl < largestPackageMl),
+      soldOut: item.manualSoldOut || !item.acceptsOrders || remainingMl <= 0,
+      packages: productPackages.map((pkg) => ({ id: pkg.id, labelFi: pkg.labelFi, labelEn: pkg.labelEn, volumeMl: pkg.volumeMl, active: pkg.active, isDefault: pkg.isDefault, availableUnits: pkg.volumeMl > 0 ? Math.floor(remainingMl / pkg.volumeMl) : 0 })),
+    };
+  }).filter((row) => row.product);
+  const queueOrder = (order: typeof orderRows[number]) => ({ id: order.id, publicReference: order.publicReference, customerName: order.customerName, productNameFi: order.productNameFi, packageLabelFi: order.packageLabelFi, fulfillmentDate: order.fulfillmentDate, fulfillmentMethod: order.fulfillmentMethod, status: order.status, quantity: order.quantity });
+  return {
+    dates,
+    rows,
+    products: productRows.filter((product) => product.active || rows.some((row) => row.product.id === product.id)).map((product) => ({ id: product.id, nameFi: product.nameFi, nameEn: product.nameEn, active: product.active, showOnHomepage: product.showOnHomepage, showOnReserve: product.showOnReserve })),
+    queues: {
+      picking: orderRows.filter((order) => order.status === "CONFIRMED" || order.status === "PICKING").map(queueOrder),
+      pickup: orderRows.filter((order) => order.status === "READY" && order.fulfillmentMethod === "PICKUP").map(queueOrder),
+      delivery: orderRows.filter((order) => (order.status === "READY" || order.status === "OUT_FOR_DELIVERY") && order.fulfillmentMethod === "DELIVERY").map(queueOrder),
+    },
+  };
+}
+
+export type AvailabilityWorkspace = Awaited<ReturnType<typeof getAvailabilityWorkspace>>;
 
 export async function updateAvailability(
   database: Database,
