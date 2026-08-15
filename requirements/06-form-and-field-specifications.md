@@ -4,14 +4,17 @@
 
 ## 1. Shared form design standard
 
-All public forms are mobile-first, single-column by default, and use visible labels rather than placeholder-only labels. Related fields are grouped, conditional fields appear immediately after the controlling choice, and computed totals are summarized before submission.
+The interaction and validation rules in this section apply to customer-facing and admin-portal forms. Shared visual tokens, states, primitives, and density variants are defined in [`DESIGN.md`](../DESIGN.md); admin-only layout guidance is defined in [`requirements/design/admin-operations.md`](design/admin-operations.md). Component-local CSS must not create a separate validation style.
+
+Customer-facing forms are mobile-first, single-column by default, and use visible labels rather than placeholder-only labels. Related fields are grouped, conditional fields appear immediately after the controlling choice, and computed totals are summarized before submission. Admin forms may use denser responsive grids when labels, reading order, validation placement, and 44px minimum targets remain intact.
 
 Every form must provide:
 
-- Finnish and English labels, help, errors, and success states.
+- Labels, help, errors, and success states in the interface's supported locale; customer-facing forms provide Finnish and English variants.
 - Required-field markers explained once at the start.
 - Client validation for responsiveness and authoritative server validation.
 - A focusable error summary linking to invalid fields.
+- An invalid state on every affected control or control group, plus an inline message directly after it in normal document flow.
 - Preservation of entered values after correctable errors.
 - Loading/submitting state and prevention of accidental duplicate submission.
 - Stable error codes mapped to localized text.

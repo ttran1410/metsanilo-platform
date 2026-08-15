@@ -203,6 +203,7 @@ export function OrderForm({
         {error && <div className="error form-error" role="alert" tabIndex={-1}>{error}</div>}
         <fieldset className="form-step">
         <legend><span>01</span> {locale === "fi" ? "Valitse marja ja pakkaus" : "Choose berries and package"}</legend>
+        <div className="form-field">
         <div className="selection-label">{locale === "fi" ? "Tuote" : "Product"} *</div>
         <div className={`reserve-product-grid${fieldErrors.productId ? " field-invalid" : ""}`} data-field="productId" aria-invalid={Boolean(fieldErrors.productId)} aria-describedby={fieldErrors.productId ? "productId-error" : undefined}>
           {products.map((item) => {
@@ -212,6 +213,8 @@ export function OrderForm({
           {Array.from({ length: Math.max(0, 3 - products.length) }).map((_, index) => <div className="reserve-product-card reserve-coming-soon" aria-disabled="true" key={`coming-soon-${index}`}><span className="reserve-product-image"><span aria-hidden="true">+</span></span><span className="reserve-product-card-copy"><strong>{locale === "fi" ? "Tulossa pian" : "Coming soon"}</strong><small>{locale === "fi" ? "Uusi kauden sato lisätään pian." : "Another seasonal harvest will be added soon."}</small></span><span className="availability-badge reserve-product-status coming-soon-status">{locale === "fi" ? "Tulossa pian" : "Coming soon"}</span></div>)}
         </div>
         <CustomerFieldError field="productId" error={fieldErrors.productId} />
+        </div>
+        <div className="form-field">
         <div className="selection-label">{t.package} *</div>
         <div className={`selection-grid package-selection${fieldErrors.packageId ? " field-invalid" : ""}`} data-field="packageId" aria-invalid={Boolean(fieldErrors.packageId)} aria-describedby={fieldErrors.packageId ? "packageId-error" : undefined}>
           {product?.packages.map((item) => {
@@ -226,6 +229,7 @@ export function OrderForm({
           })}
         </div>
         <CustomerFieldError field="packageId" error={fieldErrors.packageId} />
+        </div>
         {selectedPackage?.volumeMl === 10000 && (
           <label className="field">
             <span>{locale === "fi" ? "Määrä" : "Quantity"} *</span>
