@@ -355,6 +355,8 @@ button, select, input, textarea { min-height: 3.25rem; }
 .admin-notice { border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); padding: .85rem 1rem; color: var(--ink); line-height: 1.5; }
 .admin-notice-error { border-color: #e4b9c2; background: #fff1f3; color: #7f1d32; }
 .admin-notice-success { border-color: #b8d8c1; background: #eff9f0; color: var(--forest); }
+.admin-app .card[role="status"] { border-color: #b8d8c1; background: #eff9f0; color: var(--forest); }
+.admin-app .card[role="alert"] { border-color: #e4b9c2; background: #fff1f3; color: #7f1d32; }
 .admin-state-card { display: flex; min-height: 5rem; align-items: center; justify-content: center; gap: .65rem; border: 1px dashed #bdcabe; border-radius: 1rem; background: rgb(255 252 246 / 60%); padding: 1.25rem; color: var(--muted); text-align: center; }
 .admin-state-card strong { color: var(--forest); }
 .admin-state-card span { display: block; }
