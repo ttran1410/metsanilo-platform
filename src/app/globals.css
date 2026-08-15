@@ -358,6 +358,12 @@ button, select, input, textarea { min-height: 3.25rem; }
 .admin-availability-section > form.card { border-radius: 1rem; }
 .admin-availability-section .capacity-track { height: .8rem; }
 .admin-availability-section .card small { color: var(--muted); }
+.admin-catalog-form { border-top: 3px solid var(--forest); }
+.admin-catalog-form + div { display: grid; gap: .8rem; }
+.admin-catalog-form + div > article { border-radius: 1rem; }
+.admin-catalog-form + div > article > div:first-child { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.admin-catalog-form + div > article > div:first-child h3 { color: var(--forest); }
+.admin-catalog-form + div > article > div:first-child > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
 .admin-users-page .admin-users-module > .shell { width: 100%; }
 .admin-users-page .admin-users-module > .shell > h2 { display: none; }
 .admin-notice { border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); padding: .85rem 1rem; color: var(--ink); line-height: 1.5; }
@@ -569,6 +575,8 @@ button, select, input, textarea { min-height: 3.25rem; }
   .admin-customer-card { align-items: flex-start; flex-direction: column; }
   .admin-customer-actions { justify-content: flex-start; width: 100%; }
   .admin-section-heading { align-items: flex-start; flex-direction: column; }
+  .admin-catalog-form + div > article > div:first-child { flex-direction: column; }
+  .admin-catalog-form + div > article > div:first-child > div:last-child { justify-content: flex-start; }
   .admin-menu-toggle { display: inline-flex; min-height: 2.75rem; align-items: center; gap: .5rem; border: 1px solid var(--line); border-radius: .7rem; background: var(--paper); color: var(--forest); padding: .45rem .7rem; font-size: .8rem; font-weight: 750; }
   .admin-menu-icon { display: grid; gap: .18rem; }
   .admin-menu-icon i { display: block; width: .9rem; height: 2px; background: currentColor; }
