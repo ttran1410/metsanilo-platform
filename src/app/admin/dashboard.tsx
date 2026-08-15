@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AdminLoadingState } from "./presentation";
 
 type Dashboard = {
   businessDate: string;
@@ -26,7 +27,7 @@ export function DashboardModule() {
   const [error, setError] = useState("");
   useEffect(() => { const timer = window.setTimeout(() => { void fetch("/api/admin/dashboard").then(async (response) => { const body = await response.json(); if (response.ok) setData(body.data); else setError(body.message ?? "Dashboard unavailable"); }); }, 0); return () => window.clearTimeout(timer); }, []);
   if (error) return <section className="shell py-6"><p className="card" role="alert">{error}</p></section>;
-  if (!data) return <section className="shell py-6"><p>Loading dashboard…</p></section>;
+  if (!data) return <section className="shell py-6"><AdminLoadingState label="Loading operations overview…" /></section>;
   return <section id="dashboard" className="shell py-6">
     <div className="admin-page-header"><div><p className="eyebrow">METSÄNILO OPERATIONS</p><h1>Overview</h1><p className="admin-page-lede">Keep today&apos;s reservations, harvest capacity, and handovers moving.</p></div><div className="admin-page-meta"><span>Today · {data.businessDate}</span><small>Updated {new Date(data.asOf).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" })} · {data.unreadNotifications} unread</small></div></div>
     {data.overdueNew.length > 0 && <div className="dashboard-alert mt-5" role="alert"><div><strong>Attention: {data.overdueNew.length} new order{data.overdueNew.length === 1 ? "" : "s"} over 15 minutes</strong><p>Contact the customer and confirm the reservation before the next fulfillment step.</p></div><Link className="btn dashboard-alert-btn" href="/admin/orders">Review orders</Link></div>}
