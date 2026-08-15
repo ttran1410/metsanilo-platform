@@ -15,7 +15,7 @@ export async function createExternalOrder(database: Database, input: {
   status: "NEW" | "CONFIRMED"; source: "PHONE" | "OTHER"; deliveryFeeCents?: number;
 }) {
   const receipt = await submitOrder(database, {
-    locale: "fi", ...input, privacyAcknowledged: true, idempotencyKey: `external-${randomBytes(12).toString("hex")}`,
+    locale: "fi", ...input, idempotencyKey: `external-${randomBytes(12).toString("hex")}`,
   });
   const order = await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) });
   if (!order) throw new DomainError("NOT_FOUND", "External order was not created", 404);

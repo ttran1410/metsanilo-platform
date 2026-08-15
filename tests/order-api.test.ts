@@ -31,7 +31,6 @@ const pickupInput = (key: string, date = "2099-08-13") => ({
   mobile: "+358401234567",
   email: "test@example.com",
   notes: "",
-  privacyAcknowledged: true as const,
   idempotencyKey: key.padEnd(16, "x"),
 });
 

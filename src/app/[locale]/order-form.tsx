@@ -105,7 +105,6 @@ export function OrderForm({
       postalCode: method === "DELIVERY" ? values.get("postalCode") : undefined,
       city: method === "DELIVERY" ? values.get("city") : undefined,
       notes: values.get("notes"),
-      privacyAcknowledged: values.get("privacyAcknowledged") === "on",
       idempotencyKey,
     };
     try {
@@ -217,9 +216,8 @@ export function OrderForm({
           <label className="field contact-notes"><span>{t.notes}</span><textarea name="notes" maxLength={1000} rows={3} /></label>
         </div>
       </fieldset>
-      <div className="grid gap-2">
-        {privacyNoticeUrl && <a className="font-bold underline" href={privacyNoticeUrl} target="_blank" rel="noreferrer">{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</a>}
-        <label className="privacy-check"><input name="privacyAcknowledged" type="checkbox" required /> <span>{t.privacy} *</span></label>
+      <div className="privacy-notice" role="note">
+        <span>{t.privacy}</span>{privacyNoticeUrl && <> {locale === "fi" ? "Lue" : "Read"} <a className="font-bold underline" href={privacyNoticeUrl} target="_blank" rel="noreferrer">{locale === "fi" ? "tietosuojaseloste" : "the privacy notice"}</a>.</>}
       </div>
       </div>
       <div className="reservation-summary-bar">
