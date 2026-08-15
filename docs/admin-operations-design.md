@@ -74,3 +74,15 @@ Every visible mutation is permission-gated in both UI and API. Read permissions 
 ## Shared component acceptance checklist
 
 Before a module is considered migrated, verify: route-level list/detail/edit separation; visible success and error feedback; inline field errors and required `*`; row/card parity on mobile; permission-gated actions; semantic status colors; keyboard focus; 44/48px touch targets; loading, empty and error states; and no hardcoded operational counts.
+
+## Phase 3A — foundation primitives
+
+`src/app/admin/ui/primitives.tsx` is the shared entry point for presentation primitives. It intentionally contains no data fetching or domain mutations:
+
+- `AdminCard` for consistent surface structure.
+- `AdminStatusBadge` for canonical lifecycle/payment/warning tones.
+- `AdminFieldError` for inline, announced validation feedback.
+- `AdminPermissionGate` for rendering an action only when its server-resolved permission allows it.
+- `formatAdminMoney` and `formatAdminReference` for locale-safe, tabular operational values.
+
+These primitives are re-exported from `presentation.tsx` during migration so existing modules can adopt them incrementally. A primitive must remain deterministic, accessible, and safe to render on both desktop and mobile; business rules stay in the route/module layer.

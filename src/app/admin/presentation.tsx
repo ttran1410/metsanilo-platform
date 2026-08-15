@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+export { AdminCard, AdminFieldError, AdminPermissionGate, AdminStatusBadge, formatAdminMoney, formatAdminReference } from "./ui/primitives";
 
 export function AdminPageHeader({ eyebrow, title, description, meta, actions }: { eyebrow?: string; title: string; description?: string; meta?: ReactNode; actions?: ReactNode }) {
   return <div className="admin-page-header"><div><p className="eyebrow">{eyebrow ?? "METSÄNILO OPERATIONS"}</p><h1>{title}</h1>{description && <p className="admin-page-lede">{description}</p>}</div>{(meta || actions) && <div className="admin-page-meta">{meta}{actions && <div className="admin-page-actions">{actions}</div>}</div>}</div>;
