@@ -103,3 +103,17 @@ Orders uses the primitives as a high-velocity operational queue: quick-view chip
 - Batch planning provides a client-side date preview for daily, weekly and selected-weekday patterns. The availability API remains authoritative for product windows, conflicts, historical dates, reservations and optimistic versions.
 - Picking, pickup-ready and delivery queues are read-only summaries linked to the unified Orders workspace. Capacity remains sourced from the existing availability/order model, so homepage, reserve and Operations use the same remaining-volume and sold-out rules.
 - Desktop uses a seven-column board; narrow screens use horizontally scrollable day cards and stacked queue cards. Weather or harvest conditions are captured as a manual reason until a real forecast integration exists.
+
+## Phase 7 — Product catalog and media
+
+Catalog is organized as product records containing an explicit package hierarchy. Package cards expose active state, volume, price, price per litre, ordering and the default-package pill; the default is initially 10L, then the largest active package as fallback. Product visibility, available duration and preview remain separate from publishing, and duration changes are blocked when they would exclude active orders or reserved availability.
+
+Media is one shared product gallery for homepage and reserve. A product has one primary image, localized Finnish/English alt text and an auditable order. Primary replacement is required before removing a primary asset. Media mutations are permission-gated independently from catalog editing.
+
+## Phase 8 — Customer CRM and consent
+
+Customer profiles use a Customer 360 header with lifetime litres, total spend, order count and last fulfillment date computed from the order read model. Matching uses normalized phone/email values; duplicate identity signals produce an explicit review warning and never auto-merge. Merge/keep-separate actions must be audited when the resolution workflow is enabled.
+
+Marketing consent is a single SMS + WhatsApp preference, independent from operational reservation messages and privacy processing. The profile shows consent state, timestamp, source and actor; authorized staff may revoke or grant it manually. A missing or revoked consent must always be visible as “Do not send marketing”. Anonymization removes personal data while retaining operational order history and audit records.
+
+Phase 7–8 action permissions are explicit: `catalog.product.read/write/delete`, `catalog.package.read/write`, `media.read/write`, `customers.read/write/anonymize`, `customers.identity.resolve`, and `customers.consent.read/write`. Admin and Manager receive the implemented catalogue by default; Staff and Content Creator only receive the relevant read/write grants. UI gates are advisory and every mutation is enforced again by the API.

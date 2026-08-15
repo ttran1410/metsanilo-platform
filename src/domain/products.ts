@@ -123,7 +123,7 @@ export async function updateProduct(database: Database, id: string, input: Produ
   try { await database.update(products).set(product).where(and(eq(products.id, id), eq(products.shopId, shopId))); }
   catch (error) { if (String(error).toLowerCase().includes("unique")) throw new DomainError("DUPLICATE_PRODUCT", "Product code or slug already exists", 409); throw error; }
   await database.update(availability).set({ acceptsOrders: false, manualSoldOut: true, manualSoldOutReason: "Outside product availability window" }).where(and(eq(availability.productId, id), eq(availability.shopId, shopId), or(lt(availability.businessDate, product.availableFrom), gt(availability.businessDate, product.availableThrough))));
-  await audit(database, "product.updated", "product", id, { from: { code: current.code, slug: current.slug }, to: { code: product.code, slug: product.slug } });
+  await audit(database, "product.updated", "product", id, { changedFields: Object.keys(product).filter((field) => current[field as keyof typeof current] !== product[field as keyof typeof product]), from: { code: current.code, slug: current.slug, availableFrom: current.availableFrom, availableThrough: current.availableThrough, showOnHomepage: current.showOnHomepage, showOnReserve: current.showOnReserve }, to: { code: product.code, slug: product.slug, availableFrom: product.availableFrom, availableThrough: product.availableThrough, showOnHomepage: product.showOnHomepage, showOnReserve: product.showOnReserve }, impact: { activeOrdersChecked: activeOrders.length, reservedAvailabilityChecked: conflictingAvailability.length } });
   return (await listManagerProducts(database)).find((item) => item.product.id === id)!;
 }
 
@@ -170,7 +170,7 @@ export async function updatePackage(database: Database, id: string, input: Packa
   if (!current) throw new DomainError("NOT_FOUND", "Package not found", 404);
   if (current.isDefault && !item.active) throw new DomainError("DEFAULT_PACKAGE_REQUIRED", "Choose another default package before deactivating this package", 409);
   await database.update(packages).set({ ...item, isDefault: current.isDefault }).where(and(eq(packages.id, id), eq(packages.shopId, shopId)));
-  await audit(database, "package.updated", "package", id, { productId: current.productId });
+  await audit(database, "package.updated", "package", id, { productId: current.productId, changedFields: { labelFi: [current.labelFi, item.labelFi], labelEn: [current.labelEn, item.labelEn], volumeMl: [current.volumeMl, item.volumeMl], priceCents: [current.priceCents, item.priceCents], active: [current.active, item.active] }, priceImpact: current.priceCents !== item.priceCents ? "Existing orders retain their agreed price; future reservations use the new catalog price." : null });
   return (await database.query.packages.findFirst({ where: eq(packages.id, id) }))!;
 }
 
@@ -192,6 +192,7 @@ export async function reorderPackages(database: Database, productId: string, pac
   const existing = await database.select({ id: packages.id }).from(packages).where(and(eq(packages.productId, productId), eq(packages.shopId, shopId)));
   if (existing.length !== packageIds.length || existing.some((row) => !packageIds.includes(row.id))) throw new DomainError("VALIDATION_ERROR", "Package order must include every package for this product", 422);
   await database.transaction(async (tx) => { for (const [index, packageId] of packageIds.entries()) await tx.update(packages).set({ sortOrder: index }).where(and(eq(packages.id, packageId), eq(packages.shopId, shopId), eq(packages.productId, productId))); });
+  await audit(database, "package.reordered", "product", productId, { packageIds });
   return listManagerProducts(database);
 }
 
