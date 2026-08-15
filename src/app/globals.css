@@ -323,6 +323,14 @@ button, select, input, textarea { min-height: 3.25rem; }
 .admin-page-heading { padding: 2rem 0 0; }
 .admin-page-heading h1 { margin: .35rem 0 0; color: var(--forest); font-family: var(--sans); font-size: clamp(2rem, 3.4vw, 3rem); font-weight: 750; letter-spacing: -.035em; line-height: 1.05; }
 .admin-page-heading p:not(.eyebrow) { margin: .65rem 0 0; color: var(--muted); }
+.admin-page-header { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; border-bottom: 1px solid var(--line); padding: 1.6rem 0 1.35rem; }
+.admin-page-header h1 { margin: .3rem 0 0; color: var(--forest); font-family: var(--sans); font-size: clamp(2rem, 3.4vw, 3rem); font-weight: 750; letter-spacing: -.035em; line-height: 1.05; }
+.admin-page-lede { max-width: 40rem; margin: .55rem 0 0; color: var(--muted); line-height: 1.5; }
+.admin-page-meta { display: grid; justify-items: end; gap: .25rem; color: var(--forest); font-size: .85rem; font-weight: 750; text-align: right; }
+.admin-page-meta small { color: var(--muted); font-size: .72rem; font-weight: 500; }
+.admin-section-kicker { margin: 0 0 .2rem; color: var(--moss); font-size: .66rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.section-inline-heading h3 { margin: 0; color: var(--forest); font-family: var(--sans); font-size: 1.2rem; font-weight: 750; }
+.admin-section-description { margin: .3rem 0 0; color: var(--muted); font-size: .82rem; }
 .profile-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(18rem, .75fr); gap: 1rem; padding: 2rem 0 4rem; }
 .profile-card { display: grid; align-content: start; gap: 1rem; }
 .profile-card-heading { display: flex; align-items: center; gap: 1rem; padding-bottom: .75rem; border-bottom: 1px solid var(--line); }
@@ -494,6 +502,8 @@ button, select, input, textarea { min-height: 3.25rem; }
   .admin-header-actions { gap: .35rem; }
   .admin-user-state { display: none; }
   .admin-workspace-intro { align-items: flex-start; flex-direction: column; }
+  .admin-page-header { align-items: flex-start; flex-direction: column; gap: .75rem; }
+  .admin-page-meta { justify-items: start; text-align: left; }
   .admin-menu-toggle { display: inline-flex; min-height: 2.75rem; align-items: center; gap: .5rem; border: 1px solid var(--line); border-radius: .7rem; background: var(--paper); color: var(--forest); padding: .45rem .7rem; font-size: .8rem; font-weight: 750; }
   .admin-menu-icon { display: grid; gap: .18rem; }
   .admin-menu-icon i { display: block; width: .9rem; height: 2px; background: currentColor; }
