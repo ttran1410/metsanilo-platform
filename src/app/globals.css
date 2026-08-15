@@ -497,12 +497,24 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .customer-history-row > div:last-child { text-align: right; }
 .customer-audit-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; border-left: 3px solid #c9d9ce; padding: .45rem .65rem; }
 .order-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.order-detail-panels { align-items: start; }
+.order-lifecycle { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .5rem; margin: 1rem 0; padding: 0; list-style: none; }
+.order-lifecycle li { position: relative; display: grid; gap: .25rem; border-top: 3px solid var(--line); padding: .7rem .25rem 0; color: var(--muted); font-size: .72rem; }
+.order-lifecycle li.is-complete { border-color: var(--ops-success); color: var(--ops-ink); }
+.order-lifecycle-dot { position: absolute; top: -.55rem; left: .25rem; width: .75rem; height: .75rem; border: 2px solid var(--line); border-radius: 50%; background: var(--ops-canvas); }
+.order-lifecycle li.is-complete .order-lifecycle-dot { border-color: var(--ops-success); background: var(--ops-success); }
+.order-lifecycle small { color: var(--muted); font-size: .66rem; }
+.order-customer-address { border-top: 1px solid var(--line); padding-top: .75rem; }
+.order-customer-address a { color: var(--ops-spruce); font-weight: 750; text-decoration: underline; text-underline-offset: .15rem; }
 .order-detail-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
 .order-detail-facts > div { display: grid; gap: .25rem; border-top: 1px solid var(--line); padding-top: .7rem; }
 .order-detail-facts span { color: var(--muted); font-size: .68rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
 .order-detail-facts strong { font-size: .95rem; }
 .order-detail-facts small { color: var(--muted); font-size: .75rem; }
 .detail-form { display: flex; flex-wrap: wrap; align-items: end; gap: .65rem; border-top: 1px solid var(--line); padding-top: .9rem; }
+.order-edit-preview { display: grid; gap: .25rem; width: 100%; border: 1px solid #b8d8c1; border-radius: .8rem; background: #eff9f0; padding: .85rem 1rem; color: var(--ops-ink); }
+.order-edit-preview strong { color: var(--ops-success); }
+.order-edit-preview small { color: var(--ops-ink-muted); }
 .detail-form .field { flex: 1 1 10rem; }
 .btn-danger { background: var(--berry); }
 .admin-dialog-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgb(15 23 42 / 45%); padding: 1rem; }
@@ -577,6 +589,10 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .status-muted { background:#eef0f2; color:#64707a; }
 .empty-state { text-align:center; color:var(--muted); padding:2rem; }
 @media (max-width:760px) {
+  .order-lifecycle { grid-template-columns: 1fr; gap: .35rem; }
+  .order-lifecycle li { min-height: 2.7rem; border-top: 0; border-left: 3px solid var(--line); padding: .35rem .5rem .35rem 1.1rem; }
+  .order-lifecycle li.is-complete { border-color: var(--ops-success); }
+  .order-lifecycle-dot { top: .75rem; left: -.55rem; }
   .admin-catalog-toolbar, .admin-product-summary { align-items:stretch; flex-direction:column; }
   .admin-catalog-actions { justify-content:stretch; }
   .admin-catalog-actions input, .admin-catalog-actions select, .admin-catalog-actions .btn { flex:1 1 100%; width:100%; }
@@ -585,6 +601,9 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 }
 .admin-orders-table td > strong, .admin-orders-table td > small { display: block; }
 .admin-orders-table td > small { color: var(--muted); font-size: .76rem; margin-top: .2rem; }
+.admin-selection-toolbar { position: sticky; top: 5.5rem; z-index: 8; border-color: var(--line); }
+.admin-selection-toolbar.is-active { border-color: var(--moss); box-shadow: 0 10px 24px rgb(23 55 43 / 10%); }
+.admin-selection-toolbar strong { color: var(--forest); }
 .admin-table-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
 .admin-table-actions .btn { min-height: 2.45rem; padding: .45rem .7rem; }
 .admin-orders-table + .admin-empty-state { margin: 1rem; }

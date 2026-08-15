@@ -86,3 +86,7 @@ Before a module is considered migrated, verify: route-level list/detail/edit sep
 - `formatAdminMoney` and `formatAdminReference` for locale-safe, tabular operational values.
 
 These primitives are re-exported from `presentation.tsx` during migration so existing modules can adopt them incrementally. A primitive must remain deterministic, accessible, and safe to render on both desktop and mobile; business rules stay in the route/module layer.
+
+## Phase 3B — Orders-specific patterns
+
+Orders uses the primitives as a high-velocity operational queue: quick-view chips, date-range and source filters, a sticky selection toolbar, row-level transition menus, and equivalent mobile cards. The detail route is the command center with a lifecycle stepper, customer contact actions, fulfillment snapshots, customer delivery address, payment/fee controls, exceptions, notes and audit. The edit route presents a capacity delta preview and an explicit price-override/reason flow; the server remains authoritative for atomic capacity and optimistic-version checks.
