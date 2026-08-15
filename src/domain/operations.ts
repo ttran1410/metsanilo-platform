@@ -13,7 +13,7 @@ const nowIso = () => new Date().toISOString();
 export async function createExternalOrder(database: Database, input: {
   productId: string; packageId: string; quantity: number; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY";
   customerName: string; mobile: string; email?: string; streetAddress?: string; postalCode?: string; city?: string; notes?: string;
-  status: "NEW" | "CONFIRMED"; source: "PHONE" | "OTHER"; deliveryFeeCents?: number;
+  status: "NEW" | "CONFIRMED"; source: "PHONE" | "SMS" | "WHATSAPP" | "FACEBOOK" | "WEBSITE" | "OTHER"; deliveryFeeCents?: number;
 }) {
   const receipt = await submitOrder(database, {
     locale: "fi", ...input, idempotencyKey: `external-${randomBytes(12).toString("hex")}`,
@@ -32,7 +32,7 @@ export async function createHistoricalOrder(database: Database, input: {
   productId: string; packageId: string; quantity: number; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY";
   customerName: string; mobile: string; email?: string; streetAddress?: string; postalCode?: string; city?: string;
   itemSubtotalCents?: number; deliveryFeeCents?: number; completedStatus: "PICKED_UP" | "DELIVERED"; completedAt: string;
-  source: "PHONE" | "OTHER"; reason: string; paymentAmountCents?: number;
+  source: "PHONE" | "SMS" | "WHATSAPP" | "FACEBOOK" | "WEBSITE" | "OTHER"; reason: string; paymentAmountCents?: number;
 }) {
   const shopId = env().SHOP_ID;
   if (input.reason.trim().length < 2 || input.quantity < 1) throw new DomainError("VALIDATION_ERROR", "Historical reason and quantity are required", 422);
