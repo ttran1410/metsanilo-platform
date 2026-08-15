@@ -17,13 +17,13 @@ export async function hasAdminPermission(request: Request, permission: Permissio
 
 export async function adminNavigation(request: Request) {
   return [
-    { id: "dashboard", label: "Dashboard", enabled: await hasAdminPermission(request, "orders.read") },
-    { id: "orders", label: "Orders", enabled: await hasAdminPermission(request, "orders.read") },
-    { id: "availability", label: "Availability", enabled: await hasAdminPermission(request, "availability.write") },
-    { id: "customers", label: "Customers", enabled: await hasAdminPermission(request, "customers.read") },
-    { id: "manual-orders", label: "Manual orders", enabled: await hasAdminPermission(request, "orders.create") },
-    { id: "products", label: "Products", enabled: await hasAdminPermission(request, "catalog.product.write") },
-    { id: "settings", label: "Settings", enabled: await hasAdminPermission(request, "settings.operational") },
-    { id: "users", label: "Users & permissions", enabled: await hasAdminPermission(request, "shop_users.manage") },
+    { id: "dashboard", label: "Overview", group: "Operations", enabled: await hasAdminPermission(request, "orders.read") },
+    { id: "orders", label: "Orders", group: "Operations", enabled: await hasAdminPermission(request, "orders.read") },
+    { id: "availability", label: "Harvest availability", group: "Operations", enabled: await hasAdminPermission(request, "availability.write") },
+    { id: "manual-orders", label: "Phone & message orders", group: "Operations", enabled: await hasAdminPermission(request, "orders.create") },
+    { id: "customers", label: "Customers", group: "Catalog & customers", enabled: await hasAdminPermission(request, "customers.read") },
+    { id: "products", label: "Product catalog", group: "Catalog & customers", enabled: await hasAdminPermission(request, "catalog.product.write") },
+    { id: "settings", label: "Settings", group: "Administration", enabled: await hasAdminPermission(request, "settings.operational") },
+    { id: "users", label: "Users & permissions", group: "Administration", enabled: await hasAdminPermission(request, "shop_users.manage") },
   ];
 }
