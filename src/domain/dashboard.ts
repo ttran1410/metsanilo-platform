@@ -157,8 +157,20 @@ export async function getDashboard(database: Database) {
     createdAt: entry.createdAt,
   }));
 
+  const triageOrders = rowsWithPayment.filter((row) => getOrderTriageReasons(row).length > 0);
+
   const attention = rowsWithPayment
-    .flatMap((row) => getOrderTriageReasons(row).map((reason) => ({ id: `${row.id}-${reason.code}`, orderId: row.id, publicReference: row.publicReference, customerName: row.customerName, fulfillmentDate: row.fulfillmentDate, status: row.status, ...reason })))
+    .flatMap((row) =>
+      getOrderTriageReasons(row).map((reason) => ({
+        id: `${row.id}-${reason.code}`,
+        orderId: row.id,
+        publicReference: row.publicReference,
+        customerName: row.customerName,
+        fulfillmentDate: row.fulfillmentDate,
+        status: row.status,
+        ...reason,
+      }))
+    )
     .sort((a, b) => b.score - a.score)
     .slice(0, 12);
 
@@ -166,7 +178,7 @@ export async function getDashboard(database: Database) {
     businessDate: date,
     asOf: new Date().toISOString(),
     unreadNotifications: Number(unreadNotifications[0]?.count ?? 0),
-    attentionCount: attention.length,
+    attentionCount: triageOrders.length,
     overdueNew,
     unconfirmedDeliveryCount: unconfirmedDelivery.length,
     funnel,
