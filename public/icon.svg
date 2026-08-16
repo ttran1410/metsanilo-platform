@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <g transform="translate(4, 4)">
+    <!-- Leaf 1 (Left) - Moss Green -->
+    <path d="M 0 22 C 0 7 7 0 13 0 C 13 15 13 22 0 22 Z" fill="#2f6b4f" transform="translate(10, 16) rotate(-42) scale(0.9)" />
+    <!-- Leaf 2 (Middle Top) - Forest Green -->
+    <path d="M 0 24 C 0 8 8 0 14 0 C 14 16 14 24 0 24 Z" fill="#17372b" transform="translate(22, 6) rotate(35) scale(1.05)" />
+    <!-- Leaf 3 (Right) - Berry Accent -->
+    <path d="M 0 22 C 0 7 7 0 13 0 C 13 15 13 22 0 22 Z" fill="#5d2b46" transform="translate(34, 16) rotate(82) scale(0.9)" />
+  </g>
+</svg>

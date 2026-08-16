@@ -17,6 +17,11 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(origin),
     title: "METSÄNILO — Metsän maku, talteen kesästä",
     description,
+    icons: {
+      icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+      shortcut: "/icon.svg",
+      apple: "/icon.svg",
+    },
     openGraph: {
       type: "website",
       title: "METSÄNILO",
