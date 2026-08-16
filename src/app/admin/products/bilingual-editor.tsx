@@ -68,7 +68,7 @@ export function BilingualEditor({
           </div>
 
           <label className="field">
-            <span>Finnish Name *</span>
+            <span>Finnish Name</span>
             <input
               value={nameFi}
               onChange={(e) => setNameFi(e.target.value)}
@@ -101,7 +101,7 @@ export function BilingualEditor({
           </div>
 
           <label className="field">
-            <span>English Name *</span>
+            <span>English Name</span>
             <input
               value={nameEn}
               onChange={(e) => setNameEn(e.target.value)}

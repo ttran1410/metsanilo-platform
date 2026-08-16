@@ -455,7 +455,7 @@ export function MasterDetailWorkspace({
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <label className="field">
-                        <span>Product Code *</span>
+                        <span>Product Code</span>
                         <input
                           value={code}
                           onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -465,7 +465,7 @@ export function MasterDetailWorkspace({
                       </label>
 
                       <label className="field">
-                        <span>URL Slug *</span>
+                        <span>URL Slug</span>
                         <input
                           value={slug}
                           onChange={(e) => setSlug(e.target.value.toLowerCase())}
@@ -475,7 +475,7 @@ export function MasterDetailWorkspace({
                       </label>
 
                       <label className="field">
-                        <span>Available From *</span>
+                        <span>Available From</span>
                         <input
                           type="date"
                           value={availableFrom}
@@ -485,7 +485,7 @@ export function MasterDetailWorkspace({
                       </label>
 
                       <label className="field">
-                        <span>Available Through *</span>
+                        <span>Available Through</span>
                         <input
                           type="date"
                           value={availableThrough}

@@ -155,7 +155,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
 
       <form className="card mt-3 grid gap-3 md:grid-cols-2" onSubmit={submit}>
         <label className="field">
-          <span>Product *</span>
+          <span>Product</span>
           <select name="productId" value={productId} onChange={(e) => selectProduct(e.target.value)} required>
             {products.map((row) => (
               <option key={row.product.id} value={row.product.id}>
@@ -166,7 +166,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
         </label>
 
         <label className="field">
-          <span>Package &amp; price *</span>
+          <span>Package &amp; price</span>
           <select name="packageId" value={packageId} onChange={(e) => setPackageId(e.target.value)} required>
             {(selectedProduct?.packages ?? []).map((item) => (
               <option key={item.id} value={item.id}>
@@ -177,20 +177,20 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
         </label>
 
         <label className="field">
-          <span>Quantity *</span>
+          <span>Quantity</span>
           <input name="quantity" type="number" min="1" max="100" value={quantity} onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))} required />
           <small className="muted">Calculated subtotal: {(calculatedSubtotal / 100).toFixed(2)} €</small>
         </label>
 
         <label className="field">
-          <span>Fulfillment date *</span>
+          <span>Fulfillment date</span>
           <input name="fulfillmentDate" type="date" required />
         </label>
 
         {/* Fulfillment Method & Delivery Fee Side-by-Side */}
         <label className="field">
-          <span>Fulfillment method *</span>
-          <select name="fulfillmentMethod" value={fulfillmentMethod} onChange={(e) => setFulfillmentMethod(e.target.value as "PICKUP" | "DELIVERY")}>
+          <span>Fulfillment method</span>
+          <select name="fulfillmentMethod" value={fulfillmentMethod} onChange={(e) => setFulfillmentMethod(e.target.value as "PICKUP" | "DELIVERY")} required>
             <option value="PICKUP">Pickup</option>
             <option value="DELIVERY">Delivery</option>
           </select>
@@ -231,12 +231,12 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
         </label>
 
         <label className="field">
-          <span>Customer name *</span>
+          <span>Customer name</span>
           <input name="customerName" required />
         </label>
 
         <label className={`field ${mobileError ? "field-invalid" : ""}`}>
-          <span>Mobile *</span>
+          <span>Mobile</span>
           <input
             name="mobile"
             type="tel"
@@ -329,7 +329,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
             </label>
 
             <label className="field md:col-span-2">
-              <span>Reason / evidence note *</span>
+              <span>Reason / evidence note</span>
               <input name="reason" required minLength={2} placeholder="Historical order record details..." />
             </label>
           </>

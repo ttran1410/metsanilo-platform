@@ -79,9 +79,7 @@ export function ForcedPasswordForm() {
   return (
     <form className="admin-login-form flex flex-col gap-4" onSubmit={submit} noValidate>
       <label className="admin-login-field">
-        <span>
-          Current password <b aria-hidden="true">*</b>
-        </span>
+        <span>Current password</span>
         <input
           name="currentPassword"
           type="password"
@@ -94,9 +92,7 @@ export function ForcedPasswordForm() {
       </label>
 
       <label className="admin-login-field">
-        <span>
-          New password <b aria-hidden="true">*</b>
-        </span>
+        <span>New password</span>
         <input
           name="newPassword"
           type="password"
@@ -134,9 +130,7 @@ export function ForcedPasswordForm() {
       </div>
 
       <label className="admin-login-field">
-        <span>
-          Confirm new password <b aria-hidden="true">*</b>
-        </span>
+        <span>Confirm new password</span>
         <input
           name="confirmNewPassword"
           type="password"

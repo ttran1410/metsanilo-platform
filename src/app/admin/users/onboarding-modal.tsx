@@ -112,7 +112,7 @@ export function OnboardingModal({
             <span className="text-xs font-bold uppercase tracking-wider text-muted">1. Account Details</span>
             <div className="grid gap-2.5 sm:grid-cols-2">
               <label className="field">
-                <span>Full Name *</span>
+                <span>Full Name</span>
                 <input
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
@@ -122,7 +122,7 @@ export function OnboardingModal({
               </label>
 
               <label className="field">
-                <span>Email Address *</span>
+                <span>Email Address</span>
                 <input
                   type="email"
                   value={email}
