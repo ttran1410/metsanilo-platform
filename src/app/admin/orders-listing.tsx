@@ -436,7 +436,7 @@ export function OrdersListing({
           </button>
 
           {canCreate && (
-            <Link className="btn text-xs py-1.5 px-3 font-bold" href="/admin/manual-orders/new">
+            <Link className="btn text-xs py-1.5 px-3 font-bold" href="/admin/manual-orders">
               ＋ New Order
             </Link>
           )}
