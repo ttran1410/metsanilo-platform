@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
+import { CustomerAddressFields } from "@/app/customer-address-fields";
 
 type Product = {
   product: { id: string; nameFi: string; nameEn: string };
@@ -399,25 +400,17 @@ export function OrderEditForm({
           />
         </label>
 
-        <label className="field md:col-span-2">
-          <span>Customer street address{form.fulfillmentMethod === "DELIVERY" ? "" : " (Optional)"}</span>
-          <input
-            value={form.streetAddress}
-            onChange={(e) => update("streetAddress", e.target.value)}
-            required={form.fulfillmentMethod === "DELIVERY"}
-            placeholder={form.fulfillmentMethod === "DELIVERY" ? "Required for delivery" : "Optional for pickup"}
+        <div className="md:col-span-2">
+          <CustomerAddressFields
+            fulfillmentMethod={form.fulfillmentMethod}
+            streetAddress={form.streetAddress}
+            postalCode={form.postalCode}
+            city={form.city}
+            onStreetAddressChange={(val) => update("streetAddress", val)}
+            onPostalCodeChange={(val) => update("postalCode", val)}
+            onCityChange={(val) => update("city", val)}
           />
-        </label>
-
-        <label className="field">
-          <span>Postal code</span>
-          <input inputMode="numeric" value={form.postalCode} onChange={(e) => update("postalCode", e.target.value)} />
-        </label>
-
-        <label className="field">
-          <span>City</span>
-          <input value={form.city} onChange={(e) => update("city", e.target.value)} placeholder="Pori" />
-        </label>
+        </div>
 
         <div className="field">
           <label className="checkbox-field">
