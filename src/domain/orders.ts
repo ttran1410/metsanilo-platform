@@ -234,6 +234,9 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
         pickupConfirmedBy: null,
         locale: input.locale,
         status: "NEW" as const,
+        archived: false,
+        archivedAt: null,
+        archivedBy: null,
         version: 1,
         createdAt,
         updatedAt: createdAt,
@@ -663,6 +666,84 @@ export async function deleteManagerOrder(database: Database, orderId: string, ac
     });
 
     return { success: true, id: orderId, publicReference: current.publicReference };
+  });
+}
+
+export async function archiveManagerOrder(database: Database, orderId: string, actorEmail?: string) {
+  const { SHOP_ID } = env();
+  return database.transaction(async (tx) => {
+    const current = await tx.query.orders.findFirst({
+      where: and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID)),
+    });
+    if (!current) throw new DomainError("NOT_FOUND", "Order not found", 404);
+
+    if (["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY"].includes(current.status)) {
+      throw new DomainError(
+        "INVALID_TRANSITION",
+        `Order ${current.publicReference} is currently active in status ${current.status}. Complete or cancel the order before archiving.`,
+        400
+      );
+    }
+
+    const now = nowIso();
+    await tx
+      .update(orders)
+      .set({
+        archived: true,
+        archivedAt: now,
+        archivedBy: actorEmail || "MANAGER",
+        updatedAt: now,
+      })
+      .where(and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID)))
+      .run();
+
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId: SHOP_ID,
+      actor: actorEmail || "MANAGER",
+      action: "order.archived",
+      entityType: "order",
+      entityId: orderId,
+      detailsJson: JSON.stringify({ publicReference: current.publicReference, status: current.status }),
+      createdAt: now,
+    });
+
+    return { success: true, id: orderId, publicReference: current.publicReference, archived: true };
+  });
+}
+
+export async function unarchiveManagerOrder(database: Database, orderId: string, actorEmail?: string) {
+  const { SHOP_ID } = env();
+  return database.transaction(async (tx) => {
+    const current = await tx.query.orders.findFirst({
+      where: and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID)),
+    });
+    if (!current) throw new DomainError("NOT_FOUND", "Order not found", 404);
+
+    const now = nowIso();
+    await tx
+      .update(orders)
+      .set({
+        archived: false,
+        archivedAt: null,
+        archivedBy: null,
+        updatedAt: now,
+      })
+      .where(and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID)))
+      .run();
+
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId: SHOP_ID,
+      actor: actorEmail || "MANAGER",
+      action: "order.unarchived",
+      entityType: "order",
+      entityId: orderId,
+      detailsJson: JSON.stringify({ publicReference: current.publicReference, status: current.status }),
+      createdAt: now,
+    });
+
+    return { success: true, id: orderId, publicReference: current.publicReference, archived: false };
   });
 }
 
