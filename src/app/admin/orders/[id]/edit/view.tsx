@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { CustomerAddressFields } from "@/app/customer-address-fields";
@@ -97,6 +98,30 @@ export function OrderEditForm({
 
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([
+    { key: "WEBSITE", labelEn: "Website" },
+    { key: "PHONE", labelEn: "Phone" },
+    { key: "SMS", labelEn: "SMS" },
+    { key: "WHATSAPP", labelEn: "WhatsApp" },
+    { key: "FACEBOOK", labelEn: "Facebook" },
+    { key: "OTHER", labelEn: "Other" },
+  ]);
+
+  // Normalise legacy source keys that existed before the settings API
+  const normalisedSource = form.orderSource === "MANUAL" ? "PHONE" : form.orderSource === "FACEBOOK_MESSAGE" ? "FACEBOOK" : form.orderSource;
+
+  // Load order sources from settings API
+  useEffect(() => {
+    fetch("/api/admin/order-sources")
+      .then((r) => r.ok ? r.json() : null)
+      .then((body) => {
+        const rows: Array<{ key: string; labelEn: string; active: boolean }> = body?.data ?? body;
+        if (Array.isArray(rows) && rows.length > 0) {
+          setSources(rows.filter((s) => s.active).map((s) => ({ key: s.key, labelEn: s.labelEn })));
+        }
+      })
+      .catch(() => { /* keep defaults */ });
+  }, []);
 
   const currentProduct = products.find((item) => item.product.id === form.productId);
   const packages = useMemo(() => currentProduct?.packages.filter((item) => item.active) ?? [], [currentProduct]);
@@ -371,28 +396,20 @@ export function OrderEditForm({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Fulfillment method</span>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="toggle-btn-group toggle-btn-group-2">
               <button
                 type="button"
-                className={`min-h-[44px] py-2 px-4 rounded-lg font-bold text-sm border transition-all flex items-center justify-center gap-2 ${
-                  form.fulfillmentMethod === "PICKUP"
-                    ? "bg-forest text-white border-forest shadow-xs"
-                    : "bg-paper text-ink border-line hover:border-forest/50"
-                }`}
+                className={`toggle-btn${form.fulfillmentMethod === "PICKUP" ? " selected" : ""}`}
                 onClick={() => update("fulfillmentMethod", "PICKUP")}
               >
-                <span>🏪</span> Pickup
+                🏪 Pickup
               </button>
               <button
                 type="button"
-                className={`min-h-[44px] py-2 px-4 rounded-lg font-bold text-sm border transition-all flex items-center justify-center gap-2 ${
-                  form.fulfillmentMethod === "DELIVERY"
-                    ? "bg-forest text-white border-forest shadow-xs"
-                    : "bg-paper text-ink border-line hover:border-forest/50"
-                }`}
+                className={`toggle-btn${form.fulfillmentMethod === "DELIVERY" ? " selected" : ""}`}
                 onClick={() => update("fulfillmentMethod", "DELIVERY")}
               >
-                <span>🚚</span> Delivery
+                🚚 Delivery
               </button>
             </div>
           </div>
@@ -441,26 +458,15 @@ export function OrderEditForm({
         <div className="space-y-4">
           <div>
             <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Order source</span>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { key: "WEBSITE", label: "Website" },
-                { key: "MANUAL", label: "Manual" },
-                { key: "SMS", label: "SMS" },
-                { key: "WHATSAPP", label: "WhatsApp" },
-                { key: "FACEBOOK_MESSAGE", label: "Facebook" },
-                { key: "OTHER", label: "Other" },
-              ].map((src) => (
+            <div className="toggle-btn-group toggle-btn-group-auto">
+              {sources.map((src) => (
                 <button
                   key={src.key}
                   type="button"
-                  className={`py-1.5 px-3.5 rounded-lg text-xs font-bold border transition-all ${
-                    form.orderSource === src.key
-                      ? "bg-forest text-white border-forest shadow-xs"
-                      : "bg-paper text-ink border-line hover:border-forest/40"
-                  }`}
+                  className={`toggle-btn${normalisedSource === src.key ? " selected" : ""}`}
                   onClick={() => update("orderSource", src.key)}
                 >
-                  {src.label}
+                  {src.labelEn}
                 </button>
               ))}
             </div>
@@ -481,8 +487,8 @@ export function OrderEditForm({
                 value={form.mobile}
                 onChange={(e) => update("mobile", e.target.value)}
                 onBlur={handleMobileBlur}
-                required={!(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE")}
-                placeholder={(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE") ? "Optional for Facebook orders (e.g. 040 123 4567)" : "+358 40 123 4567 or 040 123 4567"}
+                required={!(normalisedSource === "FACEBOOK")}
+                placeholder={(normalisedSource === "FACEBOOK") ? "Optional for Facebook orders (e.g. 040 123 4567)" : "+358 40 123 4567 or 040 123 4567"}
               />
             </label>
 
@@ -502,7 +508,7 @@ export function OrderEditForm({
               <input
                 value={form.facebookProfile}
                 onChange={(e) => update("facebookProfile", e.target.value)}
-                required={(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE")}
+                required={(normalisedSource === "FACEBOOK")}
                 placeholder="e.g. facebook.com/username or Facebook Name"
               />
             </label>
