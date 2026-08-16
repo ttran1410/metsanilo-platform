@@ -305,7 +305,27 @@ describe("order operations", () => {
     const picked = await confirmPickup(database, { orderId: order.id, expectedVersion: confirmed.version });
     expect(picked.pickupConfirmedAt).toBeTruthy();
   });
+
+  it("deletes an unpaid order and blocks deletion if payments exist", async () => {
+    const { deleteManagerOrder } = await import("@/domain/orders");
+    const receipt = await submitOrder(database, pickupInput("delete-test"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    
+    // Delete unpaid order -> success
+    const result = await deleteManagerOrder(database, order.id);
+    expect(result.success).toBe(true);
+    expect(await database.query.orders.findFirst({ where: eq(orders.id, order.id) })).toBeUndefined();
+
+    // Create another order and record payment
+    const receipt2 = await submitOrder(database, pickupInput("delete-blocked"));
+    const order2 = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt2.publicReference) }))!;
+    await recordPayment(database, { orderId: order2.id, amountCents: 2500, method: "CASH" });
+
+    // Deleting order with payments -> throws PAYMENT_EXISTS error
+    await expect(deleteManagerOrder(database, order2.id)).rejects.toMatchObject({ code: "PAYMENT_EXISTS" });
+  });
 });
+
 
 describe("shop roles and permissions", () => {
   it("seeds Manager and Staff operational defaults", async () => {
