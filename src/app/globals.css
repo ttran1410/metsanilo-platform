@@ -32,21 +32,21 @@
   --form-field-gap: .5rem;
   --form-textarea-min-height: 7.5rem;
   --serif: "Iowan Old Style", Baskerville, Georgia, "Times New Roman", serif;
-  --sans: "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
-  /* METSÄNILO Operations semantic aliases. Keep these separate from storefront
-     tokens so the portal can evolve without changing customer-facing surfaces. */
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+  /* METSÄNILO Operations semantic aliases. High contrast modern SaaS standard tokens. */
   --ops-canvas: #f8fafc;
   --ops-surface: #ffffff;
   --ops-surface-muted: #f1f5f9;
-  --ops-ink: #17202a;
-  --ops-ink-muted: #64748b;
+  --ops-ink: #0f172a;
+  --ops-ink-muted: #334155;
   --ops-spruce: #17372b;
   --ops-focus: #c26b35;
   --ops-success: #15803d;
   --ops-warning: #b45309;
   --ops-danger: #b91c1c;
   --ops-info: #1d4ed8;
-  --ops-neutral: #64748b;
+  --ops-neutral: #475569;
+  --ops-border: #cbd5e1;
   --ops-control-height: 2.75rem;
   --ops-control-height-mobile: 3rem;
   --ops-radius: .85rem;
@@ -1292,4 +1292,83 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .toggle-btn-group-2 { grid-template-columns: repeat(2, 1fr); }
 .toggle-btn-group-3 { grid-template-columns: repeat(3, 1fr); }
 .toggle-btn-group-auto { grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr)); }
+
+/* ─── Admin Portal SaaS High Legibility & Contrast System ──────────────────── */
+.admin-app {
+  color: var(--ops-ink, #0f172a);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Primary Ink & Text Clarity */
+.admin-app h1,
+.admin-app h2,
+.admin-app h3,
+.admin-app h4,
+.admin-app h5,
+.admin-app strong,
+.admin-app b {
+  color: var(--ops-ink, #0f172a);
+}
+
+/* Secondary Ink: Dark Slate (Contrast Ratio > 10:1 on White) */
+.admin-app .text-muted,
+.admin-app .muted,
+.admin-app small.muted,
+.admin-app span.muted,
+.admin-app p.muted,
+.admin-app label.muted {
+  color: #334155 !important;
+}
+
+.admin-app .eyebrow {
+  color: #15803d;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+/* Crisp Slate Cards & Borders */
+.admin-app .card {
+  border-color: #cbd5e1;
+  border-radius: var(--ops-radius, 0.85rem);
+  background: var(--ops-surface, #ffffff);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+}
+
+/* Tactile Secondary Buttons */
+.admin-app .btn-secondary {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.admin-app .btn-secondary:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+/* Crisp High-Contrast Status Badges */
+.ops-status-success { border: 1px solid #a7f3d0; background: #ecfdf5; color: #065f46; font-weight: 800; }
+.ops-status-warning { border: 1px solid #fde68a; background: #fffbeb; color: #78350f; font-weight: 800; }
+.ops-status-danger { border: 1px solid #fecdd3; background: #fff1f2; color: #9f1239; font-weight: 800; }
+.ops-status-info { border: 1px solid #bfdbfe; background: #eff6ff; color: #1e40af; font-weight: 800; }
+.ops-status-neutral { border: 1px solid #cbd5e1; background: #f1f5f9; color: #334155; font-weight: 800; }
+
+/* Enhanced Table Legibility */
+.admin-data-table th,
+.admin-orders-table th {
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 800;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.admin-data-table td,
+.admin-orders-table td {
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+
 
