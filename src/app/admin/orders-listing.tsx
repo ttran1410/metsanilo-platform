@@ -677,12 +677,13 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
                           {canUpdate && !isClosed && (
                             <Link
                               className="w-full text-left px-3 py-1.5 hover:bg-surface-muted flex items-center gap-2 text-ink"
-                              href={`/admin/orders/${order.id}/edit`}
+                              href={`/admin/orders/${order.id}/edit?from=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : `/admin/orders`)}`}
                               onClick={() => setOpenMenuId(null)}
                             >
                               ✏️ Edit Order
                             </Link>
                           )}
+
 
                           {canTransition && !isClosed && (
                             <button

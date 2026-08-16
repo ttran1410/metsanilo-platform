@@ -117,7 +117,14 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
           </div>
         </div>
         <div className="order-inspector-nav">
-          {canUpdate && !isClosed && <a className="btn btn-secondary text-xs py-1 px-2.5" href={`/admin/orders/${order.id}/edit`}>Edit order ✏️</a>}
+          {canUpdate && !isClosed && (
+            <a
+              className="btn btn-secondary text-xs py-1 px-2.5"
+              href={`/admin/orders/${order.id}/edit?from=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : `/admin/orders`)}`}
+            >
+              Edit order ✏️
+            </a>
+          )}
           <button type="button" onClick={onPrevious} disabled={!onPrevious} aria-label="Previous order">↑</button>
           <button type="button" onClick={onNext} disabled={!onNext} aria-label="Next order">↓</button>
           <button ref={closeRef} type="button" onClick={onClose} aria-label="Close inspector">×</button>
@@ -165,11 +172,21 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
       </div>}
       <footer className="order-inspector-footer">
         <div className="flex items-center gap-2">
-          {canUpdate && !isClosed && <a className="btn" href={`/admin/orders/${order.id}/edit`}>Edit order ✏️</a>}
-          <a className="btn btn-secondary" href={`/admin/orders/${order.id}`}>Open full detail ↗</a>
+          {canUpdate && !isClosed && (
+            <a
+              className="btn"
+              href={`/admin/orders/${order.id}/edit?from=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : `/admin/orders`)}`}
+            >
+              Edit order ✏️
+            </a>
+          )}
+          <a className="btn btn-secondary" href={`/admin/orders/${order.id}`}>
+            Open full detail ↗
+          </a>
         </div>
         <span>Esc closes · ↑/↓ moves</span>
       </footer>
+
     </aside>
   </div>;
 }

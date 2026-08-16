@@ -22,11 +22,15 @@ export const orderInputSchema = z
   })
   .superRefine((input, ctx) => {
     if (input.fulfillmentMethod === "DELIVERY") {
+      if (!input.streetAddress || input.streetAddress.trim().length < 2) {
+        ctx.addIssue({ code: "custom", path: ["streetAddress"], message: "REQUIRED" });
+      }
       if (input.postalCode && !/^\d{5}$/.test(input.postalCode)) {
         ctx.addIssue({ code: "custom", path: ["postalCode"], message: "INVALID_POSTAL_CODE" });
       }
     }
   });
+
 
 export type OrderInput = z.infer<typeof orderInputSchema>;
 

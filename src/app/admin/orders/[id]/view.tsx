@@ -200,10 +200,11 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
 
           <div className="flex flex-wrap items-center gap-2">
             {!isClosed && (
-              <Link className="btn btn-secondary text-xs py-1.5 px-3" href={`/admin/orders/${detail.order.id}/edit`}>
+              <Link className="btn btn-secondary text-xs py-1.5 px-3" href={`/admin/orders/${detail.order.id}/edit?from=${encodeURIComponent(`/admin/orders/${detail.order.id}`)}`}>
                 Edit order ✏️
               </Link>
             )}
+
             {/* Quick Action Bar inside Header */}
             {detail.order.status === "NEW" && (
               <button className="btn text-xs py-1.5 px-3" type="button" onClick={() => void transition("CONFIRMED")}>
