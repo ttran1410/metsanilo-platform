@@ -251,7 +251,7 @@ export function OrderForm({
         {method === "PICKUP" ? (
           <div className="pickup-card"><span>{locale === "fi" ? "Noutopaikka" : "Pickup point"}</span><strong>{pickup.name}</strong><p>{pickup.address}<br />{pickup.instructions}<br />{pickup.time}</p></div>
         ) : (
-          <div className="delivery-fields mt-3">
+          <div className="mt-3">
             <CustomerAddressFields
               fulfillmentMethod="DELIVERY"
               fieldErrors={fieldErrors}
