@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AdminNotice, AdminPageHeader } from "./presentation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
-
 import { CustomerAddressFields } from "../customer-address-fields";
 
 type Product = {
@@ -28,7 +27,10 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
   const [emailInput, setEmailInput] = useState("");
   const [cityInput, setCityInput] = useState("Pori");
   const [orderSource, setOrderSource] = useState("PHONE");
-  const [sourceOptions, setSourceOptions] = useState<Array<{ key: string; labelEn: string }>>([]);
+  const [completedStatus, setCompletedStatus] = useState<"PICKED_UP" | "DELIVERED">("PICKED_UP");
+  const [paymentStatus, setPaymentStatus] = useState<"PAID" | "UNPAID">("PAID");
+  const [paymentMethod, setPaymentMethod] = useState("CASH");
+
   const isFacebookSource = orderSource === "FACEBOOK";
 
   const selectedProduct = products.find((row) => row.product.id === productId);
@@ -44,12 +46,6 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
       setPaymentEurosStr((calculatedTotalCents / 100).toFixed(2));
     }
   }, [calculatedTotalCents, userEditedPayment]);
-
-  useEffect(() => {
-    void fetch("/api/admin/order-sources")
-      .then(async (response) => (response.ok ? setSourceOptions((await response.json()).data.filter((item: { active: boolean }) => item.active)) : undefined))
-      .catch(() => undefined);
-  }, []);
 
   function selectProduct(value: string) {
     setProductId(value);
@@ -76,7 +72,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
     setMessage("");
     setMobileError("");
     const values = new FormData(event.currentTarget);
-    const paymentStatus = String(values.get("paymentStatus") ?? "PAID");
+    const formPaymentStatus = String(values.get("paymentStatus") ?? paymentStatus);
     const paymentEuros = Number(paymentEurosStr);
 
     let normalizedMobile: string | undefined = undefined;
@@ -94,7 +90,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
       return setMessage("Mobile phone is required.");
     }
 
-    if (historical && paymentStatus === "PAID" && !(paymentEuros > 0 || calculatedTotalCents > 0)) {
+    if (historical && formPaymentStatus === "PAID" && !(paymentEuros > 0 || calculatedTotalCents > 0)) {
       return setMessage("Enter the amount received for a paid historical order.");
     }
 
@@ -111,17 +107,17 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
       streetAddress: String(values.get("streetAddress") ?? "").trim() || undefined,
       postalCode: String(values.get("postalCode") ?? "").trim() || undefined,
       city: String(values.get("city") ?? "").trim() || "Pori",
-      source: String(values.get("source") ?? "PHONE"),
+      source: String(values.get("source") ?? orderSource),
       deliveryFeeCents: fulfillmentMethod === "PICKUP" ? 0 : deliveryFeeStr ? Math.round(Number(deliveryFeeStr) * 100) : undefined,
 
       ...(historical
         ? {
-            completedStatus: values.get("completedStatus"),
+            completedStatus: values.get("completedStatus") ?? completedStatus,
             completedAt: new Date().toISOString(),
             reason: values.get("reason"),
             itemSubtotalCents: calculatedSubtotal,
-            paymentAmountCents: paymentStatus === "PAID" ? Math.round((paymentEuros > 0 ? paymentEuros : calculatedTotalCents / 100) * 100) : undefined,
-            paymentMethod: paymentStatus === "PAID" ? values.get("paymentMethod") || undefined : undefined,
+            paymentAmountCents: formPaymentStatus === "PAID" ? Math.round((paymentEuros > 0 ? paymentEuros : calculatedTotalCents / 100) * 100) : undefined,
+            paymentMethod: formPaymentStatus === "PAID" ? (values.get("paymentMethod") ?? paymentMethod) || undefined : undefined,
           }
         : { status: "NEW" }),
     };
@@ -140,21 +136,24 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
     router.push(`/admin/orders${createdId ? `?created=${encodeURIComponent(createdId)}` : ""}`);
   }
 
+  const sources = [
+    { key: "PHONE", label: "Phone" },
+    { key: "SMS", label: "SMS" },
+    { key: "WHATSAPP", label: "WhatsApp" },
+    { key: "FACEBOOK", label: "Facebook" },
+    { key: "OTHER", label: "Other" },
+  ];
+
   return (
-    <section className="shell pb-10">
+    <section className="shell pb-28 md:pb-12">
       <AdminPageHeader
         eyebrow="ORDER INTAKE"
-        title="Create order"
+        title={historical ? "Record historical order" : "Create manual order"}
         description="Create a manual customer order or record a completed historical order."
         actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <a className="btn btn-secondary" href="/admin/orders">
-              ← Back to orders
-            </a>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={historical} onChange={(e) => setHistorical(e.target.checked)} /> Record historical order
-            </label>
-          </div>
+          <a className="btn btn-secondary" href="/admin/orders">
+            ← Back to orders
+          </a>
         }
       />
 
@@ -164,187 +163,355 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
         </AdminNotice>
       )}
 
-      <form className="card mt-3 grid gap-3 md:grid-cols-2" onSubmit={submit}>
-        <label className="field">
-          <span>Product</span>
-          <select name="productId" value={productId} onChange={(e) => selectProduct(e.target.value)} required>
-            {products.map((row) => (
-              <option key={row.product.id} value={row.product.id}>
-                {row.product.nameFi}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* Top Segmented Mode Switcher */}
+      <div className="mt-4 flex rounded-xl border border-line bg-oat/50 p-1 max-w-md mx-auto shadow-xs">
+        <button
+          type="button"
+          className={`flex-1 py-2 px-3 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
+            !historical
+              ? "bg-white text-forest shadow-sm border border-line/60"
+              : "text-muted hover:text-ink"
+          }`}
+          onClick={() => setHistorical(false)}
+        >
+          <span>🛒</span> New Order Intake
+        </button>
+        <button
+          type="button"
+          className={`flex-1 py-2 px-3 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
+            historical
+              ? "bg-white text-berry shadow-sm border border-line/60"
+              : "text-muted hover:text-ink"
+          }`}
+          onClick={() => setHistorical(true)}
+        >
+          <span>📜</span> Historical Record
+        </button>
+      </div>
 
-        <label className="field">
-          <span>Package &amp; price</span>
-          <select name="packageId" value={packageId} onChange={(e) => setPackageId(e.target.value)} required>
-            {(selectedProduct?.packages ?? []).map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.labelFi} · {(item.priceCents / 100).toFixed(2)} €
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Quantity</span>
-          <input name="quantity" type="number" min="1" max="100" value={quantity} onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))} required />
-          <small className="muted">Calculated subtotal: {(calculatedSubtotal / 100).toFixed(2)} €</small>
-        </label>
-
-        <label className="field">
-          <span>Fulfillment date</span>
-          <input name="fulfillmentDate" type="date" required />
-        </label>
-
-        {/* Fulfillment Method & Delivery Fee Side-by-Side */}
-        <label className="field">
-          <span>Fulfillment method</span>
-          <select name="fulfillmentMethod" value={fulfillmentMethod} onChange={(e) => setFulfillmentMethod(e.target.value as "PICKUP" | "DELIVERY")} required>
-            <option value="PICKUP">Pickup</option>
-            <option value="DELIVERY">Delivery</option>
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Delivery fee (€)</span>
-          <input
-            name="deliveryFeeEuros"
-            type="number"
-            min="0"
-            step="0.01"
-            value={fulfillmentMethod === "PICKUP" ? "0.00" : deliveryFeeStr}
-            onChange={(e) => setDeliveryFeeStr(e.target.value)}
-            disabled={fulfillmentMethod === "PICKUP"}
-            placeholder={fulfillmentMethod === "PICKUP" ? "0.00" : "Leave blank until agreed"}
-          />
-        </label>
-
-        <label className="field">
-          <span>Order source</span>
-          <select name="source" value={orderSource} onChange={(e) => setOrderSource(e.target.value)}>
-            {[
-              { key: "PHONE", labelEn: "Phone" },
-              { key: "SMS", labelEn: "SMS" },
-              { key: "WHATSAPP", labelEn: "WhatsApp" },
-              { key: "FACEBOOK", labelEn: "Facebook message" },
-              { key: "OTHER", labelEn: "Other" },
-            ].map((source) => (
-              <option key={source.key} value={source.key}>
-                {source.labelEn}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Customer name</span>
-          <input name="customerName" required />
-        </label>
-
-        <label className={`field ${mobileError ? "field-invalid" : ""}`}>
-          <span>Mobile phone</span>
-          <input
-            name="mobile"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            aria-invalid={Boolean(mobileError)}
-            value={mobileInput}
-            onChange={(e) => {
-              setMobileInput(e.target.value);
-              setMobileError("");
-            }}
-            onBlur={handleMobileBlur}
-            placeholder={isFacebookSource ? "Optional for Facebook orders (e.g. 040 123 4567)" : "+358 40 123 4567 or 040 123 4567"}
-            required={!isFacebookSource}
-          />
-          {mobileError && <small className="field-error-message">{mobileError}</small>}
-        </label>
-
-        <label className="field">
-          <span>Email</span>
-          <input name="email" type="email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} onBlur={handleEmailBlur} placeholder="customer@example.com" />
-        </label>
-
-        <label className="field md:col-span-2">
-          <span>Facebook</span>
-          <input name="facebookProfile" required={isFacebookSource} placeholder="e.g. facebook.com/name or Facebook Name" />
-        </label>
-
-        {/* Customer Address Fieldset */}
-        <div className="md:col-span-2">
-          <CustomerAddressFields
-            fulfillmentMethod={fulfillmentMethod}
-            city={cityInput}
-            onCityChange={setCityInput}
-            showFieldsetWrapper
-            legend="Customer address"
-            locale="en"
-          />
-        </div>
-
+      <form className="mt-6 space-y-5" onSubmit={submit}>
+        <input type="hidden" name="fulfillmentMethod" value={fulfillmentMethod} />
+        <input type="hidden" name="source" value={orderSource} />
         {historical && (
           <>
-            <label className="field">
-              <span>Completed status</span>
-              <select name="completedStatus">
-                <option value="PICKED_UP">Picked up</option>
-                <option value="DELIVERED">Delivered</option>
-              </select>
-            </label>
-
-            <label className="field">
-              <span>Payment status</span>
-              <select name="paymentStatus" defaultValue="PAID">
-                <option value="PAID">Paid</option>
-                <option value="UNPAID">Unpaid</option>
-              </select>
-            </label>
-
-            <label className="field">
-              <span>Payment received (€)</span>
-              <input
-                name="paymentEuros"
-                type="number"
-                min="0"
-                step="0.01"
-                value={paymentEurosStr}
-                onChange={(e) => {
-                  setPaymentEurosStr(e.target.value);
-                  setUserEditedPayment(true);
-                }}
-                placeholder={(calculatedTotalCents / 100).toFixed(2)}
-              />
-              <small className="muted">Calculated total: {(calculatedTotalCents / 100).toFixed(2)} €</small>
-            </label>
-
-            <label className="field">
-              <span>Payment method</span>
-              <select name="paymentMethod">
-                <option value="CASH">Cash</option>
-                <option value="MOBILEPAY">MobilePay</option>
-                <option value="CARD">Card</option>
-                <option value="BANK_TRANSFER">Bank transfer</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </label>
-
-            <label className="field md:col-span-2">
-              <span>Reason / evidence note</span>
-              <input name="reason" required minLength={2} placeholder="Historical order record details..." />
-            </label>
+            <input type="hidden" name="completedStatus" value={completedStatus} />
+            <input type="hidden" name="paymentStatus" value={paymentStatus} />
+            <input type="hidden" name="paymentMethod" value={paymentMethod} />
           </>
         )}
 
-        <div className="md:col-span-2 flex justify-end gap-3 mt-2">
+        {/* CARD 01: Product & Quantity */}
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-line/60 pb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+              <span className="text-base">📦</span> 01. Product &amp; Quantity
+            </h3>
+            <span className="text-xs font-bold text-forest bg-primary-soft/80 px-2.5 py-1 rounded-full border border-forest/20">
+              Subtotal: {(calculatedSubtotal / 100).toFixed(2)} €
+            </span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="field">
+              <span>Product</span>
+              <select name="productId" value={productId} onChange={(e) => selectProduct(e.target.value)} required>
+                {products.map((row) => (
+                  <option key={row.product.id} value={row.product.id}>
+                    {row.product.nameFi}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Package &amp; unit price</span>
+              <select name="packageId" value={packageId} onChange={(e) => setPackageId(e.target.value)} required>
+                {(selectedProduct?.packages ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.labelFi} · {(item.priceCents / 100).toFixed(2)} €
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Quantity</span>
+              <input name="quantity" type="number" min="1" max="100" value={quantity} onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))} required />
+            </label>
+          </div>
+        </div>
+
+        {/* CARD 02: Fulfillment & Schedule */}
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-line/60 pb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+              <span className="text-base">🚚</span> 02. Fulfillment &amp; Schedule
+            </h3>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Fulfillment method</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={`min-h-[44px] py-2 px-4 rounded-lg font-bold text-sm border transition-all flex items-center justify-center gap-2 ${
+                    fulfillmentMethod === "PICKUP"
+                      ? "bg-forest text-white border-forest shadow-xs"
+                      : "bg-paper text-ink border-line hover:border-forest/50"
+                  }`}
+                  onClick={() => setFulfillmentMethod("PICKUP")}
+                >
+                  <span>🏪</span> Pickup
+                </button>
+                <button
+                  type="button"
+                  className={`min-h-[44px] py-2 px-4 rounded-lg font-bold text-sm border transition-all flex items-center justify-center gap-2 ${
+                    fulfillmentMethod === "DELIVERY"
+                      ? "bg-forest text-white border-forest shadow-xs"
+                      : "bg-paper text-ink border-line hover:border-forest/50"
+                  }`}
+                  onClick={() => setFulfillmentMethod("DELIVERY")}
+                >
+                  <span>🚚</span> Delivery
+                </button>
+              </div>
+            </div>
+
+            <label className="field">
+              <span>Fulfillment date</span>
+              <input name="fulfillmentDate" type="date" required />
+            </label>
+
+            {fulfillmentMethod === "DELIVERY" && (
+              <label className="field md:col-span-2">
+                <span>Delivery fee (€)</span>
+                <input
+                  name="deliveryFeeEuros"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={deliveryFeeStr}
+                  onChange={(e) => setDeliveryFeeStr(e.target.value)}
+                  placeholder="Leave blank until agreed"
+                />
+              </label>
+            )}
+          </div>
+        </div>
+
+        {/* CARD 03: Customer Information */}
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-line/60 pb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+              <span className="text-base">👤</span> 03. Customer Details
+            </h3>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Order source</span>
+              <div className="flex flex-wrap gap-2">
+                {sources.map((src) => (
+                  <button
+                    key={src.key}
+                    type="button"
+                    className={`py-1.5 px-3.5 rounded-lg text-xs font-bold border transition-all ${
+                      orderSource === src.key
+                        ? "bg-forest text-white border-forest shadow-xs"
+                        : "bg-paper text-ink border-line hover:border-forest/40"
+                    }`}
+                    onClick={() => setOrderSource(src.key)}
+                  >
+                    {src.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="field">
+                <span>Customer name</span>
+                <input name="customerName" required placeholder="Full customer name" />
+              </label>
+
+              <label className={`field ${mobileError ? "field-invalid" : ""}`}>
+                <span>Mobile phone</span>
+                <input
+                  name="mobile"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  aria-invalid={Boolean(mobileError)}
+                  value={mobileInput}
+                  onChange={(e) => {
+                    setMobileInput(e.target.value);
+                    setMobileError("");
+                  }}
+                  onBlur={handleMobileBlur}
+                  placeholder={isFacebookSource ? "Optional for Facebook orders (e.g. 040 123 4567)" : "+358 40 123 4567 or 040 123 4567"}
+                  required={!isFacebookSource}
+                />
+                {mobileError && <small className="field-error-message">{mobileError}</small>}
+              </label>
+
+              <label className="field">
+                <span>Email</span>
+                <input name="email" type="email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} onBlur={handleEmailBlur} placeholder="customer@example.com" />
+              </label>
+
+              <label className="field">
+                <span>Facebook profile / handle</span>
+                <input name="facebookProfile" required={isFacebookSource} placeholder={isFacebookSource ? "Required for Facebook orders" : "Optional profile URL or name"} />
+              </label>
+            </div>
+
+            {/* Customer Address Fieldset */}
+            <div className="pt-2">
+              <CustomerAddressFields
+                fulfillmentMethod={fulfillmentMethod}
+                city={cityInput}
+                onCityChange={setCityInput}
+                showFieldsetWrapper
+                legend="Customer address"
+                locale="en"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* CARD 04: Historical Settlement (Historical Mode Only) */}
+        {historical && (
+          <div className="card p-5 space-y-4 border-l-4 border-berry bg-berry-soft/20">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-berry flex items-center gap-2">
+                <span className="text-base">💳</span> 04. Historical Past Settlement
+              </h3>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Completed status</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className={`py-2 px-3 rounded-lg font-bold text-xs border transition-all ${
+                      completedStatus === "PICKED_UP" ? "bg-berry text-white border-berry" : "bg-paper text-ink border-line"
+                    }`}
+                    onClick={() => setCompletedStatus("PICKED_UP")}
+                  >
+                    Picked up
+                  </button>
+                  <button
+                    type="button"
+                    className={`py-2 px-3 rounded-lg font-bold text-xs border transition-all ${
+                      completedStatus === "DELIVERED" ? "bg-berry text-white border-berry" : "bg-paper text-ink border-line"
+                    }`}
+                    onClick={() => setCompletedStatus("DELIVERED")}
+                  >
+                    Delivered
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Payment status</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className={`py-2 px-3 rounded-lg font-bold text-xs border transition-all ${
+                      paymentStatus === "PAID" ? "bg-forest text-white border-forest" : "bg-paper text-ink border-line"
+                    }`}
+                    onClick={() => setPaymentStatus("PAID")}
+                  >
+                    Paid
+                  </button>
+                  <button
+                    type="button"
+                    className={`py-2 px-3 rounded-lg font-bold text-xs border transition-all ${
+                      paymentStatus === "UNPAID" ? "bg-amber-700 text-white border-amber-700" : "bg-paper text-ink border-line"
+                    }`}
+                    onClick={() => setPaymentStatus("UNPAID")}
+                  >
+                    Unpaid
+                  </button>
+                </div>
+              </div>
+
+              {paymentStatus === "PAID" && (
+                <>
+                  <label className="field">
+                    <span>Payment received (€)</span>
+                    <input
+                      name="paymentEuros"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={paymentEurosStr}
+                      onChange={(e) => {
+                        setPaymentEurosStr(e.target.value);
+                        setUserEditedPayment(true);
+                      }}
+                      placeholder={(calculatedTotalCents / 100).toFixed(2)}
+                    />
+                    <small className="muted">Calculated total: {(calculatedTotalCents / 100).toFixed(2)} €</small>
+                  </label>
+
+                  <div>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Payment method</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { key: "CASH", label: "Cash" },
+                        { key: "MOBILEPAY", label: "MobilePay" },
+                        { key: "CARD", label: "Card" },
+                        { key: "BANK_TRANSFER", label: "Bank transfer" },
+                        { key: "OTHER", label: "Other" },
+                      ].map((pm) => (
+                        <button
+                          key={pm.key}
+                          type="button"
+                          className={`py-1.5 px-3 rounded-lg text-xs font-bold border transition-all ${
+                            paymentMethod === pm.key ? "bg-forest text-white border-forest" : "bg-paper text-ink border-line"
+                          }`}
+                          onClick={() => setPaymentMethod(pm.key)}
+                        >
+                          {pm.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <label className="field md:col-span-2">
+                <span>Reason / evidence note</span>
+                <input name="reason" required minLength={2} placeholder="Historical order record details..." />
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Desktop Buttons */}
+        <div className="hidden md:flex justify-end gap-3 pt-2">
           <button className="btn btn-secondary" type="button" onClick={() => router.back()}>
             Cancel
           </button>
           <button className="btn" type="submit">
             {historical ? "Record historical order" : "Create manual order"}
           </button>
+        </div>
+
+        {/* Mobile Sticky Footer */}
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-line bg-paper/95 backdrop-blur-md p-3.5 shadow-lg md:hidden">
+          <div className="flex items-center justify-between gap-3 shell">
+            <div>
+              <p className="text-[11px] text-muted uppercase font-bold tracking-wider">Total amount</p>
+              <p className="text-lg font-bold text-ink">{(calculatedTotalCents / 100).toFixed(2)} €</p>
+            </div>
+            <button className="btn text-sm py-2 px-5 min-h-[44px]" type="submit">
+              {historical ? "Record Order" : "Create Order"}
+            </button>
+          </div>
         </div>
       </form>
     </section>

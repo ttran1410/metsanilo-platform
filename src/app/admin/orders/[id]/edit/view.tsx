@@ -246,8 +246,9 @@ export function OrderEditForm({
   }
 
   return (
-    <form className="card detail-form order-edit-form" onSubmit={save}>
-      <div className="card p-4 bg-surface-muted/60 border-2 border-primary/40 rounded-xl flex flex-col gap-2 shadow-xs mb-4">
+    <form className="space-y-5 pb-28 md:pb-10" onSubmit={save}>
+      {/* REAL-TIME PRE-FLIGHT CAPACITY GUARD BANNER */}
+      <div className="card p-4 bg-surface-muted/60 border-2 border-primary/40 rounded-xl flex flex-col gap-2 shadow-xs">
         <div className="flex items-center justify-between">
           <strong className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
             ⚡ REAL-TIME PRE-FLIGHT CAPACITY GUARD
@@ -280,174 +281,247 @@ export function OrderEditForm({
         </small>
       </div>
 
+      {/* CARD 01: Product & Pricing */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-line/60 pb-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+            <span className="text-base">📦</span> 01. Item Selection &amp; Pricing
+          </h3>
+          <span className="text-xs font-bold text-forest bg-primary-soft/80 px-2.5 py-1 rounded-full border border-forest/20">
+            Current Agreed: {form.agreedItemSubtotal} €
+          </span>
+        </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="field">
-          <span>Product</span>
-          <select value={form.productId} onChange={(e) => handleProductChange(e.target.value)} required>
-            {products
-              .filter((item) => item.packages.some((pkg) => pkg.active))
-              .map((item) => (
-                <option key={item.product.id} value={item.product.id}>
-                  {item.product.nameFi} / {item.product.nameEn}
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="field">
+            <span>Product</span>
+            <select value={form.productId} onChange={(e) => handleProductChange(e.target.value)} required>
+              {products
+                .filter((item) => item.packages.some((pkg) => pkg.active))
+                .map((item) => (
+                  <option key={item.product.id} value={item.product.id}>
+                    {item.product.nameFi} / {item.product.nameEn}
+                  </option>
+                ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Package variant</span>
+            <select value={form.packageId} onChange={(e) => handlePackageChange(e.target.value)} required>
+              {packages.map((pkg) => (
+                <option key={pkg.id} value={pkg.id}>
+                  {pkg.labelFi} · {(pkg.volumeMl / 1000).toFixed(0)} L · {(pkg.priceCents / 100).toFixed(2)} €
                 </option>
               ))}
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Package</span>
-          <select value={form.packageId} onChange={(e) => handlePackageChange(e.target.value)} required>
-            {packages.map((pkg) => (
-              <option key={pkg.id} value={pkg.id}>
-                {pkg.labelFi} · {(pkg.volumeMl / 1000).toFixed(0)} L · {(pkg.priceCents / 100).toFixed(2)} €
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Quantity</span>
-          <input type="number" min="1" max="100" value={form.quantity} onChange={(e) => handleQuantityChange(e.target.value)} required />
-        </label>
-
-        <label className="field">
-          <span>Fulfillment date</span>
-          <input
-            type="date"
-            value={form.fulfillmentDate}
-            min={!isHistorical ? minAllowedDate : undefined}
-            max={!isHistorical ? maxAllowedDate : undefined}
-            onChange={(e) => update("fulfillmentDate", e.target.value)}
-            required
-          />
-          {!isHistorical && (
-            <small className="muted">
-              Allowed window: Today ({minAllowedDate}) to {maxAllowedDate} (next 7 days)
-            </small>
-          )}
-        </label>
-
-        {/* Fulfillment Method & Delivery Fee Side-by-Side */}
-        <label className="field">
-          <span>Fulfillment method</span>
-          <select value={form.fulfillmentMethod} onChange={(e) => update("fulfillmentMethod", e.target.value)} required>
-            <option value="PICKUP">Pickup</option>
-            <option value="DELIVERY">Delivery</option>
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Delivery fee (€)</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.fulfillmentMethod === "PICKUP" ? "0.00" : form.deliveryFee}
-            onChange={(e) => update("deliveryFee", e.target.value)}
-            disabled={form.fulfillmentMethod === "PICKUP"}
-            placeholder={form.fulfillmentMethod === "PICKUP" ? "0.00" : "To be agreed"}
-          />
-        </label>
-
-        <label className="field">
-          <span>Order source</span>
-          <select value={form.orderSource} onChange={(e) => update("orderSource", e.target.value)}>
-            <option value="WEBSITE">Website</option>
-            <option value="MANUAL">Manual</option>
-            <option value="SMS">SMS</option>
-            <option value="WHATSAPP">WhatsApp</option>
-            <option value="FACEBOOK_MESSAGE">Facebook Message</option>
-            <option value="OTHER">Other</option>
-          </select>
-        </label>
-
-        <label className="field">
-          <span>Customer name</span>
-          <input value={form.customerName} onChange={(e) => update("customerName", e.target.value)} required />
-        </label>
-
-        <label className="field">
-          <span>Mobile phone</span>
-          <input
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            value={form.mobile}
-            onChange={(e) => update("mobile", e.target.value)}
-            onBlur={handleMobileBlur}
-            required={!(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE")}
-            placeholder={(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE") ? "Optional for Facebook orders (e.g. 040 123 4567)" : "+358 40 123 4567 or 040 123 4567"}
-          />
-        </label>
-
-        <label className="field">
-          <span>Email</span>
-          <input
-            type="email"
-            value={form.email}
-            onChange={(e) => update("email", e.target.value)}
-            onBlur={handleEmailBlur}
-            placeholder="customer@example.com"
-          />
-        </label>
-
-        <label className="field md:col-span-2">
-          <span>Facebook</span>
-          <input
-            value={form.facebookProfile}
-            onChange={(e) => update("facebookProfile", e.target.value)}
-            required={(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE")}
-            placeholder="e.g. facebook.com/username or Facebook Name"
-          />
-        </label>
-
-        <div className="md:col-span-2">
-          <CustomerAddressFields
-            fulfillmentMethod={form.fulfillmentMethod}
-            streetAddress={form.streetAddress}
-            postalCode={form.postalCode}
-            city={form.city}
-            onStreetAddressChange={(val) => update("streetAddress", val)}
-            onPostalCodeChange={(val) => update("postalCode", val)}
-            onCityChange={(val) => update("city", val)}
-            locale="en"
-          />
-        </div>
-
-        <div className="field">
-          <label className="checkbox-field">
-            <span>Override catalog price</span>
-            <input type="checkbox" checked={overridePrice} onChange={(e) => handleOverrideToggle(e.target.checked)} />
+            </select>
           </label>
-          <small className="muted">Current catalog total: {(standardCents / 100).toFixed(2)} €</small>
+
+          <label className="field">
+            <span>Quantity</span>
+            <input type="number" min="1" max="100" value={form.quantity} onChange={(e) => handleQuantityChange(e.target.value)} required />
+          </label>
         </div>
 
-        <label className="field">
-          <span>Agreed items price (€)</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.agreedItemSubtotal}
-            onChange={(e) => update("agreedItemSubtotal", e.target.value)}
-            disabled={!overridePrice}
-            required
-          />
-        </label>
+        <div className="pt-2 grid gap-4 md:grid-cols-2">
+          <div className="field">
+            <label className="checkbox-field">
+              <span>Override catalog price</span>
+              <input type="checkbox" checked={overridePrice} onChange={(e) => handleOverrideToggle(e.target.checked)} />
+            </label>
+            <small className="muted">Catalog standard total: {(standardCents / 100).toFixed(2)} €</small>
+          </div>
 
-        {overridePrice && (
-          <label className="field md:col-span-2">
-            <span>Adjustment reason</span>
+          <label className="field">
+            <span>Agreed items price (€)</span>
             <input
-              value={form.adjustmentReason}
-              onChange={(e) => update("adjustmentReason", e.target.value)}
-              minLength={2}
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.agreedItemSubtotal}
+              onChange={(e) => update("agreedItemSubtotal", e.target.value)}
+              disabled={!overridePrice}
               required
-              placeholder="Discount, customer-provided container…"
             />
           </label>
-        )}
+
+          {overridePrice && (
+            <label className="field md:col-span-2">
+              <span>Adjustment reason</span>
+              <input
+                value={form.adjustmentReason}
+                onChange={(e) => update("adjustmentReason", e.target.value)}
+                minLength={2}
+                required
+                placeholder="Discount, customer-provided container…"
+              />
+            </label>
+          )}
+        </div>
+      </div>
+
+      {/* CARD 02: Fulfillment & Schedule */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-line/60 pb-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+            <span className="text-base">🚚</span> 02. Fulfillment &amp; Schedule
+          </h3>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Fulfillment method</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className={`min-h-[44px] py-2 px-4 rounded-lg font-bold text-sm border transition-all flex items-center justify-center gap-2 ${
+                  form.fulfillmentMethod === "PICKUP"
+                    ? "bg-forest text-white border-forest shadow-xs"
+                    : "bg-paper text-ink border-line hover:border-forest/50"
+                }`}
+                onClick={() => update("fulfillmentMethod", "PICKUP")}
+              >
+                <span>🏪</span> Pickup
+              </button>
+              <button
+                type="button"
+                className={`min-h-[44px] py-2 px-4 rounded-lg font-bold text-sm border transition-all flex items-center justify-center gap-2 ${
+                  form.fulfillmentMethod === "DELIVERY"
+                    ? "bg-forest text-white border-forest shadow-xs"
+                    : "bg-paper text-ink border-line hover:border-forest/50"
+                }`}
+                onClick={() => update("fulfillmentMethod", "DELIVERY")}
+              >
+                <span>🚚</span> Delivery
+              </button>
+            </div>
+          </div>
+
+          <label className="field">
+            <span>Fulfillment date</span>
+            <input
+              type="date"
+              value={form.fulfillmentDate}
+              min={!isHistorical ? minAllowedDate : undefined}
+              max={!isHistorical ? maxAllowedDate : undefined}
+              onChange={(e) => update("fulfillmentDate", e.target.value)}
+              required
+            />
+            {!isHistorical && (
+              <small className="muted">
+                Allowed window: Today ({minAllowedDate}) to {maxAllowedDate} (next 7 days)
+              </small>
+            )}
+          </label>
+
+          {form.fulfillmentMethod === "DELIVERY" && (
+            <label className="field md:col-span-2">
+              <span>Delivery fee (€)</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.deliveryFee}
+                onChange={(e) => update("deliveryFee", e.target.value)}
+                placeholder="To be agreed"
+              />
+            </label>
+          )}
+        </div>
+      </div>
+
+      {/* CARD 03: Customer Information */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-line/60 pb-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+            <span className="text-base">👤</span> 03. Customer Details
+          </h3>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Order source</span>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: "WEBSITE", label: "Website" },
+                { key: "MANUAL", label: "Manual" },
+                { key: "SMS", label: "SMS" },
+                { key: "WHATSAPP", label: "WhatsApp" },
+                { key: "FACEBOOK_MESSAGE", label: "Facebook" },
+                { key: "OTHER", label: "Other" },
+              ].map((src) => (
+                <button
+                  key={src.key}
+                  type="button"
+                  className={`py-1.5 px-3.5 rounded-lg text-xs font-bold border transition-all ${
+                    form.orderSource === src.key
+                      ? "bg-forest text-white border-forest shadow-xs"
+                      : "bg-paper text-ink border-line hover:border-forest/40"
+                  }`}
+                  onClick={() => update("orderSource", src.key)}
+                >
+                  {src.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="field">
+              <span>Customer name</span>
+              <input value={form.customerName} onChange={(e) => update("customerName", e.target.value)} required />
+            </label>
+
+            <label className="field">
+              <span>Mobile phone</span>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={form.mobile}
+                onChange={(e) => update("mobile", e.target.value)}
+                onBlur={handleMobileBlur}
+                required={!(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE")}
+                placeholder={(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE") ? "Optional for Facebook orders (e.g. 040 123 4567)" : "+358 40 123 4567 or 040 123 4567"}
+              />
+            </label>
+
+            <label className="field">
+              <span>Email</span>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+                onBlur={handleEmailBlur}
+                placeholder="customer@example.com"
+              />
+            </label>
+
+            <label className="field">
+              <span>Facebook profile / handle</span>
+              <input
+                value={form.facebookProfile}
+                onChange={(e) => update("facebookProfile", e.target.value)}
+                required={(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE")}
+                placeholder="e.g. facebook.com/username or Facebook Name"
+              />
+            </label>
+          </div>
+
+          {/* Customer Address Fieldset */}
+          <div className="pt-2">
+            <CustomerAddressFields
+              fulfillmentMethod={form.fulfillmentMethod}
+              streetAddress={form.streetAddress}
+              postalCode={form.postalCode}
+              city={form.city}
+              onStreetAddressChange={(val) => update("streetAddress", val)}
+              onPostalCodeChange={(val) => update("postalCode", val)}
+              onCityChange={(val) => update("city", val)}
+              locale="en"
+            />
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -456,13 +530,27 @@ export function OrderEditForm({
         </p>
       )}
 
-      <div className="profile-actions">
+      {/* Desktop Profile Actions */}
+      <div className="hidden md:flex justify-end gap-3 pt-2">
         <button className="btn btn-secondary" type="button" onClick={handleCancel}>
           Cancel
         </button>
         <button className="btn" type="submit" disabled={saving}>
           {saving ? "Saving…" : "Save order"}
         </button>
+      </div>
+
+      {/* Mobile Sticky Footer */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-line bg-paper/95 backdrop-blur-md p-3.5 shadow-lg md:hidden">
+        <div className="flex items-center justify-between gap-3 shell">
+          <div>
+            <p className="text-[11px] text-muted uppercase font-bold tracking-wider font-mono">Order #{form.id.slice(0, 8)}</p>
+            <p className="text-base font-bold text-ink">{form.agreedItemSubtotal} €</p>
+          </div>
+          <button className="btn text-sm py-2 px-5 min-h-[44px]" type="submit" disabled={saving}>
+            {saving ? "Saving…" : "Save Order"}
+          </button>
+        </div>
       </div>
     </form>
   );
