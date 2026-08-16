@@ -256,9 +256,21 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
     && `${order.publicReference} ${order.customerName} ${order.mobile}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => orderTriageScore(b) - orderTriageScore(a) || a.fulfillmentDate.localeCompare(b.fulfillmentDate) || a.createdAt.localeCompare(b.createdAt)), [rows, view, source, normalizedStatus, method, from, to, search, matchesQuickView]);
 
-  const quickCounts = useMemo(() => Object.fromEntries(QUICK_VIEWS.map(({ key }) => [key, rows.filter((order) => matchesQuickView(order, key)).length])) as Record<OrdersView, number>, [rows, matchesQuickView]);
-  
+  const quickCounts = useMemo(() => {
+    const day = todayStr();
+    return {
+      ALL: rows.length,
+      TRIAGE: rows.filter((order) => getOrderTriageReasons(order).length > 0).length,
+      TODAY: rows.filter((order) => order.fulfillmentDate === day).length,
+      NEEDS_CONFIRMATION: rows.filter((order) => order.status === "NEW").length,
+      PICKUP_TODAY: rows.filter((order) => order.fulfillmentDate === day && order.fulfillmentMethod === "PICKUP").length,
+      DELIVERY_TODAY: rows.filter((order) => order.fulfillmentDate === day && order.fulfillmentMethod === "DELIVERY").length,
+      UNPAID: rows.filter((order) => order.paymentStatus === "UNPAID").length,
+    };
+  }, [rows]);
+
   const unpaidTotalCents = useMemo(() => rows.filter((o) => o.paymentStatus === "UNPAID").reduce((sum, o) => sum + (o.outstandingCents ?? 0), 0), [rows]);
+
 
   const pageSize = 25;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
