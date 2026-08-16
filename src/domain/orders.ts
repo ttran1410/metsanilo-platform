@@ -595,3 +595,57 @@ export async function transitionOrder(
     return { ...current, status: input.status, statusReason: reason || null, contactedAt: input.status === "CONFIRMED" ? now : current.contactedAt, contactedBy: input.status === "CONFIRMED" ? actor : current.contactedBy, contactChannel: input.status === "CONFIRMED" ? contactChannel! : current.contactChannel, fulfillmentStartedAt: input.status === "PICKING" ? now : current.fulfillmentStartedAt, readyAt: input.status === "READY" ? now : current.readyAt, dispatchedAt: input.status === "OUT_FOR_DELIVERY" ? now : current.dispatchedAt, completedAt, pickupConfirmedAt: input.status === "PICKED_UP" ? now : current.pickupConfirmedAt, pickupConfirmedBy: input.status === "PICKED_UP" ? actor : current.pickupConfirmedBy, version: current.version + 1, updatedAt: now };
   });
 }
+
+export async function deleteManagerOrder(database: Database, orderId: string) {
+  const { SHOP_ID } = env();
+  return database.transaction(async (tx) => {
+    const current = await tx.query.orders.findFirst({
+      where: and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID)),
+    });
+    if (!current) throw new DomainError("NOT_FOUND", "Order not found", 404);
+
+    const payments = await tx.select().from(orderPayments).where(and(eq(orderPayments.shopId, SHOP_ID), eq(orderPayments.orderId, orderId)));
+    const paidCents = payments.reduce((sum, p) => sum + (p.kind === "PAYMENT" ? p.amountCents : -p.amountCents), 0);
+    if (paidCents > 0) {
+
+      throw new DomainError("PAYMENT_EXISTS", "Cannot delete order with recorded payments. Archive the order instead.", 400);
+    }
+
+    if (["NEW", "CONFIRMED", "PICKING", "READY"].includes(current.status)) {
+      await tx
+        .update(availability)
+        .set({
+          reservedMl: sql`MAX(0, ${availability.reservedMl} - ${current.volumeMl})`,
+          version: sql`${availability.version} + 1`,
+          updatedAt: nowIso(),
+        })
+        .where(
+          and(
+            eq(availability.shopId, SHOP_ID),
+            eq(availability.productId, current.productId),
+            eq(availability.businessDate, current.fulfillmentDate),
+            gte(availability.reservedMl, current.volumeMl),
+          ),
+        )
+        .run();
+    }
+
+    await tx.delete(orderNotes).where(and(eq(orderNotes.shopId, SHOP_ID), eq(orderNotes.orderId, orderId))).run();
+    await tx.delete(orderPayments).where(and(eq(orderPayments.shopId, SHOP_ID), eq(orderPayments.orderId, orderId))).run();
+    await tx.delete(orders).where(and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID))).run();
+
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId: SHOP_ID,
+      actor: "manager",
+      action: "order.deleted",
+      entityType: "order",
+      entityId: orderId,
+      detailsJson: JSON.stringify({ publicReference: current.publicReference, customerName: current.customerName }),
+      createdAt: nowIso(),
+    });
+
+    return { success: true, id: orderId };
+  });
+}
+

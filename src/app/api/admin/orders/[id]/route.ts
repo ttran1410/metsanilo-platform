@@ -31,3 +31,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return success(await updateManagerOrder(db(), { ...parsed.data, orderId: id }));
   } catch (error) { return failure(error); }
 }
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    await requirePermission(db(), request, "orders.update");
+    const { deleteManagerOrder } = await import("@/domain/orders");
+    return success(await deleteManagerOrder(db(), id));
+  } catch (error) {
+    return failure(error);
+  }
+}
+
