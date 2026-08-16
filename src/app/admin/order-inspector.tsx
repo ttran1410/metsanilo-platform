@@ -5,6 +5,7 @@ import { Phone, MessageSquare, Share2, ExternalLink } from "lucide-react";
 import type { orders } from "@/db/schema";
 import { AdminLoadingState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "./presentation";
 import { OrderActionBar } from "./order-action-bar";
+import { useAdminI18n } from "./i18n-context";
 
 type Order = typeof orders.$inferSelect & { paidCents?: number; outstandingCents?: number | null; paymentStatus?: string };
 type Detail = {
@@ -23,6 +24,7 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
   onNext?: () => void;
   onOrderUpdated: (order: Order) => void;
 }) {
+  const { t } = useAdminI18n();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
