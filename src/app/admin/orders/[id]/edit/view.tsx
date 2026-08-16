@@ -281,7 +281,7 @@ export function OrderEditForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="field">
-          <span>Product *</span>
+          <span>Product</span>
           <select value={form.productId} onChange={(e) => handleProductChange(e.target.value)} required>
             {products
               .filter((item) => item.packages.some((pkg) => pkg.active))
@@ -294,7 +294,7 @@ export function OrderEditForm({
         </label>
 
         <label className="field">
-          <span>Package *</span>
+          <span>Package</span>
           <select value={form.packageId} onChange={(e) => handlePackageChange(e.target.value)} required>
             {packages.map((pkg) => (
               <option key={pkg.id} value={pkg.id}>
@@ -305,12 +305,12 @@ export function OrderEditForm({
         </label>
 
         <label className="field">
-          <span>Quantity *</span>
+          <span>Quantity</span>
           <input type="number" min="1" max="100" value={form.quantity} onChange={(e) => handleQuantityChange(e.target.value)} required />
         </label>
 
         <label className="field">
-          <span>Fulfillment date *</span>
+          <span>Fulfillment date</span>
           <input
             type="date"
             value={form.fulfillmentDate}
@@ -328,8 +328,8 @@ export function OrderEditForm({
 
         {/* Fulfillment Method & Delivery Fee Side-by-Side */}
         <label className="field">
-          <span>Fulfillment method *</span>
-          <select value={form.fulfillmentMethod} onChange={(e) => update("fulfillmentMethod", e.target.value)}>
+          <span>Fulfillment method</span>
+          <select value={form.fulfillmentMethod} onChange={(e) => update("fulfillmentMethod", e.target.value)} required>
             <option value="PICKUP">Pickup</option>
             <option value="DELIVERY">Delivery</option>
           </select>
@@ -361,12 +361,12 @@ export function OrderEditForm({
         </label>
 
         <label className="field">
-          <span>Customer name *</span>
+          <span>Customer name</span>
           <input value={form.customerName} onChange={(e) => update("customerName", e.target.value)} required />
         </label>
 
         <label className="field">
-          <span>Mobile *</span>
+          <span>Mobile</span>
           <input
             type="tel"
             inputMode="tel"
@@ -400,7 +400,7 @@ export function OrderEditForm({
         </label>
 
         <label className="field md:col-span-2">
-          <span>Customer street address {form.fulfillmentMethod === "DELIVERY" ? "*" : "(Optional)"}</span>
+          <span>Customer street address{form.fulfillmentMethod === "DELIVERY" ? "" : " (Optional)"}</span>
           <input
             value={form.streetAddress}
             onChange={(e) => update("streetAddress", e.target.value)}
@@ -428,7 +428,7 @@ export function OrderEditForm({
         </div>
 
         <label className="field">
-          <span>Agreed items price (€) *</span>
+          <span>Agreed items price (€)</span>
           <input
             type="number"
             min="0"
@@ -442,7 +442,7 @@ export function OrderEditForm({
 
         {overridePrice && (
           <label className="field md:col-span-2">
-            <span>Adjustment reason *</span>
+            <span>Adjustment reason</span>
             <input
               value={form.adjustmentReason}
               onChange={(e) => update("adjustmentReason", e.target.value)}

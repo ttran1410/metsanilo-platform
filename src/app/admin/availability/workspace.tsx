@@ -735,7 +735,7 @@ export function AvailabilityWorkspace({
             <h2>Plan Recurring Harvest Dates</h2>
 
             <label className="field">
-              <span>Product *</span>
+              <span>Product</span>
               <select name="productId" required>
                 {workspace.products
                   .filter((product) => product.active)
@@ -749,7 +749,7 @@ export function AvailabilityWorkspace({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="field">
-                <span>Start Date *</span>
+                <span>Start Date</span>
                 <input
                   name="startDate"
                   type="date"
@@ -760,7 +760,7 @@ export function AvailabilityWorkspace({
               </label>
 
               <label className="field">
-                <span>End Date *</span>
+                <span>End Date</span>
                 <input
                   name="endDate"
                   type="date"
@@ -772,7 +772,7 @@ export function AvailabilityWorkspace({
             </div>
 
             <label className="field">
-              <span>Pattern *</span>
+              <span>Pattern</span>
               <select
                 name="frequency"
                 value={batchFrequency}
@@ -820,7 +820,7 @@ export function AvailabilityWorkspace({
             </div>
 
             <label className="field">
-              <span>Daily Harvest Capacity (Litres) *</span>
+              <span>Daily Harvest Capacity (Litres)</span>
               <input name="capacityLitres" type="number" min="0" step="0.1" required placeholder="e.g. 50" />
             </label>
 

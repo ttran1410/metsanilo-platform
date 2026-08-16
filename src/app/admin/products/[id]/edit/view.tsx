@@ -98,22 +98,22 @@ export function ProductEditView({
           <h2 className="text-xs font-bold uppercase tracking-wider text-muted">1. Identity &amp; Codes</h2>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="field">
-              <span>Product code *</span>
+              <span>Product code</span>
               <input name="code" defaultValue={initial.code} required className="uppercase font-medium" />
             </label>
 
             <label className="field">
-              <span>URL Slug *</span>
+              <span>URL Slug</span>
               <input name="slug" defaultValue={initial.slug} required className="font-medium" />
             </label>
 
             <label className="field">
-              <span>Finnish name *</span>
+              <span>Finnish name</span>
               <input name="nameFi" defaultValue={initial.nameFi} required />
             </label>
 
             <label className="field">
-              <span>English name *</span>
+              <span>English name</span>
               <input name="nameEn" defaultValue={initial.nameEn} required />
             </label>
           </div>
@@ -124,12 +124,12 @@ export function ProductEditView({
           <h2 className="text-xs font-bold uppercase tracking-wider text-muted">2. Availability Window &amp; Publishing</h2>
           <div className="grid gap-3 md:grid-cols-2">
             <label className="field">
-              <span>Available from *</span>
+              <span>Available from</span>
               <input name="availableFrom" type="date" defaultValue={initial.availableFrom} required />
             </label>
 
             <label className="field">
-              <span>Available through *</span>
+              <span>Available through</span>
               <input name="availableThrough" type="date" defaultValue={initial.availableThrough} required />
             </label>
           </div>

@@ -464,7 +464,7 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
             {moneyTab === "pricing" && (
               <form key={`pricing-${detail.order.version}`} className="detail-form text-sm flex flex-col gap-2.5" onSubmit={(event) => void submitAction(event, "pricing")}>
                 <label className="field">
-                  <span>Agreed items price (€) *</span>
+                  <span>Agreed items price (€)</span>
                   <input name="itemEuros" type="number" min="0" step="0.01" defaultValue={(detail.order.itemSubtotalCents / 100).toFixed(2)} required />
                 </label>
                 {detail.order.fulfillmentMethod === "DELIVERY" && (
@@ -474,7 +474,7 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
                   </label>
                 )}
                 <label className="field">
-                  <span>Adjustment reason *</span>
+                  <span>Adjustment reason</span>
                   <input name="reason" minLength={2} placeholder="Discount or customer container" required />
                 </label>
                 <button className="btn btn-secondary text-xs py-1.5" type="submit">
@@ -487,12 +487,12 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
             {moneyTab === "payment" && (
               <form className="detail-form text-sm flex flex-col gap-2.5" onSubmit={(event) => void submitAction(event, "payment")}>
                 <label className="field">
-                  <span>Payment (€) *</span>
+                  <span>Payment (€)</span>
                   <input name="paymentEuros" type="number" min="0.01" step="0.01" placeholder="0.00" required />
                 </label>
                 <label className="field">
-                  <span>Method *</span>
-                  <select name="method" defaultValue="CASH">
+                  <span>Method</span>
+                  <select name="method" defaultValue="CASH" required>
                     <option value="CASH">CASH</option>
                     <option value="MOBILEPAY">MOBILEPAY</option>
                     <option value="CARD">CARD</option>
@@ -524,7 +524,7 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
                   </select>
                 </label>
                 <label className="field">
-                  <span>Next Action *</span>
+                  <span>Next Action</span>
                   <input name="nextAction" placeholder="e.g. Call customer at 5 PM" required />
                 </label>
                 <label className="field">
@@ -620,7 +620,7 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
           >
             <h2>Cancel this order?</h2>
             <label className="field">
-              <span>Reason *</span>
+              <span>Reason</span>
               <textarea name="reason" required placeholder="Explain why the order is being cancelled..." />
             </label>
             <div className="profile-actions">
