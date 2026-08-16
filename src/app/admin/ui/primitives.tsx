@@ -5,11 +5,11 @@ export function AdminCard({ as: Component = "section", children, className = "" 
   return <Component className={`card admin-card ${className}`.trim()}>{children}</Component>;
 }
 
-const STATUS_TONES: Record<string, "success" | "warning" | "danger" | "neutral"> = {
+const STATUS_TONES: Record<string, "success" | "warning" | "danger" | "info" | "neutral"> = {
   CONFIRMED: "success", READY: "success", DELIVERED: "success", PICKED_UP: "success", PAID: "success",
   NEW: "warning", PENDING_FEE: "warning", CONFLICT_REVIEW: "warning", CAPACITY_NEAR_LIMIT: "warning",
   CANCELLED: "danger", REJECTED: "danger", NO_SHOW: "danger", CUSTOMER_DECLINED: "danger", REFUNDED: "danger", DELIVERY_ORIGIN_MISSING: "danger",
-  PICKING: "neutral", OUT_FOR_DELIVERY: "neutral", UNPAID: "neutral", PARTIALLY_REFUNDED: "neutral",
+  PICKING: "info", OUT_FOR_DELIVERY: "info", UNPAID: "warning", PARTIALLY_REFUNDED: "warning",
 };
 
 export function AdminStatusBadge({ status, label }: { status: string; label?: string }) {
