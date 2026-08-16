@@ -59,6 +59,7 @@ const PERMISSION_GROUPS: Array<{ label: string; icon: string; permissions: Permi
       "orders.payment.read",
       "orders.payment.write",
       "orders.export",
+      "orders.delete",
     ],
   },
   {
@@ -139,6 +140,7 @@ const PERMISSION_LABELS: Record<string, string> = {
   "orders.payment.read": "View payment status",
   "orders.payment.write": "Record payments and refunds",
   "orders.export": "Export order CSV / Customer data",
+  "orders.delete": "Permanently delete unpaid/test orders",
   "catalog.product.read": "View products",
   "catalog.product.write": "Edit product copy & dates",
   "catalog.product.delete": "Delete unreferenced products",
