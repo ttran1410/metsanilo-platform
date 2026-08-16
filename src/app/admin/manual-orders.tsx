@@ -32,9 +32,11 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
       productId: values.get("productId"), packageId: values.get("packageId"), quantity,
       fulfillmentDate: values.get("fulfillmentDate"), fulfillmentMethod: values.get("fulfillmentMethod"),
       customerName: values.get("customerName"), mobile: values.get("mobile"), email: values.get("email") || undefined,
+      facebookProfile: String(values.get("facebookProfile") ?? "").trim() || undefined,
       streetAddress: values.get("streetAddress") || undefined, postalCode: values.get("postalCode") || undefined, city: values.get("city") || undefined,
       source: String(values.get("source") ?? "PHONE"),
       deliveryFeeCents: deliveryFeeValue ? Math.round(Number(deliveryFeeValue) * 100) : undefined,
+
       ...(historical ? {
         completedStatus: values.get("completedStatus"), completedAt: new Date().toISOString(), reason: values.get("reason"), itemSubtotalCents: calculatedSubtotal,
         paymentAmountCents: paymentStatus === "PAID" ? Math.round((paymentEuros > 0 ? paymentEuros : calculatedSubtotal / 100) * 100) : undefined,
