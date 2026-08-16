@@ -327,7 +327,9 @@ export const orders = sqliteTable(
     pickupLocationSnapshotJson: text("pickup_location_snapshot_json"),
     deliveryOriginSnapshotJson: text("delivery_origin_snapshot_json"),
     notes: text("notes"),
+    facebookProfile: text("facebook_profile"),
     orderSource: text("order_source").notNull().default("WEBSITE"),
+
     historicalEntry: integer("historical_entry", { mode: "boolean" }).notNull().default(false),
     statusReason: text("status_reason"),
     contactedAt: text("contacted_at"),

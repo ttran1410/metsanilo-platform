@@ -22,8 +22,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 const updateSchema = z.object({
   expectedVersion: z.number().int(), productId: z.string().optional(), packageId: z.string().optional(), quantity: z.number().int().min(1).max(100).optional(),
-  fulfillmentDate: z.string().optional(), fulfillmentMethod: z.enum(["PICKUP", "DELIVERY"]).optional(), customerName: z.string().trim().min(2).max(120).optional(), mobile: z.string().trim().min(7).max(40).optional(), email: z.string().nullable().optional(), streetAddress: z.string().nullable().optional(), postalCode: z.string().nullable().optional(), city: z.string().nullable().optional(), deliveryFeeCents: z.number().int().nonnegative().nullable().optional(), agreedItemSubtotalCents: z.number().int().nonnegative().optional(), adjustmentReason: z.string().optional(),
+  fulfillmentDate: z.string().optional(), fulfillmentMethod: z.enum(["PICKUP", "DELIVERY"]).optional(), orderSource: z.string().optional(), facebookProfile: z.string().nullable().optional(), customerName: z.string().trim().min(2).max(120).optional(), mobile: z.string().trim().min(7).max(40).optional(), email: z.string().nullable().optional(), streetAddress: z.string().nullable().optional(), postalCode: z.string().nullable().optional(), city: z.string().nullable().optional(), deliveryFeeCents: z.number().int().nonnegative().nullable().optional(), agreedItemSubtotalCents: z.number().int().nonnegative().optional(), adjustmentReason: z.string().optional(),
 });
+
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

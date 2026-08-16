@@ -32,9 +32,11 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
       productId: values.get("productId"), packageId: values.get("packageId"), quantity,
       fulfillmentDate: values.get("fulfillmentDate"), fulfillmentMethod: values.get("fulfillmentMethod"),
       customerName: values.get("customerName"), mobile: values.get("mobile"), email: values.get("email") || undefined,
+      facebookProfile: String(values.get("facebookProfile") ?? "").trim() || undefined,
       streetAddress: values.get("streetAddress") || undefined, postalCode: values.get("postalCode") || undefined, city: values.get("city") || undefined,
       source: String(values.get("source") ?? "PHONE"),
       deliveryFeeCents: deliveryFeeValue ? Math.round(Number(deliveryFeeValue) * 100) : undefined,
+
       ...(historical ? {
         completedStatus: values.get("completedStatus"), completedAt: new Date().toISOString(), reason: values.get("reason"), itemSubtotalCents: calculatedSubtotal,
         paymentAmountCents: paymentStatus === "PAID" ? Math.round((paymentEuros > 0 ? paymentEuros : calculatedSubtotal / 100) * 100) : undefined,
@@ -56,8 +58,10 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
     <label className="field"><span>Customer name</span><input name="customerName" required /></label>
     <label className={`field ${mobileError ? "field-invalid" : ""}`}><span>Mobile *</span><input name="mobile" type="tel" inputMode="tel" autoComplete="tel" aria-invalid={Boolean(mobileError)} value={undefined} onChange={() => setMobileError("")} required />{mobileError && <small className="field-error-message">{mobileError}</small>}</label>
     <label className="field"><span>Email</span><input name="email" type="email" /></label>
+    <label className="field"><span>Facebook Profile / Name</span><input name="facebookProfile" placeholder="e.g. facebook.com/name or Facebook Name" /></label>
     <label className="field"><span>Source</span><select name="source" defaultValue="PHONE">{(sourceOptions.length ? sourceOptions : [{ key: "PHONE", labelEn: "Phone" }, { key: "SMS", labelEn: "SMS" }, { key: "WHATSAPP", labelEn: "WhatsApp" }, { key: "FACEBOOK", labelEn: "Facebook message" }]).map((source) => <option key={source.key} value={source.key}>{source.labelEn}</option>)}</select></label>
     <label className="field"><span>Fulfillment method</span><select name="fulfillmentMethod"><option value="PICKUP">Pickup</option><option value="DELIVERY">Delivery</option></select></label>
+
     <fieldset className="md:col-span-2 grid gap-3 rounded-lg border p-3 md:grid-cols-3"><legend>Customer address</legend><label className="field md:col-span-3"><span>Street address</span><input name="streetAddress" placeholder="Customer street address" /></label><label className="field"><span>Postal code</span><input name="postalCode" inputMode="numeric" /></label><label className="field md:col-span-2"><span>City</span><input name="city" /></label></fieldset>
     {historical && <><label className="field"><span>Completed status</span><select name="completedStatus"><option value="PICKED_UP">Picked up</option><option value="DELIVERED">Delivered</option></select></label><label className="field"><span>Payment status</span><select name="paymentStatus" defaultValue="PAID"><option value="PAID">Paid</option><option value="UNPAID">Unpaid</option></select></label><label className="field"><span>Payment received (€)</span><input name="paymentEuros" type="number" min="0" step="0.01" placeholder={(calculatedSubtotal / 100).toFixed(2)} /></label><label className="field"><span>Payment method</span><select name="paymentMethod"><option value="CASH">Cash</option><option value="MOBILEPAY">MobilePay</option><option value="CARD">Card</option><option value="BANK_TRANSFER">Bank transfer</option></select></label><label className="field"><span>Reason / evidence note</span><input name="reason" required minLength={2} /></label></>}
     <button className="btn w-fit" type="submit">{historical ? "Record historical order" : "Create manual order"}</button>
