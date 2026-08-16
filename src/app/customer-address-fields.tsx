@@ -28,7 +28,7 @@ export function CustomerAddressFields({
   onPostalCodeChange,
   onCityChange,
   fieldErrors,
-  locale = "fi",
+  locale = "en",
   disabled = false,
   className = "",
   legend,
