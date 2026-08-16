@@ -12,7 +12,7 @@ const nowIso = () => new Date().toISOString();
 
 export async function createExternalOrder(database: Database, input: {
   productId: string; packageId: string; quantity: number; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY";
-  customerName: string; mobile: string; email?: string; streetAddress?: string; postalCode?: string; city?: string; notes?: string;
+  customerName: string; mobile: string; email?: string; facebookProfile?: string; streetAddress?: string; postalCode?: string; city?: string; notes?: string;
   status: "NEW" | "CONFIRMED"; source: "PHONE" | "SMS" | "WHATSAPP" | "FACEBOOK" | "WEBSITE" | "OTHER"; deliveryFeeCents?: number;
 }) {
   const receipt = await submitOrder(database, {
@@ -20,7 +20,7 @@ export async function createExternalOrder(database: Database, input: {
   });
   const order = await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) });
   if (!order) throw new DomainError("NOT_FOUND", "External order was not created", 404);
-  await database.update(orders).set({ orderSource: input.source, notes: input.notes?.trim() || order.notes }).where(eq(orders.id, order.id));
+  await database.update(orders).set({ orderSource: input.source, facebookProfile: input.facebookProfile?.trim() || null, notes: input.notes?.trim() || order.notes }).where(eq(orders.id, order.id));
   if (input.deliveryFeeCents !== undefined && input.fulfillmentMethod === "DELIVERY") {
     await database.update(orders).set({ deliveryFeeCents: input.deliveryFeeCents, finalTotalCents: order.itemSubtotalCents + input.deliveryFeeCents }).where(eq(orders.id, order.id));
   }
@@ -30,7 +30,7 @@ export async function createExternalOrder(database: Database, input: {
 
 export async function createHistoricalOrder(database: Database, input: {
   productId: string; packageId: string; quantity: number; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY";
-  customerName: string; mobile: string; email?: string; streetAddress?: string; postalCode?: string; city?: string;
+  customerName: string; mobile: string; email?: string; facebookProfile?: string; streetAddress?: string; postalCode?: string; city?: string;
   itemSubtotalCents?: number; deliveryFeeCents?: number; completedStatus: "PICKED_UP" | "DELIVERED"; completedAt: string;
   source: "PHONE" | "SMS" | "WHATSAPP" | "FACEBOOK" | "WEBSITE" | "OTHER"; reason: string; paymentAmountCents?: number; paymentMethod?: "CASH" | "BANK_TRANSFER" | "MOBILEPAY" | "CARD" | "OTHER";
 }) {
@@ -53,12 +53,13 @@ export async function createHistoricalOrder(database: Database, input: {
     const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id);
     const customer = (conflict || (!mobileMatch && !emailMatch)) ? { id: randomUUID(), shopId, name: input.customerName.trim(), mobile: normalizedMobile, email: normalizedEmail, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt } : (mobileMatch ?? emailMatch)!;
     if (conflict || (!mobileMatch && !emailMatch)) await tx.insert(customers).values(customer);
-    await tx.insert(orders).values({ id, shopId, publicReference: `H-${randomBytes(5).toString("hex").toUpperCase()}`, idempotencyKey: `historical-${id}`, productId: row.product.id, packageId: row.package.id, customerId: customer.id, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity: input.quantity, volumeMl, itemSubtotalCents: subtotal, deliveryFeeCents: deliveryFee, finalTotalCents: deliveryFee === null ? null : subtotal + deliveryFee, fulfillmentDate: input.fulfillmentDate, fulfillmentMethod: input.fulfillmentMethod, customerName: input.customerName.trim(), mobile: normalizedMobile, email: normalizedEmail, streetAddress: input.streetAddress || null, postalCode: input.postalCode || null, city: input.city || null, pickupName: null, pickupAddress: null, pickupInstructions: null, pickupTime: null, pickupLocationSnapshotJson: input.fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: input.fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, notes: input.reason.trim(), statusReason: input.reason.trim(), contactedAt: null, contactedBy: null, contactChannel: null, fulfillmentStartedAt: null, readyAt: null, dispatchedAt: input.completedStatus === "DELIVERED" ? input.completedAt : null, completedAt: input.completedAt, pickupConfirmedAt: input.completedStatus === "PICKED_UP" ? input.completedAt : null, pickupConfirmedBy: input.completedStatus === "PICKED_UP" ? "manager" : null, locale: "fi", status: input.completedStatus, version: 1, orderSource: input.source, historicalEntry: true, createdAt, updatedAt: createdAt });
+    await tx.insert(orders).values({ id, shopId, publicReference: `H-${randomBytes(5).toString("hex").toUpperCase()}`, idempotencyKey: `historical-${id}`, productId: row.product.id, packageId: row.package.id, customerId: customer.id, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity: input.quantity, volumeMl, itemSubtotalCents: subtotal, deliveryFeeCents: deliveryFee, finalTotalCents: deliveryFee === null ? null : subtotal + deliveryFee, fulfillmentDate: input.fulfillmentDate, fulfillmentMethod: input.fulfillmentMethod, customerName: input.customerName.trim(), mobile: normalizedMobile, email: normalizedEmail, streetAddress: input.streetAddress || null, postalCode: input.postalCode || null, city: input.city || null, pickupName: null, pickupAddress: null, pickupInstructions: null, pickupTime: null, pickupLocationSnapshotJson: input.fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: input.fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, notes: input.reason.trim(), facebookProfile: input.facebookProfile?.trim() || null, statusReason: input.reason.trim(), contactedAt: null, contactedBy: null, contactChannel: null, fulfillmentStartedAt: null, readyAt: null, dispatchedAt: input.completedStatus === "DELIVERED" ? input.completedAt : null, completedAt: input.completedAt, pickupConfirmedAt: input.completedStatus === "PICKED_UP" ? input.completedAt : null, pickupConfirmedBy: input.completedStatus === "PICKED_UP" ? "manager" : null, locale: "fi", status: input.completedStatus, version: 1, orderSource: input.source, historicalEntry: true, createdAt, updatedAt: createdAt });
     if (input.paymentAmountCents && input.paymentAmountCents > 0) await tx.insert(orderPayments).values({ id: randomUUID(), shopId, orderId: id, amountCents: input.paymentAmountCents, kind: "PAYMENT", method: input.paymentMethod ?? "OTHER", reference: "historical entry", recordedAt: input.completedAt, actor: "manager" });
     await tx.insert(auditEntries).values({ id: randomUUID(), shopId, actor: "manager", action: "order.historical_created", entityType: "order", entityId: id, detailsJson: JSON.stringify({ status: input.completedStatus, reason: input.reason, source: input.source }), createdAt });
     return (await tx.query.orders.findFirst({ where: eq(orders.id, id) }))!;
   });
 }
+
 
 async function enqueue(database: Database, eventKey: string, type: "EMAIL" | "AUTOMATION" | "NOTIFICATION", payload: Record<string, unknown>, scheduledFor: string) {
   const shopId = env().SHOP_ID;

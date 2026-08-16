@@ -218,7 +218,9 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
         pickupLocationSnapshotJson: pickup ? locationSnapshot : null,
         deliveryOriginSnapshotJson: pickup ? null : locationSnapshot,
         notes: input.notes || null,
+        facebookProfile: input.facebookProfile?.trim() || null,
         orderSource: "WEBSITE",
+
         historicalEntry: false,
         statusReason: null,
         contactedAt: null,
@@ -325,6 +327,8 @@ export type ManagerOrderUpdate = {
   quantity?: number;
   fulfillmentDate?: string;
   fulfillmentMethod?: "PICKUP" | "DELIVERY";
+  orderSource?: string;
+  facebookProfile?: string | null;
   customerName?: string;
   mobile?: string;
   email?: string | null;
@@ -349,6 +353,9 @@ export async function updateManagerOrder(database: Database, input: ManagerOrder
     const quantity = input.quantity ?? current.quantity;
     const fulfillmentDate = input.fulfillmentDate ?? current.fulfillmentDate;
     const fulfillmentMethod = input.fulfillmentMethod ?? current.fulfillmentMethod;
+    const orderSource = input.orderSource ?? current.orderSource;
+    const facebookProfile = input.facebookProfile === undefined ? current.facebookProfile : (input.facebookProfile?.trim() || null);
+
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) throw new DomainError("VALIDATION_ERROR", "Quantity must be between 1 and 100", 422);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fulfillmentDate)) throw new DomainError("VALIDATION_ERROR", "Fulfillment date is invalid", 422);
     const catalog = await tx.select({ product: products, package: packages, shop: shops }).from(products)
@@ -386,12 +393,13 @@ export async function updateManagerOrder(database: Database, input: ManagerOrder
     }
     const email = input.email === undefined ? current.email : normalizeEmail(input.email);
     const customerName = input.customerName?.trim() || current.customerName;
-    const changed = await tx.update(orders).set({ productId, packageId, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity, volumeMl: totalVolumeMl, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents, finalTotalCents, fulfillmentDate, fulfillmentMethod, customerName, mobile, email, streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress?.trim() || null, postalCode: input.postalCode === undefined ? current.postalCode : input.postalCode?.trim() || null, city: input.city === undefined ? current.city : input.city?.trim() || null, pickupLocationSnapshotJson: fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, version: sql`${orders.version} + 1`, updatedAt: now }).where(and(eq(orders.id, current.id), eq(orders.version, input.expectedVersion))).run();
+    const changed = await tx.update(orders).set({ productId, packageId, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity, volumeMl: totalVolumeMl, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents, finalTotalCents, fulfillmentDate, fulfillmentMethod, orderSource, facebookProfile, customerName, mobile, email, streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress?.trim() || null, postalCode: input.postalCode === undefined ? current.postalCode : input.postalCode?.trim() || null, city: input.city === undefined ? current.city : input.city?.trim() || null, pickupLocationSnapshotJson: fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, version: sql`${orders.version} + 1`, updatedAt: now }).where(and(eq(orders.id, current.id), eq(orders.version, input.expectedVersion))).run();
     if (changed.rowsAffected !== 1) throw new DomainError("STALE_VERSION", "Order changed", 409);
     await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.updated", entityType: "order", entityId: current.id, detailsJson: JSON.stringify({ before: { productId: current.productId, packageId: current.packageId, quantity: current.quantity, fulfillmentDate: current.fulfillmentDate, fulfillmentMethod: current.fulfillmentMethod, itemSubtotalCents: current.itemSubtotalCents, deliveryFeeCents: current.deliveryFeeCents }, after: { productId, packageId, quantity, fulfillmentDate, fulfillmentMethod, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents }, adjustmentReason: input.adjustmentReason?.trim() || null, capacityChanged }), createdAt: now });
-    return { ...current, productId, packageId, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity, volumeMl: totalVolumeMl, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents, finalTotalCents, fulfillmentDate, fulfillmentMethod, customerName, mobile, email, streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress?.trim() || null, postalCode: input.postalCode === undefined ? current.postalCode : input.postalCode?.trim() || null, city: input.city === undefined ? current.city : input.city?.trim() || null, pickupLocationSnapshotJson: fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, version: current.version + 1, updatedAt: now };
+    return { ...current, productId, packageId, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity, volumeMl: totalVolumeMl, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents, finalTotalCents, fulfillmentDate, fulfillmentMethod, orderSource, facebookProfile, customerName, mobile, email, streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress?.trim() || null, postalCode: input.postalCode === undefined ? current.postalCode : input.postalCode?.trim() || null, city: input.city === undefined ? current.city : input.city?.trim() || null, pickupLocationSnapshotJson: fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, version: current.version + 1, updatedAt: now };
   });
 }
+
 
 export async function addOrderNote(database: Database, input: { orderId: string; body: string }) {
   const { SHOP_ID } = env();

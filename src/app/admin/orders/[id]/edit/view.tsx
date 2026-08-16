@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 
 type Product = {
   product: { id: string; nameFi: string; nameEn: string };
@@ -30,6 +31,8 @@ type Order = {
   volumeMl: number;
   fulfillmentDate: string;
   fulfillmentMethod: "PICKUP" | "DELIVERY";
+  orderSource?: string;
+  facebookProfile?: string | null;
   customerName: string;
   mobile: string;
   email: string | null;
@@ -69,6 +72,8 @@ export function OrderEditForm({
 
   const [form, setForm] = useState({
     ...initial,
+    orderSource: initial.orderSource ?? "WEBSITE",
+    facebookProfile: initial.facebookProfile ?? "",
     email: initial.email ?? "",
     streetAddress: initial.streetAddress ?? "",
     postalCode: initial.postalCode ?? "",
@@ -135,6 +140,22 @@ export function OrderEditForm({
     }));
   }
 
+  function handleMobileBlur() {
+    if (!form.mobile.trim()) return;
+    try {
+      const normalized = normalizeMobile(form.mobile);
+      update("mobile", normalized);
+    } catch {
+      /* Keep user input if unparseable until form submit */
+    }
+  }
+
+  function handleEmailBlur() {
+    if (!form.email.trim()) return;
+    const normalized = normalizeEmail(form.email);
+    update("email", normalized ?? "");
+  }
+
   function handleOverrideToggle(checked: boolean) {
     setOverridePrice(checked);
     if (!checked) {
@@ -155,9 +176,22 @@ export function OrderEditForm({
     setSaving(true);
     setError("");
 
+    if (form.fulfillmentMethod === "DELIVERY" && (!form.streetAddress || form.streetAddress.trim().length < 2)) {
+      setSaving(false);
+      return setError("Street address is required for Delivery orders.");
+    }
+
     if (!isHistorical && (form.fulfillmentDate < minAllowedDate || form.fulfillmentDate > maxAllowedDate)) {
       setSaving(false);
       return setError(`Fulfillment date must be between ${minAllowedDate} and ${maxAllowedDate} (next 7 days).`);
+    }
+
+    let normalizedMobile = form.mobile;
+    try {
+      normalizedMobile = normalizeMobile(form.mobile);
+    } catch {
+      setSaving(false);
+      return setError("Invalid mobile phone number format.");
     }
 
     const response = await fetch(`/api/admin/orders/${form.id}`, {
@@ -170,9 +204,11 @@ export function OrderEditForm({
         quantity: Number(form.quantity),
         fulfillmentDate: form.fulfillmentDate,
         fulfillmentMethod: form.fulfillmentMethod,
+        orderSource: form.orderSource,
+        facebookProfile: form.facebookProfile.trim() || null,
         customerName: form.customerName,
-        mobile: form.mobile,
-        email: form.email || null,
+        mobile: normalizedMobile,
+        email: normalizeEmail(form.email),
         streetAddress: form.streetAddress || null,
         postalCode: form.postalCode || null,
         city: form.city || null,
@@ -259,23 +295,64 @@ export function OrderEditForm({
         </label>
 
         <label className="field">
+          <span>Order source</span>
+          <select value={form.orderSource} onChange={(e) => update("orderSource", e.target.value)}>
+            <option value="WEBSITE">Website</option>
+            <option value="MANUAL">Manual</option>
+            <option value="SMS">SMS</option>
+            <option value="WHATSAPP">WhatsApp</option>
+            <option value="FACEBOOK_MESSAGE">Facebook Message</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </label>
+
+        <label className="field">
           <span>Customer name *</span>
           <input value={form.customerName} onChange={(e) => update("customerName", e.target.value)} required />
         </label>
 
         <label className="field">
           <span>Mobile *</span>
-          <input type="tel" inputMode="tel" autoComplete="tel" value={form.mobile} onChange={(e) => update("mobile", e.target.value)} required />
+          <input
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={form.mobile}
+            onChange={(e) => update("mobile", e.target.value)}
+            onBlur={handleMobileBlur}
+            required
+            placeholder="+358501234567 or 0501234567"
+          />
         </label>
 
         <label className="field">
           <span>Email</span>
-          <input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} />
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) => update("email", e.target.value)}
+            onBlur={handleEmailBlur}
+            placeholder="customer@example.com"
+          />
+        </label>
+
+        <label className="field">
+          <span>Facebook Profile / Name (Optional)</span>
+          <input
+            value={form.facebookProfile}
+            onChange={(e) => update("facebookProfile", e.target.value)}
+            placeholder="e.g. facebook.com/username or Facebook Name"
+          />
         </label>
 
         <label className="field md:col-span-2">
-          <span>Customer street address</span>
-          <input value={form.streetAddress} onChange={(e) => update("streetAddress", e.target.value)} />
+          <span>Customer street address {form.fulfillmentMethod === "DELIVERY" ? "*" : "(Optional)"}</span>
+          <input
+            value={form.streetAddress}
+            onChange={(e) => update("streetAddress", e.target.value)}
+            required={form.fulfillmentMethod === "DELIVERY"}
+            placeholder={form.fulfillmentMethod === "DELIVERY" ? "Required for delivery" : "Optional for pickup"}
+          />
         </label>
 
         <label className="field">
