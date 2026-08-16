@@ -147,30 +147,82 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
       setFrom(dates.from);
       setTo(dates.to);
     }
-    if (nextPreset !== "TODAY" && (view === "TODAY" || view === "PICKUP_TODAY" || view === "DELIVERY_TODAY")) {
-      setView("ALL");
-    }
+    setView("ALL");
+  }
+
+  function handleStatusChange(nextStatus: string) {
+    setStatus(nextStatus);
+    setView("ALL");
+  }
+
+  function handleMethodChange(nextMethod: string) {
+    setMethod(nextMethod);
+    setView("ALL");
+  }
+
+  function handleSourceChange(nextSource: string) {
+    setSource(nextSource);
+    setView("ALL");
+  }
+
+  function handleFromChange(nextFrom: string) {
+    setFrom(nextFrom);
+    setDatePreset("CUSTOM");
+    setView("ALL");
+  }
+
+  function handleToChange(nextTo: string) {
+    setTo(nextTo);
+    setDatePreset("CUSTOM");
+    setView("ALL");
   }
 
   function selectQuickView(targetView: OrdersView) {
     setView(targetView);
+    const today = todayStr();
+
     if (targetView === "TODAY") {
       setDatePreset("TODAY");
-      setFrom(todayStr());
-      setTo(todayStr());
+      setFrom(today);
+      setTo(today);
+      setStatus("ALL");
       setMethod("ALL");
+      setSource("ALL");
     } else if (targetView === "PICKUP_TODAY") {
       setDatePreset("TODAY");
-      setFrom(todayStr());
-      setTo(todayStr());
+      setFrom(today);
+      setTo(today);
+      setStatus("ALL");
       setMethod("PICKUP");
+      setSource("ALL");
     } else if (targetView === "DELIVERY_TODAY") {
       setDatePreset("TODAY");
-      setFrom(todayStr());
-      setTo(todayStr());
+      setFrom(today);
+      setTo(today);
+      setStatus("ALL");
       setMethod("DELIVERY");
+      setSource("ALL");
     } else if (targetView === "NEEDS_CONFIRMATION") {
+      setDatePreset("ALL");
+      setFrom("");
+      setTo("");
       setStatus("NEW");
+      setMethod("ALL");
+      setSource("ALL");
+    } else if (targetView === "TRIAGE") {
+      setDatePreset("ALL");
+      setFrom("");
+      setTo("");
+      setStatus("ALL");
+      setMethod("ALL");
+      setSource("ALL");
+    } else if (targetView === "UNPAID") {
+      setDatePreset("ALL");
+      setFrom("");
+      setTo("");
+      setStatus("ALL");
+      setMethod("ALL");
+      setSource("ALL");
     } else if (targetView === "ALL") {
       setDatePreset("ALL");
       setFrom("");
@@ -183,14 +235,16 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
 
   const normalizedStatus = status === "ALL" ? "ALL" : status.replaceAll(" ", "_").toUpperCase();
   const matchesQuickView = useCallback((order: AdminOrder, selectedView: OrdersView) => {
+    const day = todayStr();
     return selectedView === "ALL"
       || selectedView === "TRIAGE" && getOrderTriageReasons(order).length > 0
-      || selectedView === "TODAY" && (!from || order.fulfillmentDate >= from) && (!to || order.fulfillmentDate <= to)
+      || selectedView === "TODAY" && order.fulfillmentDate === day
       || selectedView === "NEEDS_CONFIRMATION" && order.status === "NEW"
-      || selectedView === "PICKUP_TODAY" && (!from || order.fulfillmentDate >= from) && (!to || order.fulfillmentDate <= to) && order.fulfillmentMethod === "PICKUP"
-      || selectedView === "DELIVERY_TODAY" && (!from || order.fulfillmentDate >= from) && (!to || order.fulfillmentDate <= to) && order.fulfillmentMethod === "DELIVERY"
+      || selectedView === "PICKUP_TODAY" && order.fulfillmentDate === day && order.fulfillmentMethod === "PICKUP"
+      || selectedView === "DELIVERY_TODAY" && order.fulfillmentDate === day && order.fulfillmentMethod === "DELIVERY"
       || selectedView === "UNPAID" && order.paymentStatus === "UNPAID";
-  }, [from, to]);
+  }, []);
+
 
 
   const filtered = useMemo(() => rows.filter((order) => matchesQuickView(order, view)
@@ -202,9 +256,21 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
     && `${order.publicReference} ${order.customerName} ${order.mobile}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => orderTriageScore(b) - orderTriageScore(a) || a.fulfillmentDate.localeCompare(b.fulfillmentDate) || a.createdAt.localeCompare(b.createdAt)), [rows, view, source, normalizedStatus, method, from, to, search, matchesQuickView]);
 
-  const quickCounts = useMemo(() => Object.fromEntries(QUICK_VIEWS.map(({ key }) => [key, rows.filter((order) => matchesQuickView(order, key)).length])) as Record<OrdersView, number>, [rows, matchesQuickView]);
-  
+  const quickCounts = useMemo(() => {
+    const day = todayStr();
+    return {
+      ALL: rows.length,
+      TRIAGE: rows.filter((order) => getOrderTriageReasons(order).length > 0).length,
+      TODAY: rows.filter((order) => order.fulfillmentDate === day).length,
+      NEEDS_CONFIRMATION: rows.filter((order) => order.status === "NEW").length,
+      PICKUP_TODAY: rows.filter((order) => order.fulfillmentDate === day && order.fulfillmentMethod === "PICKUP").length,
+      DELIVERY_TODAY: rows.filter((order) => order.fulfillmentDate === day && order.fulfillmentMethod === "DELIVERY").length,
+      UNPAID: rows.filter((order) => order.paymentStatus === "UNPAID").length,
+    };
+  }, [rows]);
+
   const unpaidTotalCents = useMemo(() => rows.filter((o) => o.paymentStatus === "UNPAID").reduce((sum, o) => sum + (o.outstandingCents ?? 0), 0), [rows]);
+
 
   const pageSize = 25;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -239,8 +305,21 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
     setViewName("");
     setNotice(`Saved view “${name}”.`);
   }
-  function loadSavedView(item: typeof savedViews[number]) { setView(item.view); setFrom(item.from); setTo(item.to); setMethod(item.method); setStatus(item.status); setSource(item.source); }
+
+  function loadSavedView(item: typeof savedViews[number]) {
+    setView("ALL");
+    setFrom(item.from);
+    setTo(item.to);
+    setMethod(item.method);
+    setStatus(item.status);
+    setSource(item.source);
+    setDatePreset(item.from || item.to ? "CUSTOM" : "ALL");
+    setNotice(`Loaded saved view “${item.name}”.`);
+  }
+
   function nextStatuses(order: AdminOrder) { return getLegalOrderTransitions(order).filter((action) => action.available).map((action) => action.status); }
+
+
   async function transition(order: AdminOrder, target: string, transitionReason?: string) {
     const response = await fetch(`/api/admin/orders/${order.id}/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: target, expectedVersion: order.version, reason: transitionReason || undefined }) });
     const body = await response.json();
@@ -385,18 +464,18 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
             <>
               <label className="field">
                 <span>From Date</span>
-                <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+                <input type="date" value={from} onChange={(event) => handleFromChange(event.target.value)} />
               </label>
               <label className="field">
                 <span>To Date</span>
-                <input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+                <input type="date" value={to} onChange={(event) => handleToChange(event.target.value)} />
               </label>
             </>
           )}
 
           <label className="field">
             <span>Status</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <select value={status} onChange={(event) => handleStatusChange(event.target.value)}>
               <option value="ALL">All statuses</option>
               {["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED", "CANCELLED", "NO_SHOW", "REJECTED"].map((value) => (
                 <option key={value} value={value}>{statusLabel(value)}</option>
@@ -406,7 +485,7 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
 
           <label className="field">
             <span>Method</span>
-            <select value={method} onChange={(event) => setMethod(event.target.value)}>
+            <select value={method} onChange={(event) => handleMethodChange(event.target.value)}>
               <option value="ALL">Pickup &amp; Delivery</option>
               <option value="PICKUP">Pickup</option>
               <option value="DELIVERY">Delivery</option>
@@ -415,7 +494,7 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
 
           <label className="field">
             <span>Order Source</span>
-            <select value={source} onChange={(event) => setSource(event.target.value)}>
+            <select value={source} onChange={(event) => handleSourceChange(event.target.value)}>
               <option value="ALL">All sources</option>
               {sources.map((item) => <option key={item.key} value={item.key}>{item.labelEn}</option>)}
               <option value="HISTORICAL">Historical</option>
@@ -442,9 +521,10 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
 
           <div className="flex items-center gap-2 self-end">
             <button className="btn btn-secondary text-xs" type="button" onClick={saveCurrentView} disabled={!viewName.trim()}>Save view</button>
-            <button className="text-button text-xs" type="button" onClick={() => { setSearch(""); setDatePreset("ALL"); setFrom(""); setTo(""); setMethod("ALL"); setStatus("ALL"); setSource("ALL"); }}>Clear filters</button>
+            <button className="text-button text-xs" type="button" onClick={() => { setSearch(""); selectQuickView("ALL"); }}>Clear filters</button>
           </div>
         </div>
+
       </details>
 
       {/* Table Preferences & Density Controls */}
