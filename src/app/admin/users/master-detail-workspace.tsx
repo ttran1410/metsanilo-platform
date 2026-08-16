@@ -183,11 +183,13 @@ function permissionName(key: string) {
 
 export function MasterDetailUserWorkspace({
   initialUsers,
+  actorRole = "MANAGER",
   canManageUsers,
   canAssignPermissions,
   canResetPasswords,
 }: {
   initialUsers: UserRow[];
+  actorRole?: Role;
   canManageUsers: boolean;
   canAssignPermissions: boolean;
   canResetPasswords: boolean;
@@ -292,6 +294,10 @@ export function MasterDetailUserWorkspace({
     setError("");
     setMessage("");
 
+    if (newRole === "ADMIN" && actorRole !== "ADMIN") {
+      return setError("Only Store Owner (ADMIN) accounts can grant the ADMIN role.");
+    }
+
     const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -378,343 +384,344 @@ export function MasterDetailUserWorkspace({
         <aside className="lg:col-span-4 card p-4 flex flex-col gap-3 max-h-[85vh] sticky top-4">
           <div className="flex items-center justify-between border-b border-line pb-2.5">
             <div>
-              <span className="eyebrow">ADMINISTRATION</span>
-              <h2 className="text-base font-bold text-ink">Team Roster ({filteredUsers.length})</h2>
+              <span className="eyebrow text-primary">TEAM ROSTER</span>
+              <h2 className="text-base font-bold text-ink">User Directory ({filteredUsers.length})</h2>
             </div>
 
             {canManageUsers && (
-              <button type="button" className="btn text-xs py-1 px-2.5" onClick={() => setShowWizard(true)}>
-                ＋ Invite User
+              <button
+                type="button"
+                className="btn text-xs py-1.5 px-3 font-bold"
+                onClick={() => setShowWizard(true)}
+              >
+                ＋ Onboard User
               </button>
             )}
           </div>
 
-          {/* Search & Role Filters */}
-          <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
             <input
-              placeholder="Search team member by name or email…"
+              placeholder="Search user, email, or role…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
+              className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
             />
 
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
-              {[
-                { key: "ALL", label: "All Roles" },
-                { key: "ADMIN", label: "👑 Admin" },
-                { key: "MANAGER", label: "🛡️ Manager" },
-                { key: "STAFF", label: "👤 Staff" },
-                { key: "CONTENT_CREATOR", label: "🎨 Content" },
-              ].map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  className={`px-2.5 py-1 rounded-md font-semibold whitespace-nowrap transition-colors ${
-                    roleFilter === chip.key
-                      ? "bg-primary text-on-primary"
-                      : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
-                  }`}
-                  onClick={() => setRoleFilter(chip.key as typeof roleFilter)}
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
+            <select
+              aria-label="Filter role"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value as any)}
+              className="text-xs py-1.5 px-2 rounded-lg border border-line bg-surface font-semibold"
+            >
+              <option value="ALL">All Roles</option>
+              <option value="ADMIN">ADMIN</option>
+              <option value="MANAGER">MANAGER</option>
+              <option value="STAFF">STAFF</option>
+              <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
+            </select>
           </div>
 
-          {/* User Master Items List */}
-          <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
-            {filteredUsers.map((user) => {
-              const isSelected = user.id === selectedId;
+          {/* USER ROSTER LIST */}
+          <div className="overflow-y-auto flex flex-col divide-y divide-line pr-1 border border-line rounded-xl">
+            {filteredUsers.map((u) => {
+              const isSelected = u.id === selectedUser?.id;
 
               return (
                 <button
-                  key={user.id}
+                  key={u.id}
                   type="button"
-                  className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? "border-primary bg-primary/5 ring-1 ring-primary shadow-sm"
-                      : "border-line bg-surface hover:border-muted"
+                  onClick={() => void loadUserExtras(u.id)}
+                  className={`p-3 text-left transition-colors flex items-center justify-between gap-3 ${
+                    isSelected ? "bg-primary/5 font-bold" : "hover:bg-surface-muted"
                   }`}
-                  onClick={() => void loadUserExtras(user.id)}
                 >
-                  <div className="w-10 h-10 rounded-full bg-surface-muted border border-line shrink-0 flex items-center justify-center font-bold text-ink text-sm">
-                    {user.displayName.slice(0, 1).toUpperCase()}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-surface-muted border border-line flex items-center justify-center font-bold text-xs text-primary shrink-0">
+                      {u.displayName.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="truncate">
+                      <strong className="text-ink text-xs block truncate font-bold">{u.displayName}</strong>
+                      <span className="muted text-[11px] block truncate">{u.email ?? "No email"}</span>
+                    </div>
                   </div>
 
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <strong className="text-sm font-bold text-ink truncate">{user.displayName}</strong>
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
-                        user.active !== false ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-rose-50 text-rose-800 border-rose-200"
-                      }`}>
-                        {user.active !== false ? "Active" : "Suspended"}
-                      </span>
-                    </div>
-
-                    <span className="text-xs muted truncate">{user.email}</span>
-
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-muted border border-line text-ink">
-                        {user.role}
-                      </span>
-                      <span className="text-[10px] muted">
-                        {user.permissions.length} permissions
-                      </span>
-                    </div>
+                  <div className="flex flex-col items-end shrink-0 gap-1">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        u.role === "ADMIN"
+                          ? "bg-purple-100 text-purple-900 border-purple-300"
+                          : u.role === "MANAGER"
+                          ? "bg-blue-100 text-blue-900 border-blue-300"
+                          : u.role === "STAFF"
+                          ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                          : "bg-surface-muted text-ink/80 border-line"
+                      }`}
+                    >
+                      {u.role}
+                    </span>
+                    {u.active === false && (
+                      <span className="text-[10px] text-danger font-bold">Suspended</span>
+                    )}
                   </div>
                 </button>
               );
             })}
 
             {filteredUsers.length === 0 && (
-              <AdminEmptyState title="No team members found" description="Adjust search query or role filter." />
+              <p className="p-6 text-center text-xs muted italic">No users found.</p>
             )}
           </div>
         </aside>
 
-        {/* RIGHT DETAIL WORKSPACE PANE (8 Cols) */}
-        <main className="lg:col-span-8 flex flex-col gap-4">
-          {selectedUser ? (
-            <div className="flex flex-col gap-4">
-              {/* USER PROFILE HEADER CARD */}
-              <div className="card p-4 md:p-5 flex flex-col gap-4">
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-4">
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-ink text-on-primary flex items-center justify-center text-2xl font-bold shadow-md shrink-0">
-                      {selectedUser.displayName.slice(0, 1).toUpperCase()}
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h1 className="text-2xl font-bold tracking-tight text-ink">{selectedUser.displayName}</h1>
-                        <AdminStatusBadge
-                          status={selectedUser.active !== false ? "CONFIRMED" : "CANCELLED"}
-                          label={selectedUser.active !== false ? "Active" : "Suspended"}
-                        />
-                      </div>
-
-                      <span className="text-xs muted font-semibold">{selectedUser.email}</span>
-                    </div>
+        {/* RIGHT DETAIL WORKSPACE (8 Cols) */}
+        {selectedUser ? (
+          <main className="lg:col-span-8 flex flex-col gap-4">
+            {/* USER OVERVIEW CARD */}
+            <div className="card p-5 flex flex-col gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center text-lg font-black text-primary">
+                    {selectedUser.displayName.slice(0, 1).toUpperCase()}
                   </div>
 
-                  {/* Role Switcher & Action Toolbar */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {canManageUsers && (
-                      <label className="text-xs font-bold text-ink flex items-center gap-1.5 bg-surface-muted px-3 py-1.5 rounded-xl border border-line">
-                        <span>Role:</span>
-                        <select
-                          value={selectedUser.role}
-                          onChange={(e) => void handleChangeRole(e.target.value as Role)}
-                          className="bg-surface border border-line rounded px-2 py-0.5 text-xs font-bold"
-                        >
-                          <option value="ADMIN">ADMIN</option>
-                          <option value="MANAGER">MANAGER</option>
-                          <option value="STAFF">STAFF</option>
-                          <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
-                        </select>
-                      </label>
-                    )}
-
-                    {canResetPasswords && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
-                        onClick={() => void handleResetPassword()}
-                      >
-                        🔑 Reset Password
-                      </button>
-                    )}
-
-                    {canManageUsers && (
-                      <button
-                        type="button"
-                        className={`btn text-xs py-1.5 px-3 font-semibold ${
-                          selectedUser.active !== false ? "btn-secondary text-danger" : "btn-primary"
-                        }`}
-                        onClick={() => void handleToggleActive(selectedUser.active === false)}
-                      >
-                        {selectedUser.active !== false ? "🚫 Suspend" : "🟢 Activate"}
-                      </button>
-                    )}
+                  <div>
+                    <span className="eyebrow text-primary">USER ACCESS PROFILE</span>
+                    <h2 className="text-xl font-bold text-ink">{selectedUser.displayName}</h2>
+                    <p className="text-xs muted">
+                      {selectedUser.email ?? "No email registered"} · Joined{" "}
+                      {selectedUser.createdAt?.slice(0, 10) ?? "Earlier"}
+                    </p>
                   </div>
                 </div>
 
-                {/* Session Kill Switch & Summary Line */}
-                <div className="flex flex-wrap items-center justify-between gap-3 text-xs bg-surface-muted p-3 rounded-xl border border-line">
-                  <div className="flex items-center gap-3">
-                    <span>Role Defaults: <strong>{selectedDefaults.length}</strong></span>
-                    <span>•</span>
-                    <span>Effective Granted: <strong className="text-primary">{selectedUser.permissions.length}</strong></span>
-                  </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {canManageUsers && (
+                    <label className="text-xs font-semibold text-ink flex items-center gap-1.5">
+                      <span>Role:</span>
+                      <select
+                        aria-label="User role"
+                        value={selectedUser.role}
+                        onChange={(e) => void handleChangeRole(e.target.value as Role)}
+                        className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface font-bold"
+                      >
+                        <option value="ADMIN" disabled={actorRole !== "ADMIN"}>
+                          {actorRole !== "ADMIN" ? "ADMIN (Requires Store Owner)" : "ADMIN"}
+                        </option>
+                        <option value="MANAGER">MANAGER</option>
+                        <option value="STAFF">STAFF</option>
+                        <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
+                      </select>
+                    </label>
+                  )}
+
+                  {canResetPasswords && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
+                      onClick={() => void handleResetPassword()}
+                    >
+                      🔑 Reset Password
+                    </button>
+                  )}
 
                   {canManageUsers && (
                     <button
                       type="button"
-                      className="btn btn-secondary text-xs py-1 px-2.5 text-danger font-semibold"
-                      onClick={() => void handleRevokeSessions()}
+                      className={`btn text-xs py-1.5 px-3 font-semibold ${
+                        selectedUser.active !== false ? "btn-secondary text-danger" : "btn-primary"
+                      }`}
+                      onClick={() => void handleToggleActive(selectedUser.active === false)}
                     >
-                      🚪 Revoke All Active Sessions
+                      {selectedUser.active !== false ? "🚫 Suspend" : "🟢 Activate"}
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* GROUPED PERMISSION ASSIGNMENT MATRIX */}
-              <div className="card p-4 md:p-5 flex flex-col gap-5">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-                  <div>
-                    <span className="eyebrow">GRANULAR ACCESS CONTROL (RBAC)</span>
-                    <h3 className="text-base font-bold text-ink">Permission Assignment Matrix</h3>
-                  </div>
-
-                  {canAssignPermissions && (
-                    <button
-                      type="button"
-                      className="btn btn-secondary text-xs py-1.5 px-3"
-                      onClick={() => void handleResetToDefaults()}
-                    >
-                      ↺ Reset to Role Defaults
-                    </button>
-                  )}
+              {/* Session Kill Switch & Summary Line */}
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs bg-surface-muted p-3 rounded-xl border border-line">
+                <div className="flex items-center gap-3">
+                  <span>Role Defaults: <strong>{selectedDefaults.length}</strong></span>
+                  <span>•</span>
+                  <span>Effective Granted: <strong className="text-primary">{selectedUser.permissions.length}</strong></span>
                 </div>
 
-                {/* Categories Hierarchy */}
-                <div className="flex flex-col gap-5">
-                  {PERMISSION_GROUPS.map((group) => (
-                    <div key={group.label} className="flex flex-col gap-2 bg-surface-muted/30 p-3.5 rounded-xl border border-line">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5 border-b border-line/60 pb-2">
-                        <span>{group.icon}</span> {group.label}
-                      </h4>
+                {canManageUsers && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary text-xs py-1 px-2.5 text-danger font-semibold"
+                    onClick={() => void handleRevokeSessions()}
+                  >
+                    🚪 Revoke All Active Sessions
+                  </button>
+                )}
+              </div>
+            </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1">
-                        {group.permissions.map((permission) => {
-                          const inherited = selectedDefaults.includes(permission);
-                          const checked = selectedUser.permissions.includes(permission);
-                          const isHighRisk = isHighRiskPermission(permission);
+            {/* GROUPED PERMISSION ASSIGNMENT MATRIX */}
+            <div className="card p-4 md:p-5 flex flex-col gap-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+                <div>
+                  <span className="eyebrow">GRANULAR ACCESS CONTROL (RBAC)</span>
+                  <h3 className="text-base font-bold text-ink">Permission Assignment Matrix</h3>
+                </div>
 
-                          const isAddedOverride = checked && !inherited;
-                          const isRevokedOverride = !checked && inherited;
+                {canAssignPermissions && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary text-xs py-1.5 px-3"
+                    onClick={() => void handleResetToDefaults()}
+                  >
+                    ↺ Reset to Role Defaults
+                  </button>
+                )}
+              </div>
 
-                          return (
-                            <label
-                              key={permission}
-                              className={`p-2.5 rounded-xl border flex items-start gap-3 transition-colors ${
-                                checked
-                                  ? "bg-surface border-line"
-                                  : "bg-surface-muted/50 border-line/50 opacity-70"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={!editable}
-                                onChange={(e) => void handleGrantPermission(permission, e.target.checked)}
-                                className="mt-1"
-                              />
+              <div className="flex flex-col gap-5 divide-y divide-line">
+                {PERMISSION_GROUPS.map((group) => (
+                  <div key={group.label} className="pt-4 first:pt-0 flex flex-col gap-2.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-2">
+                      <span>{group.icon}</span> {group.label}
+                    </h4>
 
-                              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <strong className="text-xs font-bold text-ink">{permissionName(permission)}</strong>
-                                  {isHighRisk && (
-                                    <span
-                                      className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-rose-900 border border-rose-300 shrink-0"
-                                      title="High-risk operational permission"
-                                    >
-                                      🛡️ High Risk
-                                    </span>
-                                  )}
-                                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      {group.permissions.map((permKey) => {
+                        const isRoleDefault = selectedDefaults.includes(permKey);
+                        const isGranted = selectedUser.permissions.includes(permKey);
+                        const isHighRisk = isHighRiskPermission(permKey);
 
-                                <div className="flex items-center gap-2 text-[11px] mt-0.5">
-                                  {inherited && !isRevokedOverride && (
-                                    <span className="muted font-medium">✓ Inherited from role</span>
-                                  )}
+                        const isCustomGranted =
+                          selectedUser.customOverrides?.granted.includes(permKey);
+                        const isCustomRevoked =
+                          selectedUser.customOverrides?.revoked.includes(permKey);
 
-                                  {isAddedOverride && (
-                                    <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                                      ⭐ + Custom Override Added
-                                    </span>
-                                  )}
-
-                                  {isRevokedOverride && (
-                                    <span className="font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
-                                      🚫 - Custom Revocation
-                                    </span>
-                                  )}
-                                </div>
+                        return (
+                          <div
+                            key={permKey}
+                            className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-colors ${
+                              isGranted
+                                ? "bg-surface border-line"
+                                : "bg-surface-muted/40 border-line/60 opacity-70"
+                            }`}
+                          >
+                            <div className="flex flex-col gap-0.5 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-ink truncate">
+                                  {permissionName(permKey)}
+                                </span>
+                                {isHighRisk && (
+                                  <span title="High Risk Shield" className="text-amber-800 text-[10px]">
+                                    🛡️
+                                  </span>
+                                )}
                               </div>
-                            </label>
-                          );
-                        })}
-                      </div>
+
+                              <span className="font-mono text-[10px] muted truncate">{permKey}</span>
+
+                              <div className="flex items-center gap-1 mt-1">
+                                {isRoleDefault && !isCustomRevoked && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-surface-muted font-semibold muted border border-line">
+                                    Role Default
+                                  </span>
+                                )}
+
+                                {isCustomGranted && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 font-bold border border-emerald-300">
+                                    + Granted
+                                  </span>
+                                )}
+
+                                {isCustomRevoked && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-900 font-bold border border-rose-300">
+                                    - Revoked
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {editable && (
+                              <button
+                                type="button"
+                                className={`btn text-xs py-1 px-2.5 font-bold shrink-0 ${
+                                  isGranted ? "btn-secondary text-danger" : "btn-primary"
+                                }`}
+                                onClick={() => void handleGrantPermission(permKey, !isGranted)}
+                              >
+                                {isGranted ? "Revoke" : "Grant"}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
+            </div>
 
-              {/* ACTIVE SESSIONS LIST */}
-              <div className="card p-4 md:p-5 flex flex-col gap-3">
-                <div className="border-b border-line pb-2">
-                  <span className="eyebrow">DEVICE SESSIONS</span>
-                  <h3 className="text-base font-bold text-ink">Active Device Sessions ({sessions.length})</h3>
-                </div>
+            {/* SESSIONS & AUDIT FEED SECTION */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Active Sessions */}
+              <div className="card p-4 flex flex-col gap-3">
+                <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
+                  📱 Active Sessions ({sessions.length})
+                </h4>
 
-                <div className="flex flex-col gap-2">
-                  {sessions.map((sess) => (
-                    <div
-                      key={sess.id}
-                      className="p-3 rounded-xl border border-line bg-surface flex items-center justify-between text-xs"
-                    >
-                      <div className="flex flex-col gap-0.5">
-                        <strong className="text-ink font-semibold">{sess.userAgent || "Web Browser"}</strong>
-                        <span className="muted">IP: {sess.ipAddress || "Unknown"} · Created {sess.createdAt.slice(0, 10)}</span>
+                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                  {sessions.map((s) => (
+                    <div key={s.id} className="p-2.5 bg-surface-muted rounded-xl border border-line text-xs font-mono">
+                      <div className="font-bold text-ink truncate">{s.userAgent || "Browser Session"}</div>
+                      <div className="muted text-[11px] flex justify-between mt-1">
+                        <span>IP: {s.ipAddress || "Internal"}</span>
+                        <span>{s.createdAt.slice(0, 10)}</span>
                       </div>
-                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        🟢 Active Session
-                      </span>
                     </div>
                   ))}
 
                   {sessions.length === 0 && (
-                    <p className="text-xs muted text-center py-3">No active device sessions registered.</p>
+                    <p className="text-xs muted italic p-2">No active browser sessions.</p>
                   )}
                 </div>
               </div>
 
-              {/* ACCESS AUDIT TRAIL FEED */}
-              <div className="card p-4 md:p-5 flex flex-col gap-3">
-                <div className="border-b border-line pb-2">
-                  <span className="eyebrow">SECURITY AUDIT LOG</span>
-                  <h3 className="text-base font-bold text-ink">Access Audit Trail ({audit.length})</h3>
-                </div>
+              {/* User Audit Feed */}
+              <div className="card p-4 flex flex-col gap-3">
+                <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
+                  📜 Security Audit Feed ({audit.length})
+                </h4>
 
-                <div className="flex flex-col gap-2">
-                  {audit.map((item) => (
-                    <div key={item.id} className="p-2.5 rounded-lg border border-line bg-surface-muted/40 text-xs flex items-center justify-between">
-                      <div>
-                        <strong className="text-ink font-bold">{item.action}</strong>
-                        <span className="muted block text-[11px]">by {item.actor}</span>
+                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                  {audit.map((a) => (
+                    <div key={a.id} className="p-2.5 bg-surface-muted rounded-xl border border-line text-xs">
+                      <div className="font-bold text-ink">{a.action}</div>
+                      <div className="muted text-[11px] flex justify-between mt-0.5 font-mono">
+                        <span>By: {a.actor}</span>
+                        <span>{a.createdAt.slice(0, 10)}</span>
                       </div>
-                      <span className="muted font-mono text-[11px]">{item.createdAt.slice(0, 16).replace("T", " ")}</span>
                     </div>
                   ))}
 
                   {audit.length === 0 && (
-                    <p className="text-xs muted text-center py-3">No security audit entries recorded yet.</p>
+                    <p className="text-xs muted italic p-2">No audit entries recorded.</p>
                   )}
                 </div>
               </div>
             </div>
-          ) : (
-            <AdminEmptyState title="Select a team member" description="Choose a user from the left master roster." />
-          )}
-        </main>
+          </main>
+        ) : (
+          <main className="lg:col-span-8">
+            <AdminEmptyState
+              title="No User Selected"
+              description="Select a user from the directory to inspect permissions and active sessions."
+            />
+          </main>
+        )}
       </div>
 
-      {/* ONBOARDING WIZARD MODAL */}
+      {/* 60-SECOND STAFF ONBOARDING WIZARD MODAL */}
       {showWizard && (
         <OnboardingModal
+          actorRole={actorRole}
           onClose={() => setShowWizard(false)}
           onCreated={(createdUser, tempPassword) => {
             setShowWizard(false);

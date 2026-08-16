@@ -38,9 +38,11 @@ function generateOneTimePassword() {
 }
 
 export function OnboardingModal({
+  actorRole = "MANAGER",
   onClose,
   onCreated,
 }: {
+  actorRole?: Role;
   onClose: () => void;
   onCreated: (createdUser: any, tempPassword: string) => void;
 }) {
@@ -51,9 +53,16 @@ export function OnboardingModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const canGrantAdmin = actorRole === "ADMIN";
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    if (role === "ADMIN" && !canGrantAdmin) {
+      return setError("Only Store Owner (ADMIN) accounts can grant the ADMIN role.");
+    }
+
     setBusy(true);
 
     try {
@@ -129,28 +138,42 @@ export function OnboardingModal({
           <div className="flex flex-col gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-muted">2. Select Role Preset</span>
             <div className="flex flex-col gap-2">
-              {ROLE_PRESETS.map((preset) => (
-                <label
-                  key={preset.key}
-                  className={`p-3 rounded-xl border cursor-pointer text-xs transition-colors flex items-start gap-3 ${
-                    role === preset.key
-                      ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs"
-                      : "border-line bg-surface hover:border-muted"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="rolePreset"
-                    checked={role === preset.key}
-                    onChange={() => setRole(preset.key)}
-                    className="mt-0.5"
-                  />
-                  <div>
-                    <strong className="text-ink font-bold block">{preset.label}</strong>
-                    <span className="muted block text-[11px] mt-0.5 leading-relaxed">{preset.description}</span>
-                  </div>
-                </label>
-              ))}
+              {ROLE_PRESETS.map((preset) => {
+                const isRestrictedAdmin = preset.key === "ADMIN" && !canGrantAdmin;
+
+                return (
+                  <label
+                    key={preset.key}
+                    className={`p-3 rounded-xl border text-xs transition-colors flex items-start gap-3 ${
+                      isRestrictedAdmin
+                        ? "opacity-60 cursor-not-allowed bg-surface-muted/60 border-line"
+                        : role === preset.key
+                        ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs cursor-pointer"
+                        : "border-line bg-surface hover:border-muted cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="rolePreset"
+                      disabled={isRestrictedAdmin}
+                      checked={role === preset.key}
+                      onChange={() => !isRestrictedAdmin && setRole(preset.key)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-ink font-bold block">{preset.label}</strong>
+                        {isRestrictedAdmin && (
+                          <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                            🔒 Store Owner (ADMIN) Only
+                          </span>
+                        )}
+                      </div>
+                      <span className="muted block text-[11px] mt-0.5 leading-relaxed">{preset.description}</span>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
