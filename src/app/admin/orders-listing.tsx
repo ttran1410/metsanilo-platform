@@ -871,6 +871,33 @@ export function OrdersListing({
                               Edit
                             </Link>
                           )}
+
+                          {canDelete ? (
+                            <button
+                              type="button"
+                              className="btn btn-secondary text-xs py-1 px-2.5 text-rose-700 hover:bg-rose-50 hover:border-rose-300"
+                              onClick={() => {
+                                setSelected([order.id]);
+                                const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0;
+                                setPendingDelete({
+                                  deletable: isPaidOrder ? [] : [order],
+                                  skippedPaid: isPaidOrder ? [order] : [],
+                                });
+                              }}
+                              title="Permanently delete order"
+                            >
+                              🗑️ Delete
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              title="🔒 Requires Permanent Delete permission (orders.delete). Contact Store Owner to grant access."
+                              className="btn btn-secondary text-xs py-1 px-2.5 text-ink/30 cursor-not-allowed opacity-50"
+                            >
+                              🔒 🗑️
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

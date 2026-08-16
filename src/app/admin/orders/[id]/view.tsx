@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AdminStatusBadge } from "../../presentation";
 import { getLifecycleSteps } from "@/domain/order-transitions";
 
@@ -88,11 +89,14 @@ function formatSourceLabel(source?: string) {
   }
 }
 
-export function OrderDetailView({ initial, initialNotice = "" }: { initial: Detail; initialNotice?: string }) {
+export function OrderDetailView({ initial, initialNotice = "", canDelete = false }: { initial: Detail; initialNotice?: string; canDelete?: boolean }) {
+  const router = useRouter();
   const [detail, setDetail] = useState(initial);
   const [message, setMessage] = useState(initialNotice);
   const [copied, setCopied] = useState<string | null>(null);
   const [pendingCancel, setPendingCancel] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [moneyTab, setMoneyTab] = useState<"pricing" | "payment" | "exception">("pricing");
   const [recordTab, setRecordTab] = useState<"notes" | "audit">("notes");
 
@@ -133,6 +137,21 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
     setPendingCancel(false);
     await refresh();
     setMessage(`Order updated: ${next.replaceAll("_", " ")}`);
+  }
+
+  async function handleConfirmDeleteOrder() {
+    setDeleting(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/orders/${detail.order.id}`, { method: "DELETE" });
+      const body = await response.json();
+      setDeleting(false);
+      if (!response.ok) throw new Error(body.message ?? "Delete failed");
+      router.push("/admin/orders");
+    } catch (err) {
+      setDeleting(false);
+      setMessage(err instanceof Error ? err.message : "Delete failed");
+    }
   }
 
   async function submitAction(event: FormEvent<HTMLFormElement>, kind: "note" | "payment" | "pricing" | "exception") {
@@ -203,6 +222,26 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
               <Link className="btn btn-secondary text-xs py-1.5 px-3" href={`/admin/orders/${detail.order.id}/edit?from=${encodeURIComponent(`/admin/orders/${detail.order.id}`)}`}>
                 Edit order ✏️
               </Link>
+            )}
+
+            {canDelete ? (
+              <button
+                type="button"
+                className="btn btn-secondary text-xs py-1.5 px-3 text-rose-700 hover:bg-rose-50 hover:border-rose-300 font-bold"
+                onClick={() => setPendingDelete(true)}
+                title="Permanently delete order"
+              >
+                🗑️ Delete order
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                title="🔒 Requires Permanent Delete permission (orders.delete). Contact Store Owner to grant access."
+                className="btn btn-secondary text-xs py-1.5 px-3 text-ink/30 cursor-not-allowed opacity-50 font-bold"
+              >
+                🔒 🗑️ Delete
+              </button>
             )}
 
             {/* Quick Action Bar inside Header */}
@@ -632,6 +671,42 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Delete Order Safe-Guard Dialog */}
+      {pendingDelete && (
+        <div className="admin-dialog-backdrop">
+          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-danger border-b border-line pb-2">
+              <span className="text-xl">⚠️</span>
+              <h3 className="text-lg font-bold text-ink">Delete Order {detail.order.publicReference}</h3>
+            </div>
+
+            {detail.payments.reduce((sum, p) => sum + (p.kind === "PAYMENT" ? p.amountCents : -p.amountCents), 0) > 0 ? (
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex flex-col gap-1 font-medium">
+                <strong className="font-bold text-amber-950">🔒 Paid Order Protected</strong>
+                <span>
+                  This order has recorded payments and cannot be deleted to preserve tax and financial compliance. Please refund or cancel the order instead.
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-ink leading-relaxed">
+                Are you sure you want to <strong>permanently delete</strong> order <strong>{detail.order.publicReference}</strong>? This action cannot be undone, will release reserved harvest volume, and update customer stats.
+              </p>
+            )}
+
+            <div className="profile-actions justify-end gap-2 border-t border-line pt-3">
+              <button type="button" className="btn btn-secondary text-xs" onClick={() => setPendingDelete(false)} disabled={deleting}>
+                Cancel
+              </button>
+              {detail.payments.reduce((sum, p) => sum + (p.kind === "PAYMENT" ? p.amountCents : -p.amountCents), 0) <= 0 && (
+                <button type="button" className="btn text-xs font-bold bg-danger text-white py-1.5 px-4 shadow-md" onClick={() => void handleConfirmDeleteOrder()} disabled={deleting}>
+                  {deleting ? "Deleting…" : "🗑️ Yes, Permanently Delete"}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
