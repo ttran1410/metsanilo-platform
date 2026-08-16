@@ -14,7 +14,9 @@ describe("customer contact normalization", () => {
     ["05405966994", "+3585405966994"],
     ["054 059 66994", "+3585405966994"],
     ["+358 540 596 6994", "+3585405966994"],
+    ["040\u00a05492720", "+358405492720"],
   ])("normalizes Finnish mobile %s", (input, expected) => {
+
 
     expect(normalizeMobile(input)).toBe(expected);
   });

@@ -22,9 +22,6 @@ export const orderInputSchema = z
   })
   .superRefine((input, ctx) => {
     if (input.fulfillmentMethod === "DELIVERY") {
-      if (!input.streetAddress || input.streetAddress.length < 2) {
-        ctx.addIssue({ code: "custom", path: ["streetAddress"], message: "REQUIRED" });
-      }
       if (input.postalCode && !/^\d{5}$/.test(input.postalCode)) {
         ctx.addIssue({ code: "custom", path: ["postalCode"], message: "INVALID_POSTAL_CODE" });
       }
@@ -34,13 +31,22 @@ export const orderInputSchema = z
 export type OrderInput = z.infer<typeof orderInputSchema>;
 
 export function normalizeMobile(value: string) {
-  const compact = value.trim().replace(/[\s().-]/g, "");
-  const normalized = compact.startsWith("00") ? `+${compact.slice(2)}` : compact.startsWith("0") ? `+358${compact.slice(1)}` : compact.startsWith("358") ? `+${compact}` : compact;
+  const raw = value.trim().replace(/[^\d+]/g, "");
+  const normalized = raw.startsWith("00")
+    ? `+${raw.slice(2)}`
+    : raw.startsWith("0")
+    ? `+358${raw.slice(1)}`
+    : raw.startsWith("358")
+    ? `+${raw}`
+    : raw.startsWith("+")
+    ? raw
+    : `+${raw}`;
   if (!/^\+[1-9]\d{6,14}$/.test(normalized)) {
     throw new Error("INVALID_PHONE");
   }
   return normalized;
 }
+
 
 export function normalizeEmail(value: string | null | undefined) {
   const normalized = value?.trim().toLowerCase() ?? "";
