@@ -6,6 +6,7 @@ import { formatEuros, formatLitres, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
 import { CustomerFieldError, customerValidationCopy, focusFirstCustomerFieldError } from "./customer-form-validation";
 import { localizeServerFieldErrors, validateReservationFields, type ReservationField } from "./order-form-validation";
+import { CustomerAddressFields } from "@/app/customer-address-fields";
 
 export type PublicProduct = {
   id: string;
@@ -250,10 +251,12 @@ export function OrderForm({
         {method === "PICKUP" ? (
           <div className="pickup-card"><span>{locale === "fi" ? "Noutopaikka" : "Pickup point"}</span><strong>{pickup.name}</strong><p>{pickup.address}<br />{pickup.instructions}<br />{pickup.time}</p></div>
         ) : (
-          <div className="delivery-fields grid gap-4">
-            <label className={`field${fieldErrors.streetAddress ? " field-invalid" : ""}`} data-field="streetAddress"><span>{t.street}</span><input name="streetAddress" required minLength={2} maxLength={160} aria-invalid={Boolean(fieldErrors.streetAddress)} aria-describedby={fieldErrors.streetAddress ? "streetAddress-error" : undefined} /><CustomerFieldError field="streetAddress" error={fieldErrors.streetAddress} /></label>
-            <label className={`field${fieldErrors.postalCode ? " field-invalid" : ""}`} data-field="postalCode"><span>{t.postalCode}</span><input name="postalCode" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} aria-invalid={Boolean(fieldErrors.postalCode)} aria-describedby={fieldErrors.postalCode ? "postalCode-error" : undefined} /><CustomerFieldError field="postalCode" error={fieldErrors.postalCode} /></label>
-            <label className={`field${fieldErrors.city ? " field-invalid" : ""}`} data-field="city"><span>{t.city}</span><input name="city" defaultValue="Pori" minLength={2} maxLength={100} aria-invalid={Boolean(fieldErrors.city)} aria-describedby={fieldErrors.city ? "city-error" : undefined} /><CustomerFieldError field="city" error={fieldErrors.city} /></label>
+          <div className="delivery-fields mt-3">
+            <CustomerAddressFields
+              fulfillmentMethod="DELIVERY"
+              fieldErrors={fieldErrors}
+              locale={locale}
+            />
           </div>
         )}
       </fieldset>

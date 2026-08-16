@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { AdminNotice, AdminPageHeader } from "./presentation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 
+import { CustomerAddressFields } from "../customer-address-fields";
+
 type Product = {
   product: { id: string; nameFi: string };
   packages: Array<{ id: string; labelFi: string; volumeMl: number; priceCents: number }>;
@@ -266,21 +268,15 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
         </label>
 
         {/* Customer Address Fieldset */}
-        <fieldset className="md:col-span-2 grid gap-3 rounded-lg border p-3 md:grid-cols-3">
-          <legend className="text-xs font-bold uppercase muted px-1">Customer address</legend>
-          <label className="field md:col-span-3">
-            <span>Street address (Optional)</span>
-            <input name="streetAddress" placeholder="Customer street address" />
-          </label>
-          <label className="field">
-            <span>Postal code</span>
-            <input name="postalCode" inputMode="numeric" />
-          </label>
-          <label className="field md:col-span-2">
-            <span>City</span>
-            <input name="city" value={cityInput} onChange={(e) => setCityInput(e.target.value)} placeholder="Pori" />
-          </label>
-        </fieldset>
+        <div className="md:col-span-2">
+          <CustomerAddressFields
+            fulfillmentMethod={fulfillmentMethod}
+            city={cityInput}
+            onCityChange={setCityInput}
+            showFieldsetWrapper
+            legend="Customer address"
+          />
+        </div>
 
         {historical && (
           <>
