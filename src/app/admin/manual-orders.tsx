@@ -6,6 +6,8 @@ import { AdminNotice, AdminPageHeader } from "./presentation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { CustomerAddressFields } from "../customer-address-fields";
 
+type OrderSource = { key: string; labelEn: string };
+
 type Product = {
   product: { id: string; nameFi: string };
   packages: Array<{ id: string; labelFi: string; volumeMl: number; priceCents: number }>;
@@ -30,6 +32,26 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
   const [completedStatus, setCompletedStatus] = useState<"PICKED_UP" | "DELIVERED">("PICKED_UP");
   const [paymentStatus, setPaymentStatus] = useState<"PAID" | "UNPAID">("PAID");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [sources, setSources] = useState<OrderSource[]>([
+    { key: "PHONE", labelEn: "Phone" },
+    { key: "SMS", labelEn: "SMS" },
+    { key: "WHATSAPP", labelEn: "WhatsApp" },
+    { key: "FACEBOOK", labelEn: "Facebook" },
+    { key: "OTHER", labelEn: "Other" },
+  ]);
+
+  // Load order sources from settings API
+  useEffect(() => {
+    fetch("/api/admin/order-sources")
+      .then((r) => r.ok ? r.json() : null)
+      .then((body) => {
+        const rows: Array<{ key: string; labelEn: string; active: boolean }> = body?.data ?? body;
+        if (Array.isArray(rows) && rows.length > 0) {
+          setSources(rows.filter((s) => s.active).map((s) => ({ key: s.key, labelEn: s.labelEn })));
+        }
+      })
+      .catch(() => { /* keep defaults */ });
+  }, []);
 
   const isFacebookSource = orderSource === "FACEBOOK";
 
@@ -135,14 +157,6 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
     const createdId = body.data?.id ?? body.data?.order?.id;
     router.push(`/admin/orders${createdId ? `?created=${encodeURIComponent(createdId)}` : ""}`);
   }
-
-  const sources = [
-    { key: "PHONE", label: "Phone" },
-    { key: "SMS", label: "SMS" },
-    { key: "WHATSAPP", label: "WhatsApp" },
-    { key: "FACEBOOK", label: "Facebook" },
-    { key: "OTHER", label: "Other" },
-  ];
 
   return (
     <section className="shell pb-28 md:pb-12">
@@ -252,28 +266,20 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Fulfillment method</span>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="toggle-btn-group toggle-btn-group-2">
                 <button
                   type="button"
-                  className={`min-h-[44px] py-2 px-4 rounded-lg font-bold text-sm border transition-all flex items-center justify-center gap-2 ${
-                    fulfillmentMethod === "PICKUP"
-                      ? "bg-forest text-white border-forest shadow-xs"
-                      : "bg-paper text-ink border-line hover:border-forest/50"
-                  }`}
+                  className={`toggle-btn${fulfillmentMethod === "PICKUP" ? " selected" : ""}`}
                   onClick={() => setFulfillmentMethod("PICKUP")}
                 >
-                  <span>🏪</span> Pickup
+                  🏪 Pickup
                 </button>
                 <button
                   type="button"
-                  className={`min-h-[44px] py-2 px-4 rounded-lg font-bold text-sm border transition-all flex items-center justify-center gap-2 ${
-                    fulfillmentMethod === "DELIVERY"
-                      ? "bg-forest text-white border-forest shadow-xs"
-                      : "bg-paper text-ink border-line hover:border-forest/50"
-                  }`}
+                  className={`toggle-btn${fulfillmentMethod === "DELIVERY" ? " selected" : ""}`}
                   onClick={() => setFulfillmentMethod("DELIVERY")}
                 >
-                  <span>🚚</span> Delivery
+                  🚚 Delivery
                 </button>
               </div>
             </div>
@@ -311,19 +317,15 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
           <div className="space-y-4">
             <div>
               <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Order source</span>
-              <div className="flex flex-wrap gap-2">
+              <div className="toggle-btn-group toggle-btn-group-auto">
                 {sources.map((src) => (
                   <button
                     key={src.key}
                     type="button"
-                    className={`py-1.5 px-3.5 rounded-lg text-xs font-bold border transition-all ${
-                      orderSource === src.key
-                        ? "bg-forest text-white border-forest shadow-xs"
-                        : "bg-paper text-ink border-line hover:border-forest/40"
-                    }`}
+                    className={`toggle-btn${orderSource === src.key ? " selected" : ""}`}
                     onClick={() => setOrderSource(src.key)}
                   >
-                    {src.label}
+                    {src.labelEn}
                   </button>
                 ))}
               </div>
@@ -392,21 +394,17 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Completed status</span>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="toggle-btn-group toggle-btn-group-2">
                   <button
                     type="button"
-                    className={`py-2 px-3 rounded-lg font-bold text-xs border transition-all ${
-                      completedStatus === "PICKED_UP" ? "bg-berry text-white border-berry" : "bg-paper text-ink border-line"
-                    }`}
+                    className={`toggle-btn toggle-btn-danger${completedStatus === "PICKED_UP" ? " selected" : ""}`}
                     onClick={() => setCompletedStatus("PICKED_UP")}
                   >
                     Picked up
                   </button>
                   <button
                     type="button"
-                    className={`py-2 px-3 rounded-lg font-bold text-xs border transition-all ${
-                      completedStatus === "DELIVERED" ? "bg-berry text-white border-berry" : "bg-paper text-ink border-line"
-                    }`}
+                    className={`toggle-btn toggle-btn-danger${completedStatus === "DELIVERED" ? " selected" : ""}`}
                     onClick={() => setCompletedStatus("DELIVERED")}
                   >
                     Delivered
@@ -416,21 +414,17 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
 
               <div>
                 <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Payment status</span>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="toggle-btn-group toggle-btn-group-2">
                   <button
                     type="button"
-                    className={`py-2 px-3 rounded-lg font-bold text-xs border transition-all ${
-                      paymentStatus === "PAID" ? "bg-forest text-white border-forest" : "bg-paper text-ink border-line"
-                    }`}
+                    className={`toggle-btn${paymentStatus === "PAID" ? " selected" : ""}`}
                     onClick={() => setPaymentStatus("PAID")}
                   >
                     Paid
                   </button>
                   <button
                     type="button"
-                    className={`py-2 px-3 rounded-lg font-bold text-xs border transition-all ${
-                      paymentStatus === "UNPAID" ? "bg-amber-700 text-white border-amber-700" : "bg-paper text-ink border-line"
-                    }`}
+                    className={`toggle-btn toggle-btn-danger${paymentStatus === "UNPAID" ? " selected" : ""}`}
                     onClick={() => setPaymentStatus("UNPAID")}
                   >
                     Unpaid
@@ -459,7 +453,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
 
                   <div>
                     <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Payment method</span>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="toggle-btn-group toggle-btn-group-auto">
                       {[
                         { key: "CASH", label: "Cash" },
                         { key: "MOBILEPAY", label: "MobilePay" },
@@ -470,9 +464,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
                         <button
                           key={pm.key}
                           type="button"
-                          className={`py-1.5 px-3 rounded-lg text-xs font-bold border transition-all ${
-                            paymentMethod === pm.key ? "bg-forest text-white border-forest" : "bg-paper text-ink border-line"
-                          }`}
+                          className={`toggle-btn${paymentMethod === pm.key ? " selected" : ""}`}
                           onClick={() => setPaymentMethod(pm.key)}
                         >
                           {pm.label}

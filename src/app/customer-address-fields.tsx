@@ -41,7 +41,7 @@ export function CustomerAddressFields({
   const optionalText = locale === "en" ? "Optional" : "Valinnainen";
 
   const gridContent = (
-    <div className={`grid grid-cols-2 md:grid-cols-12 gap-3 ${className}`}>
+    <div className={`w-full grid grid-cols-2 md:grid-cols-12 gap-3 ${className}`}>
       {/* Street address: Line 1 on mobile (col-span-2), left 50% on desktop (md:col-span-6) */}
       <label className={`field col-span-2 md:col-span-6${fieldErrors?.streetAddress ? " field-invalid" : ""}`} data-field="streetAddress">
         <span>{streetLabel}</span>
@@ -60,8 +60,8 @@ export function CustomerAddressFields({
         {fieldErrors?.streetAddress && <CustomerFieldError field="streetAddress" error={fieldErrors.streetAddress} />}
       </label>
 
-      {/* Postal code: Line 2 left on mobile (col-span-1), middle 25% on desktop (md:col-span-3) */}
-      <label className={`field col-span-1 md:col-span-3${fieldErrors?.postalCode ? " field-invalid" : ""}`} data-field="postalCode">
+      {/* Postal code: Line 2 left on mobile (col-span-1), ~17% on desktop (md:col-span-2) */}
+      <label className={`field col-span-1 md:col-span-2${fieldErrors?.postalCode ? " field-invalid" : ""}`} data-field="postalCode">
         <span>{postalLabel}</span>
         <input
           name="postalCode"
@@ -78,8 +78,8 @@ export function CustomerAddressFields({
         {fieldErrors?.postalCode && <CustomerFieldError field="postalCode" error={fieldErrors.postalCode} />}
       </label>
 
-      {/* City: Line 2 right on mobile (col-span-1), right 25% on desktop (md:col-span-3) */}
-      <label className={`field col-span-1 md:col-span-3${fieldErrors?.city ? " field-invalid" : ""}`} data-field="city">
+      {/* City: Line 2 right on mobile (col-span-1), ~33% on desktop (md:col-span-4) */}
+      <label className={`field col-span-1 md:col-span-4${fieldErrors?.city ? " field-invalid" : ""}`} data-field="city">
         <span>{cityLabel}</span>
         <input
           name="city"
