@@ -147,19 +147,51 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
       setFrom(dates.from);
       setTo(dates.to);
     }
+    if (nextPreset !== "TODAY" && (view === "TODAY" || view === "PICKUP_TODAY" || view === "DELIVERY_TODAY")) {
+      setView("ALL");
+    }
+  }
+
+  function selectQuickView(targetView: OrdersView) {
+    setView(targetView);
+    if (targetView === "TODAY") {
+      setDatePreset("TODAY");
+      setFrom(todayStr());
+      setTo(todayStr());
+      setMethod("ALL");
+    } else if (targetView === "PICKUP_TODAY") {
+      setDatePreset("TODAY");
+      setFrom(todayStr());
+      setTo(todayStr());
+      setMethod("PICKUP");
+    } else if (targetView === "DELIVERY_TODAY") {
+      setDatePreset("TODAY");
+      setFrom(todayStr());
+      setTo(todayStr());
+      setMethod("DELIVERY");
+    } else if (targetView === "NEEDS_CONFIRMATION") {
+      setStatus("NEW");
+    } else if (targetView === "ALL") {
+      setDatePreset("ALL");
+      setFrom("");
+      setTo("");
+      setStatus("ALL");
+      setMethod("ALL");
+      setSource("ALL");
+    }
   }
 
   const normalizedStatus = status === "ALL" ? "ALL" : status.replaceAll(" ", "_").toUpperCase();
   const matchesQuickView = useCallback((order: AdminOrder, selectedView: OrdersView) => {
-    const day = todayStr();
     return selectedView === "ALL"
       || selectedView === "TRIAGE" && getOrderTriageReasons(order).length > 0
-      || selectedView === "TODAY" && order.fulfillmentDate === day
+      || selectedView === "TODAY" && (!from || order.fulfillmentDate >= from) && (!to || order.fulfillmentDate <= to)
       || selectedView === "NEEDS_CONFIRMATION" && order.status === "NEW"
-      || selectedView === "PICKUP_TODAY" && order.fulfillmentDate === day && order.fulfillmentMethod === "PICKUP"
-      || selectedView === "DELIVERY_TODAY" && order.fulfillmentDate === day && order.fulfillmentMethod === "DELIVERY"
+      || selectedView === "PICKUP_TODAY" && (!from || order.fulfillmentDate >= from) && (!to || order.fulfillmentDate <= to) && order.fulfillmentMethod === "PICKUP"
+      || selectedView === "DELIVERY_TODAY" && (!from || order.fulfillmentDate >= from) && (!to || order.fulfillmentDate <= to) && order.fulfillmentMethod === "DELIVERY"
       || selectedView === "UNPAID" && order.paymentStatus === "UNPAID";
-  }, []);
+  }, [from, to]);
+
 
   const filtered = useMemo(() => rows.filter((order) => matchesQuickView(order, view)
     && (source === "ALL" || (source === "HISTORICAL" ? order.historicalEntry : !order.historicalEntry && order.orderSource === source))
@@ -270,25 +302,25 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
 
       {/* Top Operational Metric KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-        <button type="button" className={`card text-left p-3 transition hover:shadow-md ${view === "TRIAGE" ? "border-primary bg-primary-soft" : ""}`} onClick={() => setView("TRIAGE")}>
+        <button type="button" className={`card text-left p-3 transition hover:shadow-md ${view === "TRIAGE" ? "border-primary bg-primary-soft" : ""}`} onClick={() => selectQuickView("TRIAGE")}>
           <span className="text-xs font-bold uppercase muted block">🔴 Action Needed</span>
           <strong className="text-2xl font-bold block mt-1">{quickCounts.TRIAGE}</strong>
           <span className="text-xs text-primary font-medium">Urgent attention ➔</span>
         </button>
 
-        <button type="button" className={`card text-left p-3 transition hover:shadow-md ${view === "NEEDS_CONFIRMATION" ? "border-primary bg-primary-soft" : ""}`} onClick={() => setView("NEEDS_CONFIRMATION")}>
+        <button type="button" className={`card text-left p-3 transition hover:shadow-md ${view === "NEEDS_CONFIRMATION" ? "border-primary bg-primary-soft" : ""}`} onClick={() => selectQuickView("NEEDS_CONFIRMATION")}>
           <span className="text-xs font-bold uppercase muted block">⏳ Needs Confirm</span>
           <strong className="text-2xl font-bold block mt-1">{quickCounts.NEEDS_CONFIRMATION}</strong>
           <span className="text-xs text-primary font-medium">Unconfirmed new ➔</span>
         </button>
 
-        <button type="button" className={`card text-left p-3 transition hover:shadow-md ${view === "TODAY" ? "border-primary bg-primary-soft" : ""}`} onClick={() => setView("TODAY")}>
+        <button type="button" className={`card text-left p-3 transition hover:shadow-md ${view === "TODAY" ? "border-primary bg-primary-soft" : ""}`} onClick={() => selectQuickView("TODAY")}>
           <span className="text-xs font-bold uppercase muted block">📦 Today's Queue</span>
           <strong className="text-2xl font-bold block mt-1">{quickCounts.TODAY}</strong>
           <span className="text-xs muted block">{quickCounts.PICKUP_TODAY} Pickup · {quickCounts.DELIVERY_TODAY} Delivery</span>
         </button>
 
-        <button type="button" className={`card text-left p-3 transition hover:shadow-md ${view === "UNPAID" ? "border-primary bg-primary-soft" : ""}`} onClick={() => setView("UNPAID")}>
+        <button type="button" className={`card text-left p-3 transition hover:shadow-md ${view === "UNPAID" ? "border-primary bg-primary-soft" : ""}`} onClick={() => selectQuickView("UNPAID")}>
           <span className="text-xs font-bold uppercase muted block">💵 Unpaid Orders</span>
           <strong className="text-2xl font-bold block mt-1">{quickCounts.UNPAID}</strong>
           <span className="text-xs text-primary font-medium">{formatAdminMoney(unpaidTotalCents)} due</span>
@@ -321,11 +353,12 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
       {/* Quick View Segmented Tabs */}
       <div className="admin-quick-views flex flex-wrap gap-2 mt-4">
         {QUICK_VIEWS.map(({ key, label }) => (
-          <button className={`btn ${view === key ? "" : "btn-secondary"}${key === "TRIAGE" && quickCounts[key] > 0 ? " triage-filter" : ""}`} key={key} onClick={() => setView(key)}>
+          <button className={`btn ${view === key ? "" : "btn-secondary"}${key === "TRIAGE" && quickCounts[key] > 0 ? " triage-filter" : ""}`} key={key} onClick={() => selectQuickView(key)}>
             {label} <span className="quick-view-count">{quickCounts[key]}</span>
           </button>
         ))}
       </div>
+
 
       {/* Filters and Presets Drawer */}
       <details className="admin-filter-panel card mt-3">
