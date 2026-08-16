@@ -2,12 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 export function ForcedPasswordForm() {
   const router = useRouter();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -80,29 +84,51 @@ export function ForcedPasswordForm() {
     <form className="admin-login-form flex flex-col gap-4" onSubmit={submit} noValidate>
       <label className="admin-login-field">
         <span>Current password</span>
-        <input
-          name="currentPassword"
-          type="password"
-          autoComplete="current-password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          required
-          aria-describedby={error ? "password-error" : undefined}
-        />
+        <div className="password-input-wrap">
+          <input
+            name="currentPassword"
+            type={showCurrentPassword ? "text" : "password"}
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            required
+            aria-describedby={error ? "password-error" : undefined}
+          />
+          <button
+            type="button"
+            className="password-toggle-btn"
+            onClick={() => setShowCurrentPassword((prev) => !prev)}
+            aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+            title={showCurrentPassword ? "Hide current password" : "Show current password"}
+          >
+            {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
       </label>
 
       <label className="admin-login-field">
         <span>New password</span>
-        <input
-          name="newPassword"
-          type="password"
-          autoComplete="new-password"
-          minLength={8}
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-          aria-describedby={error ? "password-error" : undefined}
-        />
+        <div className="password-input-wrap">
+          <input
+            name="newPassword"
+            type={showNewPassword ? "text" : "password"}
+            autoComplete="new-password"
+            minLength={8}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+            aria-describedby={error ? "password-error" : undefined}
+          />
+          <button
+            type="button"
+            className="password-toggle-btn"
+            onClick={() => setShowNewPassword((prev) => !prev)}
+            aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+            title={showNewPassword ? "Hide new password" : "Show new password"}
+          >
+            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
       </label>
 
       {/* REAL-TIME PASSWORD REQUIREMENTS CHECKLIST */}
@@ -131,16 +157,27 @@ export function ForcedPasswordForm() {
 
       <label className="admin-login-field">
         <span>Confirm new password</span>
-        <input
-          name="confirmNewPassword"
-          type="password"
-          autoComplete="new-password"
-          minLength={8}
-          value={confirmNewPassword}
-          onChange={(e) => setConfirmNewPassword(e.target.value)}
-          required
-          aria-describedby={error ? "password-error" : undefined}
-        />
+        <div className="password-input-wrap">
+          <input
+            name="confirmNewPassword"
+            type={showConfirmNewPassword ? "text" : "password"}
+            autoComplete="new-password"
+            minLength={8}
+            value={confirmNewPassword}
+            onChange={(e) => setConfirmNewPassword(e.target.value)}
+            required
+            aria-describedby={error ? "password-error" : undefined}
+          />
+          <button
+            type="button"
+            className="password-toggle-btn"
+            onClick={() => setShowConfirmNewPassword((prev) => !prev)}
+            aria-label={showConfirmNewPassword ? "Hide confirm password" : "Show confirm password"}
+            title={showConfirmNewPassword ? "Hide confirm password" : "Show confirm password"}
+          >
+            {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
       </label>
 
       {error && (
