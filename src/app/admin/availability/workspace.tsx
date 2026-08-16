@@ -346,7 +346,7 @@ export function AvailabilityWorkspace({
 
       {/* VIEW MODE 1: WEEK TIMELINE VIEW (DEFAULT) */}
       {viewMode === "WEEK" && (
-        <section className="grid grid-cols-1 md:grid-cols-7 gap-3">
+        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2.5">
           {dateCards.map((day) => {
             const tone = fillTone(day.utilization, day.soldOut);
             const remainingLitres = Math.max(0, day.capacity - day.reserved);
@@ -358,7 +358,7 @@ export function AvailabilityWorkspace({
             return (
               <article
                 key={day.date}
-                className={`card p-3 flex flex-col justify-between gap-3 border transition-colors cursor-pointer hover:border-primary ${
+                className={`card p-2.5 sm:p-3 flex flex-col justify-between gap-3 border transition-colors cursor-pointer hover:border-primary min-w-0 ${
                   day.soldOut
                     ? "bg-slate-100/70 border-slate-300"
                     : tone === "danger"
@@ -431,7 +431,7 @@ export function AvailabilityWorkspace({
 
                 {/* Card Action Controls */}
                 <div
-                  className="flex items-center justify-between border-t border-line/60 pt-2 text-xs"
+                  className="flex flex-wrap items-center justify-between gap-1.5 border-t border-line/60 pt-2 text-xs min-w-0"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {day.dayRows[0] && (
@@ -440,7 +440,9 @@ export function AvailabilityWorkspace({
                       {canSoldOut && (
                         <button
                           type="button"
-                          className={`text-[11px] font-bold ${day.soldOut ? "text-primary" : "text-danger hover:underline"}`}
+                          className={`text-[11px] font-bold py-0.5 px-1 rounded hover:bg-surface-muted transition-colors shrink-0 ${
+                            day.soldOut ? "text-forest" : "text-berry"
+                          }`}
                           onClick={() => setFreezingRow(day.dayRows[0])}
                         >
                           {day.soldOut ? "🔓 Reopen" : "🔒 Freeze"}
@@ -449,10 +451,10 @@ export function AvailabilityWorkspace({
 
                       {/* Quick Stepper Pills (+5L / -5L) */}
                       {canManage && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 shrink-0 ml-auto">
                           <button
                             type="button"
-                            className="btn btn-secondary text-[10px] py-0.5 px-1.5"
+                            className="h-6 px-1.5 text-[10px] font-bold rounded-md bg-surface-muted hover:bg-paper border border-line text-ink transition-colors flex items-center justify-center min-w-[2rem]"
                             onClick={() => void bumpCapacity(day.dayRows[0], -5)}
                             title="Decrease capacity by 5L"
                           >
@@ -460,7 +462,7 @@ export function AvailabilityWorkspace({
                           </button>
                           <button
                             type="button"
-                            className="btn btn-secondary text-[10px] py-0.5 px-1.5"
+                            className="h-6 px-1.5 text-[10px] font-bold rounded-md bg-surface-muted hover:bg-paper border border-line text-ink transition-colors flex items-center justify-center min-w-[2rem]"
                             onClick={() => void bumpCapacity(day.dayRows[0], 5)}
                             title="Increase capacity by 5L"
                           >
