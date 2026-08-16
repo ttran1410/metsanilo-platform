@@ -275,6 +275,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
             onCityChange={setCityInput}
             showFieldsetWrapper
             legend="Customer address"
+            locale="en"
           />
         </div>
 

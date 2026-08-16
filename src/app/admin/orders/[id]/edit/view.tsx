@@ -409,6 +409,7 @@ export function OrderEditForm({
             onStreetAddressChange={(val) => update("streetAddress", val)}
             onPostalCodeChange={(val) => update("postalCode", val)}
             onCityChange={(val) => update("city", val)}
+            locale="en"
           />
         </div>
 
