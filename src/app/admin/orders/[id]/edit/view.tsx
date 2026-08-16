@@ -77,7 +77,7 @@ export function OrderEditForm({
     email: initial.email ?? "",
     streetAddress: initial.streetAddress ?? "",
     postalCode: initial.postalCode ?? "",
-    city: initial.city ?? "",
+    city: initial.city && initial.city.trim() ? initial.city : "Pori",
     agreedItemSubtotal: (initial.itemSubtotalCents / 100).toFixed(2),
     deliveryFee: initial.deliveryFeeCents === null ? "" : (initial.deliveryFeeCents / 100).toFixed(2),
     adjustmentReason: "",
@@ -146,7 +146,7 @@ export function OrderEditForm({
       const normalized = normalizeMobile(form.mobile);
       update("mobile", normalized);
     } catch {
-      /* Keep user input if unparseable until form submit */
+      /* Keep user input if unparseable until submit */
     }
   }
 
@@ -175,11 +175,6 @@ export function OrderEditForm({
     event.preventDefault();
     setSaving(true);
     setError("");
-
-    if (form.fulfillmentMethod === "DELIVERY" && (!form.streetAddress || form.streetAddress.trim().length < 2)) {
-      setSaving(false);
-      return setError("Street address is required for Delivery orders.");
-    }
 
     if (!isHistorical && (form.fulfillmentDate < minAllowedDate || form.fulfillmentDate > maxAllowedDate)) {
       setSaving(false);
@@ -211,7 +206,7 @@ export function OrderEditForm({
         email: normalizeEmail(form.email),
         streetAddress: form.streetAddress || null,
         postalCode: form.postalCode || null,
-        city: form.city || null,
+        city: form.city || "Pori",
         deliveryFeeCents: form.fulfillmentMethod === "PICKUP" ? 0 : form.deliveryFee === "" ? null : Math.round(Number(form.deliveryFee) * 100),
         agreedItemSubtotalCents: Math.round(Number(form.agreedItemSubtotal) * 100),
         adjustmentReason: overridePrice ? form.adjustmentReason : undefined,
@@ -286,12 +281,26 @@ export function OrderEditForm({
           )}
         </label>
 
+        {/* Fulfillment Method & Delivery Fee Side-by-Side */}
         <label className="field">
           <span>Fulfillment method *</span>
           <select value={form.fulfillmentMethod} onChange={(e) => update("fulfillmentMethod", e.target.value)}>
             <option value="PICKUP">Pickup</option>
             <option value="DELIVERY">Delivery</option>
           </select>
+        </label>
+
+        <label className="field">
+          <span>Delivery fee (€)</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.fulfillmentMethod === "PICKUP" ? "0.00" : form.deliveryFee}
+            onChange={(e) => update("deliveryFee", e.target.value)}
+            disabled={form.fulfillmentMethod === "PICKUP"}
+            placeholder={form.fulfillmentMethod === "PICKUP" ? "0.00" : "To be agreed"}
+          />
         </label>
 
         <label className="field">
@@ -336,7 +345,7 @@ export function OrderEditForm({
           />
         </label>
 
-        <label className="field">
+        <label className="field md:col-span-2">
           <span>Facebook Profile / Name (Optional)</span>
           <input
             value={form.facebookProfile}
@@ -346,12 +355,11 @@ export function OrderEditForm({
         </label>
 
         <label className="field md:col-span-2">
-          <span>Customer street address {form.fulfillmentMethod === "DELIVERY" ? "*" : "(Optional)"}</span>
+          <span>Customer street address (Optional)</span>
           <input
             value={form.streetAddress}
             onChange={(e) => update("streetAddress", e.target.value)}
-            required={form.fulfillmentMethod === "DELIVERY"}
-            placeholder={form.fulfillmentMethod === "DELIVERY" ? "Required for delivery" : "Optional for pickup"}
+            placeholder="Customer street address"
           />
         </label>
 
@@ -362,7 +370,7 @@ export function OrderEditForm({
 
         <label className="field">
           <span>City</span>
-          <input value={form.city} onChange={(e) => update("city", e.target.value)} />
+          <input value={form.city} onChange={(e) => update("city", e.target.value)} placeholder="Pori" />
         </label>
 
         <div className="field">
@@ -383,19 +391,6 @@ export function OrderEditForm({
             onChange={(e) => update("agreedItemSubtotal", e.target.value)}
             disabled={!overridePrice}
             required
-          />
-        </label>
-
-        <label className="field">
-          <span>Delivery fee (€)</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.fulfillmentMethod === "PICKUP" ? "0.00" : form.deliveryFee}
-            onChange={(e) => update("deliveryFee", e.target.value)}
-            disabled={form.fulfillmentMethod === "PICKUP"}
-            placeholder="To be agreed"
           />
         </label>
 
