@@ -24,6 +24,24 @@ export const COMING_SOON_PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
 
+export const HIGH_RISK_PERMISSIONS: Permission[] = [
+  "customers.anonymize",
+  "orders.export",
+  "catalog.product.delete",
+  "delivery.override",
+  "shop_users.manage",
+  "shop_users.password_reset",
+  "shop_permissions.assign",
+  "settings.operational",
+  "settings.sources.manage",
+  "settings.fulfillment.manage",
+];
+
+export function isHighRiskPermission(permission: string): boolean {
+  return HIGH_RISK_PERMISSIONS.includes(permission as Permission);
+}
+
+
 export function defaultPermissionsForRole(role: Role): Permission[] {
   if (role === "ADMIN" || role === "MANAGER") return [...PERMISSIONS];
   if (role === "STAFF") return [
