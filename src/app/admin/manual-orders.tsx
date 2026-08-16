@@ -27,7 +27,9 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
   const [mobileInput, setMobileInput] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [cityInput, setCityInput] = useState("Pori");
+  const [orderSource, setOrderSource] = useState("PHONE");
   const [sourceOptions, setSourceOptions] = useState<Array<{ key: string; labelEn: string }>>([]);
+  const isFacebookSource = orderSource === "FACEBOOK";
 
   const selectedProduct = products.find((row) => row.product.id === productId);
   const selectedPackage = selectedProduct?.packages.find((item) => item.id === packageId);
@@ -77,12 +79,19 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
     const paymentStatus = String(values.get("paymentStatus") ?? "PAID");
     const paymentEuros = Number(paymentEurosStr);
 
-    let normalizedMobile = mobileInput;
-    try {
-      normalizedMobile = normalizeMobile(mobileInput);
-    } catch {
+    let normalizedMobile: string | undefined = undefined;
+    if (mobileInput.trim()) {
+      try {
+        normalizedMobile = normalizeMobile(mobileInput);
+      } catch {
+        if (orderSource !== "FACEBOOK") {
+          setMobileError("Enter a valid mobile number (e.g. 040 123 4567 or +358401234567).");
+          return setMessage("Invalid phone number format.");
+        }
+      }
+    } else if (orderSource !== "FACEBOOK") {
       setMobileError("Enter a valid mobile number (e.g. 040 123 4567 or +358401234567).");
-      return setMessage("Invalid phone number format.");
+      return setMessage("Mobile phone is required.");
     }
 
     if (historical && paymentStatus === "PAID" && !(paymentEuros > 0 || calculatedTotalCents > 0)) {
@@ -214,17 +223,14 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
 
         <label className="field">
           <span>Order source</span>
-          <select name="source" defaultValue="PHONE">
-            {(sourceOptions.length
-              ? sourceOptions
-              : [
-                  { key: "PHONE", labelEn: "Phone" },
-                  { key: "SMS", labelEn: "SMS" },
-                  { key: "WHATSAPP", labelEn: "WhatsApp" },
-                  { key: "FACEBOOK", labelEn: "Facebook message" },
-                  { key: "OTHER", labelEn: "Other" },
-                ]
-            ).map((source) => (
+          <select name="source" value={orderSource} onChange={(e) => setOrderSource(e.target.value)}>
+            {[
+              { key: "PHONE", labelEn: "Phone" },
+              { key: "SMS", labelEn: "SMS" },
+              { key: "WHATSAPP", labelEn: "WhatsApp" },
+              { key: "FACEBOOK", labelEn: "Facebook message" },
+              { key: "OTHER", labelEn: "Other" },
+            ].map((source) => (
               <option key={source.key} value={source.key}>
                 {source.labelEn}
               </option>
@@ -233,12 +239,12 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
         </label>
 
         <label className="field">
-          <span>Customer name</span>
+          <span>Customer name *</span>
           <input name="customerName" required />
         </label>
 
         <label className={`field ${mobileError ? "field-invalid" : ""}`}>
-          <span>Mobile</span>
+          <span>Mobile phone {!isFacebookSource && "*"}</span>
           <input
             name="mobile"
             type="tel"
@@ -251,8 +257,8 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
               setMobileError("");
             }}
             onBlur={handleMobileBlur}
-            placeholder="+358 40 123 4567 or 040 123 4567"
-            required
+            placeholder={isFacebookSource ? "Optional for Facebook orders (e.g. 040 123 4567)" : "+358 40 123 4567 or 040 123 4567"}
+            required={!isFacebookSource}
           />
           {mobileError && <small className="field-error-message">{mobileError}</small>}
         </label>
@@ -263,8 +269,8 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
         </label>
 
         <label className="field md:col-span-2">
-          <span>Facebook Profile / Name (Optional)</span>
-          <input name="facebookProfile" placeholder="e.g. facebook.com/name or Facebook Name" />
+          <span>Facebook Profile / Name {isFacebookSource && "*"}</span>
+          <input name="facebookProfile" required={isFacebookSource} placeholder="e.g. facebook.com/name or Facebook Name" />
         </label>
 
         {/* Customer Address Fieldset */}

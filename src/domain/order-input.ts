@@ -9,7 +9,7 @@ export const orderInputSchema = z
     fulfillmentDate: z.iso.date(),
     fulfillmentMethod: z.enum(["PICKUP", "DELIVERY"]),
     customerName: z.string().trim().min(2).max(120),
-    mobile: z.string().trim().min(7).max(30),
+    mobile: z.string().trim().max(30).optional(),
     email: z.preprocess((value) => typeof value === "string" ? value.trim().toLowerCase() : value, z.union([z.email().max(254), z.literal("")]).optional()),
     streetAddress: z.string().trim().max(160).optional(),
     postalCode: z.string().trim().max(10).optional(),
@@ -21,6 +21,9 @@ export const orderInputSchema = z
     idempotencyKey: z.string().min(16).max(100),
   })
   .superRefine((input, ctx) => {
+    if (!input.mobile && !input.facebookProfile) {
+      ctx.addIssue({ code: "custom", path: ["mobile"], message: "REQUIRED" });
+    }
     if (input.fulfillmentMethod === "DELIVERY") {
       if (!input.streetAddress || input.streetAddress.trim().length < 2) {
         ctx.addIssue({ code: "custom", path: ["streetAddress"], message: "REQUIRED" });

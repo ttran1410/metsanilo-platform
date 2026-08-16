@@ -35,7 +35,7 @@ type Order = {
   orderSource?: string;
   facebookProfile?: string | null;
   customerName: string;
-  mobile: string;
+  mobile: string | null;
   email: string | null;
   streetAddress: string | null;
   postalCode: string | null;
@@ -76,6 +76,7 @@ export function OrderEditForm({
 
   const [form, setForm] = useState({
     ...initial,
+    mobile: initial.mobile ?? "",
     orderSource: initial.orderSource ?? "WEBSITE",
     facebookProfile: initial.facebookProfile ?? "",
     email: initial.email ?? "",
@@ -362,12 +363,12 @@ export function OrderEditForm({
         </label>
 
         <label className="field">
-          <span>Customer name</span>
+          <span>Customer name *</span>
           <input value={form.customerName} onChange={(e) => update("customerName", e.target.value)} required />
         </label>
 
         <label className="field">
-          <span>Mobile</span>
+          <span>Mobile phone {!(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE") && "*"}</span>
           <input
             type="tel"
             inputMode="tel"
@@ -375,8 +376,8 @@ export function OrderEditForm({
             value={form.mobile}
             onChange={(e) => update("mobile", e.target.value)}
             onBlur={handleMobileBlur}
-            required
-            placeholder="+358501234567 or 0501234567"
+            required={!(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE")}
+            placeholder={(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE") ? "Optional for Facebook orders (e.g. 040 123 4567)" : "+358 40 123 4567 or 040 123 4567"}
           />
         </label>
 
@@ -392,10 +393,11 @@ export function OrderEditForm({
         </label>
 
         <label className="field md:col-span-2">
-          <span>Facebook Profile / Name (Optional)</span>
+          <span>Facebook Profile / Name {(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE") && "*"}</span>
           <input
             value={form.facebookProfile}
             onChange={(e) => update("facebookProfile", e.target.value)}
+            required={(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE")}
             placeholder="e.g. facebook.com/username or Facebook Name"
           />
         </label>

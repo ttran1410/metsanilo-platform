@@ -5,7 +5,7 @@ import { useState } from "react";
 type CustomerConflict = {
   id: string;
   name: string;
-  mobile: string;
+  mobile: string | null;
   email?: string | null;
   notes?: string | null;
   createdAt?: string;
@@ -17,7 +17,7 @@ export function MergeModal({
   onClose,
   onMerged,
 }: {
-  primaryCustomer: { id: string; name: string; mobile: string; email?: string | null };
+  primaryCustomer: { id: string; name: string; mobile: string | null; email?: string | null };
   duplicateCustomer: CustomerConflict;
   onClose: () => void;
   onMerged: () => void;

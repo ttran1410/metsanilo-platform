@@ -15,7 +15,7 @@ type Detail = {
     status: string;
     version: number;
     customerName: string;
-    mobile: string;
+    mobile: string | null;
     email: string | null;
     facebookProfile?: string | null;
     orderSource?: string;
@@ -286,10 +286,12 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
               <strong className="text-sm font-semibold">{detail.order.customerName}</strong>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="font-mono">{detail.order.mobile}</span>
-              <button type="button" className="btn btn-secondary text-xs py-0 px-1.5" onClick={() => copyText(detail.order.mobile, "Phone")}>
-                {copied === "Phone" ? "✓" : "Copy"}
-              </button>
+              <span className="font-mono">{detail.order.mobile ?? "No phone"}</span>
+              {detail.order.mobile && (
+                <button type="button" className="btn btn-secondary text-xs py-0 px-1.5" onClick={() => copyText(detail.order.mobile!, "Phone")}>
+                  {copied === "Phone" ? "✓" : "Copy"}
+                </button>
+              )}
             </div>
             {detail.order.email && <span className="muted">✉️ {detail.order.email}</span>}
             {fbInfo && (
@@ -305,11 +307,13 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
             )}
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <a className="btn btn-secondary text-xs py-1 px-2.5" href={`tel:${detail.order.mobile}`}>📞 Call</a>
-            <a className="btn btn-secondary text-xs py-1 px-2.5" href={`sms:${detail.order.mobile}`}>💬 SMS</a>
-            <a className="btn btn-secondary text-xs py-1 px-2.5" href={`https://wa.me/${detail.order.mobile.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">🟢 WhatsApp</a>
-          </div>
+          {detail.order.mobile && (
+            <div className="flex items-center gap-1.5">
+              <a className="btn btn-secondary text-xs py-1 px-2.5" href={`tel:${detail.order.mobile}`}>📞 Call</a>
+              <a className="btn btn-secondary text-xs py-1 px-2.5" href={`sms:${detail.order.mobile}`}>💬 SMS</a>
+              <a className="btn btn-secondary text-xs py-1 px-2.5" href={`https://wa.me/${detail.order.mobile.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">🟢 WhatsApp</a>
+            </div>
+          )}
         </div>
 
         {/* Compact Horizontal Progression Stepper */}

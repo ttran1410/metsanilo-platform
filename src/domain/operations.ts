@@ -12,7 +12,7 @@ const nowIso = () => new Date().toISOString();
 
 export async function createExternalOrder(database: Database, input: {
   productId: string; packageId: string; quantity: number; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY";
-  customerName: string; mobile: string; email?: string; facebookProfile?: string; streetAddress?: string; postalCode?: string; city?: string; notes?: string;
+  customerName: string; mobile?: string; email?: string; facebookProfile?: string; streetAddress?: string; postalCode?: string; city?: string; notes?: string;
   status: "NEW" | "CONFIRMED"; source: "PHONE" | "SMS" | "WHATSAPP" | "FACEBOOK" | "WEBSITE" | "OTHER"; deliveryFeeCents?: number;
 }) {
   const receipt = await submitOrder(database, {
@@ -30,7 +30,7 @@ export async function createExternalOrder(database: Database, input: {
 
 export async function createHistoricalOrder(database: Database, input: {
   productId: string; packageId: string; quantity: number; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY";
-  customerName: string; mobile: string; email?: string; facebookProfile?: string; streetAddress?: string; postalCode?: string; city?: string;
+  customerName: string; mobile?: string; email?: string; facebookProfile?: string; streetAddress?: string; postalCode?: string; city?: string;
   itemSubtotalCents?: number; deliveryFeeCents?: number; completedStatus: "PICKED_UP" | "DELIVERED"; completedAt: string;
   source: "PHONE" | "SMS" | "WHATSAPP" | "FACEBOOK" | "WEBSITE" | "OTHER"; reason: string; paymentAmountCents?: number; paymentMethod?: "CASH" | "BANK_TRANSFER" | "MOBILEPAY" | "CARD" | "OTHER";
 }) {
@@ -46,17 +46,25 @@ export async function createHistoricalOrder(database: Database, input: {
     const deliveryFee = input.fulfillmentMethod === "PICKUP" ? 0 : input.deliveryFeeCents ?? null;
     const configuredLocation = await tx.query.fulfillmentLocations.findFirst({ where: and(eq(fulfillmentLocations.shopId, shopId), eq(fulfillmentLocations.type, input.fulfillmentMethod === "PICKUP" ? "PICKUP" : "DELIVERY_ORIGIN"), eq(fulfillmentLocations.active, true), eq(fulfillmentLocations.isDefault, true)) });
     const locationSnapshot = configuredLocation ? JSON.stringify({ id: configuredLocation.id, type: configuredLocation.type, nameFi: configuredLocation.nameFi, nameEn: configuredLocation.nameEn, address: configuredLocation.address, instructionsFi: configuredLocation.instructionsFi, instructionsEn: configuredLocation.instructionsEn }) : null;
-    const id = randomUUID(); const createdAt = nowIso(); const normalizedEmail = normalizeEmail(input.email); let normalizedMobile: string;
-    try { normalizedMobile = normalizeMobile(input.mobile); } catch { throw new DomainError("VALIDATION_ERROR", "Invalid phone", 422, { mobile: "INVALID_PHONE" }); }
-    const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, shopId), eq(customers.mobile, normalizedMobile)) });
-    const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, shopId), eq(customers.email, normalizedEmail)) }) : undefined;
-    const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id);
+    const id = randomUUID(); const createdAt = nowIso(); const normalizedEmail = normalizeEmail(input.email);
+    let normalizedMobile: string | null = null;
+    if (input.mobile && input.mobile.trim()) {
+      try { normalizedMobile = normalizeMobile(input.mobile); } catch { throw new DomainError("VALIDATION_ERROR", "Invalid phone", 422, { mobile: "INVALID_PHONE" }); }
+    }
     const fbProfile = input.facebookProfile?.trim() || null;
-    const customer = (conflict || (!mobileMatch && !emailMatch))
+    if (!normalizedMobile && !fbProfile && !input.email) {
+      throw new DomainError("VALIDATION_ERROR", "Mobile phone or Facebook profile is required", 422);
+    }
+    const mobileMatch = normalizedMobile ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, shopId), eq(customers.mobile, normalizedMobile)) }) : undefined;
+    const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, shopId), eq(customers.email, normalizedEmail)) }) : undefined;
+    const fbMatch = fbProfile ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, shopId), eq(customers.facebookProfile, fbProfile)) }) : undefined;
+    const matchedCustomer = mobileMatch ?? emailMatch ?? fbMatch;
+    const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id);
+    const customer = (conflict || !matchedCustomer)
       ? { id: randomUUID(), shopId, name: input.customerName.trim(), mobile: normalizedMobile, email: normalizedEmail, facebookProfile: fbProfile, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt }
-      : { ...(mobileMatch ?? emailMatch!), facebookProfile: fbProfile || (mobileMatch ?? emailMatch)!.facebookProfile, updatedAt: createdAt };
-    if (conflict || (!mobileMatch && !emailMatch)) await tx.insert(customers).values(customer);
-    else await tx.update(customers).set({ name: customer.name, email: customer.email, facebookProfile: customer.facebookProfile, updatedAt: createdAt }).where(eq(customers.id, customer.id));
+      : { ...matchedCustomer, mobile: normalizedMobile ?? matchedCustomer.mobile, email: normalizedEmail ?? matchedCustomer.email, facebookProfile: fbProfile ?? matchedCustomer.facebookProfile, updatedAt: createdAt };
+    if (conflict || !matchedCustomer) await tx.insert(customers).values(customer);
+    else await tx.update(customers).set({ name: customer.name, mobile: customer.mobile, email: customer.email, facebookProfile: customer.facebookProfile, updatedAt: createdAt }).where(eq(customers.id, customer.id));
     await tx.insert(orders).values({ id, shopId, publicReference: `H-${randomBytes(5).toString("hex").toUpperCase()}`, idempotencyKey: `historical-${id}`, productId: row.product.id, packageId: row.package.id, customerId: customer.id, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity: input.quantity, volumeMl, itemSubtotalCents: subtotal, deliveryFeeCents: deliveryFee, finalTotalCents: deliveryFee === null ? null : subtotal + deliveryFee, fulfillmentDate: input.fulfillmentDate, fulfillmentMethod: input.fulfillmentMethod, customerName: input.customerName.trim(), mobile: normalizedMobile, email: normalizedEmail, streetAddress: input.streetAddress || null, postalCode: input.postalCode || null, city: input.city || null, pickupName: null, pickupAddress: null, pickupInstructions: null, pickupTime: null, pickupLocationSnapshotJson: input.fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: input.fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, notes: input.reason.trim(), facebookProfile: input.facebookProfile?.trim() || null, statusReason: input.reason.trim(), contactedAt: null, contactedBy: null, contactChannel: null, fulfillmentStartedAt: null, readyAt: null, dispatchedAt: input.completedStatus === "DELIVERED" ? input.completedAt : null, completedAt: input.completedAt, pickupConfirmedAt: input.completedStatus === "PICKED_UP" ? input.completedAt : null, pickupConfirmedBy: input.completedStatus === "PICKED_UP" ? "manager" : null, locale: "fi", status: input.completedStatus, version: 1, orderSource: input.source, historicalEntry: true, createdAt, updatedAt: createdAt });
     if (input.paymentAmountCents && input.paymentAmountCents > 0) await tx.insert(orderPayments).values({ id: randomUUID(), shopId, orderId: id, amountCents: input.paymentAmountCents, kind: "PAYMENT", method: input.paymentMethod ?? "OTHER", reference: "historical entry", recordedAt: input.completedAt, actor: "manager" });
     await tx.insert(auditEntries).values({ id: randomUUID(), shopId, actor: "manager", action: "order.historical_created", entityType: "order", entityId: id, detailsJson: JSON.stringify({ status: input.completedStatus, reason: input.reason, source: input.source }), createdAt });

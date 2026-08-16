@@ -19,7 +19,7 @@ CREATE TABLE `orders_new` (
 	`fulfillment_date` text NOT NULL,
 	`fulfillment_method` text NOT NULL,
 	`customer_name` text NOT NULL,
-	`mobile` text NOT NULL,
+	`mobile` text,
 	`email` text,
 	`street_address` text,
 	`postal_code` text,

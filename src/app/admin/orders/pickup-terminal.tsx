@@ -30,8 +30,8 @@ export function PickupTerminal({
 
   const filteredOrders = useMemo(() => {
     return pickupOrders.filter((order) => {
-      const text = `${order.customerName} ${order.publicReference} ${order.mobile} ${order.packageLabelFi}`.toLowerCase();
-      const lastDigits = order.mobile.slice(-4);
+      const text = `${order.customerName} ${order.publicReference} ${order.mobile ?? ""} ${order.packageLabelFi}`.toLowerCase();
+      const lastDigits = order.mobile ? order.mobile.slice(-4) : "";
       const matchesSearch =
         !query || text.includes(query.toLowerCase()) || lastDigits.includes(query.trim());
 

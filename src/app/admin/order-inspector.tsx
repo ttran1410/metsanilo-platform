@@ -141,10 +141,12 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
             <dd>
               <strong>{current.customerName}</strong>
               <div className="flex items-center gap-2">
-                <span>{current.mobile}</span>
-                <button type="button" className="btn btn-secondary text-xs py-0.5 px-1.5" onClick={() => copyText(current.mobile, "Phone")}>
-                  {copied === "Phone" ? "✓" : "Copy"}
-                </button>
+                <span>{current.mobile ?? "No phone"}</span>
+                {current.mobile && (
+                  <button type="button" className="btn btn-secondary text-xs py-0.5 px-1.5" onClick={() => copyText(current.mobile!, "Phone")}>
+                    {copied === "Phone" ? "✓" : "Copy"}
+                  </button>
+                )}
               </div>
             </dd>
           </div>
@@ -165,7 +167,20 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
             </dd>
           </div>}
         </dl>
-        <div className="order-inspector-contact"><a className="btn btn-secondary" href={`tel:${current.mobile}`}>Call</a><a className="btn btn-secondary" href={`sms:${current.mobile}`}>SMS</a><a className="btn btn-secondary" href={`https://wa.me/${current.mobile.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a></div>
+        <div className="order-inspector-contact">
+          {current.mobile && (
+            <>
+              <a className="btn btn-secondary" href={`tel:${current.mobile}`}>Call</a>
+              <a className="btn btn-secondary" href={`sms:${current.mobile}`}>SMS</a>
+              <a className="btn btn-secondary" href={`https://wa.me/${current.mobile.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a>
+            </>
+          )}
+          {current.facebookProfile && (
+            <a className="btn btn-secondary font-semibold text-blue-700" href={current.facebookProfile.startsWith("http") ? current.facebookProfile : `https://facebook.com/${current.facebookProfile.replace(/^@/, "")}`} target="_blank" rel="noreferrer">
+              📘 Facebook Profile
+            </a>
+          )}
+        </div>
         {canTransition && <section className="order-inspector-primary"><span>Allowed next actions</span><OrderActionBar order={current} compact confirmAll onTransition={(next, reason) => transition(next, reason)} /></section>}
         {canUpdate && <form className="order-inspector-note" onSubmit={(event) => void addNote(event)}><label className="field"><span>Add internal note</span><textarea name="body" rows={2} required /></label><button className="btn btn-secondary" disabled={busy}>Add note</button></form>}
         <section><div className="section-inline-heading"><div><p className="admin-section-kicker">Recent activity</p><h3>Audit trail</h3></div></div><div className="order-inspector-activity">{detail.audit.slice(0, 5).map((event) => <div key={event.id}><strong>{event.action.replace("order.", "").replaceAll("_", " ")}</strong><small>{event.actor} · {new Date(event.createdAt).toLocaleString("fi-FI")}</small></div>)}{detail.audit.length === 0 && <p>No activity recorded.</p>}</div></section>

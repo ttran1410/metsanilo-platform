@@ -71,11 +71,13 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
   }
 
   const input: OrderInput = parsed.data;
-  let mobile: string;
-  try {
-    mobile = normalizeMobile(input.mobile);
-  } catch {
-    throw new DomainError("VALIDATION_ERROR", "Invalid phone", 422, { mobile: "INVALID_PHONE" });
+  let mobile: string | null = null;
+  if (input.mobile && input.mobile.trim()) {
+    try {
+      mobile = normalizeMobile(input.mobile);
+    } catch {
+      throw new DomainError("VALIDATION_ERROR", "Invalid phone", 422, { mobile: "INVALID_PHONE" });
+    }
   }
 
   const { SHOP_ID } = env();
@@ -172,17 +174,32 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
       const pickup = input.fulfillmentMethod === "PICKUP";
       const configuredLocation = await tx.query.fulfillmentLocations.findFirst({ where: and(eq(fulfillmentLocations.shopId, SHOP_ID), eq(fulfillmentLocations.type, pickup ? "PICKUP" : "DELIVERY_ORIGIN"), eq(fulfillmentLocations.active, true), eq(fulfillmentLocations.isDefault, true)) });
       const locationSnapshot = configuredLocation ? JSON.stringify({ id: configuredLocation.id, type: configuredLocation.type, nameFi: configuredLocation.nameFi, nameEn: configuredLocation.nameEn, address: configuredLocation.address, instructionsFi: configuredLocation.instructionsFi, instructionsEn: configuredLocation.instructionsEn }) : null;
-      const normalizedEmail = normalizeEmail(input.email);
-      const mobileMatch = await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, mobile)) });
-      const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.email, normalizedEmail)) }) : undefined;
-      const conflict = Boolean(mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id) || Boolean(mobileMatch && normalizedEmail && mobileMatch.email && mobileMatch.email !== normalizedEmail && !emailMatch);
-      const consentGranted = input.marketingConsent === true;
+      let mobile: string | null = null;
+      if (input.mobile && input.mobile.trim()) {
+        try {
+          mobile = normalizeMobile(input.mobile);
+        } catch {
+          throw new DomainError("VALIDATION_ERROR", "Invalid mobile phone number", 422, { mobile: "INVALID_PHONE" });
+        }
+      }
+
       const fbProfile = input.facebookProfile?.trim() || null;
-      const customer = (conflict || (!mobileMatch && !emailMatch))
+      const normalizedEmail = normalizeEmail(input.email);
+      const mobileMatch = mobile ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, mobile)) }) : undefined;
+      const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.email, normalizedEmail)) }) : undefined;
+      const fbMatch = fbProfile ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.facebookProfile, fbProfile)) }) : undefined;
+
+      const matchedCustomer = mobileMatch ?? emailMatch ?? fbMatch;
+      const conflict = Boolean(
+        (mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id) ||
+        (mobileMatch && normalizedEmail && mobileMatch.email && mobileMatch.email !== normalizedEmail)
+      );
+      const consentGranted = input.marketingConsent === true;
+      const customer = (conflict || !matchedCustomer)
         ? { id: randomUUID(), shopId: SHOP_ID, name: input.customerName, mobile, email: normalizedEmail, facebookProfile: fbProfile, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, marketingConsent: consentGranted, marketingConsentStatus: consentGranted ? "CONSENTED" as const : "NOT_CONSENTED" as const, marketingConsentAt: consentGranted ? createdAt : null, marketingConsentSource: consentGranted ? "ORDER_FORM" as const : null, marketingConsentUpdatedBy: null, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt }
-        : { ...(mobileMatch ?? emailMatch!), name: input.customerName, email: normalizedEmail ?? (mobileMatch ?? emailMatch)!.email, facebookProfile: fbProfile || (mobileMatch ?? emailMatch)!.facebookProfile, ...(consentGranted ? { marketingConsent: true, marketingConsentStatus: "CONSENTED" as const, marketingConsentAt: createdAt, marketingConsentSource: "ORDER_FORM" as const, marketingConsentUpdatedBy: null } : {}), updatedAt: createdAt };
-      if (conflict || (!mobileMatch && !emailMatch)) await tx.insert(customers).values(customer);
-      else await tx.update(customers).set({ name: customer.name, email: customer.email, facebookProfile: customer.facebookProfile, updatedAt: createdAt }).where(eq(customers.id, customer.id));
+        : { ...matchedCustomer, name: input.customerName, mobile: mobile ?? matchedCustomer.mobile, email: normalizedEmail ?? matchedCustomer.email, facebookProfile: fbProfile ?? matchedCustomer.facebookProfile, ...(consentGranted ? { marketingConsent: true, marketingConsentStatus: "CONSENTED" as const, marketingConsentAt: createdAt, marketingConsentSource: "ORDER_FORM" as const, marketingConsentUpdatedBy: null } : {}), updatedAt: createdAt };
+      if (conflict || !matchedCustomer) await tx.insert(customers).values(customer);
+      else await tx.update(customers).set({ name: customer.name, mobile: customer.mobile, email: customer.email, facebookProfile: customer.facebookProfile, ...(conflict ? { matchStatus: "CONFLICT_REVIEW" as const } : {}), updatedAt: createdAt }).where(eq(customers.id, customer.id));
       const created = {
         id: orderId,
         shopId: SHOP_ID,

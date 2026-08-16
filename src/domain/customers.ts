@@ -134,7 +134,7 @@ export async function getCustomerProfile(database: Database, customerId: string)
     .where(
       and(
         eq(customers.shopId, SHOP_ID),
-        eq(customers.mobile, customer.mobile),
+        customer.mobile ? eq(customers.mobile, customer.mobile) : ne(customers.id, customerId),
         ne(customers.id, customerId)
       )
     )
