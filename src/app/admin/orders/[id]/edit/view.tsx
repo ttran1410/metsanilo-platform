@@ -363,12 +363,12 @@ export function OrderEditForm({
         </label>
 
         <label className="field">
-          <span>Customer name *</span>
+          <span>Customer name</span>
           <input value={form.customerName} onChange={(e) => update("customerName", e.target.value)} required />
         </label>
 
         <label className="field">
-          <span>Mobile phone {!(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE") && "*"}</span>
+          <span>Mobile phone</span>
           <input
             type="tel"
             inputMode="tel"
@@ -393,7 +393,7 @@ export function OrderEditForm({
         </label>
 
         <label className="field md:col-span-2">
-          <span>Facebook Profile / Name {(form.orderSource === "FACEBOOK" || form.orderSource === "FACEBOOK_MESSAGE") && "*"}</span>
+          <span>Facebook</span>
           <input
             value={form.facebookProfile}
             onChange={(e) => update("facebookProfile", e.target.value)}

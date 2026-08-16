@@ -173,4 +173,21 @@ describe("Customer Facebook Profile CRM & Order Sync", () => {
     expect(found?.name).toBe("Facebook Only Customer");
     expect(found?.mobile).toBeNull();
   });
+
+  it("creates customer with only facebookProfile and no mobile number", async () => {
+    const created = await createCustomer(database, {
+      name: "Facebook Only Customer CRM",
+      facebookProfile: "https://facebook.com/fb.only.crm",
+    });
+
+    expect(created.name).toBe("Facebook Only Customer CRM");
+    expect(created.mobile).toBeNull();
+    expect(created.facebookProfile).toBe("https://facebook.com/fb.only.crm");
+
+    await expect(
+      createCustomer(database, {
+        name: "No Contact Info Customer",
+      })
+    ).rejects.toThrow("At least one contact method");
+  });
 });

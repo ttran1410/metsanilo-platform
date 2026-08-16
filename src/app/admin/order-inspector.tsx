@@ -177,7 +177,7 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
           )}
           {current.facebookProfile && (
             <a className="btn btn-secondary font-semibold text-blue-700" href={current.facebookProfile.startsWith("http") ? current.facebookProfile : `https://facebook.com/${current.facebookProfile.replace(/^@/, "")}`} target="_blank" rel="noreferrer">
-              📘 Facebook Profile
+              📘 Facebook
             </a>
           )}
         </div>

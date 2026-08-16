@@ -209,25 +209,36 @@ export async function getCustomerProfile(database: Database, customerId: string)
 
 export async function createCustomer(
   database: Database,
-  input: { name: string; mobile: string; email?: string; facebookProfile?: string; notes?: string }
+  input: { name: string; mobile?: string | null; email?: string | null; facebookProfile?: string | null; notes?: string }
 ) {
   const { SHOP_ID } = env();
-  let normalizedMobile: string;
-  try {
-    normalizedMobile = normalizeMobile(input.mobile);
-  } catch {
-    throw new DomainError("VALIDATION_ERROR", "Invalid phone number", 422);
+  let normalizedMobile: string | null = null;
+  if (input.mobile && input.mobile.trim()) {
+    try {
+      normalizedMobile = normalizeMobile(input.mobile);
+    } catch {
+      throw new DomainError("VALIDATION_ERROR", "Invalid phone number", 422);
+    }
   }
 
-  const existing = await database.query.customers.findFirst({
-    where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, normalizedMobile)),
-  });
+  const fbProfile = input.facebookProfile?.trim() || null;
+  const email = input.email ? normalizeEmail(input.email) : null;
+
+  if (!normalizedMobile && !fbProfile && !email) {
+    throw new DomainError("VALIDATION_ERROR", "At least one contact method (Mobile Phone, Facebook, or Email) is required", 422);
+  }
+
+  const existing = normalizedMobile
+    ? await database.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, normalizedMobile)) })
+    : fbProfile
+    ? await database.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.facebookProfile, fbProfile)) })
+    : undefined;
 
   if (existing) {
-    if (input.facebookProfile && input.facebookProfile.trim() && !existing.facebookProfile) {
+    if (fbProfile && !existing.facebookProfile) {
       await database
         .update(customers)
-        .set({ facebookProfile: input.facebookProfile.trim(), updatedAt: new Date().toISOString() })
+        .set({ facebookProfile: fbProfile, updatedAt: new Date().toISOString() })
         .where(eq(customers.id, existing.id));
     }
     return (await database.query.customers.findFirst({ where: eq(customers.id, existing.id) }))!;
@@ -235,7 +246,6 @@ export async function createCustomer(
 
   const id = randomUUID();
   const now = new Date().toISOString();
-  const email = input.email ? normalizeEmail(input.email) : null;
 
   await database.insert(customers).values({
     id,
@@ -244,7 +254,7 @@ export async function createCustomer(
     mobile: normalizedMobile,
     email,
     matchStatus: "ACTIVE",
-    facebookProfile: input.facebookProfile?.trim() || null,
+    facebookProfile: fbProfile,
     notes: input.notes?.trim() || null,
     createdAt: now,
     updatedAt: now,
@@ -256,7 +266,7 @@ export async function createCustomer(
 export async function updateCustomer(
   database: Database,
   customerId: string,
-  input: { name?: string; mobile?: string; email?: string | null; facebookProfile?: string | null; notes?: string | null },
+  input: { name?: string; mobile?: string | null; email?: string | null; facebookProfile?: string | null; notes?: string | null },
   actorEmail?: string
 ) {
   const { SHOP_ID } = env();
@@ -267,11 +277,15 @@ export async function updateCustomer(
 
   const now = new Date().toISOString();
   let normalizedMobile = existing.mobile;
-  if (input.mobile && input.mobile.trim()) {
-    try {
-      normalizedMobile = normalizeMobile(input.mobile);
-    } catch {
-      throw new DomainError("VALIDATION_ERROR", "Invalid phone number", 422);
+  if (input.mobile !== undefined) {
+    if (input.mobile && input.mobile.trim()) {
+      try {
+        normalizedMobile = normalizeMobile(input.mobile);
+      } catch {
+        throw new DomainError("VALIDATION_ERROR", "Invalid phone number", 422);
+      }
+    } else {
+      normalizedMobile = null;
     }
   }
 

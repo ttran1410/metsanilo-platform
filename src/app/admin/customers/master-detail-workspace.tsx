@@ -387,28 +387,31 @@ export function MasterDetailCustomerWorkspace({
                     >
                       💬 WhatsApp: Ready
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
-                      onClick={() => triggerWhatsApp("CONFIRMED")}
-                      title="Open WhatsApp with pre-filled Order Confirmed notification"
-                    >
-                      💬 WhatsApp: Confirm
-                    </button>
+                    {profile.customer.mobile && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
+                          onClick={() => triggerWhatsApp("CONFIRMED")}
+                          title="Open WhatsApp with pre-filled Order Confirmed notification"
+                        >
+                          💬 WhatsApp: Confirm
+                        </button>
 
-                    {/* Call & SMS triggers */}
-                    <a
-                      className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
-                      href={`tel:${profile.customer.mobile}`}
-                    >
-                      📞 Call
-                    </a>
-                    <a
-                      className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
-                      href={`sms:${profile.customer.mobile}`}
-                    >
-                      ✉️ SMS
-                    </a>
+                        <a
+                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
+                          href={`tel:${profile.customer.mobile}`}
+                        >
+                          📞 Call
+                        </a>
+                        <a
+                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
+                          href={`sms:${profile.customer.mobile}`}
+                        >
+                          ✉️ SMS
+                        </a>
+                      </>
+                    )}
 
                     {profile.customer.facebookProfile && (
                       <a
@@ -417,7 +420,7 @@ export function MasterDetailCustomerWorkspace({
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        📘 Facebook Profile
+                        📘 Facebook
                       </a>
                     )}
 
