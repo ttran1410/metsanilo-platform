@@ -292,6 +292,10 @@ export async function updateCustomer(
   const email = input.email !== undefined ? (input.email ? normalizeEmail(input.email) : null) : existing.email;
   const facebookProfile = input.facebookProfile !== undefined ? (input.facebookProfile ? input.facebookProfile.trim() : null) : existing.facebookProfile;
 
+  if (!normalizedMobile && !facebookProfile && !email) {
+    throw new DomainError("VALIDATION_ERROR", "At least one contact method (Mobile Phone, Facebook, or Email) is required", 422);
+  }
+
   await database
     .update(customers)
     .set({
