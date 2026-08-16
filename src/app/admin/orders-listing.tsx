@@ -738,6 +738,75 @@ export function OrdersListing({
         </div>
       )}
 
+      {/* STICKY FLOATING BULK SELECTION TOOLBAR */}
+      {selected.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-forest text-on-primary p-3.5 px-5 rounded-2xl shadow-2xl border border-emerald-700/50 flex flex-wrap items-center gap-3 text-xs animate-in slide-in-from-bottom-5">
+          <div className="flex items-center gap-2 font-bold pr-2 border-r border-emerald-700/60">
+            <span className="w-6 h-6 rounded-full bg-emerald-700 text-white flex items-center justify-center font-mono text-xs">
+              {selected.length}
+            </span>
+            <span>order(s) selected</span>
+          </div>
+
+          {canTransition && (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
+                onClick={() => setPending({ target: "CONFIRMED", orders: selectedOrders })}
+              >
+                ✓ Confirm ({selected.length})
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
+                onClick={() => setPending({ target: "PICKING", orders: selectedOrders })}
+              >
+                📦 Start Picking ({selected.length})
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
+                onClick={() => setPending({ target: "READY", orders: selectedOrders })}
+              >
+                🟢 Mark Ready ({selected.length})
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
+                onClick={() => setPending({ target: "DELIVERED", orders: selectedOrders })}
+              >
+                🏁 Delivered ({selected.length})
+              </button>
+            </div>
+          )}
+
+          {canExport && (
+            <button
+              type="button"
+              className="btn btn-secondary text-xs py-1.5 px-3 font-semibold bg-emerald-900/60 text-emerald-100 border-emerald-700 hover:bg-emerald-800"
+              onClick={() => {
+                const ids = selected.join(",");
+                window.open(`/api/admin/orders/export?ids=${encodeURIComponent(ids)}`, "_blank");
+              }}
+            >
+              📥 Export Selected CSV
+            </button>
+          )}
+
+          <button
+            type="button"
+            className="text-emerald-300 hover:text-white font-bold ml-2 text-xs"
+            onClick={() => setSelected([])}
+          >
+            ✕ Clear Selection
+          </button>
+        </div>
+      )}
+
       {/* PRINTABLE BATCH PACKING SLIP MODAL */}
       {showPackingSlip && (
         <BatchPackingSlip
