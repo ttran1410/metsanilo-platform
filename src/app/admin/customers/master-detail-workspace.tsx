@@ -6,6 +6,7 @@ import { Edit3, Phone, MessageSquare, Share2, ExternalLink, PlusCircle, GitMerge
 import { AdminEmptyState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 import { CustomerModal } from "./customer-modal";
 import { MergeModal } from "./merge-modal";
+import { useAdminI18n } from "../i18n-context";
 
 type CustomerRow = {
   id: string;
@@ -79,6 +80,7 @@ export function MasterDetailCustomerWorkspace({
   canEdit: boolean;
   canAnonymize: boolean;
 }) {
+  const { t } = useAdminI18n();
   const [customersList, setCustomersList] = useState(initialCustomers);
   const [selectedId, setSelectedId] = useState<string>(initialCustomers[0]?.id ?? "");
   const [searchQuery, setSearchQuery] = useState("");

@@ -23,8 +23,11 @@ import {
   Store,
   ChevronDown,
   Shield,
+  Globe,
 } from "lucide-react";
 import { SignOutButton } from "./sign-out-button";
+import { useAdminI18n } from "./i18n-context";
+import { adminLocales } from "./i18n-dictionary";
 
 type NavItem = { id: string; label: string; group: string; href?: string; enabled: boolean };
 type OrderResult = { id: string; publicReference: string; customerName: string; mobile: string; status: string };
@@ -44,9 +47,47 @@ function NavIcon({ id }: { id: string }) {
   }
 }
 
+function AdminLanguageSwitcher() {
+  const { locale, setLocale } = useAdminI18n();
+  const current = adminLocales.find((l) => l.code === locale) ?? adminLocales[0];
+
+  return (
+    <details className="admin-user-menu relative">
+      <summary className="admin-quick-tool cursor-pointer select-none border border-line hover:border-forest">
+        <Globe className="w-3.5 h-3.5 text-muted" />
+        <span className="font-bold text-xs">{current.flag} {current.code.toUpperCase()}</span>
+        <ChevronDown className="w-3 h-3 text-slate-400" />
+      </summary>
+      <div className="admin-user-dropdown right-0 min-w-[9.5rem] p-1.5 shadow-xl border border-line rounded-xl bg-paper">
+        {adminLocales.map((loc) => (
+          <button
+            key={loc.code}
+            type="button"
+            className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+              loc.code === locale ? "bg-forest/10 text-forest font-bold" : "hover:bg-surface-muted text-ink"
+            }`}
+            onClick={(e) => {
+              setLocale(loc.code);
+              const details = e.currentTarget.closest("details");
+              if (details) details.removeAttribute("open");
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <span>{loc.flag}</span>
+              <span>{loc.label}</span>
+            </span>
+            {loc.code === locale && <span className="text-forest text-[11px]">✓</span>}
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 export function AdminNavigation({ role, displayName, email, items }: { role: Role; displayName: string; email: string | null; items: NavItem[] }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useAdminI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -105,10 +146,10 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
 
   const commands = useMemo(() => {
     const value = query.trim().toLowerCase();
-    const routes = items.filter(({ enabled }) => enabled).map((item) => ({ id: `route-${item.id}`, label: item.label, detail: "Go to module", href: item.href ?? (item.id === "dashboard" ? "/admin" : `/admin/${item.id}`) }));
+    const routes = items.filter(({ enabled }) => enabled).map((item) => ({ id: `route-${item.id}`, label: t(`nav.${item.id}`, item.label), detail: "Go to module", href: item.href ?? (item.id === "dashboard" ? "/admin" : `/admin/${item.id}`) }));
     const orderCommands = orders.map((order) => ({ id: `order-${order.id}`, label: `${order.publicReference} · ${order.customerName}`, detail: `${order.status.replaceAll("_", " ")} · ${order.mobile}`, href: `/admin/orders/${order.id}` }));
     return [...routes, ...orderCommands].filter((command) => !value || `${command.label} ${command.detail}`.toLowerCase().includes(value)).slice(0, 10);
-  }, [items, orders, query]);
+  }, [items, orders, query, t]);
 
   function toggleRail() {
     const next = !collapsed;
@@ -123,18 +164,19 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
         <div className="admin-quick-tools" aria-label="Operations shortcuts">
           <button className="admin-quick-tool" type="button" onClick={() => setPaletteOpen(true)} aria-label="Open command search">
             <Search className="w-3.5 h-3.5" />
-            <span>Quick search</span>
+            <span>{t("header.quickSearch", "Quick search")}</span>
             <kbd>⌘K</kbd>
           </button>
           <button className="admin-quick-tool" type="button" onClick={() => setHelpOpen(true)}>
             <Keyboard className="w-3.5 h-3.5" />
-            <span>Shortcuts</span>
+            <span>{t("header.shortcuts", "Shortcuts")}</span>
           </button>
           <Link className="admin-quick-tool" href="/admin/orders?view=triage" aria-label={`${triageCount} action required, ${unreadCount} unread notifications`}>
             <Bell className="w-3.5 h-3.5" />
-            <span>Alerts</span>
+            <span>{t("header.alerts", "Alerts")}</span>
             {triageCount > 0 && <b className="admin-header-badge">{triageCount}</b>}
           </Link>
+          <AdminLanguageSwitcher />
         </div>
         <span className="admin-user-state"><i aria-hidden="true" />{role}</span>
         <AdminUserMenu displayName={displayName} email={email} role={role} />
@@ -147,8 +189,8 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
         className="admin-rail-edge-toggle"
         type="button"
         onClick={toggleRail}
-        aria-label={collapsed ? "Expand sidebar navigation" : "Collapse sidebar navigation"}
-        title={collapsed ? "Expand sidebar navigation" : "Collapse sidebar navigation"}
+        aria-label={collapsed ? t("header.expandSidebar", "Expand sidebar navigation") : t("header.collapseSidebar", "Collapse sidebar navigation")}
+        title={collapsed ? t("header.expandSidebar", "Expand sidebar navigation") : t("header.collapseSidebar", "Collapse sidebar navigation")}
       >
         {collapsed ? <ChevronRight className="w-3.5 h-3.5 stroke-[2]" /> : <ChevronLeft className="w-3.5 h-3.5 stroke-[2]" />}
       </button>
@@ -156,10 +198,11 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
       <nav aria-label="Admin modules" className="admin-nav">
         {Array.from(new Set(items.filter((item) => item.enabled).map((item) => item.group))).map((group) => (
           <div className="admin-nav-group" key={group}>
-            <span className="admin-nav-group-label">{group}</span>
+            <span className="admin-nav-group-label">{t(`group.${group}`, group)}</span>
             {items.filter((item) => item.enabled && item.group === group).map((item) => {
               const href = item.href ?? (item.id === "dashboard" ? "/admin" : `/admin/${item.id}`);
               const active = item.id === "triage" ? triageActive : item.id === "dashboard" ? pathname === "/admin" : item.id === "orders" ? pathname === "/admin/orders" && !triageActive : pathname === href || pathname.startsWith(`${href}/`);
+              const labelText = t(`nav.${item.id}`, item.label);
               return (
                 <Link
                   className={active ? "active" : ""}
@@ -171,10 +214,10 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
                     if (item.id === "orders") setTriageActive(false);
                   }}
                   key={item.id}
-                  title={collapsed ? item.label : undefined}
+                  title={collapsed ? labelText : undefined}
                 >
                   <span className="admin-nav-icon" aria-hidden="true"><NavIcon id={item.id} /></span>
-                  <span className="admin-nav-label">{item.label}</span>
+                  <span className="admin-nav-label">{labelText}</span>
                   {item.id === "triage" && triageCount > 0 && <b className="admin-nav-badge">{triageCount}</b>}
                 </Link>
               );
@@ -184,8 +227,8 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
       </nav>
 
       <div className="admin-sidebar-footer">
-        {!collapsed && <span>Need help?</span>}
-        {!collapsed && <a href="mailto:tranthanhtuan1410@gmail.com">Contact support</a>}
+        {!collapsed && <span>{t("header.needHelp", "Need help?")}</span>}
+        {!collapsed && <a href="mailto:tranthanhtuan1410@gmail.com">{t("header.contactSupport", "Contact support")}</a>}
       </div>
     </aside>
 
@@ -197,6 +240,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
 function isTyping(target: EventTarget | null) { return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable); }
 
 function AdminUserMenu({ displayName, email, role }: { displayName: string; email: string | null; role: Role }) {
+  const { t } = useAdminI18n();
   return (
     <details className="admin-user-menu">
       <summary>
@@ -207,15 +251,15 @@ function AdminUserMenu({ displayName, email, role }: { displayName: string; emai
       <div className="admin-user-dropdown">
         <Link href="/admin/profile" className="flex items-center gap-2">
           <User className="w-3.5 h-3.5 text-slate-500" />
-          <span>My profile</span>
+          <span>{t("header.myProfile", "My profile")}</span>
         </Link>
         <Link href="/admin/change-password" className="flex items-center gap-2">
           <KeyRound className="w-3.5 h-3.5 text-slate-500" />
-          <span>Change password</span>
+          <span>{t("header.changePassword", "Change password")}</span>
         </Link>
         <Link href="/fi" className="flex items-center gap-2">
           <Store className="w-3.5 h-3.5 text-slate-500" />
-          <span>View storefront</span>
+          <span>{t("header.viewStorefront", "View storefront")}</span>
         </Link>
         <div className="admin-user-divider" />
         <SignOutButton />

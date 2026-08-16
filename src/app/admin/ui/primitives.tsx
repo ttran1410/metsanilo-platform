@@ -1,4 +1,5 @@
 import type { ElementType, ReactNode } from "react";
+import { useAdminI18n } from "../i18n-context";
 
 /** Small, domain-neutral building blocks shared by Operations workspaces. */
 export function AdminCard({ as: Component = "section", children, className = "" }: { as?: ElementType; children: ReactNode; className?: string }) {
@@ -13,8 +14,10 @@ const STATUS_TONES: Record<string, "success" | "warning" | "danger" | "info" | "
 };
 
 export function AdminStatusBadge({ status, label }: { status: string; label?: string }) {
+  const { t } = useAdminI18n();
   const tone = STATUS_TONES[status] ?? "neutral";
-  return <span className={`status-pill ops-status-${tone}`} aria-label={`Status: ${label ?? status}`}>{label ?? status.replaceAll("_", " ")}</span>;
+  const displayLabel = label ?? t(`status.${status}`, status.replaceAll("_", " "));
+  return <span className={`status-pill ops-status-${tone}`} aria-label={`Status: ${displayLabel}`}>{displayLabel}</span>;
 }
 
 export function AdminFieldError({ id, message }: { id?: string; message?: string }) {
