@@ -13,19 +13,20 @@ export default async function OrdersPage({ searchParams }: { searchParams?: Prom
   if (!allowed) return <AdminRouteFrame><main className="shell py-10"><p className="card" role="alert">You do not have access to orders.</p></main></AdminRouteFrame>;
   const query = await searchParams;
   const requestedView = query?.view?.toUpperCase();
-  const validViews = new Set(["TRIAGE", "ALL", "TODAY", "NEEDS_CONFIRMATION", "PICKUP_TODAY", "DELIVERY_TODAY", "UNPAID"]);
+  const validViews = new Set(["TRIAGE", "ALL", "TODAY", "NEEDS_CONFIRMATION", "PICKUP_TODAY", "DELIVERY_TODAY", "UNPAID", "ARCHIVED"]);
   return (
     <AdminRouteFrame>
       <OrdersListing
         actorRole={actor.role}
         initialOrders={await listManagerOrdersWithPaymentSummary(db())}
-        initialView={validViews.has(requestedView ?? "") ? requestedView as "TRIAGE" | "ALL" | "TODAY" | "NEEDS_CONFIRMATION" | "PICKUP_TODAY" | "DELIVERY_TODAY" | "UNPAID" : undefined}
+        initialView={validViews.has(requestedView ?? "") ? requestedView as any : undefined}
         initialStatus={query?.status?.toUpperCase() ?? "ALL"}
         canExport={await hasAdminPermission(request, "orders.export")}
         canCreate={await hasAdminPermission(request, "orders.create")}
         canTransition={await hasAdminPermission(request, "orders.transition")}
         canUpdate={await hasAdminPermission(request, "orders.update")}
         canDelete={await hasAdminPermission(request, "orders.delete")}
+        canArchive={await hasAdminPermission(request, "orders.archive")}
       />
     </AdminRouteFrame>
   );

@@ -8,7 +8,7 @@ import { createDatabaseConnection, type Database } from "@/db/client";
 import { availability, customers, notifications, orderPayments, orders, outboxJobs, packages, products, shops, userPermissions } from "@/db/schema";
 import { createUser, requirePermission, setUserPermission } from "@/domain/access";
 import { createExternalOrder, createHistoricalOrder, runAutomation } from "@/domain/operations";
-import { addOrderNote, confirmPickup, getManagerOrder, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder } from "@/domain/orders";
+import { addOrderNote, archiveManagerOrder, confirmPickup, deleteManagerOrder, getManagerOrder, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder, unarchiveManagerOrder } from "@/domain/orders";
 import { createProduct, deleteProduct } from "@/domain/products";
 import { planAvailability } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
@@ -323,6 +323,43 @@ describe("order operations", () => {
 
     // Deleting order with payments -> throws PAYMENT_EXISTS error
     await expect(deleteManagerOrder(database, order2.id)).rejects.toMatchObject({ code: "PAYMENT_EXISTS" });
+  });
+
+  it("archives completed/closed orders and blocks archiving active in-flight orders", async () => {
+    resetEnvForTests();
+
+    // Create an active order (NEW)
+    const activeReceipt = await submitOrder(database, pickupInput("active-archive"));
+    const activeOrder = (await database.query.orders.findFirst({ where: eq(orders.publicReference, activeReceipt.publicReference) }))!;
+
+    // Archiving an active in-flight order -> throws INVALID_TRANSITION error
+    await expect(archiveManagerOrder(database, activeOrder.id, "manager@example.com")).rejects.toMatchObject({
+      code: "INVALID_TRANSITION",
+    });
+
+    // Complete the order
+    let currentVer = activeOrder.version;
+    await transitionOrder(database, { orderId: activeOrder.id, status: "CONFIRMED", expectedVersion: currentVer++ });
+    await transitionOrder(database, { orderId: activeOrder.id, status: "PICKING", expectedVersion: currentVer++ });
+    await transitionOrder(database, { orderId: activeOrder.id, status: "READY", expectedVersion: currentVer++ });
+    await transitionOrder(database, { orderId: activeOrder.id, status: "PICKED_UP", expectedVersion: currentVer++ });
+
+    // Archiving completed order succeeds
+    const archiveResult = await archiveManagerOrder(database, activeOrder.id, "manager@example.com");
+    expect(archiveResult.archived).toBe(true);
+
+    const archivedRecord = (await database.query.orders.findFirst({ where: eq(orders.id, activeOrder.id) }))!;
+    expect(archivedRecord.archived).toBe(true);
+    expect(archivedRecord.archivedBy).toBe("manager@example.com");
+    expect(archivedRecord.archivedAt).not.toBeNull();
+
+    // Restoring (un-archiving) order succeeds
+    const restoreResult = await unarchiveManagerOrder(database, activeOrder.id, "manager@example.com");
+    expect(restoreResult.archived).toBe(false);
+
+    const restoredRecord = (await database.query.orders.findFirst({ where: eq(orders.id, activeOrder.id) }))!;
+    expect(restoredRecord.archived).toBe(false);
+    expect(restoredRecord.archivedBy).toBeNull();
   });
 });
 

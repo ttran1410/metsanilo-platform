@@ -16,6 +16,9 @@ export type AdminOrder = typeof orders.$inferSelect & {
   paidCents?: number;
   outstandingCents?: number | null;
   paymentStatus?: string;
+  archived?: boolean;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
 };
 
 export type OrdersView =
@@ -25,12 +28,14 @@ export type OrdersView =
   | "NEEDS_CONFIRMATION"
   | "PICKUP_TODAY"
   | "DELIVERY_TODAY"
-  | "UNPAID";
+  | "UNPAID"
+  | "ARCHIVED";
 
 type WorkspaceMode = "TABLE" | "KANBAN" | "TERMINAL";
 type DatePreset = "TODAY" | "TOMORROW" | "YESTERDAY" | "THIS_WEEK" | "LAST_WEEK" | "LAST_7_DAYS" | "ALL" | "CUSTOM";
 type Column = "fulfillment" | "source" | "status" | "payment" | "updated";
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
+type ArchiveScope = "ACTIVE_ONLY" | "ARCHIVED_ONLY" | "ALL";
 
 const QUICK_VIEWS: Array<{ key: OrdersView; label: string }> = [
   { key: "TODAY", label: "Today" },
@@ -40,6 +45,7 @@ const QUICK_VIEWS: Array<{ key: OrdersView; label: string }> = [
   { key: "DELIVERY_TODAY", label: "Delivery today" },
   { key: "UNPAID", label: "Unpaid" },
   { key: "ALL", label: "All orders" },
+  { key: "ARCHIVED", label: "📦 Archived" },
 ];
 
 const ALL_COLUMNS: Array<{ key: Column; label: string }> = [
@@ -108,6 +114,7 @@ export function OrdersListing({
   canTransition,
   canUpdate = false,
   canDelete = false,
+  canArchive = false,
 }: {
   actorRole?: Role;
   initialOrders: AdminOrder[];
@@ -118,11 +125,13 @@ export function OrdersListing({
   canTransition: boolean;
   canUpdate?: boolean;
   canDelete?: boolean;
+  canArchive?: boolean;
 }) {
   const initialDates = getInitialPresetDatesForView(initialView);
 
   const [rows, setRows] = useState(initialOrders);
   const [view, setView] = useState<OrdersView>(initialView);
+  const [archiveScope, setArchiveScope] = useState<ArchiveScope>(initialView === "ARCHIVED" ? "ARCHIVED_ONLY" : "ACTIVE_ONLY");
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("TABLE");
   const [showPackingSlip, setShowPackingSlip] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -149,6 +158,7 @@ export function OrdersListing({
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ deletable: AdminOrder[]; skippedPaid: AdminOrder[] } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [reason, setReason] = useState("");
   const [page, setPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState(new Date());
@@ -169,6 +179,12 @@ export function OrdersListing({
   const selectQuickView = useCallback((targetView: OrdersView) => {
     setView(targetView);
     const today = todayStr();
+
+    if (targetView === "ARCHIVED") {
+      setArchiveScope("ARCHIVED_ONLY");
+    } else {
+      setArchiveScope("ACTIVE_ONLY");
+    }
 
     if (targetView === "TODAY") {
       setDatePreset("TODAY");
@@ -198,7 +214,7 @@ export function OrdersListing({
       setStatus("NEW");
       setMethod("ALL");
       setSource("ALL");
-    } else if (targetView === "TRIAGE" || targetView === "UNPAID" || targetView === "ALL") {
+    } else if (targetView === "TRIAGE" || targetView === "UNPAID" || targetView === "ALL" || targetView === "ARCHIVED") {
       setDatePreset("ALL");
       setFrom("");
       setTo("");
@@ -229,6 +245,17 @@ export function OrdersListing({
     }
     void loadSources();
   }, []);
+
+  function handleArchiveScopeChange(newScope: ArchiveScope) {
+    setArchiveScope(newScope);
+    if (newScope === "ARCHIVED_ONLY") {
+      setView("ARCHIVED");
+    } else if (newScope === "ACTIVE_ONLY") {
+      if (view === "ARCHIVED") setView("ALL");
+    } else if (newScope === "ALL") {
+      if (view === "ARCHIVED") setView("ALL");
+    }
+  }
 
   // Filter change handlers automatically switch active tab to "ALL" (Custom Filtered View)
   function handleDatePresetChange(preset: DatePreset) {
@@ -272,6 +299,7 @@ export function OrdersListing({
 
   function handleClearFilters() {
     setSearch("");
+    setArchiveScope("ACTIVE_ONLY");
     selectQuickView("ALL");
   }
 
@@ -281,27 +309,38 @@ export function OrdersListing({
     if (status !== "ALL") count++;
     if (method !== "ALL") count++;
     if (source !== "ALL") count++;
+    if (archiveScope !== "ACTIVE_ONLY") count++;
     if (search.trim()) count++;
     return count;
-  }, [datePreset, status, method, source, search]);
+  }, [datePreset, status, method, source, archiveScope, search]);
 
   const quickViewCounts = useMemo(() => {
     const day = todayStr();
+    const activeRows = rows.filter((o) => !o.archived);
     return {
-      TODAY: rows.filter((o) => o.fulfillmentDate === day).length,
-      TRIAGE: rows.filter((o) => getOrderTriageReasons(o).length > 0).length,
-      NEEDS_CONFIRMATION: rows.filter((o) => o.status === "NEW").length,
-      PICKUP_TODAY: rows.filter((o) => o.fulfillmentDate === day && o.fulfillmentMethod === "PICKUP").length,
-      DELIVERY_TODAY: rows.filter((o) => o.fulfillmentDate === day && o.fulfillmentMethod === "DELIVERY").length,
-      UNPAID: rows.filter((o) => o.paymentStatus === "UNPAID").length,
-      ALL: rows.length,
+      TODAY: activeRows.filter((o) => o.fulfillmentDate === day).length,
+      TRIAGE: activeRows.filter((o) => getOrderTriageReasons(o).length > 0).length,
+      NEEDS_CONFIRMATION: activeRows.filter((o) => o.status === "NEW").length,
+      PICKUP_TODAY: activeRows.filter((o) => o.fulfillmentDate === day && o.fulfillmentMethod === "PICKUP").length,
+      DELIVERY_TODAY: activeRows.filter((o) => o.fulfillmentDate === day && o.fulfillmentMethod === "DELIVERY").length,
+      UNPAID: activeRows.filter((o) => o.paymentStatus === "UNPAID").length,
+      ALL: activeRows.length,
+      ARCHIVED: rows.filter((o) => Boolean(o.archived)).length,
     };
   }, [rows]);
 
-  const matchesQuickView = useCallback((order: AdminOrder, selectedView: OrdersView) => {
+  const matchesQuickView = useCallback((order: AdminOrder, selectedView: OrdersView, scope: ArchiveScope) => {
     const day = todayStr();
+
+    if (scope === "ARCHIVED_ONLY" || selectedView === "ARCHIVED") {
+      if (!order.archived) return false;
+    } else if (scope === "ACTIVE_ONLY") {
+      if (order.archived) return false;
+    }
+
     return (
       selectedView === "ALL" ||
+      selectedView === "ARCHIVED" ||
       (selectedView === "TRIAGE" && getOrderTriageReasons(order).length > 0) ||
       (selectedView === "TODAY" && order.fulfillmentDate === day) ||
       (selectedView === "NEEDS_CONFIRMATION" && order.status === "NEW") ||
@@ -328,10 +367,10 @@ export function OrdersListing({
         matchesMethod &&
         matchesStatus &&
         matchesSource &&
-        matchesQuickView(order, view)
+        matchesQuickView(order, view, archiveScope)
       );
     });
-  }, [rows, search, from, to, method, status, source, view, matchesQuickView]);
+  }, [rows, search, from, to, method, status, source, view, archiveScope, matchesQuickView]);
 
   const sortedRows = useMemo(() => {
     if (view === "TRIAGE") {
@@ -422,6 +461,45 @@ export function OrdersListing({
     }
   }
 
+  async function handleBatchArchive(action: "archive" | "unarchive") {
+    if (selected.length === 0) return;
+    setArchiving(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/admin/orders/batch-archive", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ids: selected, action }),
+      });
+
+      const body = await response.json();
+      setArchiving(false);
+
+      if (!response.ok) {
+        throw new Error(body.message ?? "Batch archive operation failed.");
+      }
+
+      if (action === "archive") {
+        setNotice(
+          `Archived ${body.data.processedCount} order(s).` +
+            (body.data.skippedActiveCount > 0
+              ? ` (${body.data.skippedActiveCount} active in-flight order(s) could not be archived)`
+              : "")
+        );
+      } else {
+        setNotice(`Restored ${body.data.processedCount} order(s) from archive.`);
+      }
+
+      setSelected([]);
+      await refreshOrders();
+    } catch (err) {
+      setArchiving(false);
+      setError(err instanceof Error ? err.message : "Batch archive operation failed.");
+    }
+  }
+
   return (
     <section className="shell pb-10 flex flex-col gap-3">
       {/* HEADER & SUB-VIEW WORKSPACE MODE SWITCHER */}
@@ -433,7 +511,7 @@ export function OrdersListing({
         />
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* 3 SUB-VIEW SWITCHER PIS */}
+          {/* 3 SUB-VIEW SWITCHER PINS */}
           <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-line text-xs font-bold">
             <button
               type="button"
@@ -487,11 +565,11 @@ export function OrdersListing({
 
       {/* RENDER SELECTED WORKSPACE SUB-VIEW */}
       {workspaceMode === "KANBAN" && (
-        <PackingKanban orders={rows} canTransition={canTransition} onRefresh={() => void refreshOrders()} />
+        <PackingKanban orders={rows.filter((o) => !o.archived)} canTransition={canTransition} onRefresh={() => void refreshOrders()} />
       )}
 
       {workspaceMode === "TERMINAL" && (
-        <PickupTerminal orders={rows} canTransition={canTransition} onRefresh={() => void refreshOrders()} />
+        <PickupTerminal orders={rows.filter((o) => !o.archived)} canTransition={canTransition} onRefresh={() => void refreshOrders()} />
       )}
 
       {workspaceMode === "TABLE" && (
@@ -646,7 +724,7 @@ export function OrdersListing({
                 </label>
 
                 {/* Order Source Dropdown */}
-                <label className="field sm:col-span-2">
+                <label className="field">
                   <span>Order Source Filter</span>
                   <select value={source} onChange={(e) => handleSourceChange(e.target.value)}>
                     <option value="ALL">All Sources</option>
@@ -655,6 +733,19 @@ export function OrdersListing({
                         {item.labelEn}
                       </option>
                     ))}
+                  </select>
+                </label>
+
+                {/* Archive Scope Filter Dropdown */}
+                <label className="field">
+                  <span>Archive Scope Filter</span>
+                  <select
+                    value={archiveScope}
+                    onChange={(e) => handleArchiveScopeChange(e.target.value as ArchiveScope)}
+                  >
+                    <option value="ACTIVE_ONLY">🟢 Active Orders Only (Default)</option>
+                    <option value="ARCHIVED_ONLY">📦 Archived Orders Only</option>
+                    <option value="ALL">🌐 All Orders (Include Archived)</option>
                   </select>
                 </label>
               </div>
@@ -756,7 +847,14 @@ export function OrdersListing({
                       </td>
 
                       <td className="p-3">
-                        <AdminStatusBadge status={order.status} />
+                        <div className="flex flex-col items-start gap-1">
+                          <AdminStatusBadge status={order.status} />
+                          {order.archived && (
+                            <span className="text-[10px] font-bold text-purple-900 bg-purple-100 px-1.5 py-0.2 rounded border border-purple-300">
+                              📦 Archived
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="p-3 text-right">
@@ -782,7 +880,9 @@ export function OrdersListing({
                 {visibleRows.length === 0 && (
                   <tr>
                     <td colSpan={9} className="p-8 text-center text-xs muted italic">
-                      No orders found matching your search or filters.
+                      {view === "ARCHIVED" || archiveScope === "ARCHIVED_ONLY"
+                        ? "No archived orders found."
+                        : "No orders found matching your search or filters."}
                     </td>
                   </tr>
                 )}
@@ -802,7 +902,7 @@ export function OrdersListing({
             <span>order(s) selected</span>
           </div>
 
-          {canTransition && (
+          {canTransition && view !== "ARCHIVED" && (
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -836,6 +936,36 @@ export function OrdersListing({
                 🏁 Delivered ({selected.length})
               </button>
             </div>
+          )}
+
+          {/* BATCH ARCHIVE / UNARCHIVE BUTTON */}
+          {view === "ARCHIVED" || archiveScope === "ARCHIVED_ONLY" ? (
+            <button
+              type="button"
+              className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-purple-900 text-purple-100 border-purple-700 hover:bg-purple-800"
+              onClick={() => void handleBatchArchive("unarchive")}
+              disabled={archiving}
+            >
+              {archiving ? "Restoring…" : `↺ Un-archive (${selected.length})`}
+            </button>
+          ) : canArchive ? (
+            <button
+              type="button"
+              className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-purple-900 text-purple-100 border-purple-700 hover:bg-purple-800"
+              onClick={() => void handleBatchArchive("archive")}
+              disabled={archiving}
+            >
+              {archiving ? "Archiving…" : `📦 Archive (${selected.length})`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="🔒 Requires Archive permission (orders.archive). Contact Store Owner to grant access."
+              className="btn text-xs py-1.5 px-3 font-semibold bg-emerald-950/40 text-emerald-300/40 border border-emerald-800/40 cursor-not-allowed opacity-60 flex items-center gap-1"
+            >
+              🔒 📦 Archive ({selected.length})
+            </button>
           )}
 
           {canExport && (
@@ -950,7 +1080,7 @@ export function OrdersListing({
       {/* PRINTABLE BATCH PACKING SLIP MODAL */}
       {showPackingSlip && (
         <BatchPackingSlip
-          orders={rows}
+          orders={rows.filter((o) => !o.archived)}
           date={from || todayStr()}
           onClose={() => setShowPackingSlip(false)}
         />
