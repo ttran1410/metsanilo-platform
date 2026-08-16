@@ -92,29 +92,84 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
     await load();
   }
 
+  const [copied, setCopied] = useState<string | null>(null);
+
+  function copyText(value: string, label: string) {
+    if (!value) return;
+    void navigator.clipboard.writeText(value);
+    setCopied(label);
+    window.setTimeout(() => setCopied(null), 2000);
+  }
+
   const current = detail?.order ?? order;
+  const isClosed = ["CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "DELIVERED", "PICKED_UP", "REFUNDED"].includes(current.status);
+
   return <div className="order-inspector-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <aside className="order-inspector" role="dialog" aria-modal="true" aria-labelledby="order-inspector-title">
       <header className="order-inspector-header">
-        <div><p className="eyebrow">QUICK INSPECT</p><h2 id="order-inspector-title" className="ops-tabular">{order.publicReference}</h2></div>
-        <div className="order-inspector-nav"><button type="button" onClick={onPrevious} disabled={!onPrevious} aria-label="Previous order">↑</button><button type="button" onClick={onNext} disabled={!onNext} aria-label="Next order">↓</button><button ref={closeRef} type="button" onClick={onClose} aria-label="Close inspector">×</button></div>
+        <div>
+          <p className="eyebrow">QUICK INSPECT</p>
+          <div className="flex items-center gap-2">
+            <h2 id="order-inspector-title" className="ops-tabular">{order.publicReference}</h2>
+            <button type="button" className="btn btn-secondary text-xs py-1 px-2" onClick={() => copyText(order.publicReference, "Ref")} title="Copy reference">
+              {copied === "Ref" ? "✓ Copied" : "Copy ref"}
+            </button>
+          </div>
+        </div>
+        <div className="order-inspector-nav">
+          {canUpdate && !isClosed && <a className="btn btn-secondary text-xs py-1 px-2.5" href={`/admin/orders/${order.id}/edit`}>Edit order ✏️</a>}
+          <button type="button" onClick={onPrevious} disabled={!onPrevious} aria-label="Previous order">↑</button>
+          <button type="button" onClick={onNext} disabled={!onNext} aria-label="Next order">↓</button>
+          <button ref={closeRef} type="button" onClick={onClose} aria-label="Close inspector">×</button>
+        </div>
       </header>
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
       {notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}
+      {copied && <AdminNotice tone="success" live>Copied {copied} to clipboard.</AdminNotice>}
       {!detail ? <AdminLoadingState label="Loading order…" /> : <div className="order-inspector-body">
         <div className="order-inspector-status"><AdminStatusBadge status={current.status} /><span>{current.fulfillmentDate} · {current.fulfillmentMethod}</span></div>
         <dl className="order-inspector-facts">
-          <div><dt>Customer</dt><dd><strong>{current.customerName}</strong><span>{current.mobile}</span></dd></div>
+          <div>
+            <dt>Customer</dt>
+            <dd>
+              <strong>{current.customerName}</strong>
+              <div className="flex items-center gap-2">
+                <span>{current.mobile}</span>
+                <button type="button" className="btn btn-secondary text-xs py-0.5 px-1.5" onClick={() => copyText(current.mobile, "Phone")}>
+                  {copied === "Phone" ? "✓" : "Copy"}
+                </button>
+              </div>
+            </dd>
+          </div>
           <div><dt>Order</dt><dd><strong>{current.productNameFi} · {current.packageLabelFi}</strong><span>{current.quantity} × {current.volumeMl / 1000} L</span></dd></div>
           <div><dt>Payment</dt><dd><strong>{formatAdminMoney(current.finalTotalCents)}</strong><span>{detail.paymentSummary.status} · {formatAdminMoney(detail.paymentSummary.outstandingCents)} outstanding</span></dd></div>
-          {current.fulfillmentMethod === "DELIVERY" && <div><dt>Delivery</dt><dd><strong>{current.streetAddress || "Address missing"}</strong><span>{[current.postalCode, current.city].filter(Boolean).join(" ") || "Postal code or city missing"} · Fee {formatAdminMoney(current.deliveryFeeCents)}</span></dd></div>}
+          {current.fulfillmentMethod === "DELIVERY" && <div>
+            <dt>Delivery</dt>
+            <dd>
+              <div className="flex items-center justify-between">
+                <strong>{current.streetAddress || "Address missing"}</strong>
+                {current.streetAddress && (
+                  <button type="button" className="btn btn-secondary text-xs py-0.5 px-1.5" onClick={() => copyText(`${current.streetAddress}, ${current.postalCode ?? ""} ${current.city ?? ""}`.trim(), "Address")}>
+                    {copied === "Address" ? "✓" : "Copy address"}
+                  </button>
+                )}
+              </div>
+              <span>{[current.postalCode, current.city].filter(Boolean).join(" ") || "Postal code or city missing"} · Fee {formatAdminMoney(current.deliveryFeeCents)}</span>
+            </dd>
+          </div>}
         </dl>
         <div className="order-inspector-contact"><a className="btn btn-secondary" href={`tel:${current.mobile}`}>Call</a><a className="btn btn-secondary" href={`sms:${current.mobile}`}>SMS</a><a className="btn btn-secondary" href={`https://wa.me/${current.mobile.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a></div>
         {canTransition && <section className="order-inspector-primary"><span>Allowed next actions</span><OrderActionBar order={current} compact confirmAll onTransition={(next, reason) => transition(next, reason)} /></section>}
         {canUpdate && <form className="order-inspector-note" onSubmit={(event) => void addNote(event)}><label className="field"><span>Add internal note</span><textarea name="body" rows={2} required /></label><button className="btn btn-secondary" disabled={busy}>Add note</button></form>}
         <section><div className="section-inline-heading"><div><p className="admin-section-kicker">Recent activity</p><h3>Audit trail</h3></div></div><div className="order-inspector-activity">{detail.audit.slice(0, 5).map((event) => <div key={event.id}><strong>{event.action.replace("order.", "").replaceAll("_", " ")}</strong><small>{event.actor} · {new Date(event.createdAt).toLocaleString("fi-FI")}</small></div>)}{detail.audit.length === 0 && <p>No activity recorded.</p>}</div></section>
       </div>}
-      <footer className="order-inspector-footer"><a className="btn btn-secondary" href={`/admin/orders/${order.id}`}>Open full detail ↗</a><span>Esc closes · ↑/↓ moves</span></footer>
+      <footer className="order-inspector-footer">
+        <div className="flex items-center gap-2">
+          {canUpdate && !isClosed && <a className="btn" href={`/admin/orders/${order.id}/edit`}>Edit order ✏️</a>}
+          <a className="btn btn-secondary" href={`/admin/orders/${order.id}`}>Open full detail ↗</a>
+        </div>
+        <span>Esc closes · ↑/↓ moves</span>
+      </footer>
     </aside>
   </div>;
 }
