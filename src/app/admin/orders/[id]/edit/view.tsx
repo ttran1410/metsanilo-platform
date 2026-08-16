@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 
 type Product = {
@@ -65,6 +65,9 @@ export function OrderEditForm({
   availabilityList?: AvailabilityItem[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get("from");
+
   const isHistorical = Boolean(initial.historicalEntry);
   const today = todayStr();
   const maxAllowedDate = addDaysStr(today, 7);
@@ -171,10 +174,23 @@ export function OrderEditForm({
     setForm((old) => ({ ...old, [key]: value }));
   }
 
+  function handleCancel() {
+    if (fromParam) {
+      router.push(fromParam);
+    } else {
+      router.back();
+    }
+  }
+
   async function save(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
     setError("");
+
+    if (form.fulfillmentMethod === "DELIVERY" && (!form.streetAddress || form.streetAddress.trim().length < 2)) {
+      setSaving(false);
+      return setError("Street address is required for Delivery orders.");
+    }
 
     if (!isHistorical && (form.fulfillmentDate < minAllowedDate || form.fulfillmentDate > maxAllowedDate)) {
       setSaving(false);
@@ -216,7 +232,14 @@ export function OrderEditForm({
     const body = await response.json();
     setSaving(false);
     if (!response.ok) return setError(body.message ?? body.code ?? "Could not save order");
-    router.push(`/admin/orders/${form.id}?updated=1`);
+
+    // Navigate back to exact previous location (Order Queue, Quick View, or Order Detail)
+    if (fromParam) {
+      const sep = fromParam.includes("?") ? "&" : "?";
+      router.push(`${fromParam}${sep}updated=1`);
+    } else {
+      router.push(`/admin/orders/${form.id}?updated=1`);
+    }
     router.refresh();
   }
 
@@ -355,11 +378,12 @@ export function OrderEditForm({
         </label>
 
         <label className="field md:col-span-2">
-          <span>Customer street address (Optional)</span>
+          <span>Customer street address {form.fulfillmentMethod === "DELIVERY" ? "*" : "(Optional)"}</span>
           <input
             value={form.streetAddress}
             onChange={(e) => update("streetAddress", e.target.value)}
-            placeholder="Customer street address"
+            required={form.fulfillmentMethod === "DELIVERY"}
+            placeholder={form.fulfillmentMethod === "DELIVERY" ? "Required for delivery" : "Optional for pickup"}
           />
         </label>
 
@@ -415,7 +439,7 @@ export function OrderEditForm({
       )}
 
       <div className="profile-actions">
-        <button className="btn btn-secondary" type="button" onClick={() => router.back()}>
+        <button className="btn btn-secondary" type="button" onClick={handleCancel}>
           Cancel
         </button>
         <button className="btn" type="submit" disabled={saving}>
