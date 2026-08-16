@@ -48,7 +48,7 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
   }
 
   async function refresh() {
-    const response = await fetch(`/api/admin/orders/${detail.order.id}`, { cache: "no-store" });
+    const response = await fetch(`/api/admin/orders/${detail.order.id}?t=${Date.now()}`, { cache: "no-store", headers: { pragma: "no-cache" } });
     const body = await response.json();
     if (response.ok) setDetail(body.data);
   }
@@ -86,9 +86,13 @@ export function OrderDetailView({ initial, initialNotice = "" }: { initial: Deta
     const body = await response.json();
     if (!response.ok) return setMessage(body.message ?? body.code ?? "Order update failed");
     event.currentTarget.reset();
+    if (body.data && "order" in body.data) {
+      setDetail(body.data);
+    }
     await refresh();
     setMessage(`Order ${kind} recorded.`);
   }
+
 
   const configuredLocation = snapshot(detail.order.fulfillmentMethod === "PICKUP" ? detail.order.pickupLocationSnapshotJson : detail.order.deliveryOriginSnapshotJson);
   const location = configuredLocation ?? (detail.order.fulfillmentMethod === "DELIVERY" ? { nameEn: "Delivery origin not configured", address: "Agree the origin before calculating route or delivery fee." } : null);
