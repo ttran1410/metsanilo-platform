@@ -89,6 +89,14 @@ function getPresetDates(preset: DatePreset): { from: string; to: string } {
   return { from: "", to: "" };
 }
 
+function getInitialPresetDatesForView(targetView: OrdersView): { from: string; to: string; datePreset: DatePreset } {
+  const today = todayStr();
+  if (targetView === "TODAY" || targetView === "PICKUP_TODAY" || targetView === "DELIVERY_TODAY") {
+    return { from: today, to: today, datePreset: "TODAY" };
+  }
+  return { from: "", to: "", datePreset: "ALL" };
+}
+
 export function OrdersListing({
   initialOrders,
   initialView = "TODAY",
@@ -106,15 +114,17 @@ export function OrdersListing({
   canTransition: boolean;
   canUpdate?: boolean;
 }) {
+  const initialDates = getInitialPresetDatesForView(initialView);
+
   const [rows, setRows] = useState(initialOrders);
   const [view, setView] = useState<OrdersView>(initialView);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("TABLE");
   const [showPackingSlip, setShowPackingSlip] = useState(false);
 
-  const [datePreset, setDatePreset] = useState<DatePreset>("TODAY");
+  const [datePreset, setDatePreset] = useState<DatePreset>(initialDates.datePreset);
   const [search, setSearch] = useState("");
-  const [from, setFrom] = useState(todayStr());
-  const [to, setTo] = useState(todayStr());
+  const [from, setFrom] = useState(initialDates.from);
+  const [to, setTo] = useState(initialDates.to);
   const [method, setMethod] = useState("ALL");
   const [status, setStatus] = useState(initialStatus);
   const [source, setSource] = useState("ALL");
@@ -157,6 +167,55 @@ export function OrdersListing({
       if (announce) setError(err instanceof Error ? err.message : "Sync failed.");
     }
   }, []);
+
+  const selectQuickView = useCallback((targetView: OrdersView) => {
+    setView(targetView);
+    const today = todayStr();
+
+    if (targetView === "TODAY") {
+      setDatePreset("TODAY");
+      setFrom(today);
+      setTo(today);
+      setStatus("ALL");
+      setMethod("ALL");
+      setSource("ALL");
+    } else if (targetView === "PICKUP_TODAY") {
+      setDatePreset("TODAY");
+      setFrom(today);
+      setTo(today);
+      setStatus("ALL");
+      setMethod("PICKUP");
+      setSource("ALL");
+    } else if (targetView === "DELIVERY_TODAY") {
+      setDatePreset("TODAY");
+      setFrom(today);
+      setTo(today);
+      setStatus("ALL");
+      setMethod("DELIVERY");
+      setSource("ALL");
+    } else if (targetView === "NEEDS_CONFIRMATION") {
+      setDatePreset("ALL");
+      setFrom("");
+      setTo("");
+      setStatus("NEW");
+      setMethod("ALL");
+      setSource("ALL");
+    } else if (targetView === "TRIAGE" || targetView === "UNPAID" || targetView === "ALL") {
+      setDatePreset("ALL");
+      setFrom("");
+      setTo("");
+      setStatus("ALL");
+      setMethod("ALL");
+      setSource("ALL");
+    }
+  }, []);
+
+  // Sync state whenever initialView or initialStatus prop changes from URL navigation
+  useEffect(() => {
+    if (initialView) {
+      selectQuickView(initialView);
+    }
+  }, [initialView, initialStatus, selectQuickView]);
 
   useEffect(() => {
     async function loadSources() {
@@ -230,47 +289,18 @@ export function OrdersListing({
     setView("ALL");
   }
 
-  function selectQuickView(targetView: OrdersView) {
-    setView(targetView);
-    const today = todayStr();
-
-    if (targetView === "TODAY") {
-      setDatePreset("TODAY");
-      setFrom(today);
-      setTo(today);
-      setStatus("ALL");
-      setMethod("ALL");
-      setSource("ALL");
-    } else if (targetView === "PICKUP_TODAY") {
-      setDatePreset("TODAY");
-      setFrom(today);
-      setTo(today);
-      setStatus("ALL");
-      setMethod("PICKUP");
-      setSource("ALL");
-    } else if (targetView === "DELIVERY_TODAY") {
-      setDatePreset("TODAY");
-      setFrom(today);
-      setTo(today);
-      setStatus("ALL");
-      setMethod("DELIVERY");
-      setSource("ALL");
-    } else if (targetView === "NEEDS_CONFIRMATION") {
-      setDatePreset("ALL");
-      setFrom("");
-      setTo("");
-      setStatus("NEW");
-      setMethod("ALL");
-      setSource("ALL");
-    } else if (targetView === "TRIAGE" || targetView === "UNPAID" || targetView === "ALL") {
-      setDatePreset("ALL");
-      setFrom("");
-      setTo("");
-      setStatus("ALL");
-      setMethod("ALL");
-      setSource("ALL");
-    }
-  }
+  const quickViewCounts = useMemo(() => {
+    const day = todayStr();
+    return {
+      TODAY: rows.filter((o) => o.fulfillmentDate === day).length,
+      TRIAGE: rows.filter((o) => getOrderTriageReasons(o).length > 0).length,
+      NEEDS_CONFIRMATION: rows.filter((o) => o.status === "NEW").length,
+      PICKUP_TODAY: rows.filter((o) => o.fulfillmentDate === day && o.fulfillmentMethod === "PICKUP").length,
+      DELIVERY_TODAY: rows.filter((o) => o.fulfillmentDate === day && o.fulfillmentMethod === "DELIVERY").length,
+      UNPAID: rows.filter((o) => o.paymentStatus === "UNPAID").length,
+      ALL: rows.length,
+    };
+  }, [rows]);
 
   const matchesQuickView = useCallback((order: AdminOrder, selectedView: OrdersView) => {
     const day = todayStr();
@@ -350,12 +380,6 @@ export function OrdersListing({
 
   function requestTransition(order: AdminOrder, target: OrderStatus) {
     setPending({ target, orders: [order] });
-    setReason("");
-  }
-
-  function requestBatchTransition(target: OrderStatus) {
-    if (!selectedOrders.length) return;
-    setPending({ target, orders: selectedOrders });
     setReason("");
   }
 
@@ -457,22 +481,38 @@ export function OrdersListing({
 
       {workspaceMode === "TABLE" && (
         <div className="flex flex-col gap-3">
-          {/* QUICK VIEW CHIPS */}
+          {/* QUICK VIEW CHIPS WITH PROMINENT ACTIVE HIGHLIGHT & LIVE COUNTS */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-            {QUICK_VIEWS.map((chip) => (
-              <button
-                key={chip.key}
-                type="button"
-                className={`px-3 py-1.5 rounded-lg font-bold whitespace-nowrap transition-colors ${
-                  view === chip.key
-                    ? "bg-primary text-on-primary shadow-xs"
-                    : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
-                }`}
-                onClick={() => selectQuickView(chip.key)}
-              >
-                {chip.label}
-              </button>
-            ))}
+            {QUICK_VIEWS.map((chip) => {
+              const isSelected = view === chip.key;
+              const count = quickViewCounts[chip.key] ?? 0;
+
+              return (
+                <button
+                  key={chip.key}
+                  type="button"
+                  className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shadow-xs flex items-center gap-1.5 ${
+                    isSelected
+                      ? "bg-primary text-on-primary ring-2 ring-primary/40 font-extrabold shadow-md scale-[1.02]"
+                      : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80 hover:text-ink"
+                  }`}
+                  onClick={() => selectQuickView(chip.key)}
+                >
+                  <span>{chip.label}</span>
+                  <span
+                    className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                      isSelected
+                        ? "bg-surface text-primary"
+                        : chip.key === "TRIAGE" && count > 0
+                        ? "bg-amber-100 text-amber-900 border border-amber-300"
+                        : "bg-surface/60 text-ink/80 border border-line"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* SEARCH & FILTERS BAR */}
