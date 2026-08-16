@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { orders } from "@/db/schema";
+import type { Role } from "@/lib/permissions";
 import { getOrderTriageReasons, orderTriageScore } from "@/domain/order-triage";
 import { getLegalOrderTransitions, type OrderStatus } from "@/domain/order-transitions";
 import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge, formatAdminMoney } from "./presentation";
@@ -98,6 +99,7 @@ function getInitialPresetDatesForView(targetView: OrdersView): { from: string; t
 }
 
 export function OrdersListing({
+  actorRole = "MANAGER",
   initialOrders,
   initialView = "TODAY",
   initialStatus = "ALL",
@@ -106,6 +108,7 @@ export function OrdersListing({
   canTransition,
   canUpdate = false,
 }: {
+  actorRole?: Role;
   initialOrders: AdminOrder[];
   initialView?: OrdersView;
   initialStatus?: string;
@@ -142,6 +145,8 @@ export function OrdersListing({
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState<PendingAction | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ deletable: AdminOrder[]; skippedPaid: AdminOrder[] } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [reason, setReason] = useState("");
   const [page, setPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState(new Date());
@@ -365,6 +370,53 @@ export function OrdersListing({
       await refreshOrders();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Batch transition failed.");
+    }
+  }
+
+  function handleInitiateDeleteBatch() {
+    const selectedList = rows.filter((o) => selected.includes(o.id));
+    const paidOrders = selectedList.filter(
+      (o) => (o.outstandingCents ?? 0) <= 0 || o.paymentStatus === "PAID" || (o.paidCents ?? 0) > 0
+    );
+    const unpaidOrders = selectedList.filter((o) => !paidOrders.includes(o));
+
+    setPendingDelete({
+      deletable: unpaidOrders,
+      skippedPaid: paidOrders,
+    });
+  }
+
+  async function handleConfirmDeleteBatch() {
+    if (!pendingDelete || pendingDelete.deletable.length === 0) return;
+    setDeleting(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const ids = pendingDelete.deletable.map((o) => o.id);
+      const response = await fetch("/api/admin/orders/batch-delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+
+      const body = await response.json();
+      setDeleting(false);
+
+      if (!response.ok) {
+        throw new Error(body.message ?? "Batch delete failed.");
+      }
+
+      setNotice(
+        `Permanently deleted ${body.data.deletedCount} order(s).` +
+          (body.data.skippedPaidCount > 0 ? ` (${body.data.skippedPaidCount} paid order(s) were protected from deletion)` : "")
+      );
+      setSelected([]);
+      setPendingDelete(null);
+      await refreshOrders();
+    } catch (err) {
+      setDeleting(false);
+      setError(err instanceof Error ? err.message : "Batch delete failed.");
     }
   }
 
@@ -797,6 +849,17 @@ export function OrdersListing({
             </button>
           )}
 
+          {/* ADMIN-ONLY PERMANENT DELETE SAFE-GUARD BUTTON */}
+          {actorRole === "ADMIN" && (
+            <button
+              type="button"
+              className="btn text-xs py-1.5 px-3 font-bold bg-rose-950 text-rose-200 border border-rose-800 hover:bg-rose-900 shadow-sm"
+              onClick={handleInitiateDeleteBatch}
+            >
+              🗑️ Delete ({selected.length})
+            </button>
+          )}
+
           <button
             type="button"
             className="text-emerald-300 hover:text-white font-bold ml-2 text-xs"
@@ -804,6 +867,72 @@ export function OrdersListing({
           >
             ✕ Clear Selection
           </button>
+        </div>
+      )}
+
+      {/* DELETE ORDER SAFE-GUARD MODAL */}
+      {pendingDelete && (
+        <div className="admin-dialog-backdrop">
+          <div className="admin-dialog card max-w-lg w-full p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-danger border-b border-line pb-2">
+              <span className="text-xl">⚠️</span>
+              <h3 className="text-lg font-bold text-ink">Permanently Delete Orders</h3>
+            </div>
+
+            {pendingDelete.skippedPaid.length > 0 && (
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex flex-col gap-1 font-medium">
+                <strong className="font-bold flex items-center gap-1 text-amber-950">
+                  🔒 {pendingDelete.skippedPaid.length} Paid Order(s) Protected from Deletion
+                </strong>
+                <span>
+                  Paid orders cannot be deleted to preserve financial audit compliance ({pendingDelete.skippedPaid.map((o) => o.publicReference).join(", ")}). Please refund or cancel these orders instead.
+                </span>
+              </div>
+            )}
+
+            {pendingDelete.deletable.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-ink leading-relaxed">
+                  Are you sure you want to <strong>permanently delete</strong> the following <strong>{pendingDelete.deletable.length} unpaid order(s)</strong>? This action cannot be undone, will release reserved harvest capacity, and recalculate customer statistics.
+                </p>
+
+                <div className="max-h-40 overflow-y-auto bg-surface-muted p-2.5 rounded-xl border border-line flex flex-col gap-1 text-xs font-mono">
+                  {pendingDelete.deletable.map((o) => (
+                    <div key={o.id} className="flex items-center justify-between text-ink">
+                      <span>{o.publicReference} · {o.customerName}</span>
+                      <span className="text-muted">{(o.volumeMl / 1000).toFixed(1)} L</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-ink/70 italic">
+                No unpaid orders selected for deletion. All selected orders are paid and protected.
+              </p>
+            )}
+
+            <div className="profile-actions justify-end gap-2 border-t border-line pt-3">
+              <button
+                type="button"
+                className="btn btn-secondary text-xs"
+                onClick={() => setPendingDelete(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+
+              {pendingDelete.deletable.length > 0 && (
+                <button
+                  type="button"
+                  className="btn text-xs font-bold bg-danger text-white py-1.5 px-4 shadow-md"
+                  onClick={() => void handleConfirmDeleteBatch()}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : `🗑️ Yes, Delete ${pendingDelete.deletable.length} Order(s)`}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

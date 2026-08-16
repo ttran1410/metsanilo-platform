@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, availability, customers, fulfillmentLocations, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -604,7 +604,7 @@ export async function transitionOrder(
   });
 }
 
-export async function deleteManagerOrder(database: Database, orderId: string) {
+export async function deleteManagerOrder(database: Database, orderId: string, actorEmail?: string) {
   const { SHOP_ID } = env();
   return database.transaction(async (tx) => {
     const current = await tx.query.orders.findFirst({
@@ -615,8 +615,7 @@ export async function deleteManagerOrder(database: Database, orderId: string) {
     const payments = await tx.select().from(orderPayments).where(and(eq(orderPayments.shopId, SHOP_ID), eq(orderPayments.orderId, orderId)));
     const paidCents = payments.reduce((sum, p) => sum + (p.kind === "PAYMENT" ? p.amountCents : -p.amountCents), 0);
     if (paidCents > 0) {
-
-      throw new DomainError("PAYMENT_EXISTS", "Cannot delete order with recorded payments. Archive the order instead.", 400);
+      throw new DomainError("PAYMENT_EXISTS", `Cannot delete paid order ${current.publicReference}. Refund or cancel the order instead.`, 400);
     }
 
     if (["NEW", "CONFIRMED", "PICKING", "READY"].includes(current.status)) {
@@ -638,6 +637,16 @@ export async function deleteManagerOrder(database: Database, orderId: string) {
         .run();
     }
 
+    if (current.customerId) {
+      await tx
+        .update(customers)
+        .set({
+          updatedAt: nowIso(),
+        })
+        .where(and(eq(customers.shopId, SHOP_ID), eq(customers.id, current.customerId)))
+        .run();
+    }
+
     await tx.delete(orderNotes).where(and(eq(orderNotes.shopId, SHOP_ID), eq(orderNotes.orderId, orderId))).run();
     await tx.delete(orderPayments).where(and(eq(orderPayments.shopId, SHOP_ID), eq(orderPayments.orderId, orderId))).run();
     await tx.delete(orders).where(and(eq(orders.id, orderId), eq(orders.shopId, SHOP_ID))).run();
@@ -645,15 +654,15 @@ export async function deleteManagerOrder(database: Database, orderId: string) {
     await tx.insert(auditEntries).values({
       id: randomUUID(),
       shopId: SHOP_ID,
-      actor: "manager",
-      action: "order.deleted",
+      actor: actorEmail || "ADMIN",
+      action: "order.permanently_deleted",
       entityType: "order",
       entityId: orderId,
-      detailsJson: JSON.stringify({ publicReference: current.publicReference, customerName: current.customerName }),
+      detailsJson: JSON.stringify({ publicReference: current.publicReference, customerName: current.customerName, totalCents: current.finalTotalCents ?? current.itemSubtotalCents }),
       createdAt: nowIso(),
     });
 
-    return { success: true, id: orderId };
+    return { success: true, id: orderId, publicReference: current.publicReference };
   });
 }
 
