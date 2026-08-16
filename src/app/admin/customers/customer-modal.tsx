@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useAdminI18n } from "../i18n-context";
 
 export function CustomerModal({
   editingCustomer,
@@ -12,7 +11,6 @@ export function CustomerModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t } = useAdminI18n();
   const isEditing = Boolean(editingCustomer);
   const [name, setName] = useState(editingCustomer?.name ?? "");
   const [mobile, setMobile] = useState(editingCustomer?.mobile ?? "");
@@ -66,10 +64,10 @@ export function CustomerModal({
         <div className="flex items-center justify-between border-b border-line pb-3">
           <div>
             <p className="eyebrow">{isEditing ? "EDIT CUSTOMER" : "NEW CUSTOMER PROFILE"}</p>
-            <h3 className="text-lg font-bold text-ink">{isEditing ? t("action.edit", "Edit Contact Info") : t("crm.createCustomer", "Create Customer")}</h3>
+            <h3 className="text-lg font-bold text-ink">{isEditing ? "Edit Contact Info" : "Create Customer"}</h3>
           </div>
           <button type="button" className="btn btn-secondary text-xs py-1 px-2.5" onClick={onClose}>
-            ✕ {t("action.close", "Close")}
+            ✕ Close
           </button>
         </div>
 
@@ -77,7 +75,7 @@ export function CustomerModal({
 
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
           <label className="field">
-            <span>{t("crm.customerName", "Customer Name")}</span>
+            <span>Customer Name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -87,7 +85,7 @@ export function CustomerModal({
           </label>
 
           <label className="field">
-            <span>{t("crm.mobilePhone", "Mobile Phone")}</span>
+            <span>Mobile Phone (+358)</span>
             <input
               value={mobile}
               onChange={(e) => setMobile(e.target.value)}
@@ -96,7 +94,7 @@ export function CustomerModal({
           </label>
 
           <label className="field">
-            <span>{t("crm.emailAddress", "Email Address")}</span>
+            <span>Email Address</span>
             <input
               type="email"
               value={email}
@@ -106,7 +104,7 @@ export function CustomerModal({
           </label>
 
           <label className="field">
-            <span>{t("crm.facebookProfile", "Facebook")}</span>
+            <span>Facebook</span>
             <input
               value={facebookProfile}
               onChange={(e) => setFacebookProfile(e.target.value)}
@@ -115,7 +113,7 @@ export function CustomerModal({
           </label>
 
           <label className="field">
-            <span>{t("crm.notes", "Staff Notes & Special Handling")}</span>
+            <span>Staff Notes &amp; Special Handling</span>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -126,10 +124,10 @@ export function CustomerModal({
 
           <div className="profile-actions justify-end gap-2 border-t border-line pt-4">
             <button className="btn btn-secondary text-xs" type="button" onClick={onClose}>
-              {t("action.cancel", "Cancel")}
+              Cancel
             </button>
             <button className="btn text-xs font-bold py-2 px-4 shadow-md" type="submit" disabled={busy}>
-              {busy ? "Saving…" : isEditing ? t("action.save", "Save Changes") : t("crm.createCustomer", "Create Customer")}
+              {busy ? "Saving…" : isEditing ? "Save Changes" : "Create Customer"}
             </button>
           </div>
         </form>
