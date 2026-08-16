@@ -23,6 +23,11 @@ export function CustomerModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    if (!mobile.trim() && !facebookProfile.trim() && !email.trim()) {
+      return setError("Please provide at least one contact method: Mobile Phone, Facebook, or Email.");
+    }
+
     setBusy(true);
 
     try {
@@ -70,7 +75,7 @@ export function CustomerModal({
 
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
           <label className="field">
-            <span>Customer Name *</span>
+            <span>Customer Name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -80,12 +85,11 @@ export function CustomerModal({
           </label>
 
           <label className="field">
-            <span>Mobile Phone (+358) *</span>
+            <span>Mobile Phone (+358)</span>
             <input
               value={mobile}
               onChange={(e) => setMobile(e.target.value)}
               placeholder="040 123 4567 or +358401234567"
-              required
             />
           </label>
 
@@ -100,11 +104,11 @@ export function CustomerModal({
           </label>
 
           <label className="field">
-            <span>Facebook Profile / Name</span>
+            <span>Facebook</span>
             <input
               value={facebookProfile}
               onChange={(e) => setFacebookProfile(e.target.value)}
-              placeholder="e.g. @kristian.pori or https://facebook.com/kristian"
+              placeholder="e.g. facebook.com/name or Facebook Name"
             />
           </label>
 

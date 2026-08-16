@@ -239,12 +239,12 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
         </label>
 
         <label className="field">
-          <span>Customer name *</span>
+          <span>Customer name</span>
           <input name="customerName" required />
         </label>
 
         <label className={`field ${mobileError ? "field-invalid" : ""}`}>
-          <span>Mobile phone {!isFacebookSource && "*"}</span>
+          <span>Mobile phone</span>
           <input
             name="mobile"
             type="tel"
@@ -269,7 +269,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
         </label>
 
         <label className="field md:col-span-2">
-          <span>Facebook Profile / Name {isFacebookSource && "*"}</span>
+          <span>Facebook</span>
           <input name="facebookProfile" required={isFacebookSource} placeholder="e.g. facebook.com/name or Facebook Name" />
         </label>
 
