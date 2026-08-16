@@ -44,10 +44,7 @@ export function CustomerAddressFields({
     <div className={`grid grid-cols-2 md:grid-cols-12 gap-3 ${className}`}>
       {/* Street address: Line 1 on mobile (col-span-2), left 50% on desktop (md:col-span-6) */}
       <label className={`field col-span-2 md:col-span-6${fieldErrors?.streetAddress ? " field-invalid" : ""}`} data-field="streetAddress">
-        <span>
-          {streetLabel}
-          {!isDelivery && ` (${optionalText})`}
-        </span>
+        <span>{streetLabel}</span>
         <input
           name="streetAddress"
           value={streetAddress}
