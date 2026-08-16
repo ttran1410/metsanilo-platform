@@ -234,7 +234,7 @@ export function OrderForm({
         {selectedPackage?.volumeMl === 10000 && (
           <label className="field">
             <span>{locale === "fi" ? "Määrä" : "Quantity"} *</span>
-            <div className="quantity-control"><button className="stepper" type="button" aria-label={locale === "fi" ? "Vähennä määrää" : "Decrease quantity"} onClick={() => { setQuantity(Math.max(1, quantity - 1)); setDate(""); }}>−</button><input type="number" name="quantity" min={1} max={100} step={1} value={quantity} onChange={(event) => { setQuantity(Math.max(1, Math.min(100, Number(event.target.value) || 1))); setDate(""); }} required /><button className="stepper" type="button" aria-label={locale === "fi" ? "Lisää määrää" : "Increase quantity"} onClick={() => { setQuantity(Math.min(100, quantity + 1)); setDate(""); }}>+</button></div>
+            <div className="quantity-control"><button className="stepper" type="button" aria-label={locale === "fi" ? "Vähennä määrää" : "Decrease quantity"} onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button><input type="number" name="quantity" min={1} max={100} step={1} value={quantity} onChange={(event) => setQuantity(Math.max(1, Math.min(100, Number(event.target.value) || 1)))} required /><button className="stepper" type="button" aria-label={locale === "fi" ? "Lisää määrää" : "Increase quantity"} onClick={() => setQuantity(Math.min(100, quantity + 1))}>+</button></div>
             <small>{locale === "fi" ? "10 litran pakkaukselle voit valita määrän." : "Quantity can be selected for the 10 litre package."}</small>
           </label>
         )}
