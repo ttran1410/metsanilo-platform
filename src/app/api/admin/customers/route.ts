@@ -11,6 +11,7 @@ const createSchema = z.object({
   name: z.string().min(2).max(120),
   mobile: z.string().min(3).max(40),
   email: z.string().email().optional().or(z.literal("")),
+  facebookProfile: z.string().max(255).optional().or(z.literal("")),
   notes: z.string().max(2000).optional(),
 });
 
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
       name: parsed.data.name,
       mobile: parsed.data.mobile,
       email: parsed.data.email || undefined,
+      facebookProfile: parsed.data.facebookProfile || undefined,
       notes: parsed.data.notes || undefined,
     });
 

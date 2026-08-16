@@ -22,6 +22,7 @@ const updateSchema = z.object({
       z.string().email().optional().or(z.literal(""))
     )
     .optional(),
+  facebookProfile: z.string().max(255).optional().or(z.literal("")),
   notes: z.string().max(2000).optional(),
   marketingConsent: z.boolean().optional(),
   duplicateId: z.string().optional(),
@@ -100,12 +101,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         : ("REVOKED" as const)
       : undefined;
 
+    const facebookProfile = parsed.data.facebookProfile !== undefined ? (parsed.data.facebookProfile.trim() || null) : undefined;
+
     const changed = await db()
       .update(customers)
       .set({
         name: parsed.data.name.trim(),
         mobile,
         email: normalizeEmail(parsed.data.email ?? ""),
+        facebookProfile,
         notes: parsed.data.notes !== undefined ? parsed.data.notes.trim() || null : undefined,
         ...(consentChanged
           ? {

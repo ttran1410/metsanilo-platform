@@ -209,7 +209,7 @@ export async function getCustomerProfile(database: Database, customerId: string)
 
 export async function createCustomer(
   database: Database,
-  input: { name: string; mobile: string; email?: string; notes?: string }
+  input: { name: string; mobile: string; email?: string; facebookProfile?: string; notes?: string }
 ) {
   const { SHOP_ID } = env();
   let normalizedMobile: string;
@@ -223,7 +223,15 @@ export async function createCustomer(
     where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, normalizedMobile)),
   });
 
-  if (existing) return existing;
+  if (existing) {
+    if (input.facebookProfile && input.facebookProfile.trim() && !existing.facebookProfile) {
+      await database
+        .update(customers)
+        .set({ facebookProfile: input.facebookProfile.trim(), updatedAt: new Date().toISOString() })
+        .where(eq(customers.id, existing.id));
+    }
+    return (await database.query.customers.findFirst({ where: eq(customers.id, existing.id) }))!;
+  }
 
   const id = randomUUID();
   const now = new Date().toISOString();
@@ -236,12 +244,65 @@ export async function createCustomer(
     mobile: normalizedMobile,
     email,
     matchStatus: "ACTIVE",
+    facebookProfile: input.facebookProfile?.trim() || null,
     notes: input.notes?.trim() || null,
     createdAt: now,
     updatedAt: now,
   });
 
   return (await database.query.customers.findFirst({ where: eq(customers.id, id) }))!;
+}
+
+export async function updateCustomer(
+  database: Database,
+  customerId: string,
+  input: { name?: string; mobile?: string; email?: string | null; facebookProfile?: string | null; notes?: string | null },
+  actorEmail?: string
+) {
+  const { SHOP_ID } = env();
+  const existing = await database.query.customers.findFirst({
+    where: and(eq(customers.id, customerId), eq(customers.shopId, SHOP_ID)),
+  });
+  if (!existing) throw new DomainError("NOT_FOUND", "Customer not found", 404);
+
+  const now = new Date().toISOString();
+  let normalizedMobile = existing.mobile;
+  if (input.mobile && input.mobile.trim()) {
+    try {
+      normalizedMobile = normalizeMobile(input.mobile);
+    } catch {
+      throw new DomainError("VALIDATION_ERROR", "Invalid phone number", 422);
+    }
+  }
+
+  const email = input.email !== undefined ? (input.email ? normalizeEmail(input.email) : null) : existing.email;
+  const facebookProfile = input.facebookProfile !== undefined ? (input.facebookProfile ? input.facebookProfile.trim() : null) : existing.facebookProfile;
+
+  await database
+    .update(customers)
+    .set({
+      name: input.name !== undefined ? input.name.trim() : existing.name,
+      mobile: normalizedMobile,
+      email,
+      facebookProfile,
+      notes: input.notes !== undefined ? (input.notes ? input.notes.trim() : null) : existing.notes,
+      updatedAt: now,
+    })
+    .where(and(eq(customers.id, customerId), eq(customers.shopId, SHOP_ID)))
+    .run();
+
+  await database.insert(auditEntries).values({
+    id: randomUUID(),
+    shopId: SHOP_ID,
+    actor: actorEmail || "ADMIN",
+    action: "customer.updated",
+    entityType: "customer",
+    entityId: customerId,
+    detailsJson: JSON.stringify({ name: input.name, mobile: normalizedMobile, email, facebookProfile }),
+    createdAt: now,
+  });
+
+  return (await database.query.customers.findFirst({ where: eq(customers.id, customerId) }))!;
 }
 
 export async function mergeCustomers(
