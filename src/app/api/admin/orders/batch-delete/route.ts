@@ -1,5 +1,6 @@
 import { db } from "@/db/client";
 import { adminContext } from "@/app/admin/portal-auth";
+import { requirePermission } from "@/domain/access";
 import { failure, success } from "../../../response";
 import { deleteManagerOrder } from "@/domain/orders";
 import { DomainError } from "@/domain/errors";
@@ -9,10 +10,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const { actor } = await adminContext();
-
-    if (actor.role !== "ADMIN") {
-      throw new DomainError("FORBIDDEN", "Only Store Owner (ADMIN) accounts can permanently delete orders.", 403);
-    }
+    await requirePermission(db(), request, "orders.delete");
 
     const { ids } = await request.json();
     if (!Array.isArray(ids) || ids.length === 0) {

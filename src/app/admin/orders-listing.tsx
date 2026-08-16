@@ -107,6 +107,7 @@ export function OrdersListing({
   canCreate,
   canTransition,
   canUpdate = false,
+  canDelete = false,
 }: {
   actorRole?: Role;
   initialOrders: AdminOrder[];
@@ -116,6 +117,7 @@ export function OrdersListing({
   canCreate: boolean;
   canTransition: boolean;
   canUpdate?: boolean;
+  canDelete?: boolean;
 }) {
   const initialDates = getInitialPresetDatesForView(initialView);
 
@@ -849,14 +851,23 @@ export function OrdersListing({
             </button>
           )}
 
-          {/* ADMIN-ONLY PERMANENT DELETE SAFE-GUARD BUTTON */}
-          {actorRole === "ADMIN" && (
+          {/* PERMANENT DELETE SAFE-GUARD BUTTON (GRANULAR RBAC LOCK UX) */}
+          {canDelete ? (
             <button
               type="button"
               className="btn text-xs py-1.5 px-3 font-bold bg-rose-950 text-rose-200 border border-rose-800 hover:bg-rose-900 shadow-sm"
               onClick={handleInitiateDeleteBatch}
             >
               🗑️ Delete ({selected.length})
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="🔒 Requires Permanent Delete permission (orders.delete). Contact Store Owner to grant access."
+              className="btn text-xs py-1.5 px-3 font-semibold bg-emerald-950/40 text-emerald-300/40 border border-emerald-800/40 cursor-not-allowed opacity-60 flex items-center gap-1"
+            >
+              🔒 🗑️ Delete ({selected.length})
             </button>
           )}
 

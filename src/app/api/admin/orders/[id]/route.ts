@@ -56,11 +56,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     const { id } = await params;
     const { actor } = await adminContext();
-
-    if (actor.role !== "ADMIN") {
-      throw new DomainError("FORBIDDEN", "Only Store Owner (ADMIN) accounts can permanently delete orders.", 403);
-    }
-
+    await requirePermission(db(), request, "orders.delete");
     return success(await deleteManagerOrder(db(), id, actor.email ?? undefined));
   } catch (error) {
     return failure(error);

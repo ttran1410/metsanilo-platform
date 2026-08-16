@@ -25,6 +25,7 @@ export default async function OrdersPage({ searchParams }: { searchParams?: Prom
         canCreate={await hasAdminPermission(request, "orders.create")}
         canTransition={await hasAdminPermission(request, "orders.transition")}
         canUpdate={await hasAdminPermission(request, "orders.update")}
+        canDelete={await hasAdminPermission(request, "orders.delete")}
       />
     </AdminRouteFrame>
   );

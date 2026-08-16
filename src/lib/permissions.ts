@@ -1,7 +1,7 @@
 /** Shared permission catalogue used by both the server guard and the admin UI. */
 export const PERMISSIONS = [
   "dashboard.read", "notifications.read",
-  "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.read", "orders.payment.write", "orders.export",
+  "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.read", "orders.payment.write", "orders.export", "orders.delete",
   "catalog.product.read", "catalog.product.write", "catalog.product.delete", "catalog.package.read", "catalog.package.write",
   "availability.read", "availability.write", "availability.sold_out",
   "delivery.read", "delivery.write", "delivery.override",
@@ -25,6 +25,7 @@ export type Permission = (typeof PERMISSIONS)[number];
 export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
 
 export const HIGH_RISK_PERMISSIONS: Permission[] = [
+  "orders.delete",
   "customers.anonymize",
   "orders.export",
   "catalog.product.delete",
@@ -41,9 +42,9 @@ export function isHighRiskPermission(permission: string): boolean {
   return HIGH_RISK_PERMISSIONS.includes(permission as Permission);
 }
 
-
 export function defaultPermissionsForRole(role: Role): Permission[] {
-  if (role === "ADMIN" || role === "MANAGER") return [...PERMISSIONS];
+  if (role === "ADMIN") return [...PERMISSIONS];
+  if (role === "MANAGER") return PERMISSIONS.filter((p) => p !== "orders.delete");
   if (role === "STAFF") return [
     "dashboard.read", "notifications.read",
     "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.read", "orders.payment.write",
