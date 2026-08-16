@@ -7,7 +7,7 @@ export function CustomerModal({
   onClose,
   onSaved,
 }: {
-  editingCustomer?: { id: string; name: string; mobile: string; email?: string | null; facebookProfile?: string | null; notes?: string | null } | null;
+  editingCustomer?: { id: string; name: string; mobile?: string | null; email?: string | null; facebookProfile?: string | null; notes?: string | null } | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -100,7 +100,7 @@ export function CustomerModal({
           </label>
 
           <label className="field">
-            <span>Facebook Profile / Handle (Optional)</span>
+            <span>Facebook Profile / Name</span>
             <input
               value={facebookProfile}
               onChange={(e) => setFacebookProfile(e.target.value)}

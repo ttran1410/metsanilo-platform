@@ -151,4 +151,26 @@ describe("Customer Facebook Profile CRM & Order Sync", () => {
     expect(found).not.toBeNull();
     expect(found?.facebookProfile).toBe("@liisa.virtanen");
   });
+
+  it("allows order creation without mobile number when facebookProfile is provided", async () => {
+    await submitOrder(database, {
+      locale: "fi",
+      productId: "product-berries",
+      packageId: "package-5l",
+      quantity: 1,
+      fulfillmentDate: "2099-08-20",
+      fulfillmentMethod: "PICKUP",
+      customerName: "Facebook Only Customer",
+      facebookProfile: "https://facebook.com/fb.only.user",
+      idempotencyKey: "test-fb-no-phone-99",
+    });
+
+    const found = await database.query.customers.findFirst({
+      where: (c, { eq }) => eq(c.facebookProfile, "https://facebook.com/fb.only.user"),
+    });
+
+    expect(found).not.toBeNull();
+    expect(found?.name).toBe("Facebook Only Customer");
+    expect(found?.mobile).toBeNull();
+  });
 });

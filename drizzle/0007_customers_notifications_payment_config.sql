@@ -2,7 +2,7 @@ CREATE TABLE `customers` (
 	`id` text PRIMARY KEY NOT NULL,
 	`shop_id` text NOT NULL REFERENCES `shops`(`id`),
 	`name` text NOT NULL,
-	`mobile` text NOT NULL,
+	`mobile` text,
 	`email` text,
 	`match_status` text DEFAULT 'ACTIVE' NOT NULL,
 	`notes` text,

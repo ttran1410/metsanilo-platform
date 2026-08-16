@@ -154,7 +154,7 @@ export async function getAvailabilityWorkspace(
         id: string;
         publicReference: string;
         customerName: string;
-        mobile: string;
+        mobile: string | null;
         productId: string;
         productNameFi: string;
         packageLabelFi: string;

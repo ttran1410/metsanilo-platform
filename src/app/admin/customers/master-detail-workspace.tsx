@@ -9,7 +9,7 @@ import { MergeModal } from "./merge-modal";
 type CustomerRow = {
   id: string;
   name: string;
-  mobile: string;
+  mobile: string | null;
   email?: string | null;
   matchStatus: string;
   marketingConsent: boolean;
@@ -54,14 +54,15 @@ type ProfileData = {
   timelineByYear: Record<string, OrderItem[]>;
   audit: Array<{ id: string; action: string; actor: string; createdAt: string }>;
   metrics: NonNullable<CustomerRow["metrics"]>;
-  identityConflicts: Array<{ id: string; name: string; mobile: string; email?: string | null }>;
+  identityConflicts: Array<{ id: string; name: string; mobile: string | null; email?: string | null }>;
 };
 
 function formatLitres(ml: number) {
   return `${(ml / 1000).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} L`;
 }
 
-function cleanPhoneForWhatsApp(mobile: string) {
+function cleanPhoneForWhatsApp(mobile?: string | null) {
+  if (!mobile) return "";
   const digits = mobile.replace(/\D/g, "");
   if (digits.startsWith("358")) return digits;
   if (digits.startsWith("0")) return `358${digits.slice(1)}`;
@@ -89,7 +90,7 @@ export function MasterDetailCustomerWorkspace({
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<CustomerRow | null>(null);
-  const [mergingDuplicate, setMergingDuplicate] = useState<{ id: string; name: string; mobile: string; email?: string | null } | null>(null);
+  const [mergingDuplicate, setMergingDuplicate] = useState<{ id: string; name: string; mobile: string | null; email?: string | null } | null>(null);
   const [showAnonymizeConfirm, setShowAnonymizeConfirm] = useState(false);
 
   const [editingNoteText, setEditingNoteText] = useState("");
