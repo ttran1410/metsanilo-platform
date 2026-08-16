@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Phone, MessageSquare, Share2, ExternalLink } from "lucide-react";
 import type { orders } from "@/db/schema";
 import { AdminLoadingState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "./presentation";
 import { OrderActionBar } from "./order-action-bar";
@@ -170,14 +171,24 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
         <div className="order-inspector-contact">
           {current.mobile && (
             <>
-              <a className="btn btn-secondary" href={`tel:${current.mobile}`}>Call</a>
-              <a className="btn btn-secondary" href={`sms:${current.mobile}`}>SMS</a>
-              <a className="btn btn-secondary" href={`https://wa.me/${current.mobile.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a>
+              <a className="btn btn-secondary flex items-center justify-center gap-1.5" href={`tel:${current.mobile}`}>
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call</span>
+              </a>
+              <a className="btn btn-secondary flex items-center justify-center gap-1.5" href={`sms:${current.mobile}`}>
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>SMS</span>
+              </a>
+              <a className="btn btn-secondary flex items-center justify-center gap-1.5" href={`https://wa.me/${current.mobile.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">
+                <Share2 className="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
+              </a>
             </>
           )}
           {current.facebookProfile && (
-            <a className="btn btn-secondary font-semibold text-blue-700" href={current.facebookProfile.startsWith("http") ? current.facebookProfile : `https://facebook.com/${current.facebookProfile.replace(/^@/, "")}`} target="_blank" rel="noreferrer">
-              📘 Facebook
+            <a className="btn btn-secondary font-semibold text-blue-700 flex items-center justify-center gap-1.5" href={current.facebookProfile.startsWith("http") ? current.facebookProfile : `https://facebook.com/${current.facebookProfile.replace(/^@/, "")}`} target="_blank" rel="noreferrer">
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Facebook</span>
             </a>
           )}
         </div>

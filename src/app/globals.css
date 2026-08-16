@@ -1182,3 +1182,30 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
   .availability-board { grid-template-columns: repeat(7, minmax(15rem, 1fr)); margin-right: -.75rem; }
   .availability-queue-grid { grid-template-columns: 1fr; }
 }
+
+.admin-rail-edge-toggle {
+  position: absolute;
+  top: 1.25rem;
+  right: -0.8rem;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 1px solid #c8d2ca;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #475569;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-rail-edge-toggle:hover {
+  background: var(--forest);
+  color: #ffffff;
+  border-color: var(--forest);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(21, 42, 29, 0.22);
+}
