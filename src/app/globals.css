@@ -1209,3 +1209,36 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
   transform: scale(1.1);
   box-shadow: 0 4px 12px rgba(21, 42, 29, 0.22);
 }
+
+.password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-input-wrap input {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.password-toggle-btn:hover {
+  color: var(--forest, #152a1d);
+}
