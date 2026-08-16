@@ -3,6 +3,7 @@ import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, availability, customers, fulfillmentLocations, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
+import { getLegalOrderTransitions } from "./order-transitions";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
 import { normalizeEmail, normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
@@ -519,20 +520,11 @@ export async function transitionOrder(
     });
     if (!current) throw new DomainError("NOT_FOUND", "Order not found", 404);
     if (current.version !== input.expectedVersion) throw new DomainError("STALE_VERSION", "Order changed", 409);
-    const allowed: Record<typeof current.status, readonly typeof input.status[]> = {
-      NEW: ["CONFIRMED", "CUSTOMER_DECLINED", "CANCELLED"],
-      CONFIRMED: ["PICKING", "CANCELLED", "CANCELLED_BY_CUSTOMER"],
-      PICKING: ["READY", "CANCELLED", "CANCELLED_BY_CUSTOMER"],
-      READY: ["PICKED_UP", "OUT_FOR_DELIVERY", "CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW"],
-      OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW"],
-      PICKED_UP: ["REFUNDED"],
-      DELIVERED: ["REFUNDED"],
-      CUSTOMER_DECLINED: [], CANCELLED: [], CANCELLED_BY_CUSTOMER: [], REJECTED: [], NO_SHOW: [], REFUNDED: [],
-    };
-    if (!allowed[current.status].includes(input.status)) throw new DomainError("INVALID_TRANSITION", `${current.status} cannot transition to ${input.status}`, 409);
-    const reasonRequired = ["CUSTOMER_DECLINED", "CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "REFUNDED"].includes(input.status);
+    const legalTransition = getLegalOrderTransitions(current).find((transition) => transition.status === input.status);
+    if (!legalTransition) throw new DomainError("INVALID_TRANSITION", `${current.status} cannot transition to ${input.status}`, 409);
+    if (!legalTransition.available) throw new DomainError("DELIVERY_FEE_PENDING", legalTransition.blockedReason ?? "Order is not ready for handover", 409);
     const reason = input.reason?.trim() || "";
-    if (reasonRequired && reason.length < 2) throw new DomainError("VALIDATION_ERROR", "A reason is required for this transition", 422);
+    if (legalTransition.requiresReason && reason.length < 2) throw new DomainError("VALIDATION_ERROR", "A reason is required for this transition", 422);
     const contactChannel = input.contactChannel ?? (input.status === "CONFIRMED" ? "PHONE" : undefined);
     const actor = input.actor ?? "manager";
     if (input.status === "PICKED_UP" && current.fulfillmentMethod !== "PICKUP") throw new DomainError("INVALID_TRANSITION", "Only pickup orders can be picked up", 409);

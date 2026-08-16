@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { AdminStatusBadge } from "../../presentation";
+import { getLifecycleSteps } from "@/domain/order-transitions";
 
 type Snapshot = { address?: string; nameEn?: string; instructionsEn?: string };
 type Detail = { order: { id: string; publicReference: string; status: string; version: number; customerName: string; mobile: string; email: string | null; productNameFi: string; packageLabelFi: string; quantity?: number; fulfillmentDate: string; fulfillmentMethod: string; volumeMl: number; itemSubtotalCents: number; deliveryFeeCents: number | null; finalTotalCents: number | null; streetAddress: string | null; postalCode: string | null; city: string | null; pickupLocationSnapshotJson: string | null; deliveryOriginSnapshotJson: string | null }; notes: Array<{ id: string; body: string; actor: string; createdAt: string }>; payments: Array<{ id: string; amountCents: number; method: string; kind: string; recordedAt: string }>; audit: Array<{ id: string; action: string; actor: string; createdAt: string; detailsJson: string }>; paymentSummary: { paidCents: number; refundedCents: number; outstandingCents: number; status: string } };
@@ -10,7 +11,7 @@ function snapshot(value: string | null): Snapshot | null { if (!value) return nu
 
 export function OrderDetailView({ initial }: { initial: Detail }) {
   const [detail, setDetail] = useState(initial); const [message, setMessage] = useState(""); const [pendingCancel, setPendingCancel] = useState(false);
-  const lifecycle = detail.order.fulfillmentMethod === "PICKUP" ? ["NEW", "CONFIRMED", "PICKING", "READY", "PICKED_UP"] : ["NEW", "CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "DELIVERED"];
+  const lifecycle: string[] = getLifecycleSteps(detail.order.fulfillmentMethod);
   const completionTimes = new Map(detail.audit.map((event) => [event.action, event.createdAt]));
   const statusTime = (status: string) => completionTimes.get(`order.${status.toLowerCase()}`) ?? completionTimes.get(`order.${status.toLowerCase()}_confirmed`);
   async function refresh() { const response = await fetch(`/api/admin/orders/${detail.order.id}`); const body = await response.json(); if (response.ok) setDetail(body.data); }
