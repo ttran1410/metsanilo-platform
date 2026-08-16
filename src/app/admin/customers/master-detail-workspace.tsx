@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Edit3, Phone, MessageSquare, Share2, ExternalLink, PlusCircle, GitMerge, Trash2, UserPlus, Search } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 import { CustomerModal } from "./customer-modal";
 import { MergeModal } from "./merge-modal";
@@ -365,10 +366,11 @@ export function MasterDetailCustomerWorkspace({
                   {canEdit && (
                     <button
                       type="button"
-                      className="btn btn-secondary text-xs py-1.5 px-3"
+                      className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
                       onClick={() => setEditingCustomer(profile.customer)}
                     >
-                      ✏️ Edit Profile
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit Profile</span>
                     </button>
                   )}
                 </div>
@@ -381,52 +383,58 @@ export function MasterDetailCustomerWorkspace({
                     {/* WhatsApp Presets */}
                     <button
                       type="button"
-                      className="btn text-xs py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-on-primary font-bold flex items-center gap-1 shadow-sm"
+                      className="btn text-xs py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-on-primary font-bold flex items-center gap-1.5 shadow-sm"
                       onClick={() => triggerWhatsApp("READY")}
                       title="Open WhatsApp with pre-filled Ready for Pickup notification"
                     >
-                      💬 WhatsApp: Ready
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>WhatsApp: Ready</span>
                     </button>
                     {profile.customer.mobile && (
                       <>
                         <button
                           type="button"
-                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
+                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
                           onClick={() => triggerWhatsApp("CONFIRMED")}
                           title="Open WhatsApp with pre-filled Order Confirmed notification"
                         >
-                          💬 WhatsApp: Confirm
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>WhatsApp: Confirm</span>
                         </button>
 
                         <a
-                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
+                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
                           href={`tel:${profile.customer.mobile}`}
                         >
-                          📞 Call
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Call</span>
                         </a>
                         <a
-                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
+                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
                           href={`sms:${profile.customer.mobile}`}
                         >
-                          ✉️ SMS
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>SMS</span>
                         </a>
                       </>
                     )}
 
                     {profile.customer.facebookProfile && (
                       <a
-                        className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1 text-blue-700 font-semibold"
+                        className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 text-blue-700 font-semibold"
                         href={profile.customer.facebookProfile.startsWith("http") ? profile.customer.facebookProfile : `https://facebook.com/${profile.customer.facebookProfile.replace(/^@/, "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        📘 Facebook
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Facebook</span>
                       </a>
                     )}
 
                     {/* New Order shortcut */}
-                    <a className="btn text-xs py-1.5 px-3 font-semibold" href="/admin/manual-orders">
-                      ➕ New Order
+                    <a className="btn text-xs py-1.5 px-3 font-semibold flex items-center gap-1.5" href="/admin/manual-orders">
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>New Order</span>
                     </a>
                   </div>
                 </div>
