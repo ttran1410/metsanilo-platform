@@ -15,6 +15,6 @@ export default async function OrderDetailPage({ params, searchParams }: { params
   if (!(await hasAdminPermission(request, "orders.read"))) return <AdminRouteFrame><main className="shell py-10"><p className="card" role="alert">You do not have access to order details.</p></main></AdminRouteFrame>;
   let detail; try { detail = await getManagerOrder(db(), id); } catch { return <AdminRouteFrame><main className="shell py-10"><p className="card" role="alert">Order not found.</p></main></AdminRouteFrame>; }
   const initialMessage = (await searchParams)?.updated === "1" ? "Order updated successfully." : "";
-  return <AdminRouteFrame><main className="shell admin-profile-page py-6"><OrderDetailView initial={detail} initialNotice={initialMessage} /></main></AdminRouteFrame>;
+  return <AdminRouteFrame><main className="shell admin-profile-page py-6"><OrderDetailView initial={detail} initialNotice={initialMessage} canDelete={await hasAdminPermission(request, "orders.delete")} /></main></AdminRouteFrame>;
 }
 
