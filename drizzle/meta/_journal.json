@@ -169,6 +169,13 @@
       "when": 1786870000000,
       "tag": "0023_orders_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1786875000000,
+      "tag": "0024_customer_facebook_profile",
+      "breakpoints": true
     }
   ]
 }

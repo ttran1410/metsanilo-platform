@@ -7,7 +7,7 @@ export function CustomerModal({
   onClose,
   onSaved,
 }: {
-  editingCustomer?: { id: string; name: string; mobile: string; email?: string | null; notes?: string | null } | null;
+  editingCustomer?: { id: string; name: string; mobile: string; email?: string | null; facebookProfile?: string | null; notes?: string | null } | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -15,6 +15,7 @@ export function CustomerModal({
   const [name, setName] = useState(editingCustomer?.name ?? "");
   const [mobile, setMobile] = useState(editingCustomer?.mobile ?? "");
   const [email, setEmail] = useState(editingCustomer?.email ?? "");
+  const [facebookProfile, setFacebookProfile] = useState(editingCustomer?.facebookProfile ?? "");
   const [notes, setNotes] = useState(editingCustomer?.notes ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -28,8 +29,8 @@ export function CustomerModal({
       const url = editingCustomer ? `/api/admin/customers/${editingCustomer.id}` : "/api/admin/customers";
       const method = editingCustomer ? "PATCH" : "POST";
       const payload = editingCustomer
-        ? { action: "update", name: name.trim(), mobile: mobile.trim(), email: email.trim(), notes: notes.trim() }
-        : { name: name.trim(), mobile: mobile.trim(), email: email.trim(), notes: notes.trim() };
+        ? { action: "update", name: name.trim(), mobile: mobile.trim(), email: email.trim(), facebookProfile: facebookProfile.trim(), notes: notes.trim() }
+        : { name: name.trim(), mobile: mobile.trim(), email: email.trim(), facebookProfile: facebookProfile.trim(), notes: notes.trim() };
 
       const response = await fetch(url, {
         method,
@@ -95,6 +96,15 @@ export function CustomerModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="maija@example.fi"
+            />
+          </label>
+
+          <label className="field">
+            <span>Facebook Profile / Handle (Optional)</span>
+            <input
+              value={facebookProfile}
+              onChange={(e) => setFacebookProfile(e.target.value)}
+              placeholder="e.g. @kristian.pori or https://facebook.com/kristian"
             />
           </label>
 

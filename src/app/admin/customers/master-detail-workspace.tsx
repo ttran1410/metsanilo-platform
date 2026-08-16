@@ -18,6 +18,7 @@ type CustomerRow = {
   marketingConsentSource?: string | null;
   marketingConsentUpdatedBy?: string | null;
   notes?: string | null;
+  facebookProfile?: string | null;
   updatedAt: string;
   metrics?: {
     totalOrders: number;
@@ -143,7 +144,7 @@ export function MasterDetailCustomerWorkspace({
   // Filter Master Customer List
   const filteredCustomers = useMemo(() => {
     return customersList.filter((c) => {
-      const text = `${c.name} ${c.mobile} ${c.email ?? ""} ${c.notes ?? ""}`.toLowerCase();
+      const text = `${c.name} ${c.mobile} ${c.email ?? ""} ${c.facebookProfile ?? ""} ${c.notes ?? ""}`.toLowerCase();
       const matchesSearch = !searchQuery || text.includes(searchQuery.toLowerCase());
 
       let matchesChip = true;
@@ -344,6 +345,16 @@ export function MasterDetailCustomerWorkspace({
                       <div className="flex flex-wrap items-center gap-3 text-xs muted font-medium">
                         <span className="font-mono text-ink font-semibold">📞 {profile.customer.mobile}</span>
                         {profile.customer.email && <span>✉️ {profile.customer.email}</span>}
+                        {profile.customer.facebookProfile && (
+                          <a
+                            href={profile.customer.facebookProfile.startsWith("http") ? profile.customer.facebookProfile : `https://facebook.com/${profile.customer.facebookProfile.replace(/^@/, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-700 hover:underline font-semibold flex items-center gap-1"
+                          >
+                            📘 {profile.customer.facebookProfile}
+                          </a>
+                        )}
                         <span>📍 Preferred: <strong>{profile.metrics.preferredMethod === "DELIVERY" ? "Home Delivery" : "Pickup"}</strong></span>
                       </div>
                     </div>
@@ -397,6 +408,17 @@ export function MasterDetailCustomerWorkspace({
                     >
                       ✉️ SMS
                     </a>
+
+                    {profile.customer.facebookProfile && (
+                      <a
+                        className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1 text-blue-700 font-semibold"
+                        href={profile.customer.facebookProfile.startsWith("http") ? profile.customer.facebookProfile : `https://facebook.com/${profile.customer.facebookProfile.replace(/^@/, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        📘 Facebook Profile
+                      </a>
+                    )}
 
                     {/* New Order shortcut */}
                     <a className="btn text-xs py-1.5 px-3 font-semibold" href="/admin/manual-orders">

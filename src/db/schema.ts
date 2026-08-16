@@ -62,6 +62,7 @@ export const customers = sqliteTable(
     marketingConsentSource: text("marketing_consent_source", { enum: ["ORDER_FORM", "ADMIN", "MANUAL"] }),
     marketingConsentUpdatedBy: text("marketing_consent_updated_by"),
     notes: text("notes"),
+    facebookProfile: text("facebook_profile"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
