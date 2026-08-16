@@ -9,10 +9,10 @@ export const runtime = "nodejs";
 
 const createSchema = z.object({
   name: z.string().min(2).max(120),
-  mobile: z.string().min(3).max(40),
-  email: z.string().email().optional().or(z.literal("")),
-  facebookProfile: z.string().max(255).optional().or(z.literal("")),
-  notes: z.string().max(2000).optional(),
+  mobile: z.string().max(40).optional().nullable().or(z.literal("")),
+  email: z.string().email().optional().nullable().or(z.literal("")),
+  facebookProfile: z.string().max(255).optional().nullable().or(z.literal("")),
+  notes: z.string().max(2000).optional().nullable(),
 });
 
 export async function GET(request: Request) {

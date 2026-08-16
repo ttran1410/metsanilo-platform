@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditEntries, customers } from "@/db/schema";
 import { requirePermission } from "@/domain/access";
-import { getCustomerProfile, mergeCustomers } from "@/domain/customers";
+import { getCustomerProfile, mergeCustomers, updateCustomer } from "@/domain/customers";
 import { DomainError } from "@/domain/errors";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { env } from "@/lib/env";
@@ -15,15 +15,15 @@ export const runtime = "nodejs";
 const updateSchema = z.object({
   action: z.enum(["update", "notes", "merge"]).optional().default("update"),
   name: z.string().min(2).max(120).optional(),
-  mobile: z.string().min(3).max(40).optional(),
+  mobile: z.string().max(40).optional().nullable().or(z.literal("")),
   email: z
     .preprocess(
       (value) => (typeof value === "string" ? value.trim().toLowerCase() : value),
-      z.string().email().optional().or(z.literal(""))
+      z.string().email().optional().nullable().or(z.literal(""))
     )
     .optional(),
-  facebookProfile: z.string().max(255).optional().or(z.literal("")),
-  notes: z.string().max(2000).optional(),
+  facebookProfile: z.string().max(255).optional().nullable().or(z.literal("")),
+  notes: z.string().max(2000).optional().nullable(),
   marketingConsent: z.boolean().optional(),
   duplicateId: z.string().optional(),
 });
@@ -82,67 +82,51 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     // Default Profile Update
-    if (!parsed.data.name || !parsed.data.mobile) {
-      throw new DomainError("VALIDATION_ERROR", "Name and mobile are required for profile update", 422);
+    const updatedCustomer = await updateCustomer(
+      db(),
+      id,
+      {
+        name: parsed.data.name,
+        mobile: parsed.data.mobile,
+        email: parsed.data.email,
+        facebookProfile: parsed.data.facebookProfile,
+        notes: parsed.data.notes,
+      },
+      actorName
+    );
+
+    if (parsed.data.marketingConsent !== undefined) {
+      const now = new Date().toISOString();
+      const consentStatus = parsed.data.marketingConsent ? ("CONSENTED" as const) : ("REVOKED" as const);
+      await db()
+        .update(customers)
+        .set({
+          marketingConsent: parsed.data.marketingConsent,
+          marketingConsentStatus: consentStatus,
+          marketingConsentAt: now,
+          marketingConsentSource: "ADMIN" as const,
+          marketingConsentUpdatedBy: actorName,
+          updatedAt: now,
+        })
+        .where(and(eq(customers.id, id), eq(customers.shopId, env().SHOP_ID)))
+        .run();
+
+      await db().insert(auditEntries).values({
+        id: randomUUID(),
+        shopId: env().SHOP_ID,
+        actor: actorName,
+        action: "customer.marketing_consent_updated",
+        entityType: "customer",
+        entityId: id,
+        detailsJson: JSON.stringify({
+          marketingConsent: parsed.data.marketingConsent,
+          marketingConsentStatus: consentStatus,
+        }),
+        createdAt: now,
+      });
     }
 
-    let mobile: string;
-    try {
-      mobile = normalizeMobile(parsed.data.mobile);
-    } catch {
-      throw new DomainError("VALIDATION_ERROR", "Invalid phone number", 422, { mobile: "INVALID_PHONE" });
-    }
-
-    const now = new Date().toISOString();
-    const consentChanged = parsed.data.marketingConsent !== undefined;
-    const consentStatus = consentChanged
-      ? parsed.data.marketingConsent
-        ? ("CONSENTED" as const)
-        : ("REVOKED" as const)
-      : undefined;
-
-    const facebookProfile = parsed.data.facebookProfile !== undefined ? (parsed.data.facebookProfile.trim() || null) : undefined;
-
-    const changed = await db()
-      .update(customers)
-      .set({
-        name: parsed.data.name.trim(),
-        mobile,
-        email: normalizeEmail(parsed.data.email ?? ""),
-        facebookProfile,
-        notes: parsed.data.notes !== undefined ? parsed.data.notes.trim() || null : undefined,
-        ...(consentChanged
-          ? {
-              marketingConsent: parsed.data.marketingConsent,
-              marketingConsentStatus: consentStatus,
-              marketingConsentAt: now,
-              marketingConsentSource: "ADMIN" as const,
-              marketingConsentUpdatedBy: actorName,
-            }
-          : {}),
-        updatedAt: now,
-      })
-      .where(and(eq(customers.id, id), eq(customers.shopId, env().SHOP_ID)))
-      .run();
-
-    if (changed.rowsAffected !== 1) throw new DomainError("NOT_FOUND", "Customer not found", 404);
-
-    await db().insert(auditEntries).values({
-      id: randomUUID(),
-      shopId: env().SHOP_ID,
-      actor: actorName,
-      action: consentChanged ? "customer.marketing_consent_updated" : "customer.updated",
-      entityType: "customer",
-      entityId: id,
-      detailsJson: JSON.stringify({
-        fields: consentChanged ? ["marketingConsent", "marketingConsentStatus"] : ["name", "mobile", "email"],
-        marketingConsent: parsed.data.marketingConsent,
-        marketingConsentStatus: consentStatus,
-      }),
-      createdAt: now,
-    });
-
-    return success((await db().query.customers.findFirst({ where: eq(customers.id, id) }))!);
+    return success(updatedCustomer);
   } catch (error) {
     return failure(error);
   }

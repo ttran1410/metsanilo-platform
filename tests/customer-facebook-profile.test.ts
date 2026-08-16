@@ -190,4 +190,21 @@ describe("Customer Facebook Profile CRM & Order Sync", () => {
       })
     ).rejects.toThrow("At least one contact method");
   });
+
+  it("updates existing customer by removing mobile number and adding facebookProfile", async () => {
+    const created = await createCustomer(database, {
+      name: "Existing Mobile Customer",
+      mobile: "+358409990000",
+    });
+
+    expect(created.mobile).toBe("+358409990000");
+
+    const updated = await updateCustomer(database, created.id, {
+      mobile: "",
+      facebookProfile: "https://facebook.com/new.fb.handle",
+    });
+
+    expect(updated.mobile).toBeNull();
+    expect(updated.facebookProfile).toBe("https://facebook.com/new.fb.handle");
+  });
 });
