@@ -95,41 +95,136 @@ export async function listManagerAvailability(database: Database) {
  * composes the existing catalog, availability and order tables instead of
  * introducing a second source of truth for capacity.
  */
-export async function getAvailabilityWorkspace(database: Database) {
+export async function getAvailabilityWorkspace(
+  database: Database,
+  options?: {
+    startDate?: string;
+    days?: number;
+    productId?: string;
+  }
+) {
   const { SHOP_ID } = env();
   const shop = await database.query.shops.findFirst({ where: eq(shops.id, SHOP_ID) });
-  if (!shop) return { dates: [], rows: [], products: [], queues: { picking: [], pickup: [], delivery: [] } };
+  if (!shop) return { dates: [], rows: [], products: [], queues: { picking: [], pickup: [], delivery: [] }, ordersByDate: {} };
+
   const today = todayInTimezone(shop.timezone);
-  const dates = Array.from({ length: 7 }, (_, index) => addDays(today, index));
+  const start = options?.startDate && datePattern.test(options.startDate) ? options.startDate : today;
+  const numDays = Math.max(1, Math.min(60, options?.days ?? 7));
+  const dates = Array.from({ length: numDays }, (_, index) => addDays(start, index));
   const endDate = dates[dates.length - 1];
+
   const [productRows, packageRows, availabilityRows, orderRows] = await Promise.all([
     database.select().from(products).where(eq(products.shopId, SHOP_ID)),
     database.select().from(packages).where(eq(packages.shopId, SHOP_ID)),
-    database.select().from(availability).where(and(eq(availability.shopId, SHOP_ID), gte(availability.businessDate, today), lte(availability.businessDate, endDate))),
-    database.select().from(orders).where(and(eq(orders.shopId, SHOP_ID), gte(orders.fulfillmentDate, today), lte(orders.fulfillmentDate, endDate))),
+    database.select().from(availability).where(and(eq(availability.shopId, SHOP_ID), gte(availability.businessDate, start), lte(availability.businessDate, endDate))),
+    database.select().from(orders).where(and(eq(orders.shopId, SHOP_ID), gte(orders.fulfillmentDate, start), lte(orders.fulfillmentDate, endDate))),
   ]);
+
   const packageByProduct = new Map<string, typeof packageRows>();
   for (const item of packageRows) packageByProduct.set(item.productId, [...(packageByProduct.get(item.productId) ?? []), item]);
   const productById = new Map(productRows.map((item) => [item.id, item]));
-  const rows = availabilityRows.map((item) => {
-    const productPackages = (packageByProduct.get(item.productId) ?? []).filter((pkg) => pkg.active).sort((a, b) => b.volumeMl - a.volumeMl);
-    const largestPackageMl = productPackages[0]?.volumeMl ?? 0;
-    const remainingMl = Math.max(0, item.capacityMl - item.reservedMl);
-    return {
-      availability: item,
-      product: productById.get(item.productId)!,
-      remainingMl,
-      utilization: item.capacityMl > 0 ? Math.round((item.reservedMl / item.capacityMl) * 100) : 0,
-      nearCapacity: remainingMl <= item.capacityMl * 0.2 || (largestPackageMl > 0 && remainingMl < largestPackageMl),
-      soldOut: item.manualSoldOut || !item.acceptsOrders || remainingMl <= 0,
-      packages: productPackages.map((pkg) => ({ id: pkg.id, labelFi: pkg.labelFi, labelEn: pkg.labelEn, volumeMl: pkg.volumeMl, active: pkg.active, isDefault: pkg.isDefault, availableUnits: pkg.volumeMl > 0 ? Math.floor(remainingMl / pkg.volumeMl) : 0 })),
+
+  const rows = availabilityRows
+    .map((item) => {
+      const productPackages = (packageByProduct.get(item.productId) ?? []).filter((pkg) => pkg.active).sort((a, b) => b.volumeMl - a.volumeMl);
+      const largestPackageMl = productPackages[0]?.volumeMl ?? 0;
+      const remainingMl = Math.max(0, item.capacityMl - item.reservedMl);
+      return {
+        availability: item,
+        product: productById.get(item.productId)!,
+        remainingMl,
+        utilization: item.capacityMl > 0 ? Math.round((item.reservedMl / item.capacityMl) * 100) : 0,
+        nearCapacity: remainingMl <= item.capacityMl * 0.2 || (largestPackageMl > 0 && remainingMl < largestPackageMl),
+        soldOut: item.manualSoldOut || !item.acceptsOrders || remainingMl <= 0,
+        packages: productPackages.map((pkg) => ({ id: pkg.id, labelFi: pkg.labelFi, labelEn: pkg.labelEn, volumeMl: pkg.volumeMl, active: pkg.active, isDefault: pkg.isDefault, availableUnits: pkg.volumeMl > 0 ? Math.floor(remainingMl / pkg.volumeMl) : 0 })),
+      };
+    })
+    .filter((row) => row.product && (!options?.productId || options.productId === "ALL" || row.product.id === options.productId));
+
+  // Build per-date orders breakdown map
+  const ordersByDate: Record<
+    string,
+    {
+      pickupVolumeMl: number;
+      pickupCount: number;
+      deliveryVolumeMl: number;
+      deliveryCount: number;
+      totalRevenueCents: number;
+      orders: Array<{
+        id: string;
+        publicReference: string;
+        customerName: string;
+        mobile: string;
+        productId: string;
+        productNameFi: string;
+        packageLabelFi: string;
+        volumeMl: number;
+        priceCents: number;
+        status: string;
+        fulfillmentMethod: "PICKUP" | "DELIVERY";
+      }>;
+    }
+  > = {};
+
+  for (const date of dates) {
+    ordersByDate[date] = {
+      pickupVolumeMl: 0,
+      pickupCount: 0,
+      deliveryVolumeMl: 0,
+      deliveryCount: 0,
+      totalRevenueCents: 0,
+      orders: [],
     };
-  }).filter((row) => row.product);
-  const queueOrder = (order: typeof orderRows[number]) => ({ id: order.id, publicReference: order.publicReference, customerName: order.customerName, productNameFi: order.productNameFi, packageLabelFi: order.packageLabelFi, fulfillmentDate: order.fulfillmentDate, fulfillmentMethod: order.fulfillmentMethod, status: order.status, quantity: order.quantity });
+  }
+
+  for (const order of orderRows) {
+    const entry = ordersByDate[order.fulfillmentDate];
+    if (entry && (!options?.productId || options.productId === "ALL" || order.productId === options.productId)) {
+      if (order.fulfillmentMethod === "PICKUP") {
+        entry.pickupVolumeMl += order.volumeMl;
+        entry.pickupCount += 1;
+      } else {
+        entry.deliveryVolumeMl += order.volumeMl;
+        entry.deliveryCount += 1;
+      }
+      entry.totalRevenueCents += order.finalTotalCents ?? order.itemSubtotalCents;
+      entry.orders.push({
+        id: order.id,
+        publicReference: order.publicReference,
+        customerName: order.customerName,
+        mobile: order.mobile,
+        productId: order.productId,
+        productNameFi: order.productNameFi,
+        packageLabelFi: order.packageLabelFi,
+        volumeMl: order.volumeMl,
+        priceCents: order.finalTotalCents ?? order.itemSubtotalCents,
+        status: order.status,
+        fulfillmentMethod: order.fulfillmentMethod,
+      });
+    }
+  }
+
+  const queueOrder = (order: typeof orderRows[number]) => ({
+    id: order.id,
+    publicReference: order.publicReference,
+    customerName: order.customerName,
+    productNameFi: order.productNameFi,
+    packageLabelFi: order.packageLabelFi,
+    fulfillmentDate: order.fulfillmentDate,
+    fulfillmentMethod: order.fulfillmentMethod,
+    status: order.status,
+    quantity: order.quantity,
+  });
+
   return {
+    startDate: start,
+    endDate,
     dates,
     rows,
-    products: productRows.filter((product) => product.active || rows.some((row) => row.product.id === product.id)).map((product) => ({ id: product.id, nameFi: product.nameFi, nameEn: product.nameEn, active: product.active, showOnHomepage: product.showOnHomepage, showOnReserve: product.showOnReserve })),
+    products: productRows
+      .filter((product) => product.active || rows.some((row) => row.product.id === product.id))
+      .map((product) => ({ id: product.id, nameFi: product.nameFi, nameEn: product.nameEn, active: product.active, showOnHomepage: product.showOnHomepage, showOnReserve: product.showOnReserve })),
+    ordersByDate,
     queues: {
       picking: orderRows.filter((order) => order.status === "CONFIRMED" || order.status === "PICKING").map(queueOrder),
       pickup: orderRows.filter((order) => order.status === "READY" && order.fulfillmentMethod === "PICKUP").map(queueOrder),
@@ -137,6 +232,7 @@ export async function getAvailabilityWorkspace(database: Database) {
     },
   };
 }
+
 
 export type AvailabilityWorkspace = Awaited<ReturnType<typeof getAvailabilityWorkspace>>;
 
