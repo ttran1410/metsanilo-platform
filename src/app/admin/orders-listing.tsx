@@ -120,6 +120,7 @@ export function OrdersListing({
   const [view, setView] = useState<OrdersView>(initialView);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("TABLE");
   const [showPackingSlip, setShowPackingSlip] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const [datePreset, setDatePreset] = useState<DatePreset>(initialDates.datePreset);
   const [search, setSearch] = useState("");
@@ -128,13 +129,19 @@ export function OrdersListing({
   const [method, setMethod] = useState("ALL");
   const [status, setStatus] = useState(initialStatus);
   const [source, setSource] = useState("ALL");
-  const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([]);
+  const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([
+    { key: "WEBSITE", labelEn: "🌐 Website" },
+    { key: "SMS", labelEn: "✉️ SMS" },
+    { key: "WHATSAPP", labelEn: "💬 WhatsApp" },
+    { key: "FACEBOOK_MESSAGE", labelEn: "📘 Facebook Message" },
+    { key: "MANUAL", labelEn: "📞 Manual / Phone" },
+    { key: "HISTORICAL", labelEn: "📜 Historical" },
+  ]);
+
   const [selected, setSelected] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState<PendingAction | null>(null);
-  const [deletingOrder, setDeletingOrder] = useState<AdminOrder | null>(null);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [page, setPage] = useState(1);
   const [savedViews, setSavedViews] = useState<
@@ -146,14 +153,11 @@ export function OrdersListing({
       method: string;
       status: string;
       source: string;
+      datePreset: DatePreset;
     }>
   >([]);
   const [viewName, setViewName] = useState("");
-  const [inspectingId, setInspectingId] = useState<string | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [density, setDensity] = useState<"compact" | "comfortable">("compact");
-  const [columns, setColumns] = useState<Column[]>(ALL_COLUMNS.map(({ key }) => key));
 
   const refreshOrders = useCallback(async (announce = false) => {
     try {
@@ -239,23 +243,15 @@ export function OrdersListing({
         /* Ignore */
       }
     }
-    const storedDensity = localStorage.getItem("metsanilo_orders_density");
-    if (storedDensity === "compact" || storedDensity === "comfortable") {
-      setDensity(storedDensity);
-    }
-    const storedColumns = localStorage.getItem("metsanilo_orders_columns");
-    if (storedColumns) {
-      try {
-        setColumns(JSON.parse(storedColumns));
-      } catch {
-        /* Ignore */
-      }
-    }
   }, []);
 
+  // Filter change handlers automatically switch active tab to "ALL" (Custom Filtered View)
   function handleDatePresetChange(preset: DatePreset) {
     setDatePreset(preset);
-    if (preset === "CUSTOM") return;
+    if (preset === "CUSTOM") {
+      setView("ALL");
+      return;
+    }
     const { from: f, to: t } = getPresetDates(preset);
     setFrom(f);
     setTo(t);
@@ -289,6 +285,50 @@ export function OrdersListing({
     setView("ALL");
   }
 
+  function handleSaveView() {
+    if (!viewName.trim()) return;
+    const newSavedView = {
+      name: viewName.trim(),
+      view,
+      from,
+      to,
+      method,
+      status,
+      source,
+      datePreset,
+    };
+    const next = [...savedViews.filter((v) => v.name !== viewName.trim()), newSavedView];
+    setSavedViews(next);
+    localStorage.setItem("metsanilo_saved_order_views", JSON.stringify(next));
+    setViewName("");
+    setNotice(`Saved view "${newSavedView.name}" stored.`);
+  }
+
+  function handleLoadView(saved: (typeof savedViews)[0]) {
+    setView(saved.view);
+    setFrom(saved.from);
+    setTo(saved.to);
+    setMethod(saved.method);
+    setStatus(saved.status);
+    setSource(saved.source);
+    setDatePreset(saved.datePreset);
+  }
+
+  function handleClearFilters() {
+    setSearch("");
+    selectQuickView("ALL");
+  }
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (datePreset !== "ALL") count++;
+    if (status !== "ALL") count++;
+    if (method !== "ALL") count++;
+    if (source !== "ALL") count++;
+    if (search.trim()) count++;
+    return count;
+  }, [datePreset, status, method, source, search]);
+
   const quickViewCounts = useMemo(() => {
     const day = todayStr();
     return {
@@ -317,9 +357,9 @@ export function OrdersListing({
 
   const filtered = useMemo(() => {
     return rows.filter((order) => {
-      const query = search.trim().toLowerCase();
+      const queryStr = search.trim().toLowerCase();
       const text = `${order.publicReference} ${order.customerName} ${order.mobile} ${order.email ?? ""}`.toLowerCase();
-      const matchesSearch = !query || text.includes(query);
+      const matchesSearch = !queryStr || text.includes(queryStr);
       const matchesDate =
         (!from || order.fulfillmentDate >= from) && (!to || order.fulfillmentDate <= to);
       const matchesMethod = method === "ALL" || order.fulfillmentMethod === method;
@@ -344,7 +384,6 @@ export function OrdersListing({
     return [...filtered].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [filtered, view]);
 
-  const totalPages = Math.ceil(sortedRows.length / 50) || 1;
   const visibleRows = useMemo(() => {
     const start = (page - 1) * 50;
     return sortedRows.slice(start, start + 50);
@@ -355,33 +394,6 @@ export function OrdersListing({
   }, [rows, selected]);
 
   const allSelected = visibleRows.length > 0 && visibleRows.every((order) => selected.includes(order.id));
-
-  function toggleColumn(col: Column) {
-    const next = columns.includes(col) ? columns.filter((c) => c !== col) : [...columns, col];
-    setColumns(next);
-    localStorage.setItem("metsanilo_orders_columns", JSON.stringify(next));
-  }
-
-  function changeDensity(next: "compact" | "comfortable") {
-    setDensity(next);
-    localStorage.setItem("metsanilo_orders_density", next);
-  }
-
-  function saveCurrentView() {
-    if (!viewName.trim()) return;
-    const next = [
-      ...savedViews.filter((v) => v.name !== viewName.trim()),
-      { name: viewName.trim(), view, from, to, method, status, source },
-    ];
-    setSavedViews(next);
-    localStorage.setItem("metsanilo_saved_order_views", JSON.stringify(next));
-    setViewName("");
-  }
-
-  function requestTransition(order: AdminOrder, target: OrderStatus) {
-    setPending({ target, orders: [order] });
-    setReason("");
-  }
 
   async function confirmTransition() {
     if (!pending) return;
@@ -515,7 +527,7 @@ export function OrdersListing({
             })}
           </div>
 
-          {/* SEARCH & FILTERS BAR */}
+          {/* PRIMARY FILTER BAR WITH DATE PRESETS & ADVANCED FILTERS TOGGLE */}
           <div className="card p-3 flex flex-wrap items-center gap-3">
             <input
               placeholder="Search reference, customer name, or phone…"
@@ -524,32 +536,42 @@ export function OrdersListing({
               className="flex-1 min-w-[220px] text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
             />
 
-            <select
-              aria-label="Filter status"
-              value={status}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="NEW">NEW</option>
-              <option value="CONFIRMED">CONFIRMED</option>
-              <option value="PICKING">PICKING</option>
-              <option value="READY">READY</option>
-              <option value="PICKED_UP">PICKED_UP</option>
-              <option value="DELIVERED">DELIVERED</option>
-              <option value="CANCELLED">CANCELLED</option>
-            </select>
+            {/* DATE PRESETS DROPDOWN */}
+            <label className="text-xs font-bold text-ink flex items-center gap-1.5 bg-surface-muted px-2.5 py-1.5 rounded-lg border border-line">
+              <span>📅 Date:</span>
+              <select
+                value={datePreset}
+                onChange={(e) => handleDatePresetChange(e.target.value as DatePreset)}
+                className="bg-surface border border-line rounded px-2 py-0.5 text-xs font-bold"
+              >
+                <option value="TODAY">Today</option>
+                <option value="TOMORROW">Tomorrow</option>
+                <option value="YESTERDAY">Yesterday</option>
+                <option value="THIS_WEEK">This Week</option>
+                <option value="LAST_WEEK">Last Week</option>
+                <option value="LAST_7_DAYS">Last 7 Days</option>
+                <option value="ALL">All Time</option>
+                <option value="CUSTOM">Custom Range…</option>
+              </select>
+            </label>
 
-            <select
-              aria-label="Filter fulfillment method"
-              value={method}
-              onChange={(e) => handleMethodChange(e.target.value)}
-              className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
+            {/* ADVANCED FILTERS TOGGLE BUTTON */}
+            <button
+              type="button"
+              className={`btn text-xs py-1.5 px-3 flex items-center gap-1.5 font-bold ${
+                showAdvancedFilters || activeFilterCount > 0
+                  ? "btn-primary shadow-xs"
+                  : "btn-secondary"
+              }`}
+              onClick={() => setShowAdvancedFilters((open) => !open)}
             >
-              <option value="ALL">All Methods</option>
-              <option value="PICKUP">📍 Pickup</option>
-              <option value="DELIVERY">🚚 Delivery</option>
-            </select>
+              ⚙️ Advanced Filters
+              {activeFilterCount > 0 && (
+                <span className="text-[10px] bg-surface text-primary px-1.5 py-0.2 rounded-full font-mono">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
 
             {canExport && (
               <a className="btn btn-secondary text-xs py-1.5 px-3" href="/api/admin/orders/export" download>
@@ -557,6 +579,121 @@ export function OrdersListing({
               </a>
             )}
           </div>
+
+          {/* EXPANDABLE ADVANCED FILTERS PANEL */}
+          {showAdvancedFilters && (
+            <div className="card p-4 bg-surface-muted/60 border border-line rounded-2xl flex flex-col gap-3">
+              <div className="flex items-center justify-between border-b border-line pb-2">
+                <span className="eyebrow text-primary">CUSTOM ADVANCED FILTERS</span>
+                <button
+                  type="button"
+                  className="text-xs font-bold text-primary hover:underline"
+                  onClick={handleClearFilters}
+                >
+                  ↺ Reset All Filters
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                {/* Custom From/To Dates */}
+                <label className="field">
+                  <span>From Date</span>
+                  <input
+                    type="date"
+                    value={from}
+                    onChange={(e) => handleFromChange(e.target.value)}
+                  />
+                </label>
+
+                <label className="field">
+                  <span>To Date</span>
+                  <input
+                    type="date"
+                    value={to}
+                    onChange={(e) => handleToChange(e.target.value)}
+                  />
+                </label>
+
+                {/* Status Dropdown */}
+                <label className="field">
+                  <span>Status Filter</span>
+                  <select value={status} onChange={(e) => handleStatusChange(e.target.value)}>
+                    <option value="ALL">All Statuses</option>
+                    <option value="NEW">NEW</option>
+                    <option value="CONFIRMED">CONFIRMED</option>
+                    <option value="PICKING">PICKING</option>
+                    <option value="READY">READY</option>
+                    <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+                    <option value="PICKED_UP">PICKED_UP</option>
+                    <option value="DELIVERED">DELIVERED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                    <option value="NO_SHOW">NO_SHOW</option>
+                    <option value="REJECTED">REJECTED</option>
+                  </select>
+                </label>
+
+                {/* Fulfillment Method Dropdown */}
+                <label className="field">
+                  <span>Method Filter</span>
+                  <select value={method} onChange={(e) => handleMethodChange(e.target.value)}>
+                    <option value="ALL">All Methods</option>
+                    <option value="PICKUP">📍 Pickup</option>
+                    <option value="DELIVERY">🚚 Delivery</option>
+                  </select>
+                </label>
+
+                {/* Order Source Dropdown */}
+                <label className="field sm:col-span-2">
+                  <span>Order Source Filter</span>
+                  <select value={source} onChange={(e) => handleSourceChange(e.target.value)}>
+                    <option value="ALL">All Sources</option>
+                    {sources.map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {item.labelEn}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* Saved Views Manager */}
+                <div className="sm:col-span-2 flex items-center gap-2 pt-4">
+                  {savedViews.length > 0 && (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const found = savedViews.find((v) => v.name === e.target.value);
+                        if (found) handleLoadView(found);
+                      }}
+                      className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
+                    >
+                      <option value="">Load saved view…</option>
+                      {savedViews.map((item) => (
+                        <option key={item.name} value={item.name}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <input
+                    value={viewName}
+                    onChange={(e) => setViewName(e.target.value)}
+                    placeholder="Save current view as…"
+                    className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
+                  />
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary text-xs py-1.5 px-3 font-semibold"
+                    disabled={!viewName.trim()}
+                    onClick={handleSaveView}
+                  >
+                    💾 Save View
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* TABLE DATA DISPLAY */}
           <div className="card overflow-x-auto border border-line rounded-2xl">
@@ -573,6 +710,7 @@ export function OrdersListing({
                   <th className="p-3">Order Ref</th>
                   <th className="p-3">Customer</th>
                   <th className="p-3">Fulfillment</th>
+                  <th className="p-3">Source</th>
                   <th className="p-3">Items &amp; Vol</th>
                   <th className="p-3">Payment</th>
                   <th className="p-3">Status</th>
@@ -634,6 +772,12 @@ export function OrdersListing({
                       </td>
 
                       <td className="p-3">
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-muted border border-line">
+                          {order.historicalEntry ? "📜 Historical" : order.orderSource}
+                        </span>
+                      </td>
+
+                      <td className="p-3">
                         <span className="font-bold text-ink block">{order.packageLabelFi}</span>
                         <span className="muted text-[11px] block font-mono">{(order.volumeMl / 1000).toFixed(1)} L</span>
                       </td>
@@ -671,7 +815,7 @@ export function OrdersListing({
 
                 {visibleRows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-xs muted italic">
+                    <td colSpan={9} className="p-8 text-center text-xs muted italic">
                       No orders found matching your search or filters.
                     </td>
                   </tr>
