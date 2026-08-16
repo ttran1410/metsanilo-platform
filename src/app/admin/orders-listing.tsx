@@ -144,19 +144,6 @@ export function OrdersListing({
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [reason, setReason] = useState("");
   const [page, setPage] = useState(1);
-  const [savedViews, setSavedViews] = useState<
-    Array<{
-      name: string;
-      view: OrdersView;
-      from: string;
-      to: string;
-      method: string;
-      status: string;
-      source: string;
-      datePreset: DatePreset;
-    }>
-  >([]);
-  const [viewName, setViewName] = useState("");
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
   const refreshOrders = useCallback(async (announce = false) => {
@@ -234,15 +221,6 @@ export function OrdersListing({
       }
     }
     void loadSources();
-
-    const storedViews = localStorage.getItem("metsanilo_saved_order_views");
-    if (storedViews) {
-      try {
-        setSavedViews(JSON.parse(storedViews));
-      } catch {
-        /* Ignore */
-      }
-    }
   }, []);
 
   // Filter change handlers automatically switch active tab to "ALL" (Custom Filtered View)
@@ -283,35 +261,6 @@ export function OrdersListing({
     setTo(nextTo);
     setDatePreset("CUSTOM");
     setView("ALL");
-  }
-
-  function handleSaveView() {
-    if (!viewName.trim()) return;
-    const newSavedView = {
-      name: viewName.trim(),
-      view,
-      from,
-      to,
-      method,
-      status,
-      source,
-      datePreset,
-    };
-    const next = [...savedViews.filter((v) => v.name !== viewName.trim()), newSavedView];
-    setSavedViews(next);
-    localStorage.setItem("metsanilo_saved_order_views", JSON.stringify(next));
-    setViewName("");
-    setNotice(`Saved view "${newSavedView.name}" stored.`);
-  }
-
-  function handleLoadView(saved: (typeof savedViews)[0]) {
-    setView(saved.view);
-    setFrom(saved.from);
-    setTo(saved.to);
-    setMethod(saved.method);
-    setStatus(saved.status);
-    setSource(saved.source);
-    setDatePreset(saved.datePreset);
   }
 
   function handleClearFilters() {
@@ -654,43 +603,6 @@ export function OrdersListing({
                     ))}
                   </select>
                 </label>
-
-                {/* Saved Views Manager */}
-                <div className="sm:col-span-2 flex items-center gap-2 pt-4">
-                  {savedViews.length > 0 && (
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        const found = savedViews.find((v) => v.name === e.target.value);
-                        if (found) handleLoadView(found);
-                      }}
-                      className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
-                    >
-                      <option value="">Load saved view…</option>
-                      {savedViews.map((item) => (
-                        <option key={item.name} value={item.name}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  <input
-                    value={viewName}
-                    onChange={(e) => setViewName(e.target.value)}
-                    placeholder="Save current view as…"
-                    className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
-                  />
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary text-xs py-1.5 px-3 font-semibold"
-                    disabled={!viewName.trim()}
-                    onClick={handleSaveView}
-                  >
-                    💾 Save View
-                  </button>
-                </div>
               </div>
             </div>
           )}
@@ -796,7 +708,7 @@ export function OrdersListing({
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Link className="btn btn-secondary text-xs py-1 px-2.5" href={`/admin/orders/${order.id}`}>
-                            Inspect
+                            View
                           </Link>
 
                           {canUpdate && !isClosed && (
