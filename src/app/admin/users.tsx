@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Role } from "@/lib/permissions";
 import { AdminLoadingState } from "./presentation";
 import { MasterDetailUserWorkspace } from "./users/master-detail-workspace";
 
 export function UserModule({
+  actorRole = "MANAGER",
   canManageUsers,
   canAssignPermissions,
   canResetPasswords,
 }: {
+  actorRole?: Role;
   canManageUsers: boolean;
   canAssignPermissions: boolean;
   canResetPasswords: boolean;
@@ -43,6 +46,7 @@ export function UserModule({
   return (
     <MasterDetailUserWorkspace
       initialUsers={initialUsers}
+      actorRole={actorRole}
       canManageUsers={canManageUsers}
       canAssignPermissions={canAssignPermissions}
       canResetPasswords={canResetPasswords}
