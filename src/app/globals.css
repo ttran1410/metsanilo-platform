@@ -670,7 +670,37 @@ input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; f
 .text-button { min-height: auto; border: 0; background: transparent; color: var(--ops-info); padding: .2rem; font-size: .78rem; font-weight: 750; text-decoration: underline; text-underline-offset: .2rem; cursor: pointer; }
 .admin-header-badge, .admin-nav-badge { display: inline-grid; min-width: 1.35rem; height: 1.35rem; place-items: center; border-radius: 999px; background: var(--ops-danger); color: white; padding-inline: .3rem; font-size: .65rem; font-variant-numeric: tabular-nums; }
 .admin-nav-badge { margin-left: auto; }
-.admin-rail-toggle { width: 100%; min-height: 2.4rem; border: 1px solid var(--line); border-radius: .6rem; background: white; color: var(--ops-ink-muted); font-size: .72rem; font-weight: 750; cursor: pointer; }
+.admin-sidebar { position: fixed; }
+.admin-rail-edge-toggle {
+  position: absolute;
+  right: -12px;
+  top: 1.15rem;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line, #cbd5e1);
+  border-radius: 50%;
+  background: white;
+  color: var(--ops-ink, #0f172a);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgb(15 23 42 / 14%);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.admin-rail-edge-toggle:hover {
+  background: var(--forest, #1e3a2b);
+  color: white;
+  border-color: var(--forest, #1e3a2b);
+  transform: scale(1.15);
+}
+@media (max-width: 768px) {
+  .admin-rail-edge-toggle { display: none; }
+}
 .admin-sidebar.collapsed { width: 4.5rem; padding-inline: .65rem; }
 .admin-sidebar.collapsed .admin-nav-label, .admin-sidebar.collapsed .admin-nav-group-label, .admin-sidebar.collapsed .admin-sidebar-footer > span, .admin-sidebar.collapsed .admin-sidebar-footer > a { display: none; }
 .admin-sidebar.collapsed .admin-nav a { justify-content: center; padding-inline: .35rem; }

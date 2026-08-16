@@ -442,8 +442,8 @@ export function OrdersListing({
 
       {workspaceMode === "TABLE" && (
         <div className="flex flex-col gap-3">
-          {/* QUICK VIEW CHIPS WITH PROMINENT ACTIVE HIGHLIGHT & LIVE COUNTS */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          {/* QUICK VIEW CHIPS WITH PROMINENT ACTIVE HIGHLIGHT & NO BORDER OVERLAP */}
+          <div className="flex items-center gap-2 overflow-x-auto p-1.5 text-xs">
             {QUICK_VIEWS.map((chip) => {
               const isSelected = view === chip.key;
               const count = quickViewCounts[chip.key] ?? 0;
@@ -452,10 +452,10 @@ export function OrdersListing({
                 <button
                   key={chip.key}
                   type="button"
-                  className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shadow-xs flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all flex items-center gap-1.5 border-2 ${
                     isSelected
-                      ? "bg-primary text-on-primary ring-2 ring-primary/40 font-extrabold shadow-md scale-[1.02]"
-                      : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80 hover:text-ink"
+                      ? "bg-primary text-on-primary border-primary font-extrabold shadow-md"
+                      : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80 hover:text-ink border-transparent"
                   }`}
                   onClick={() => selectQuickView(chip.key)}
                 >

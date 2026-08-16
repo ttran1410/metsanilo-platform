@@ -87,7 +87,54 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
       <div className="admin-header-actions"><div className="admin-quick-tools" aria-label="Operations shortcuts"><button className="admin-quick-tool" type="button" onClick={() => setPaletteOpen(true)} aria-label="Open command search"><span aria-hidden="true">⌕</span><span>Quick search</span><kbd>⌘K</kbd></button><button className="admin-quick-tool" type="button" onClick={() => setHelpOpen(true)}><span aria-hidden="true">⌨</span><span>Shortcuts</span></button><Link className="admin-quick-tool" href="/admin/orders?view=triage" aria-label={`${triageCount} action required, ${unreadCount} unread notifications`}><span aria-hidden="true">◌</span><span>Alerts</span>{triageCount > 0 && <b className="admin-header-badge">{triageCount}</b>}</Link></div><span className="admin-user-state"><i aria-hidden="true" />{role}</span><AdminUserMenu displayName={displayName} email={email} role={role} /></div>
       <button className="admin-menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="admin-navigation" onClick={() => setMenuOpen((open) => !open)}><span className="admin-menu-icon" aria-hidden="true"><i /><i /><i /></span><span>{menuOpen ? "Close" : "Menu"}</span></button>
     </div>
-    <aside id="admin-navigation" className={`admin-sidebar${menuOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`}><nav aria-label="Admin modules" className="admin-nav">{Array.from(new Set(items.filter((item) => item.enabled).map((item) => item.group))).map((group) => <div className="admin-nav-group" key={group}><span className="admin-nav-group-label">{group}</span>{items.filter((item) => item.enabled && item.group === group).map((item) => { const href = item.href ?? (item.id === "dashboard" ? "/admin" : `/admin/${item.id}`); const active = item.id === "triage" ? triageActive : item.id === "dashboard" ? pathname === "/admin" : item.id === "orders" ? pathname === "/admin/orders" && !triageActive : pathname === href || pathname.startsWith(`${href}/`); return <Link className={active ? "active" : ""} aria-current={active ? "page" : undefined} href={href} onClick={() => { setMenuOpen(false); if (item.id === "triage") setTriageActive(true); if (item.id === "orders") setTriageActive(false); }} key={item.id} title={collapsed ? item.label : undefined}><span className="admin-nav-icon" aria-hidden="true">{navIcon(item.id)}</span><span className="admin-nav-label">{item.label}</span>{item.id === "triage" && triageCount > 0 && <b className="admin-nav-badge">{triageCount}</b>}</Link>; })}</div>)}</nav><div className="admin-sidebar-footer"><button className="admin-rail-toggle" type="button" onClick={toggleRail} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}>{collapsed ? "→" : "← Collapse rail"}</button><span>Need help?</span><a href="mailto:tranthanhtuan1410@gmail.com">Contact support</a></div></aside>
+    <aside id="admin-navigation" className={`admin-sidebar${menuOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`}>
+      {/* SLEEK EDGE ARROW COLLAPSE TOGGLE ALIGNED WITH OVERVIEW */}
+      <button
+        className="admin-rail-edge-toggle"
+        type="button"
+        onClick={toggleRail}
+        aria-label={collapsed ? "Expand sidebar navigation" : "Collapse sidebar navigation"}
+        title={collapsed ? "Expand sidebar navigation" : "Collapse sidebar navigation"}
+      >
+        <span aria-hidden="true">{collapsed ? "›" : "‹"}</span>
+      </button>
+
+      <nav aria-label="Admin modules" className="admin-nav">
+        {Array.from(new Set(items.filter((item) => item.enabled).map((item) => item.group))).map((group) => (
+          <div className="admin-nav-group" key={group}>
+            <span className="admin-nav-group-label">{group}</span>
+            {items.filter((item) => item.enabled && item.group === group).map((item) => {
+              const href = item.href ?? (item.id === "dashboard" ? "/admin" : `/admin/${item.id}`);
+              const active = item.id === "triage" ? triageActive : item.id === "dashboard" ? pathname === "/admin" : item.id === "orders" ? pathname === "/admin/orders" && !triageActive : pathname === href || pathname.startsWith(`${href}/`);
+              return (
+                <Link
+                  className={active ? "active" : ""}
+                  aria-current={active ? "page" : undefined}
+                  href={href}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    if (item.id === "triage") setTriageActive(true);
+                    if (item.id === "orders") setTriageActive(false);
+                  }}
+                  key={item.id}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <span className="admin-nav-icon" aria-hidden="true">{navIcon(item.id)}</span>
+                  <span className="admin-nav-label">{item.label}</span>
+                  {item.id === "triage" && triageCount > 0 && <b className="admin-nav-badge">{triageCount}</b>}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+
+      <div className="admin-sidebar-footer">
+        {!collapsed && <span>Need help?</span>}
+        {!collapsed && <a href="mailto:tranthanhtuan1410@gmail.com">Contact support</a>}
+      </div>
+    </aside>
+
     {paletteOpen && <div className="admin-command-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setPaletteOpen(false); }}><section className="admin-command-palette" role="dialog" aria-modal="true" aria-labelledby="admin-command-title"><h2 id="admin-command-title" className="sr-only">Command search</h2><label><span aria-hidden="true">⌕</span><input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && commands[0]) { event.preventDefault(); setPaletteOpen(false); router.push(commands[0].href); } }} placeholder="Search orders or go to a module…" /></label><div className="admin-command-results">{commands.map((command) => <Link href={command.href} key={command.id} onClick={() => setPaletteOpen(false)}><span><strong>{command.label}</strong><small>{command.detail}</small></span><kbd>↵</kbd></Link>)}{commands.length === 0 && <p>No matching commands.</p>}</div><footer><span>Type to search · Enter opens first result</span><span><kbd>Esc</kbd> close</span></footer></section></div>}
     {helpOpen && <div className="admin-command-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setHelpOpen(false); }}><section className="admin-shortcut-help" role="dialog" aria-modal="true" aria-labelledby="shortcut-help-title"><div className="section-inline-heading"><div><p className="eyebrow">OPERATIONS</p><h2 id="shortcut-help-title">Keyboard shortcuts</h2></div><button type="button" onClick={() => setHelpOpen(false)} aria-label="Close shortcuts">×</button></div><dl><div><dt><kbd>⌘/Ctrl K</kbd></dt><dd>Search orders and modules</dd></div><div><dt><kbd>J / K</kbd></dt><dd>Move through the order queue</dd></div><div><dt><kbd>Enter</kbd></dt><dd>Inspect the focused order</dd></div><div><dt><kbd>E</kbd></dt><dd>Prepare the next order action</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close the active panel</dd></div><div><dt><kbd>?</kbd></dt><dd>Show this shortcut list</dd></div></dl></section></div>}
   </header>;
