@@ -305,8 +305,21 @@ export function OrdersListing({ initialOrders, initialView = "TODAY", initialSta
     setViewName("");
     setNotice(`Saved view “${name}”.`);
   }
-  function loadSavedView(item: typeof savedViews[number]) { setView(item.view); setFrom(item.from); setTo(item.to); setMethod(item.method); setStatus(item.status); setSource(item.source); }
+
+  function loadSavedView(item: typeof savedViews[number]) {
+    setView("ALL");
+    setFrom(item.from);
+    setTo(item.to);
+    setMethod(item.method);
+    setStatus(item.status);
+    setSource(item.source);
+    setDatePreset(item.from || item.to ? "CUSTOM" : "ALL");
+    setNotice(`Loaded saved view “${item.name}”.`);
+  }
+
   function nextStatuses(order: AdminOrder) { return getLegalOrderTransitions(order).filter((action) => action.available).map((action) => action.status); }
+
+
   async function transition(order: AdminOrder, target: string, transitionReason?: string) {
     const response = await fetch(`/api/admin/orders/${order.id}/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: target, expectedVersion: order.version, reason: transitionReason || undefined }) });
     const body = await response.json();
