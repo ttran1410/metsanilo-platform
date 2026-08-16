@@ -35,6 +35,7 @@ type WorkspaceMode = "TABLE" | "KANBAN" | "TERMINAL";
 type DatePreset = "TODAY" | "TOMORROW" | "YESTERDAY" | "THIS_WEEK" | "LAST_WEEK" | "LAST_7_DAYS" | "ALL" | "CUSTOM";
 type Column = "fulfillment" | "source" | "status" | "payment" | "updated";
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
+type ArchiveScope = "ACTIVE_ONLY" | "ARCHIVED_ONLY" | "ALL";
 
 const QUICK_VIEWS: Array<{ key: OrdersView; label: string }> = [
   { key: "TODAY", label: "Today" },
@@ -130,6 +131,7 @@ export function OrdersListing({
 
   const [rows, setRows] = useState(initialOrders);
   const [view, setView] = useState<OrdersView>(initialView);
+  const [archiveScope, setArchiveScope] = useState<ArchiveScope>(initialView === "ARCHIVED" ? "ARCHIVED_ONLY" : "ACTIVE_ONLY");
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("TABLE");
   const [showPackingSlip, setShowPackingSlip] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -177,6 +179,12 @@ export function OrdersListing({
   const selectQuickView = useCallback((targetView: OrdersView) => {
     setView(targetView);
     const today = todayStr();
+
+    if (targetView === "ARCHIVED") {
+      setArchiveScope("ARCHIVED_ONLY");
+    } else {
+      setArchiveScope("ACTIVE_ONLY");
+    }
 
     if (targetView === "TODAY") {
       setDatePreset("TODAY");
@@ -238,6 +246,17 @@ export function OrdersListing({
     void loadSources();
   }, []);
 
+  function handleArchiveScopeChange(newScope: ArchiveScope) {
+    setArchiveScope(newScope);
+    if (newScope === "ARCHIVED_ONLY") {
+      setView("ARCHIVED");
+    } else if (newScope === "ACTIVE_ONLY") {
+      if (view === "ARCHIVED") setView("ALL");
+    } else if (newScope === "ALL") {
+      if (view === "ARCHIVED") setView("ALL");
+    }
+  }
+
   // Filter change handlers automatically switch active tab to "ALL" (Custom Filtered View)
   function handleDatePresetChange(preset: DatePreset) {
     setDatePreset(preset);
@@ -280,6 +299,7 @@ export function OrdersListing({
 
   function handleClearFilters() {
     setSearch("");
+    setArchiveScope("ACTIVE_ONLY");
     selectQuickView("ALL");
   }
 
@@ -289,9 +309,10 @@ export function OrdersListing({
     if (status !== "ALL") count++;
     if (method !== "ALL") count++;
     if (source !== "ALL") count++;
+    if (archiveScope !== "ACTIVE_ONLY") count++;
     if (search.trim()) count++;
     return count;
-  }, [datePreset, status, method, source, search]);
+  }, [datePreset, status, method, source, archiveScope, search]);
 
   const quickViewCounts = useMemo(() => {
     const day = todayStr();
@@ -308,15 +329,18 @@ export function OrdersListing({
     };
   }, [rows]);
 
-  const matchesQuickView = useCallback((order: AdminOrder, selectedView: OrdersView) => {
+  const matchesQuickView = useCallback((order: AdminOrder, selectedView: OrdersView, scope: ArchiveScope) => {
     const day = todayStr();
-    if (selectedView === "ARCHIVED") {
-      return Boolean(order.archived);
+
+    if (scope === "ARCHIVED_ONLY" || selectedView === "ARCHIVED") {
+      if (!order.archived) return false;
+    } else if (scope === "ACTIVE_ONLY") {
+      if (order.archived) return false;
     }
-    if (order.archived) return false;
 
     return (
       selectedView === "ALL" ||
+      selectedView === "ARCHIVED" ||
       (selectedView === "TRIAGE" && getOrderTriageReasons(order).length > 0) ||
       (selectedView === "TODAY" && order.fulfillmentDate === day) ||
       (selectedView === "NEEDS_CONFIRMATION" && order.status === "NEW") ||
@@ -343,10 +367,10 @@ export function OrdersListing({
         matchesMethod &&
         matchesStatus &&
         matchesSource &&
-        matchesQuickView(order, view)
+        matchesQuickView(order, view, archiveScope)
       );
     });
-  }, [rows, search, from, to, method, status, source, view, matchesQuickView]);
+  }, [rows, search, from, to, method, status, source, view, archiveScope, matchesQuickView]);
 
   const sortedRows = useMemo(() => {
     if (view === "TRIAGE") {
@@ -487,7 +511,7 @@ export function OrdersListing({
         />
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* 3 SUB-VIEW SWITCHER PIS */}
+          {/* 3 SUB-VIEW SWITCHER PINS */}
           <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-line text-xs font-bold">
             <button
               type="button"
@@ -700,7 +724,7 @@ export function OrdersListing({
                 </label>
 
                 {/* Order Source Dropdown */}
-                <label className="field sm:col-span-2">
+                <label className="field">
                   <span>Order Source Filter</span>
                   <select value={source} onChange={(e) => handleSourceChange(e.target.value)}>
                     <option value="ALL">All Sources</option>
@@ -709,6 +733,19 @@ export function OrdersListing({
                         {item.labelEn}
                       </option>
                     ))}
+                  </select>
+                </label>
+
+                {/* Archive Scope Filter Dropdown */}
+                <label className="field">
+                  <span>Archive Scope Filter</span>
+                  <select
+                    value={archiveScope}
+                    onChange={(e) => handleArchiveScopeChange(e.target.value as ArchiveScope)}
+                  >
+                    <option value="ACTIVE_ONLY">🟢 Active Orders Only (Default)</option>
+                    <option value="ARCHIVED_ONLY">📦 Archived Orders Only</option>
+                    <option value="ALL">🌐 All Orders (Include Archived)</option>
                   </select>
                 </label>
               </div>
@@ -843,7 +880,9 @@ export function OrdersListing({
                 {visibleRows.length === 0 && (
                   <tr>
                     <td colSpan={9} className="p-8 text-center text-xs muted italic">
-                      {view === "ARCHIVED" ? "No archived orders found." : "No orders found matching your search or filters."}
+                      {view === "ARCHIVED" || archiveScope === "ARCHIVED_ONLY"
+                        ? "No archived orders found."
+                        : "No orders found matching your search or filters."}
                     </td>
                   </tr>
                 )}
@@ -900,7 +939,7 @@ export function OrdersListing({
           )}
 
           {/* BATCH ARCHIVE / UNARCHIVE BUTTON */}
-          {view === "ARCHIVED" ? (
+          {view === "ARCHIVED" || archiveScope === "ARCHIVED_ONLY" ? (
             <button
               type="button"
               className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-purple-900 text-purple-100 border-purple-700 hover:bg-purple-800"
