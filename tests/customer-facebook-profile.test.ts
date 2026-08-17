@@ -207,4 +207,49 @@ describe("Customer Facebook Profile CRM & Order Sync", () => {
     expect(updated.mobile).toBeNull();
     expect(updated.facebookProfile).toBe("https://facebook.com/new.fb.handle");
   });
+
+  it("creates external order with facebookProfile and no mobile number via API route", async () => {
+    const { POST } = await import("@/app/api/admin/orders/external/route");
+    const { users } = await import("@/db/schema");
+    const { hashPassword } = await import("@/domain/passwords");
+    const passwordHash = await hashPassword("Password123!");
+    await database.insert(users).values({
+      id: "user-admin-external-test",
+      shopId: "shop-default",
+      email: "admin-ext@example.com",
+      displayName: "Admin External User",
+      passwordHash,
+      role: "ADMIN",
+      active: true,
+      createdAt: new Date().toISOString(),
+    });
+
+    const req = new Request("http://localhost/api/admin/orders/external", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "authorization": "Basic " + Buffer.from("admin-ext@example.com:Password123!").toString("base64"),
+      },
+      body: JSON.stringify({
+        productId: "product-berries",
+        packageId: "package-5l",
+        quantity: 1,
+        fulfillmentDate: "2099-08-20",
+        fulfillmentMethod: "PICKUP",
+        customerName: "Riitta Seppä",
+        facebookProfile: "riitta.seppa.5",
+        city: "Pori",
+        source: "FACEBOOK",
+        deliveryFeeCents: 0,
+        status: "NEW",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.facebookProfile).toBe("riitta.seppa.5");
+    expect(json.data.mobile).toBeNull();
+    expect(json.data.orderSource).toBe("FACEBOOK");
+  });
 });
