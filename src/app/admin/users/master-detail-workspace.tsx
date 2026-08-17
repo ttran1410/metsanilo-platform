@@ -442,7 +442,7 @@ export function MasterDetailUserWorkspace({
             }`}
             onClick={() => setViewMode("split")}
           >
-            🔍 Split Inspector View
+            🔍 Split View
           </button>
 
           <button
@@ -590,7 +590,7 @@ export function MasterDetailUserWorkspace({
                             setViewMode("split");
                           }}
                         >
-                          Inspect RBAC 🔍
+                          View RBAC 🔍
                         </button>
                       </div>
                     </td>
@@ -1012,7 +1012,7 @@ export function MasterDetailUserWorkspace({
           <main className="lg:col-span-8">
             <AdminEmptyState
               title="No User Selected"
-              description="Select a user from the directory to inspect permissions and active sessions."
+              description="Select a user from the directory to view permissions and active sessions."
             />
           </main>
         )}
