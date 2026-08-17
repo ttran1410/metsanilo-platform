@@ -191,21 +191,42 @@ export async function createManualReview(
   const timestamp = now();
   const id = randomUUID();
 
-  if (input.orderId) {
+  let matchedOrderId: string | null = null;
+  if (input.orderId && input.orderId.trim()) {
+    const queryTerm = input.orderId.trim();
+    const cleanRef = queryTerm.replace(/^#/, "");
+
     const order = await database.query.orders.findFirst({
-      where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)),
+      where: and(
+        eq(orders.shopId, SHOP_ID),
+        or(
+          eq(orders.id, queryTerm),
+          eq(orders.publicReference, queryTerm),
+          eq(orders.publicReference, cleanRef),
+          eq(orders.mobile, queryTerm),
+          eq(orders.email, queryTerm),
+        ),
+      ),
     });
-    if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
+
+    if (!order) {
+      throw new DomainError(
+        "NOT_FOUND",
+        `Order "${queryTerm}" not found. Please enter a valid Order Reference (e.g. H-A1B2C) or Order ID, or leave blank.`,
+        404,
+      );
+    }
+    matchedOrderId = order.id;
   }
 
   const hasAck = Boolean(input.acknowledgementSource);
-  const verifiedBuyer = input.verifiedBuyer ?? Boolean(input.orderId);
+  const verifiedBuyer = input.verifiedBuyer ?? Boolean(matchedOrderId);
 
   await database.insert(reviews).values({
     id,
     shopId: SHOP_ID,
     customerId: null,
-    orderId: input.orderId || null,
+    orderId: matchedOrderId,
     productId: input.productId || null,
     displayName: input.displayName.trim(),
     contact: null,
@@ -218,7 +239,7 @@ export async function createManualReview(
     acknowledgementSource: input.acknowledgementSource || null,
     acknowledgedAt: hasAck ? timestamp : null,
     verifiedBuyer,
-    verificationType: verifiedBuyer ? (input.orderId ? "DIGITAL_ORDER" : "STAFF_MANUAL") : "UNVERIFIED",
+    verificationType: verifiedBuyer ? (matchedOrderId ? "DIGITAL_ORDER" : "STAFF_MANUAL") : "UNVERIFIED",
     featured: false,
     featuredUntil: null,
     moderationReason: null,

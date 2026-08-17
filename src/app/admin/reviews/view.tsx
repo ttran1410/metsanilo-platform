@@ -657,11 +657,11 @@ export function ReviewsManager({
               </div>
 
               <label className="block text-sm font-medium text-slate-700">
-                Order ID / Reference (Optional)
+                Order Reference / Phone (Optional)
                 <input
                   name="orderId"
                   className="mt-1 block w-full rounded border-slate-300 p-2 text-sm"
-                  placeholder="R-9102"
+                  placeholder="e.g. H-A1B2C, 040 123 4567, or leave blank"
                 />
               </label>
 
