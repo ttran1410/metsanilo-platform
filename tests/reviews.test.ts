@@ -4,13 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDatabaseConnection, type Database } from "@/db/client";
 import { migrate } from "drizzle-orm/libsql/migrator";
-import { orders, packages, products, reviews, shops } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { customers, orders, packages, products, reviews, shops } from "@/db/schema";
 import { resetEnvForTests } from "@/lib/env";
 import {
   confirmManualReview,
   createManualReview,
   createPublicReview,
   getReviewRollup,
+  linkReviewToCustomerOrOrder,
   listFeaturedReviews,
   listManagerReviews,
   listPublishedReviews,
@@ -277,5 +279,46 @@ describe("Review Engine & Social Proof Trust System", () => {
 
     const page2 = (await listPublishedReviews(database, { page: 2, limit: 10 })) as any;
     expect(page2.items.length).toBe(5);
+  });
+
+  it("auto-creates a CRM customer profile when public review contact is a new mobile or email", async () => {
+    const rev = await createPublicReview(database, {
+      displayName: "Matti Meikäläinen",
+      rating: 5,
+      originalText: "Huippulaatuista mansikkaa! Suosittelen kaikille.",
+      contact: "+358409998877",
+      publicationAcknowledgement: true,
+      locale: "fi",
+    });
+
+    expect(rev.verifiedBuyer).toBe(true);
+    expect(rev.verificationType).toBe("HISTORICAL_MATCH");
+
+    const cust = await database.query.customers.findFirst({
+      where: eq(customers.mobile, "+358409998877"),
+    });
+
+    expect(cust).toBeDefined();
+    expect(cust?.name).toBe("Matti Meikäläinen");
+  });
+
+  it("supports manual linking of review to customer/order via linkReviewToCustomerOrOrder", async () => {
+    const rev = await createPublicReview(database, {
+      displayName: "Liisa K.",
+      rating: 5,
+      originalText: "Ihania marjoja!",
+      contact: "liisa@example.fi",
+      publicationAcknowledgement: true,
+      locale: "fi",
+    });
+
+    const updated = await linkReviewToCustomerOrOrder(database, {
+      reviewId: rev.id,
+      verifiedBuyer: true,
+      actor: "admin@test.fi",
+    });
+
+    expect(updated.verifiedBuyer).toBe(true);
+    expect(updated.verificationType).toBe("STAFF_MANUAL");
   });
 });

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { AdminNotice, AdminPageHeader } from "../presentation";
+import { LinkIdentityModal } from "./link-identity-modal";
 
 type Review = {
   id: string;
@@ -54,6 +55,7 @@ export function ReviewsManager({
   const [draftReplyText, setDraftReplyText] = useState("");
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<"SPAM" | "PROFANITY" | "UNRELATED" | "COMPETITOR" | "OTHER">("SPAM");
+  const [linkingReview, setLinkingReview] = useState<Review | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/reviews/visibility")
@@ -395,9 +397,20 @@ export function ReviewsManager({
                       ✓ Vahvistettu tilaus {review.orderId ? `#${review.orderId.substring(0, 8)}` : ""}
                     </span>
                   ) : (
-                    <span className="bg-slate-100 text-slate-600 text-xs font-medium px-2 py-0.5 rounded">
-                      Julkinen arvostelu
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="bg-slate-100 text-slate-600 text-xs font-medium px-2 py-0.5 rounded">
+                        Julkinen arvostelu
+                      </span>
+                      {canModerate && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary text-[11px] py-0.5 px-2 font-bold text-primary border-primary/30 hover:bg-primary/5 cursor-pointer"
+                          onClick={() => setLinkingReview(review)}
+                        >
+                          🔍 Link Order / Customer
+                        </button>
+                      )}
+                    </div>
                   )}
 
                   {review.publicationAcknowledgement ? (
@@ -786,6 +799,17 @@ export function ReviewsManager({
             </form>
           </div>
         </div>
+      )}
+
+      {linkingReview && (
+        <LinkIdentityModal
+          review={linkingReview}
+          onClose={() => setLinkingReview(null)}
+          onLinked={(updated) => {
+            setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+            setMessage("Review successfully linked to customer/order and verified.");
+          }}
+        />
       )}
     </main>
   );
