@@ -191,21 +191,69 @@ export async function createManualReview(
   const timestamp = now();
   const id = randomUUID();
 
-  if (input.orderId) {
-    const order = await database.query.orders.findFirst({
-      where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)),
+  let matchedOrderId: string | null = null;
+  let matchedCustomerId: string | null = null;
+  let verificationType: "DIGITAL_ORDER" | "HISTORICAL_MATCH" | "STAFF_MANUAL" | "UNVERIFIED" = "UNVERIFIED";
+
+  if (input.orderId && input.orderId.trim()) {
+    const queryTerm = input.orderId.trim();
+    const cleanRef = queryTerm.replace(/^#/, "");
+
+    const orderMatch = await database.query.orders.findFirst({
+      where: and(
+        eq(orders.shopId, SHOP_ID),
+        or(
+          eq(orders.id, queryTerm),
+          eq(orders.publicReference, queryTerm),
+          eq(orders.publicReference, cleanRef),
+          eq(orders.mobile, queryTerm),
+          eq(orders.email, queryTerm),
+          eq(orders.facebookProfile, queryTerm),
+        ),
+      ),
     });
-    if (!order) throw new DomainError("NOT_FOUND", "Order not found", 404);
+
+    if (orderMatch) {
+      matchedOrderId = orderMatch.id;
+      matchedCustomerId = orderMatch.customerId || null;
+      verificationType = "DIGITAL_ORDER";
+    } else {
+      const custMatch = await database.query.customers.findFirst({
+        where: and(
+          eq(customers.shopId, SHOP_ID),
+          or(
+            eq(customers.mobile, queryTerm),
+            eq(customers.email, queryTerm),
+            eq(customers.facebookProfile, queryTerm),
+            eq(customers.name, queryTerm),
+          ),
+        ),
+      });
+
+      if (custMatch) {
+        matchedCustomerId = custMatch.id;
+        verificationType = "HISTORICAL_MATCH";
+      } else {
+        throw new DomainError(
+          "NOT_FOUND",
+          `No order or customer matching "${queryTerm}" was found. Please check the Order Reference (e.g. H-A1B2C), Facebook profile, phone number, or leave blank.`,
+          404,
+        );
+      }
+    }
   }
 
   const hasAck = Boolean(input.acknowledgementSource);
-  const verifiedBuyer = input.verifiedBuyer ?? Boolean(input.orderId);
+  const verifiedBuyer = input.verifiedBuyer ?? Boolean(matchedOrderId || matchedCustomerId);
+  const finalVerificationType = verifiedBuyer
+    ? (verificationType !== "UNVERIFIED" ? verificationType : "STAFF_MANUAL")
+    : "UNVERIFIED";
 
   await database.insert(reviews).values({
     id,
     shopId: SHOP_ID,
-    customerId: null,
-    orderId: input.orderId || null,
+    customerId: matchedCustomerId,
+    orderId: matchedOrderId,
     productId: input.productId || null,
     displayName: input.displayName.trim(),
     contact: null,
@@ -218,7 +266,7 @@ export async function createManualReview(
     acknowledgementSource: input.acknowledgementSource || null,
     acknowledgedAt: hasAck ? timestamp : null,
     verifiedBuyer,
-    verificationType: verifiedBuyer ? (input.orderId ? "DIGITAL_ORDER" : "STAFF_MANUAL") : "UNVERIFIED",
+    verificationType: finalVerificationType,
     featured: false,
     featuredUntil: null,
     moderationReason: null,
