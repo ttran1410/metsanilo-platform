@@ -99,8 +99,8 @@ export function CustomerAddressFields({
 
   if (showFieldsetWrapper) {
     return (
-      <fieldset className="customer-address-fieldset rounded-lg border p-3">
-        {legend && <legend className="text-xs font-bold uppercase muted px-1">{legend}</legend>}
+      <fieldset className="customer-address-fieldset w-full rounded-xl border border-line p-4 space-y-2 bg-surface-muted/30">
+        {legend && <legend className="text-xs font-bold uppercase tracking-wider text-muted px-1.5">{legend}</legend>}
         {gridContent}
       </fieldset>
     );
