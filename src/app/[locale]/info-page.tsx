@@ -24,20 +24,218 @@ const content = {
   },
 } as const;
 
-export function InfoPage({ locale, kind, contactEmail, contactPhone, publishedReviews = [], reviewsVisible = true }: { locale: Locale; kind: InfoKind; contactEmail?: string | null; contactPhone?: string | null; publishedReviews?: Array<{ id: string; displayName: string; rating: number; originalText: string; displayText: string | null; featured: boolean }>; reviewsVisible?: boolean }) {
-  // The three page variants intentionally have different content shapes; the
-  // branch below narrows the shape at render time.
+export function InfoPage({
+  locale,
+  kind,
+  contactEmail,
+  contactPhone,
+  publishedReviews = [],
+  reviewsVisible = true,
+  howItWorksVisible = true,
+  aboutUsVisible = true,
+  logoUrl,
+}: {
+  locale: Locale;
+  kind: InfoKind;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  publishedReviews?: Array<{ id: string; displayName: string; rating: number; originalText: string; displayText: string | null; featured: boolean }>;
+  reviewsVisible?: boolean;
+  howItWorksVisible?: boolean;
+  aboutUsVisible?: boolean;
+  logoUrl?: string | null;
+}) {
   const t = content[locale][kind] as any;
   const nav = navCopy[locale];
   const other = locale === "fi" ? "en" : "fi";
   const whatsappNumber = contactPhone?.replace(/\D/g, "").replace(/^0/, "358");
   const navLink = (href: string, label: string, active: boolean) => <Link className={active ? "nav-link-active" : ""} href={href}>{label}</Link>;
-  return <main className="storefront info-page"><LocaleDocument locale={locale} /><header className="storefront-header"><div className="shell storefront-nav"><Link className="brand-lockup" href={`/${locale}`}><span className="brand-mark" aria-hidden="true"><i /><i /><i /></span><span><strong>METSÄNILO</strong></span></Link><nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>{navLink(`/${locale}/reserve`, nav.reserve, false)}{navLink(`/${locale}/how-it-works`, nav.how, kind === "how-it-works")}{reviewsVisible && navLink(`/${locale}/reviews`, nav.reviews, kind === "reviews")}{navLink(`/${locale}/about`, nav.about, kind === "about")}</nav><MobileNav locale={locale} active={kind === "how-it-works" ? "how" : kind === "reviews" ? "reviews" : "about"} /><Link className="locale-switch" href={`/${other}/${kind}`} hrefLang={other}>{locale === "fi" ? "English" : "Suomeksi"}<span aria-hidden="true">↗</span></Link></div></header>
-    {kind === "how-it-works" && <><section className="shell info-hero" aria-labelledby="info-title"><p className="eyebrow">{t.eyebrow}</p><h1 id="info-title">{t.title}</h1><p>{t.intro}</p></section><section className="shell info-trust-banner" aria-label={locale === "fi" ? "Maksutiedot" : "Payment information"}><strong>{locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</strong><span>{locale === "fi" ? "Maksat vasta kun saat marjat noudon tai toimituksen yhteydessä." : "You pay when you receive your berries at pickup or delivery."}</span></section><section className="shell info-grid" aria-label={t.title}>{t.steps.map(([number, title, text]: [string, string, string]) => <article className="info-step-card" key={number}><span className="info-number">{number}</span><h2>{title}</h2><p>{text}</p></article>)}</section><section className="shell info-faq" aria-labelledby="faq-title"><h2 id="faq-title">{locale === "fi" ? "Usein kysyttyä" : "Common questions"}</h2><details><summary>{locale === "fi" ? "Voinko maksaa käteisellä?" : "Can I pay with cash?"}</summary><p>{locale === "fi" ? "Maksutavasta sovitaan noudon tai toimituksen yhteydessä." : "Payment is arranged at pickup or delivery."}</p></details><details><summary>{locale === "fi" ? "Mitä jos sää muuttaa poimintaa?" : "What if weather changes the harvest?"}</summary><p>{locale === "fi" ? "Ilmoitamme mahdollisesta päivämäärän muutoksesta viestillä." : "We will message you if the fulfillment date needs to change."}</p></details></section><InfoCta locale={locale} title={t.ctaTitle} label={t.cta} /></>}
-    {kind === "reviews" && <><section className="shell info-hero" aria-labelledby="info-title"><p className="eyebrow">{t.eyebrow}</p><h1 id="info-title">{t.title}</h1><p>{t.intro}</p></section><section className="shell review-trust-summary" aria-label={locale === "fi" ? "Luottamustiedot" : "Trust information"}><strong>{publishedReviews.length ? `${(publishedReviews.reduce((sum, review) => sum + review.rating, 0) / publishedReviews.length).toFixed(1)} / 5` : (locale === "fi" ? "Arvosteluja tulossa" : "Reviews coming soon")}</strong><span>{publishedReviews.length ? `${publishedReviews.length} ${locale === "fi" ? "julkaistua asiakasarvostelua" : "published customer reviews"}` : (locale === "fi" ? "Ensimmäiset kokemukset julkaistaan tarkistuksen jälkeen." : "The first experiences will be published after moderation.")}</span></section><section className="shell review-grid" aria-label={t.title}>{publishedReviews.length === 0 ? <p className="profile-muted">{locale === "fi" ? "Arvosteluja ei ole vielä julkaistu." : "No reviews have been published yet."}</p> : publishedReviews.map((review) => <article className="review-card" key={review.id}><div className="review-card-head"><h2>{review.displayName}</h2><span className="review-stars" aria-label={`${review.rating} stars`}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span></div><p className="review-quote">“{review.displayText || review.originalText}”</p></article>)}</section><section className="shell review-invite"><p className="eyebrow">{locale === "fi" ? "Palaute" : "Your voice"}</p><h2>{t.formTitle}</h2><p>{t.formText}</p><ReviewForm locale={locale} /></section></>}
-    {kind === "about" && <><section className="shell info-hero" aria-labelledby="info-title"><p className="eyebrow">{t.eyebrow}</p><h1 id="info-title">{t.title}</h1></section><section className="shell story-card"><p className="story-quote">“{t.quote}”</p><p className="story-body">{t.body}</p><div className="value-grid">{t.values.map(([title, text]: [string, string], index: number) => <article className={index === 0 ? "value-card value-card-green" : "value-card value-card-gold"} key={title}><h2>{title}</h2><p>{text}</p></article>)}</div></section><section className="shell info-contact-card"><p className="eyebrow">{locale === "fi" ? "Tarvitsetko apua?" : "Need a hand?"}</p><h2>{locale === "fi" ? "Varaa mieluummin viestillä" : "Prefer to message us?"}</h2><p>{locale === "fi" ? "Voit ottaa meihin yhteyttä WhatsAppilla, tekstiviestillä tai puhelimitse." : "Contact us by WhatsApp, SMS or phone if filling in the form feels difficult."}</p><div className="info-contact-actions">{whatsappNumber && <a className="btn btn-secondary" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">WhatsApp</a>}{contactPhone && <><a className="btn btn-secondary" href={`sms:${contactPhone}`}>{locale === "fi" ? "Lähetä tekstiviesti" : "Send SMS"}</a><a className="btn btn-secondary" href={`tel:${contactPhone}`}>{locale === "fi" ? "Soita meille" : "Call us"}</a></>}{contactEmail && <a className="text-link" href={`mailto:${contactEmail}`}>{contactEmail}</a>}</div></section></>}
-    <footer className="storefront-footer"><div className="shell footer-grid"><div><strong>METSÄNILO</strong><p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${new Date().getFullYear()}` : `From Satakunta forest to table · Season ${new Date().getFullYear()}`}</p></div><div><span>{locale === "fi" ? "Tutustu" : "Explore"}</span><Link href={`/${locale}/reserve`}>{nav.reserve}</Link><Link href={`/${locale}/how-it-works`}>{nav.how}</Link>{reviewsVisible && <Link href={`/${locale}/reviews`}>{nav.reviews}</Link>}<Link href={`/${locale}/about`}>{nav.about}</Link></div><div><span>{nav.contact}</span>{contactPhone && <a href={`tel:${contactPhone}`}>{contactPhone}</a>}{contactEmail && <a href={`mailto:${contactEmail}`}>{contactEmail}</a>}</div><div><span>{locale === "fi" ? "Tietoa" : "Information"}</span><Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link></div></div></footer><Link className="mobile-reserve-cta" href={`/${locale}/reserve`}>{nav.reserve}<span aria-hidden="true">→</span></Link>
-  </main>;
+
+  return (
+    <main className="storefront info-page">
+      <LocaleDocument locale={locale} />
+      <header className="storefront-header">
+        <div className="shell storefront-nav">
+          <Link className="brand-lockup" href={`/${locale}`}>
+            {logoUrl ? (
+              <img src={logoUrl} alt="Metsänilo Logo" className="h-7 w-auto object-contain" />
+            ) : (
+              <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
+            )}
+            <span><strong>METSÄNILO</strong></span>
+          </Link>
+          <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
+            {navLink(`/${locale}/reserve`, nav.reserve, false)}
+            {howItWorksVisible && navLink(`/${locale}/how-it-works`, nav.how, kind === "how-it-works")}
+            {reviewsVisible && navLink(`/${locale}/reviews`, nav.reviews, kind === "reviews")}
+            {aboutUsVisible && navLink(`/${locale}/about`, nav.about, kind === "about")}
+          </nav>
+          <MobileNav
+            locale={locale}
+            active={kind === "how-it-works" ? "how" : kind === "reviews" ? "reviews" : "about"}
+            reviewsVisible={reviewsVisible}
+            howItWorksVisible={howItWorksVisible}
+            aboutUsVisible={aboutUsVisible}
+          />
+          <Link className="locale-switch" href={`/${other}/${kind}`} hrefLang={other}>
+            {locale === "fi" ? "English" : "Suomeksi"}<span aria-hidden="true">↗</span>
+          </Link>
+        </div>
+      </header>
+      {kind === "how-it-works" && (
+        <>
+          <section className="shell info-hero" aria-labelledby="info-title">
+            <p className="eyebrow">{t.eyebrow}</p>
+            <h1 id="info-title">{t.title}</h1>
+            <p>{t.intro}</p>
+          </section>
+          <section className="shell info-trust-banner" aria-label={locale === "fi" ? "Maksutiedot" : "Payment information"}>
+            <strong>{locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</strong>
+            <span>{locale === "fi" ? "Maksat vasta kun saat marjat noudon tai toimituksen yhteydessä." : "You pay when you receive your berries at pickup or delivery."}</span>
+          </section>
+          <section className="shell info-grid" aria-label={t.title}>
+            {t.steps.map(([number, title, text]: [string, string, string]) => (
+              <article className="info-step-card" key={number}>
+                <span className="info-number">{number}</span>
+                <h2>{title}</h2>
+                <p>{text}</p>
+              </article>
+            ))}
+          </section>
+          <section className="shell info-faq" aria-labelledby="faq-title">
+            <h2 id="faq-title">{locale === "fi" ? "Usein kysyttyä" : "Common questions"}</h2>
+            <details>
+              <summary>{locale === "fi" ? "Voinko maksaa käteisellä?" : "Can I pay with cash?"}</summary>
+              <p>{locale === "fi" ? "Maksutavasta sovitaan noudon tai toimituksen yhteydessä." : "Payment is arranged at pickup or delivery."}</p>
+            </details>
+            <details>
+              <summary>{locale === "fi" ? "Mitä jos sää muuttaa poimintaa?" : "What if weather changes the harvest?"}</summary>
+              <p>{locale === "fi" ? "Ilmoitamme mahdollisesta päivämäärän muutoksesta viestillä." : "We will message you if the fulfillment date needs to change."}</p>
+            </details>
+          </section>
+          <InfoCta locale={locale} title={t.ctaTitle} label={t.cta} />
+        </>
+      )}
+      {kind === "reviews" && (
+        <>
+          <section className="shell info-hero" aria-labelledby="info-title">
+            <p className="eyebrow">{t.eyebrow}</p>
+            <h1 id="info-title">{t.title}</h1>
+            <p>{t.intro}</p>
+          </section>
+          <section className="shell review-trust-summary" aria-label={locale === "fi" ? "Luottamustiedot" : "Trust information"}>
+            <strong>
+              {publishedReviews.length
+                ? `${(publishedReviews.reduce((sum, review) => sum + review.rating, 0) / publishedReviews.length).toFixed(1)} / 5`
+                : locale === "fi" ? "Arvosteluja tulossa" : "Reviews coming soon"}
+            </strong>
+            <span>
+              {publishedReviews.length
+                ? `${publishedReviews.length} ${locale === "fi" ? "julkaistua asiakasarvostelua" : "published customer reviews"}`
+                : locale === "fi" ? "Ensimmäiset kokemukset julkaistaan tarkistuksen jälkeen." : "The first experiences will be published after moderation."}
+            </span>
+          </section>
+          <section className="shell review-grid" aria-label={t.title}>
+            {publishedReviews.length === 0 ? (
+              <p className="profile-muted">{locale === "fi" ? "Arvosteluja ei ole vielä julkaistu." : "No reviews have been published yet."}</p>
+            ) : (
+              publishedReviews.map((review) => (
+                <article className="review-card" key={review.id}>
+                  <div className="review-card-head">
+                    <h2>{review.displayName}</h2>
+                    <span className="review-stars" aria-label={`${review.rating} stars`}>
+                      {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
+                    </span>
+                  </div>
+                  <p className="review-quote">“{review.displayText || review.originalText}”</p>
+                </article>
+              ))
+            )}
+          </section>
+          <section className="shell review-invite">
+            <p className="eyebrow">{locale === "fi" ? "Palaute" : "Your voice"}</p>
+            <h2>{t.formTitle}</h2>
+            <p>{t.formText}</p>
+            <ReviewForm locale={locale} />
+          </section>
+        </>
+      )}
+      {kind === "about" && (
+        <>
+          <section className="shell info-hero" aria-labelledby="info-title">
+            <p className="eyebrow">{t.eyebrow}</p>
+            <h1 id="info-title">{t.title}</h1>
+          </section>
+          <section className="shell story-card">
+            <p className="story-quote">“{t.quote}”</p>
+            <p className="story-body">{t.body}</p>
+            <div className="value-grid">
+              {t.values.map(([title, text]: [string, string], index: number) => (
+                <article className={index === 0 ? "value-card value-card-green" : "value-card value-card-gold"} key={title}>
+                  <h2>{title}</h2>
+                  <p>{text}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+          <section className="shell info-contact-card">
+            <p className="eyebrow">{locale === "fi" ? "Tarvitsetko apua?" : "Need a hand?"}</p>
+            <h2>{locale === "fi" ? "Varaa mieluummin viestillä" : "Prefer to message us?"}</h2>
+            <p>{locale === "fi" ? "Voit ottaa meihin yhteyttä WhatsAppilla, tekstiviestillä tai puhelimitse." : "Contact us by WhatsApp, SMS or phone if filling in the form feels difficult."}</p>
+            <div className="info-contact-actions">
+              {whatsappNumber && (
+                <a className="btn btn-secondary" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">
+                  WhatsApp
+                </a>
+              )}
+              {contactPhone && (
+                <>
+                  <a className="btn btn-secondary" href={`sms:${contactPhone}`}>
+                    {locale === "fi" ? "Lähetä tekstiviesti" : "Send SMS"}
+                  </a>
+                  <a className="btn btn-secondary" href={`tel:${contactPhone}`}>
+                    {locale === "fi" ? "Soita meille" : "Call us"}
+                  </a>
+                </>
+              )}
+              {contactEmail && (
+                <a className="text-link" href={`mailto:${contactEmail}`}>
+                  {contactEmail}
+                </a>
+              )}
+            </div>
+          </section>
+        </>
+      )}
+      <footer className="storefront-footer">
+        <div className="shell footer-grid">
+          <div>
+            <strong>METSÄNILO</strong>
+            <p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${new Date().getFullYear()}` : `From Satakunta forest to table · Season ${new Date().getFullYear()}`}</p>
+          </div>
+          <div>
+            <span>{locale === "fi" ? "Tutustu" : "Explore"}</span>
+            <Link href={`/${locale}/reserve`}>{nav.reserve}</Link>
+            {howItWorksVisible && <Link href={`/${locale}/how-it-works`}>{nav.how}</Link>}
+            {reviewsVisible && <Link href={`/${locale}/reviews`}>{nav.reviews}</Link>}
+            {aboutUsVisible && <Link href={`/${locale}/about`}>{nav.about}</Link>}
+          </div>
+          <div>
+            <span>{nav.contact}</span>
+            {contactPhone && <a href={`tel:${contactPhone}`}>{contactPhone}</a>}
+            {contactEmail && <a href={`mailto:${contactEmail}`}>{contactEmail}</a>}
+          </div>
+          <div>
+            <span>{locale === "fi" ? "Tietoa" : "Information"}</span>
+            <Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link>
+          </div>
+        </div>
+      </footer>
+      <Link className="mobile-reserve-cta" href={`/${locale}/reserve`}>
+        {nav.reserve}<span aria-hidden="true">→</span>
+      </Link>
+    </main>
+  );
 }
 
 function InfoCta({ locale, title, label }: { locale: Locale; title: string; label: string }) { return <section className="shell info-cta"><h2>{title}</h2><p>{locale === "fi" ? "Varaa marjat ennen kuin päivän satokapasiteetti täyttyy." : "Reserve your berries before daily harvest capacity is full."}</p><Link className="btn btn-accent" href={`/${locale}/reserve`}>{label}<span aria-hidden="true">→</span></Link></section>; }
