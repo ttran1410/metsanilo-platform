@@ -298,7 +298,7 @@ export async function moderateReview(
   database: Database,
   input: {
     id: string;
-    status: "APPROVED" | "REJECTED" | "HIDDEN" | "ARCHIVED";
+    status?: "APPROVED" | "REJECTED" | "HIDDEN" | "ARCHIVED";
     displayText?: string;
     reason?: string;
     rejectionReason?: "SPAM" | "PROFANITY" | "UNRELATED" | "COMPETITOR" | "OTHER";
@@ -314,26 +314,35 @@ export async function moderateReview(
   });
 
   if (!current) throw new DomainError("NOT_FOUND", "Review not found", 404);
-  if (input.status === "APPROVED" && !current.publicationAcknowledgement) {
+
+  const targetStatus = input.status ?? current.status;
+
+  if (targetStatus === "APPROVED" && !current.publicationAcknowledgement) {
     throw new DomainError("VALIDATION_ERROR", "Publication acknowledgement is required before approving", 422);
+  }
+
+  if (input.featured && targetStatus !== "APPROVED") {
+    throw new DomainError("VALIDATION_ERROR", "Only approved reviews can be featured on homepage", 422);
   }
 
   const timestamp = now();
   const verifiedBuyer = input.verifiedBuyer !== undefined ? input.verifiedBuyer : current.verifiedBuyer;
+  const isFeatured = targetStatus === "APPROVED" ? (input.featured !== undefined ? Boolean(input.featured) : current.featured) : false;
+  const featuredUntil = targetStatus === "APPROVED" ? (input.featuredUntil !== undefined ? input.featuredUntil || null : current.featuredUntil) : null;
 
   await database
     .update(reviews)
     .set({
-      status: input.status,
+      status: targetStatus,
       displayText: input.displayText !== undefined ? input.displayText.trim() : current.displayText,
       moderationReason: input.reason?.trim() || current.moderationReason,
-      rejectionReason: input.status === "REJECTED" ? input.rejectionReason || "OTHER" : null,
+      rejectionReason: targetStatus === "REJECTED" ? input.rejectionReason || "OTHER" : null,
       verifiedBuyer,
       verificationType: verifiedBuyer && current.verificationType === "UNVERIFIED" ? "STAFF_MANUAL" : current.verificationType,
       moderatedBy: input.actor,
       moderatedAt: timestamp,
-      featured: input.status === "APPROVED" ? Boolean(input.featured) : false,
-      featuredUntil: input.status === "APPROVED" ? input.featuredUntil || null : null,
+      featured: isFeatured,
+      featuredUntil,
       updatedAt: timestamp,
     })
     .where(eq(reviews.id, input.id));
@@ -342,13 +351,13 @@ export async function moderateReview(
     id: randomUUID(),
     shopId: SHOP_ID,
     actor: input.actor,
-    action: `review.${input.status.toLowerCase()}`,
+    action: `review.${targetStatus.toLowerCase()}`,
     entityType: "review",
     entityId: input.id,
     detailsJson: JSON.stringify({
       reason: input.reason ?? null,
       rejectionReason: input.rejectionReason ?? null,
-      featured: Boolean(input.featured),
+      featured: isFeatured,
     }),
     createdAt: timestamp,
   });
