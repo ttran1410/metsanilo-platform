@@ -16,6 +16,7 @@ type DashboardData = {
     createdAt: string;
     ageMinutes: number;
     mobile: string | null;
+    email?: string | null;
     facebookProfile?: string | null;
     version?: number;
   }>;
@@ -282,10 +283,12 @@ export function DashboardModule() {
                       <a
                         href={`tel:${item.mobile}`}
                         className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold"
+                        title={`Call ${item.mobile}`}
                       >
                         📞 Call
                       </a>
-                    ) : item.facebookProfile ? (
+                    ) : null}
+                    {item.facebookProfile ? (
                       <a
                         href={
                           item.facebookProfile.startsWith("http")
@@ -295,10 +298,21 @@ export function DashboardModule() {
                         target="_blank"
                         rel="noreferrer"
                         className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100"
+                        title={`Open Facebook Profile (${item.facebookProfile})`}
                       >
                         💬 FB Profile
                       </a>
-                    ) : (
+                    ) : null}
+                    {item.email && item.email.trim() ? (
+                      <a
+                        href={`mailto:${item.email}`}
+                        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold text-slate-700 bg-slate-100 border-slate-300 hover:bg-slate-200"
+                        title={`Email ${item.email}`}
+                      >
+                        ✉️ Email
+                      </a>
+                    ) : null}
+                    {!item.mobile && !item.facebookProfile && !item.email && (
                       <span className="text-[11px] px-2 py-1 muted font-semibold">No contact</span>
                     )}
                   </div>
