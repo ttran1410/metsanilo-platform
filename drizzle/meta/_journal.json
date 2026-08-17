@@ -204,6 +204,13 @@
       "when": 1786958551569,
       "tag": "0028_familiar_serpent_society",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1786960270378,
+      "tag": "0029_giant_scream",
+      "breakpoints": true
     }
   ]
 }

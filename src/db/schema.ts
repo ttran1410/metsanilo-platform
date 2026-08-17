@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const shops = sqliteTable("shops", {
   id: text("id").primaryKey(),
@@ -18,6 +18,9 @@ export const shops = sqliteTable("shops", {
     contactEmail: text("contact_email").notNull().default(""),
     contactHours: text("contact_hours").notNull().default(""),
     reviewsVisible: integer("reviews_visible", { mode: "boolean" }).notNull().default(true),
+    ratingAvg: real("rating_avg").notNull().default(5.0),
+    reviewCount: integer("review_count").notNull().default(0),
+    starDistributionJson: text("star_distribution_json").notNull().default('{"5":0,"4":0,"3":0,"2":0,"1":0}'),
 });
 
 export const orderSources = sqliteTable("order_sources", {
@@ -87,11 +90,17 @@ export const reviews = sqliteTable(
     publicationAcknowledgement: integer("publication_acknowledgement", { mode: "boolean" }).notNull().default(false),
     acknowledgementSource: text("acknowledgement_source", { enum: ["PUBLIC_FORM", "SMS", "WHATSAPP", "PHONE", "OTHER"] }),
     acknowledgedAt: text("acknowledged_at"),
+    verifiedBuyer: integer("verified_buyer", { mode: "boolean" }).notNull().default(false),
+    verificationType: text("verification_type", { enum: ["DIGITAL_ORDER", "HISTORICAL_MATCH", "STAFF_MANUAL", "UNVERIFIED"] }).notNull().default("UNVERIFIED"),
     featured: integer("featured", { mode: "boolean" }).notNull().default(false),
     featuredUntil: text("featured_until"),
     moderationReason: text("moderation_reason"),
+    rejectionReason: text("rejection_reason", { enum: ["SPAM", "PROFANITY", "UNRELATED", "COMPETITOR", "OTHER"] }),
     moderatedBy: text("moderated_by"),
     moderatedAt: text("moderated_at"),
+    sellerReplyText: text("seller_reply_text"),
+    sellerRepliedAt: text("seller_replied_at"),
+    sellerRepliedBy: text("seller_replied_by"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
