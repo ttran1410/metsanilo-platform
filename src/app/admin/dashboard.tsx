@@ -519,13 +519,18 @@ export function DashboardModule() {
 
       {/* 7. LIVE SECURITY AUDIT FEED */}
       <div className="card p-4 md:p-5 flex flex-col gap-3">
-        <div className="border-b border-line pb-2">
-          <span className="eyebrow">SECURITY AUDIT</span>
-          <h3 className="text-base font-bold text-ink">Recent Operations Activity Feed</h3>
+        <div className="flex items-center justify-between border-b border-line pb-2">
+          <div>
+            <span className="eyebrow text-primary">IMMUTABLE LOG</span>
+            <h3 className="text-base font-bold text-ink">Recent Security Activity</h3>
+          </div>
+          <Link className="btn btn-secondary text-xs py-1 px-3 font-bold flex items-center gap-1" href="/admin/audit">
+            🛡️ Open Security Audit Hub →
+          </Link>
         </div>
 
         <div className="divide-y divide-line">
-          {data.activity.map((event) => (
+          {data.activity.slice(0, 5).map((event) => (
             <div key={event.id} className="py-2.5 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-primary" />
@@ -536,6 +541,9 @@ export function DashboardModule() {
             </div>
           ))}
 
+          {data.activity.length === 0 && (
+            <p className="py-4 text-xs muted italic text-center">No security audit entries recorded.</p>
+          )}
         </div>
       </div>
 

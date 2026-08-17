@@ -40,6 +40,7 @@ function NavIcon({ id }: { id: string }) {
     case "customers": return <Users {...props} />;
     case "products": return <Package {...props} />;
     case "settings": return <Settings {...props} />;
+    case "audit": return <Shield {...props} />;
     default: return <Shield {...props} />;
   }
 }

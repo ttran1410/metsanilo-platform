@@ -26,5 +26,6 @@ export async function adminNavigation(request: Request) {
     { id: "products", label: "Product catalog", group: "Catalog & customers", enabled: await hasAdminPermission(request, "catalog.product.read") },
     { id: "settings", label: "Settings", group: "Administration", enabled: await hasAdminPermission(request, "settings.read") },
     { id: "users", label: "Users & permissions", group: "Administration", enabled: await hasAdminPermission(request, "shop_users.read") },
+    { id: "audit", label: "Security & audit", group: "Administration", enabled: await hasAdminPermission(request, "audit.read") },
   ];
 }
