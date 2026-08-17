@@ -69,7 +69,7 @@ export async function getPublicCatalog(database: Database) {
         or(sql`${availability.id} IS NULL`, and(lte(products.availableFrom, availability.businessDate), gte(products.availableThrough, availability.businessDate))),
       ),
     )
-    .orderBy(asc(products.sortOrder), asc(availability.businessDate));
+    .orderBy(asc(products.sortOrder), asc(products.nameFi), asc(availability.businessDate));
   const media = await database.select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments).innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId)).where(and(eq(mediaAttachments.shopId, SHOP_ID), eq(mediaAssets.active, true))).orderBy(asc(mediaAttachments.sortOrder));
   return { shop, rows, media: media.map((row) => ({ ...row.asset, productId: row.attachment.productId, sortOrder: row.attachment.sortOrder, isPrimary: row.attachment.isPrimary })) };
 }
