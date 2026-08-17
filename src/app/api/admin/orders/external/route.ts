@@ -10,5 +10,17 @@ const command = z.object({ productId: z.string(), packageId: z.string(), quantit
 
 
 export async function POST(request: Request) {
-  try { await requirePermission(db(), request, "orders.create"); const parsed = command.safeParse(await request.json()); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid external order", 422); return success(await createExternalOrder(db(), parsed.data), 201); } catch (error) { return failure(error); }
+  try {
+    await requirePermission(db(), request, "orders.create");
+    const parsed = command.safeParse(await request.json());
+    if (!parsed.success) {
+      const fieldErrors = Object.fromEntries(
+        parsed.error.issues.map((issue) => [String(issue.path[0] ?? "form"), issue.message]),
+      );
+      throw new DomainError("VALIDATION_ERROR", "Invalid external order payload", 422, fieldErrors);
+    }
+    return success(await createExternalOrder(db(), parsed.data), 201);
+  } catch (error) {
+    return failure(error);
+  }
 }

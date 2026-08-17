@@ -14,6 +14,15 @@ export function failure(error: unknown) {
       { status: error.status },
     );
   }
-  console.error("Request failed", { correlationId, error: error instanceof Error ? error.message : "unknown" });
-  return NextResponse.json({ code: "INTERNAL_ERROR", message: "Request failed", correlationId }, { status: 500 });
+  const errorMessage = error instanceof Error ? error.message : String(error ?? "Unknown error");
+  console.error("Request failed", { correlationId, error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
+  return NextResponse.json(
+    {
+      code: "INTERNAL_ERROR",
+      message: errorMessage || "Request failed",
+      detail: error instanceof Error ? error.stack : errorMessage,
+      correlationId,
+    },
+    { status: 500 },
+  );
 }

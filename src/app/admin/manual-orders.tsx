@@ -152,7 +152,8 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
     const body = await response.json();
     if (!response.ok) {
       if (body.details?.mobile || body.fieldErrors?.mobile) setMobileError("Enter a valid mobile number, for example 040 123 4567.");
-      return setMessage(body.message ?? body.code ?? "Request failed");
+      const fieldDetails = body.fieldErrors ? ` (${Object.entries(body.fieldErrors).map(([k, v]) => `${k}: ${v}`).join(", ")})` : "";
+      return setMessage(`${body.message ?? body.code ?? "Request failed"}${fieldDetails}`);
     }
     const createdId = body.data?.id ?? body.data?.order?.id;
     router.push(`/admin/orders${createdId ? `?created=${encodeURIComponent(createdId)}` : ""}`);
