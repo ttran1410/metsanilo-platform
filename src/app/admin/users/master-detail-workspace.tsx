@@ -202,6 +202,8 @@ export function MasterDetailUserWorkspace({
   const [selectedId, setSelectedId] = useState<string>(initialUsers[0]?.id ?? "");
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"ALL" | Role>("ALL");
+  const [viewMode, setViewMode] = useState<"split" | "table">("split");
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
 
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [audit, setAudit] = useState<AuditItem[]>([]);
@@ -211,6 +213,17 @@ export function MasterDetailUserWorkspace({
   const [showWizard, setShowWizard] = useState(false);
   const [createdInfo, setCreatedInfo] = useState<{ user: any; tempPassword: string } | null>(null);
 
+  const metrics = useMemo(() => {
+    const total = usersList.length;
+    const adminManagers = usersList.filter((u) => u.role === "ADMIN" || u.role === "MANAGER").length;
+    const staffPickers = usersList.filter((u) => u.role === "STAFF" || u.role === "CONTENT_CREATOR").length;
+    const customOverrides = usersList.filter(
+      (u) => (u.customOverrides?.granted?.length ?? 0) > 0 || (u.customOverrides?.revoked?.length ?? 0) > 0
+    ).length;
+
+    return { total, adminManagers, staffPickers, customOverrides };
+  }, [usersList]);
+
   const selectedUser = useMemo(() => {
     return usersList.find((u) => u.id === selectedId) ?? usersList[0];
   }, [usersList, selectedId]);
@@ -218,6 +231,7 @@ export function MasterDetailUserWorkspace({
   // Load user sessions & audit
   async function loadUserExtras(id: string) {
     setSelectedId(id);
+    setMobileView("detail");
     try {
       const response = await fetch(`/api/admin/users/${id}`);
       const body = await response.json();
@@ -245,6 +259,9 @@ export function MasterDetailUserWorkspace({
   }
 
   // Filter Master Roster
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
+
   const filteredUsers = useMemo(() => {
     return usersList.filter((u) => {
       const text = `${u.displayName} ${u.email ?? ""} ${u.role}`.toLowerCase();
@@ -253,6 +270,12 @@ export function MasterDetailUserWorkspace({
       return matchesSearch && matchesRole;
     });
   }, [usersList, searchQuery, roleFilter]);
+
+  const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [filteredUsers, currentPage, pageSize]);
 
   // Grant / Revoke Permission Override
   async function handleGrantPermission(permission: Permission, granted: boolean) {
@@ -378,125 +401,398 @@ export function MasterDetailUserWorkspace({
     (selectedUser.role === "STAFF" || selectedUser.role === "CONTENT_CREATOR");
 
   return (
-    <section className="shell pb-10 flex flex-col gap-3">
+    <section className="shell pb-10 flex flex-col gap-4">
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
-      {/* MASTER-DETAIL SPLIT WORKSPACE GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* LEFT MASTER SIDEBAR (4 Cols) */}
-        <aside className="lg:col-span-4 card p-4 flex flex-col gap-3 max-h-[85vh] sticky top-4">
-          <div className="flex items-center justify-between border-b border-line pb-2.5">
-            <div>
-              <span className="eyebrow text-primary">TEAM ROSTER</span>
-              <h2 className="text-base font-bold text-ink">User Directory ({filteredUsers.length})</h2>
+      {/* TOP KPI METRICS SUMMARY BAR */}
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4 my-1">
+        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
+          <span className="eyebrow text-muted text-[10px]">TOTAL TEAM</span>
+          <p className="text-2xl font-black text-ink mt-1">{metrics.total} <span className="text-xs font-normal muted">users</span></p>
+          <span className="text-[11px] text-primary font-semibold mt-1">Active Roster</span>
+        </div>
+
+        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
+          <span className="eyebrow text-muted text-[10px]">ADMIN & MANAGER</span>
+          <p className="text-2xl font-black text-purple-950 mt-1">{metrics.adminManagers} <span className="text-xs font-normal text-purple-700">execs</span></p>
+          <span className="text-[11px] text-purple-800 font-semibold mt-1">Full Executive Access</span>
+        </div>
+
+        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
+          <span className="eyebrow text-muted text-[10px]">STAFF & CREATORS</span>
+          <p className="text-2xl font-black text-emerald-950 mt-1">{metrics.staffPickers} <span className="text-xs font-normal text-emerald-700">ops</span></p>
+          <span className="text-[11px] text-emerald-800 font-semibold mt-1">Operations & Content</span>
+        </div>
+
+        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
+          <span className="eyebrow text-muted text-[10px]">CUSTOM OVERRIDES</span>
+          <p className="text-2xl font-black text-amber-950 mt-1">{metrics.customOverrides} <span className="text-xs font-normal text-amber-700">custom</span></p>
+          <span className="text-[11px] text-amber-800 font-semibold mt-1">Granted/Revoked RBAC</span>
+        </div>
+      </div>
+
+      {/* DUAL WORKSPACE VIEW SWITCHER & ONBOARD ACTION */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-muted p-2.5 rounded-xl border border-line">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={`btn text-xs px-3.5 py-1.5 font-bold transition-all ${
+              viewMode === "split" ? "bg-primary text-white shadow-xs" : "btn-secondary"
+            }`}
+            onClick={() => setViewMode("split")}
+          >
+            🔍 Split Inspector View
+          </button>
+
+          <button
+            type="button"
+            className={`btn text-xs px-3.5 py-1.5 font-bold transition-all ${
+              viewMode === "table" ? "bg-primary text-white shadow-xs" : "btn-secondary"
+            }`}
+            onClick={() => setViewMode("table")}
+          >
+            📋 Table Matrix View
+          </button>
+        </div>
+
+        {canManageUsers && (
+          <button
+            type="button"
+            className="btn bg-emerald-700 hover:bg-emerald-800 text-white text-xs py-1.5 px-3 font-bold shadow-xs"
+            onClick={() => setShowWizard(true)}
+          >
+            ＋ Onboard User
+          </button>
+        )}
+      </div>
+
+      {/* WORKSPACE CONTENT AREA */}
+      {viewMode === "table" ? (
+        /* TABLE MATRIX VIEW */
+        <div className="card p-4 overflow-x-auto border border-line">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3 mb-3">
+            <div className="flex items-center gap-2 flex-1 max-w-md">
+              <input
+                placeholder="Search user, email, or role…"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
+              />
+
+              <select
+                aria-label="Filter role"
+                value={roleFilter}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value as any);
+                  setCurrentPage(1);
+                }}
+                className="text-xs py-1.5 px-2 rounded-lg border border-line bg-surface font-semibold"
+              >
+                <option value="ALL">All Roles</option>
+                <option value="ADMIN">ADMIN</option>
+                <option value="MANAGER">MANAGER</option>
+                <option value="STAFF">STAFF</option>
+                <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
+              </select>
             </div>
 
-            {canManageUsers && (
-              <button
-                type="button"
-                className="btn text-xs py-1.5 px-3 font-bold"
-                onClick={() => setShowWizard(true)}
-              >
-                ＋ Onboard User
-              </button>
-            )}
+            <span className="text-xs muted font-semibold">Showing {filteredUsers.length} team members</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              placeholder="Search user, email, or role…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
-            />
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-line text-muted font-bold uppercase text-[10px] tracking-wider">
+                <th className="pb-3 pt-1 px-3">Team Member</th>
+                <th className="pb-3 pt-1 px-3">Role</th>
+                <th className="pb-3 pt-1 px-3">Account Status</th>
+                <th className="pb-3 pt-1 px-3">RBAC Overrides</th>
+                <th className="pb-3 pt-1 px-3 text-right">Quick Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {paginatedUsers.map((u) => {
+                const grantedCount = u.customOverrides?.granted?.length ?? 0;
+                const revokedCount = u.customOverrides?.revoked?.length ?? 0;
+                const hasOverrides = grantedCount > 0 || revokedCount > 0;
 
-            <select
-              aria-label="Filter role"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as any)}
-              className="text-xs py-1.5 px-2 rounded-lg border border-line bg-surface font-semibold"
-            >
-              <option value="ALL">All Roles</option>
-              <option value="ADMIN">ADMIN</option>
-              <option value="MANAGER">MANAGER</option>
-              <option value="STAFF">STAFF</option>
-              <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
-            </select>
-          </div>
+                return (
+                  <tr key={u.id} className="hover:bg-surface-muted/60 transition-colors">
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary shrink-0">
+                          {u.displayName.slice(0, 1).toUpperCase()}
+                        </div>
+                        <div>
+                          <strong className="text-ink font-bold block">{u.displayName}</strong>
+                          <span className="muted text-[11px]">{u.email ?? "No email"}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span
+                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                          u.role === "ADMIN"
+                            ? "bg-purple-100 text-purple-900 border-purple-300"
+                            : u.role === "MANAGER"
+                            ? "bg-blue-100 text-blue-900 border-blue-300"
+                            : u.role === "STAFF"
+                            ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                            : "bg-surface-muted text-ink/80 border-line"
+                        }`}
+                      >
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      {u.active === false ? (
+                        <span className="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-300">
+                          Suspended
+                        </span>
+                      ) : u.mustChangePassword ? (
+                        <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-300">
+                          Must Reset Password
+                        </span>
+                      ) : (
+                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-300">
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3">
+                      {hasOverrides ? (
+                        <div className="flex items-center gap-1.5">
+                          {grantedCount > 0 && (
+                            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-200">
+                              +{grantedCount} Granted
+                            </span>
+                          )}
+                          {revokedCount > 0 && (
+                            <span className="bg-rose-50 text-rose-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-rose-200">
+                              -{revokedCount} Revoked
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[11px] muted">Role Defaults ({u.permissions.length})</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-secondary text-xs py-1 px-2.5 font-bold"
+                          onClick={() => {
+                            void loadUserExtras(u.id);
+                            setViewMode("split");
+                          }}
+                        >
+                          Inspect RBAC 🔍
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredUsers.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center muted italic">
+                    No team members match search query.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
 
-          {/* USER ROSTER LIST */}
-          <div className="overflow-y-auto flex flex-col divide-y divide-line pr-1 border border-line rounded-xl">
-            {filteredUsers.map((u) => {
-              const isSelected = u.id === selectedUser?.id;
+          {filteredUsers.length > pageSize && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs pt-3 border-t border-line mt-3">
+              <span className="muted font-medium">
+                Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> – <strong>{Math.min(currentPage * pageSize, filteredUsers.length)}</strong> of <strong>{filteredUsers.length}</strong> members
+              </span>
 
-              return (
+              <div className="flex items-center gap-1.5">
                 <button
-                  key={u.id}
                   type="button"
-                  onClick={() => void loadUserExtras(u.id)}
-                  className={`p-3 text-left transition-colors flex items-center justify-between gap-3 ${
-                    isSelected ? "bg-primary/5 font-bold" : "hover:bg-surface-muted"
-                  }`}
+                  disabled={currentPage <= 1}
+                  className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-surface-muted border border-line flex items-center justify-center font-bold text-xs text-primary shrink-0">
-                      {u.displayName.slice(0, 1).toUpperCase()}
-                    </div>
-                    <div className="truncate">
-                      <strong className="text-ink text-xs block truncate font-bold">{u.displayName}</strong>
-                      <span className="muted text-[11px] block truncate">{u.email ?? "No email"}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end shrink-0 gap-1">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        u.role === "ADMIN"
-                          ? "bg-purple-100 text-purple-900 border-purple-300"
-                          : u.role === "MANAGER"
-                          ? "bg-blue-100 text-blue-900 border-blue-300"
-                          : u.role === "STAFF"
-                          ? "bg-emerald-100 text-emerald-900 border-emerald-300"
-                          : "bg-surface-muted text-ink/80 border-line"
-                      }`}
-                    >
-                      {u.role}
-                    </span>
-                    {u.active === false && (
-                      <span className="text-[10px] text-danger font-bold">Suspended</span>
-                    )}
-                  </div>
+                  ← Previous
                 </button>
-              );
-            })}
 
-            {filteredUsers.length === 0 && (
-              <p className="p-6 text-center text-xs muted italic">No users found.</p>
+                <span className="px-2.5 py-1 font-bold text-ink bg-surface-muted rounded-md border border-line">
+                  {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* MASTER-DETAIL SPLIT WORKSPACE GRID */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* LEFT MASTER SIDEBAR (4 Cols) */}
+          <aside className={`lg:col-span-4 card p-4 flex flex-col gap-3 max-h-[85vh] sticky top-4 ${
+            mobileView === "detail" ? "hidden lg:flex" : "flex"
+          }`}>
+            <div className="flex items-center justify-between border-b border-line pb-2.5">
+              <div>
+                <span className="eyebrow text-primary">TEAM ROSTER</span>
+                <h2 className="text-base font-bold text-ink">User Directory ({filteredUsers.length})</h2>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                placeholder="Search user, email, or role…"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
+              />
+
+              <select
+                aria-label="Filter role"
+                value={roleFilter}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value as any);
+                  setCurrentPage(1);
+                }}
+                className="text-xs py-1.5 px-2 rounded-lg border border-line bg-surface font-semibold"
+              >
+                <option value="ALL">All Roles</option>
+                <option value="ADMIN">ADMIN</option>
+                <option value="MANAGER">MANAGER</option>
+                <option value="STAFF">STAFF</option>
+                <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
+              </select>
+            </div>
+
+            {/* USER ROSTER LIST */}
+            <div className="overflow-y-auto flex flex-col divide-y divide-line pr-1 border border-line rounded-xl flex-1">
+              {paginatedUsers.map((u) => {
+                const isSelected = u.id === selectedUser?.id;
+
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => void loadUserExtras(u.id)}
+                    className={`p-3 text-left transition-colors flex items-center justify-between gap-3 ${
+                      isSelected ? "bg-primary/5 font-bold" : "hover:bg-surface-muted"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-surface-muted border border-line flex items-center justify-center font-bold text-xs text-primary shrink-0">
+                        {u.displayName.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="truncate">
+                        <strong className="text-ink text-xs block truncate font-bold">{u.displayName}</strong>
+                        <span className="muted text-[11px] block truncate">{u.email ?? "No email"}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end shrink-0 gap-1">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          u.role === "ADMIN"
+                            ? "bg-purple-100 text-purple-900 border-purple-300"
+                            : u.role === "MANAGER"
+                            ? "bg-blue-100 text-blue-900 border-blue-300"
+                            : u.role === "STAFF"
+                            ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+                            : "bg-surface-muted text-ink/80 border-line"
+                        }`}
+                      >
+                        {u.role}
+                      </span>
+                      {u.active === false && (
+                        <span className="text-[10px] text-danger font-bold">Suspended</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+
+              {filteredUsers.length === 0 && (
+                <p className="p-6 text-center text-xs muted italic">No users found.</p>
+              )}
+            </div>
+
+            {/* SIDEBAR MINI PAGINATION CONTROLS */}
+            {filteredUsers.length > pageSize && (
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-line text-[11px]">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  className="btn btn-secondary text-[11px] py-1 px-2 disabled:opacity-40"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  ← Prev
+                </button>
+
+                <span className="font-bold text-ink">
+                  {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  className="btn btn-secondary text-[11px] py-1 px-2 disabled:opacity-40"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next →
+                </button>
+              </div>
             )}
-          </div>
-        </aside>
+          </aside>
 
-        {/* RIGHT DETAIL WORKSPACE (8 Cols) */}
-        {selectedUser ? (
-          <main className="lg:col-span-8 flex flex-col gap-4">
-            {/* USER OVERVIEW CARD */}
-            <div className="card p-5 flex flex-col gap-4">
-              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center text-lg font-black text-primary">
-                    {selectedUser.displayName.slice(0, 1).toUpperCase()}
-                  </div>
+          {/* RIGHT DETAIL WORKSPACE (8 Cols) */}
+          {selectedUser ? (
+            <main className={`lg:col-span-8 flex flex-col gap-4 ${
+              mobileView === "list" ? "hidden lg:flex" : "flex"
+            }`}>
+              {/* Mobile Back Header */}
+              <div className="lg:hidden">
+                <button
+                  type="button"
+                  className="btn btn-secondary text-xs px-3.5 py-2 font-bold flex items-center gap-1.5 w-full justify-center"
+                  onClick={() => setMobileView("list")}
+                >
+                  ← Back to Team Roster List
+                </button>
+              </div>
 
-                  <div>
-                    <span className="eyebrow text-primary">USER ACCESS PROFILE</span>
-                    <h2 className="text-xl font-bold text-ink">{selectedUser.displayName}</h2>
-                    <p className="text-xs muted">
-                      {selectedUser.email ?? "No email registered"} · Joined{" "}
-                      {selectedUser.createdAt?.slice(0, 10) ?? "Earlier"}
-                    </p>
+              {/* USER OVERVIEW CARD */}
+              <div className="card p-5 flex flex-col gap-4">
+                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center text-lg font-black text-primary">
+                      {selectedUser.displayName.slice(0, 1).toUpperCase()}
+                    </div>
+
+                    <div>
+                      <span className="eyebrow text-primary">USER ACCESS PROFILE</span>
+                      <h2 className="text-xl font-bold text-ink">{selectedUser.displayName}</h2>
+                      <p className="text-xs muted">
+                        {selectedUser.email ?? "No email registered"} · Joined{" "}
+                        {selectedUser.createdAt?.slice(0, 10) ?? "Earlier"}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
                 <div className="flex flex-wrap items-center gap-2">
                   {canManageUsers && (
@@ -721,6 +1017,7 @@ export function MasterDetailUserWorkspace({
           </main>
         )}
       </div>
+    )}
 
       {/* 60-SECOND STAFF ONBOARDING WIZARD MODAL */}
       {showWizard && (
