@@ -2,7 +2,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { requirePermission } from "@/domain/access";
 import { createHistoricalOrder } from "@/domain/operations";
-import { DomainError } from "@/domain/errors";
+import { fromZodError } from "@/domain/errors";
 import { failure, success } from "../../../response";
 
 export const runtime = "nodejs";
@@ -13,12 +13,7 @@ export async function POST(request: Request) {
   try {
     await requirePermission(db(), request, "orders.create");
     const parsed = command.safeParse(await request.json());
-    if (!parsed.success) {
-      const fieldErrors = Object.fromEntries(
-        parsed.error.issues.map((issue) => [String(issue.path[0] ?? "form"), issue.message]),
-      );
-      throw new DomainError("VALIDATION_ERROR", "Invalid historical order payload", 422, fieldErrors);
-    }
+    if (!parsed.success) throw fromZodError(parsed.error, "Invalid historical order payload");
     return success(await createHistoricalOrder(db(), parsed.data), 201);
   } catch (error) {
     return failure(error);
