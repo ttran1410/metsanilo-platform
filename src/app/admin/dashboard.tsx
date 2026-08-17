@@ -84,6 +84,10 @@ export function DashboardModule() {
   const [alertsList, setAlertsList] = useState<Array<{ id: string; category: string; title: string; body: string; createdAt: string; orderId: string | null }>>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(false);
 
+  const [cashFlowInfoOpen, setCashFlowInfoOpen] = useState(false);
+  const [automationInfoOpen, setAutomationInfoOpen] = useState(false);
+  const [runningAutomation, setRunningAutomation] = useState(false);
+
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setRefreshing(true);
     try {
@@ -166,6 +170,24 @@ export function DashboardModule() {
     }
   }
 
+  async function handleRunAutomationNow() {
+    setRunningAutomation(true);
+    setActionNotice("");
+    try {
+      const response = await fetch("/api/admin/automation/run", { method: "POST" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message ?? "Could not run automation");
+      const p = body.data?.picking ?? 0;
+      const o = body.data?.overdueReminders ?? 0;
+      setActionNotice(`⚡ Automation executed: ${p} order(s) moved to picking shed, ${o} SLA overdue exception(s) checked.`);
+      void load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Automation trigger failed.");
+    } finally {
+      setRunningAutomation(false);
+    }
+  }
+
   if (error && !data)
     return (
       <section className="shell py-6">
@@ -185,13 +207,13 @@ export function DashboardModule() {
   const totalExceptions = data.overdueNew.length + data.unconfirmedDeliveryCount + (data.unreadNotifications > 0 ? 1 : 0);
 
   return (
-    <section id="dashboard" className="shell pb-10 flex flex-col gap-4">
+    <section id="dashboard" className="shell pt-2 pb-10 flex flex-col gap-6">
       {/* 1. CONTROL TOWER HEADER BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3 bg-surface p-4 rounded-2xl border">
         <div>
           <span className="eyebrow text-primary">OPERATIONS CONTROL TOWER — SATAKUNTA HUB</span>
           <h1 className="text-2xl font-bold text-ink">3-Second Operations Standup</h1>
-          <p className="text-xs muted font-semibold">
+          <p className="text-xs muted font-semibold mt-0.5">
             Real-time fulfillment funnel, physical volume gauges, and cash flow velocity.
           </p>
         </div>
@@ -379,11 +401,17 @@ export function DashboardModule() {
               <span className="text-primary ops-tabular">{data.volume.percentage}% Booked</span>
             </div>
 
-            {/* Visual Capacity Bar */}
-            <div className="w-full h-3 rounded-full bg-surface-muted border border-line overflow-hidden">
+            {/* Visual Capacity Bar - Fixed Dynamic Fill */}
+            <div className="w-full h-3.5 rounded-full bg-surface-muted border border-line overflow-hidden p-0.5 shadow-inner">
               <div
-                className="h-full bg-primary transition-all duration-500"
-                style={{ width: `${Math.min(100, data.volume.percentage)}%` }}
+                className={`h-full rounded-full transition-all duration-500 ${
+                  data.volume.percentage >= 95
+                    ? "bg-rose-600"
+                    : data.volume.percentage >= 80
+                    ? "bg-amber-500"
+                    : "bg-emerald-600"
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, data.volume.percentage))}%` }}
               />
             </div>
 
@@ -410,46 +438,75 @@ export function DashboardModule() {
 
         {/* FINANCIAL HEALTH & CASH FLOW (5 Cols) */}
         <div className="lg:col-span-5 card p-4 md:p-5 flex flex-col justify-between gap-3">
-          <div className="border-b border-line pb-2">
-            <span className="eyebrow">CASH FLOW VELOCITY</span>
-            <h3 className="text-base font-bold text-ink">Today&apos;s Revenue Breakdown</h3>
+          <div className="border-b border-line pb-2 flex items-center justify-between">
+            <div>
+              <span className="eyebrow">CASH FLOW VELOCITY</span>
+              <h3 className="text-base font-bold text-ink">Today&apos;s Revenue Breakdown</h3>
+            </div>
+
+            <button
+              type="button"
+              className="text-xs font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+              onClick={() => setCashFlowInfoOpen(true)}
+            >
+              ℹ️ Revenue Math
+            </button>
           </div>
 
-          <div className="flex flex-col gap-3 text-xs">
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-surface-muted border border-line">
-              <span>Gross Booked Revenue</span>
-              <strong className="text-sm font-bold text-ink ops-tabular">
-                {formatAdminMoney(data.financials.grossBookedCents)}
-              </strong>
+          <div className="flex flex-col gap-2.5 text-xs">
+            <div className="flex flex-col gap-0.5 p-2.5 rounded-xl bg-surface-muted border border-line">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-ink">Gross Booked Revenue</span>
+                <strong className="text-sm font-bold text-ink ops-tabular">
+                  {formatAdminMoney(data.financials.grossBookedCents)}
+                </strong>
+              </div>
+              <span className="text-[10px] muted">Total value of all active orders today</span>
             </div>
 
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-              <span className="font-bold text-emerald-900">🟢 Collected (MobilePay/Card)</span>
-              <strong className="text-sm font-bold text-emerald-900 ops-tabular">
-                {formatAdminMoney(data.financials.collectedCents)} ({data.financials.collectedPercentage}%)
-              </strong>
+            <div className="flex flex-col gap-0.5 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-emerald-900">🟢 Collected (MobilePay/Card)</span>
+                <strong className="text-sm font-bold text-emerald-900 ops-tabular">
+                  {formatAdminMoney(data.financials.collectedCents)} ({data.financials.collectedPercentage}%)
+                </strong>
+              </div>
+              <span className="text-[10px] text-emerald-800 font-medium">Pre-paid online / captured transactions</span>
             </div>
 
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50 border border-amber-200">
-              <span className="font-bold text-amber-900">🟡 Due at Stall / Pickup</span>
-              <strong className="text-sm font-bold text-amber-900 ops-tabular">
-                {formatAdminMoney(data.financials.outstandingCents)}
-              </strong>
+            <div className="flex flex-col gap-0.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-amber-900">🟡 Due at Stall / Pickup</span>
+                <strong className="text-sm font-bold text-amber-900 ops-tabular">
+                  {formatAdminMoney(data.financials.outstandingCents)}
+                </strong>
+              </div>
+              <span className="text-[10px] text-amber-800 font-medium">Pay-at-stall / cash pending completion</span>
             </div>
           </div>
 
           {/* Automation Event Widget */}
-          <div className="p-3 bg-surface-muted/60 rounded-xl border border-line flex items-center justify-between text-xs mt-1">
+          <div className="p-3 bg-surface-muted/80 rounded-xl border border-line flex items-center justify-between text-xs mt-1">
             <div>
-              <span className="font-bold text-ink block">⏰ Automation Status</span>
-              <span className="muted text-[11px]">Ready-check active</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-ink block">⏰ Automation Engine</span>
+                <button
+                  type="button"
+                  className="text-[11px] text-primary font-bold hover:underline cursor-pointer"
+                  onClick={() => setAutomationInfoOpen(true)}
+                >
+                  ℹ️ What does this do?
+                </button>
+              </div>
+              <span className="muted text-[11px]">Auto-cron active (Rollover &amp; SLA checks)</span>
             </div>
             <button
               type="button"
-              className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold"
-              onClick={() => void load()}
+              className="btn btn-secondary text-[11px] py-1 px-3 font-bold bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+              disabled={runningAutomation}
+              onClick={() => void handleRunAutomationNow()}
             >
-              ⚡ Run Now
+              {runningAutomation ? "Running…" : "⚡ Run Now"}
             </button>
           </div>
         </div>
@@ -632,6 +689,111 @@ export function DashboardModule() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. REVENUE MATH EXPLANATION MODAL */}
+      {cashFlowInfoOpen && (
+        <div
+          className="admin-command-backdrop"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setCashFlowInfoOpen(false);
+          }}
+        >
+          <div className="card p-5 max-w-md w-full bg-surface shadow-2xl rounded-2xl flex flex-col gap-4 text-xs">
+            <div className="flex items-center justify-between border-b border-line pb-2.5">
+              <h3 className="text-base font-bold text-ink">📊 Cash Flow Velocity Math</h3>
+              <button
+                type="button"
+                className="text-muted hover:text-ink text-lg font-bold"
+                onClick={() => setCashFlowInfoOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="p-3 bg-surface-muted rounded-xl border border-line flex flex-col gap-1">
+                <strong className="text-ink font-bold">1. Gross Booked Revenue</strong>
+                <p className="muted leading-relaxed">
+                  Sum total value of all active non-cancelled orders for today (`CONFIRMED`, `PICKING`, `READY`, `DONE`). Includes items subtotal + delivery fees.
+                </p>
+              </div>
+
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col gap-1">
+                <strong className="text-emerald-900 font-bold">2. 🟢 Collected (MobilePay / Card)</strong>
+                <p className="text-emerald-950 leading-relaxed">
+                  Realized revenue pre-paid online via MobilePay or credit card transactions captured directly into database payment records.
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex flex-col gap-1">
+                <strong className="text-amber-900 font-bold">3. 🟡 Due at Stall / Pickup (Outstanding)</strong>
+                <p className="text-amber-950 leading-relaxed">
+                  Outstanding balance registered as &quot;Pay at Stall&quot; (cash or MobilePay on pickup) for orders currently in progress that haven&apos;t been marked `DONE` yet.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="btn text-xs font-bold py-1.5 w-full mt-1"
+              onClick={() => setCashFlowInfoOpen(false)}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 10. AUTOMATION ENGINE EXPLANATION MODAL */}
+      {automationInfoOpen && (
+        <div
+          className="admin-command-backdrop"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setAutomationInfoOpen(false);
+          }}
+        >
+          <div className="card p-5 max-w-md w-full bg-surface shadow-2xl rounded-2xl flex flex-col gap-4 text-xs">
+            <div className="flex items-center justify-between border-b border-line pb-2.5">
+              <h3 className="text-base font-bold text-ink">⏰ Automated Operations Engine</h3>
+              <button
+                type="button"
+                className="text-muted hover:text-ink text-lg font-bold"
+                onClick={() => setAutomationInfoOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="p-3 bg-surface-muted rounded-xl border border-line flex flex-col gap-1">
+                <strong className="text-ink font-bold">⚙️ Picking Shed Rollover (Post 10:00 AM)</strong>
+                <p className="muted leading-relaxed">
+                  After 10:00 AM on harvest day, the engine automatically moves all `CONFIRMED` orders into `PICKING` (Packing Shed) so farm operators can start crating orders.
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex flex-col gap-1">
+                <strong className="text-amber-900 font-bold">🚨 15-Minute SLA Overdue Exception Check</strong>
+                <p className="text-amber-950 leading-relaxed">
+                  Scans for new unconfirmed orders older than 15 minutes and generates high-priority team alert notifications on the Dashboard Triage Ribbon.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-[11px] text-blue-900 font-medium">
+              💡 <em>Runs automatically via background cron timer, or click <strong>[⚡ Run Now]</strong> to trigger instantly.</em>
+            </div>
+
+            <button
+              type="button"
+              className="btn text-xs font-bold py-1.5 w-full"
+              onClick={() => setAutomationInfoOpen(false)}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
