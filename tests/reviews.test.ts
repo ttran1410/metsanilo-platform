@@ -202,4 +202,31 @@ describe("Review Engine & Social Proof Trust System", () => {
     expect(imported.verifiedBuyer).toBe(true);
     expect(imported.verificationType).toBe("STAFF_MANUAL");
   });
+
+  it("allows featuring an approved review without providing status parameter", async () => {
+    const rev = await createPublicReview(database, {
+      displayName: "Sari H.",
+      rating: 5,
+      originalText: "Erinomaisia marjoja, tilaan uudelleen!",
+      publicationAcknowledgement: true,
+      locale: "fi",
+    });
+
+    await moderateReview(database, {
+      id: rev.id,
+      status: "APPROVED",
+      actor: "admin@test.fi",
+    });
+
+    const featured = await moderateReview(database, {
+      id: rev.id,
+      featured: true,
+      featuredUntil: "2026-11-15T14:34:00.452Z",
+      actor: "admin@test.fi",
+    });
+
+    expect(featured.featured).toBe(true);
+    expect(featured.status).toBe("APPROVED");
+    expect(featured.featuredUntil).toBe("2026-11-15T14:34:00.452Z");
+  });
 });

@@ -76,10 +76,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    if (!parsed.data.status) {
-      return failure(new Error("Status is required for review moderation"));
-    }
-
     return success(
       await moderateReview(db(), {
         id: parsed.data.id,
