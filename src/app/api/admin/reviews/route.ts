@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { confirmManualReview, createManualReview, listManagerReviews, moderateReview, replyToReview } from "@/domain/reviews";
+import { confirmManualReview, createManualReview, linkReviewToCustomerOrOrder, listManagerReviews, moderateReview, replyToReview } from "@/domain/reviews";
 import { requirePermission } from "@/domain/access";
 import { failure, success } from "../../response";
 
@@ -10,6 +10,9 @@ export const runtime = "nodejs";
 
 const commandSchema = z.object({
   id: z.string().min(1),
+  action: z.enum(["moderate", "link_identity"]).optional(),
+  orderId: z.string().optional(),
+  customerId: z.string().optional(),
   status: z.enum(["APPROVED", "REJECTED", "HIDDEN", "ARCHIVED"]).optional(),
   displayText: z.string().max(2000).optional(),
   reason: z.string().max(500).optional(),
@@ -62,6 +65,18 @@ export async function PATCH(request: Request) {
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid review moderation payload"));
 
     const actorName = actor.email ?? actor.username ?? actor.id;
+
+    if (parsed.data.action === "link_identity" || (parsed.data.orderId !== undefined || parsed.data.customerId !== undefined)) {
+      return success(
+        await linkReviewToCustomerOrOrder(db(), {
+          reviewId: parsed.data.id,
+          orderId: parsed.data.orderId,
+          customerId: parsed.data.customerId,
+          verifiedBuyer: parsed.data.verifiedBuyer,
+          actor: actorName,
+        }),
+      );
+    }
 
     if (parsed.data.sellerReplyText !== undefined) {
       return success(await replyToReview(db(), { id: parsed.data.id, replyText: parsed.data.sellerReplyText, actor: actorName }));

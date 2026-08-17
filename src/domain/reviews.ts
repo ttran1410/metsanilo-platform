@@ -4,6 +4,7 @@ import type { Database } from "@/db/client";
 import { auditEntries, customers, orders, reviews, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
+import { normalizeEmail, normalizeMobile } from "./order-input";
 
 const now = () => new Date().toISOString();
 
@@ -156,15 +157,28 @@ export async function createPublicReview(
 
   if (input.contact && input.contact.trim().length > 2) {
     const queryTerm = input.contact.trim();
+    const cleanRef = queryTerm.replace(/^#/, "");
 
-    // Check orders by publicReference, mobile, or email
+    let normalizedMobile: string | null = null;
+    try {
+      normalizedMobile = normalizeMobile(queryTerm);
+    } catch {
+      /* ignore invalid phone format for general search */
+    }
+    const normalizedEmail = normalizeEmail(queryTerm);
+
+    // 1. Search orders by publicReference, mobile, email, or facebookProfile
     const orderMatch = await database.query.orders.findFirst({
       where: and(
         eq(orders.shopId, SHOP_ID),
         or(
           eq(orders.publicReference, queryTerm),
+          eq(orders.publicReference, cleanRef),
           eq(orders.mobile, queryTerm),
+          normalizedMobile ? eq(orders.mobile, normalizedMobile) : undefined,
           eq(orders.email, queryTerm),
+          normalizedEmail ? eq(orders.email, normalizedEmail) : undefined,
+          eq(orders.facebookProfile, queryTerm),
         ),
       ),
     });
@@ -175,11 +189,18 @@ export async function createPublicReview(
       verifiedBuyer = true;
       verificationType = "DIGITAL_ORDER";
     } else {
-      // Check customer table by mobile or email
+      // 2. Search customers by mobile, email, facebookProfile, or name
       const custMatch = await database.query.customers.findFirst({
         where: and(
           eq(customers.shopId, SHOP_ID),
-          or(eq(customers.mobile, queryTerm), eq(customers.email, queryTerm)),
+          or(
+            eq(customers.mobile, queryTerm),
+            normalizedMobile ? eq(customers.mobile, normalizedMobile) : undefined,
+            eq(customers.email, queryTerm),
+            normalizedEmail ? eq(customers.email, normalizedEmail) : undefined,
+            eq(customers.facebookProfile, queryTerm),
+            eq(customers.name, queryTerm),
+          ),
         ),
       });
 
@@ -187,6 +208,31 @@ export async function createPublicReview(
         customerId = custMatch.id;
         verifiedBuyer = true;
         verificationType = "HISTORICAL_MATCH";
+      } else {
+        // 3. Auto-create Customer in CRM if contact looks like valid Phone, Email, or FB profile
+        const isEmail = Boolean(normalizedEmail && queryTerm.includes("@"));
+        const isPhone = Boolean(normalizedMobile);
+        const isFb = queryTerm.includes("facebook.com/") || queryTerm.startsWith("@");
+
+        if (isEmail || isPhone || isFb) {
+          const newCustomerId = randomUUID();
+          await database.insert(customers).values({
+            id: newCustomerId,
+            shopId: SHOP_ID,
+            name: displayName,
+            mobile: normalizedMobile,
+            email: isEmail ? normalizedEmail : null,
+            facebookProfile: isFb ? queryTerm : null,
+            matchStatus: "ACTIVE",
+            notes: "Auto-created from storefront review submission.",
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+
+          customerId = newCustomerId;
+          verifiedBuyer = true;
+          verificationType = "HISTORICAL_MATCH";
+        }
       }
     }
   }
@@ -517,5 +563,115 @@ export async function setReviewsVisibility(database: Database, visible: boolean)
   const { SHOP_ID } = env();
   await database.update(shops).set({ reviewsVisible: visible }).where(eq(shops.id, SHOP_ID));
   return visible;
+}
+
+export async function linkReviewToCustomerOrOrder(
+  database: Database,
+  input: {
+    reviewId: string;
+    orderId?: string;
+    customerId?: string;
+    verifiedBuyer?: boolean;
+    actor: string;
+  },
+) {
+  const { SHOP_ID } = env();
+  const review = await database.query.reviews.findFirst({
+    where: and(eq(reviews.id, input.reviewId), eq(reviews.shopId, SHOP_ID)),
+  });
+
+  if (!review) throw new DomainError("NOT_FOUND", "Review not found", 404);
+
+  let targetOrderId = input.orderId ? input.orderId.trim() : review.orderId;
+  let targetCustomerId = input.customerId ? input.customerId.trim() : review.customerId;
+
+  if (input.orderId && input.orderId.trim()) {
+    const queryTerm = input.orderId.trim();
+    const cleanRef = queryTerm.replace(/^#/, "");
+    const orderMatch = await database.query.orders.findFirst({
+      where: and(
+        eq(orders.shopId, SHOP_ID),
+        or(
+          eq(orders.id, queryTerm),
+          eq(orders.publicReference, queryTerm),
+          eq(orders.publicReference, cleanRef),
+        ),
+      ),
+    });
+    if (orderMatch) {
+      targetOrderId = orderMatch.id;
+      if (!targetCustomerId && orderMatch.customerId) {
+        targetCustomerId = orderMatch.customerId;
+      }
+    }
+  }
+
+  if (input.customerId && input.customerId.trim()) {
+    const custMatch = await database.query.customers.findFirst({
+      where: and(eq(customers.id, input.customerId.trim()), eq(customers.shopId, SHOP_ID)),
+    });
+    if (custMatch) {
+      targetCustomerId = custMatch.id;
+    }
+  }
+
+  const verified = input.verifiedBuyer !== undefined ? input.verifiedBuyer : Boolean(targetOrderId || targetCustomerId);
+  const verificationType = verified
+    ? (targetOrderId ? "DIGITAL_ORDER" : "STAFF_MANUAL")
+    : "UNVERIFIED";
+
+  const timestamp = now();
+
+  await database
+    .update(reviews)
+    .set({
+      orderId: targetOrderId || null,
+      customerId: targetCustomerId || null,
+      verifiedBuyer: verified,
+      verificationType,
+      updatedAt: timestamp,
+    })
+    .where(eq(reviews.id, input.reviewId));
+
+  // Bi-directional CRM enrichment: update customer profile if missing contact fields
+  if (targetCustomerId && review.contact) {
+    const existingCust = await database.query.customers.findFirst({
+      where: and(eq(customers.id, targetCustomerId), eq(customers.shopId, SHOP_ID)),
+    });
+
+    if (existingCust) {
+      let normMobile: string | null = null;
+      try { normMobile = normalizeMobile(review.contact); } catch { /* ignore */ }
+      const normEmail = normalizeEmail(review.contact);
+      const isFb = review.contact.includes("facebook.com/") || review.contact.startsWith("@");
+
+      const updatePayload: Record<string, unknown> = { updatedAt: timestamp };
+      if (!existingCust.mobile && normMobile) updatePayload.mobile = normMobile;
+      if (!existingCust.email && normEmail && review.contact.includes("@")) updatePayload.email = normEmail;
+      if (!existingCust.facebookProfile && isFb) updatePayload.facebookProfile = review.contact;
+
+      if (Object.keys(updatePayload).length > 1) {
+        await database.update(customers).set(updatePayload).where(eq(customers.id, targetCustomerId));
+      }
+    }
+  }
+
+  await database.insert(auditEntries).values({
+    id: randomUUID(),
+    shopId: SHOP_ID,
+    actor: input.actor,
+    action: "review.identity_linked",
+    entityType: "review",
+    entityId: input.reviewId,
+    detailsJson: JSON.stringify({
+      orderId: targetOrderId ?? null,
+      customerId: targetCustomerId ?? null,
+      verifiedBuyer: verified,
+      verificationType,
+    }),
+    createdAt: timestamp,
+  });
+
+  return (await database.query.reviews.findFirst({ where: eq(reviews.id, input.reviewId) }))!;
 }
 
