@@ -19,8 +19,8 @@ export function failure(error: unknown) {
   return NextResponse.json(
     {
       code: "INTERNAL_ERROR",
-      message: errorMessage || "Request failed",
-      detail: error instanceof Error ? error.stack : errorMessage,
+      message: "An unexpected server error occurred while processing your request. Please try again or contact support.",
+      detail: error instanceof Error ? (error.stack || error.message) : errorMessage,
       correlationId,
     },
     { status: 500 },
