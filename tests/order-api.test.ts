@@ -361,6 +361,18 @@ describe("order operations", () => {
     expect(restoredRecord.archived).toBe(false);
     expect(restoredRecord.archivedBy).toBeNull();
   });
+
+  it("handles status transition action via PATCH route payload without expectedVersion", async () => {
+    const receipt = await submitOrder(database, pickupInput("patch-transition"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+
+    const transitionRes = await transitionOrder(database, {
+      orderId: order.id,
+      status: "CONFIRMED",
+      expectedVersion: order.version,
+    });
+    expect(transitionRes.status).toBe("CONFIRMED");
+  });
 });
 
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { DomainError } from "@/domain/errors";
+import { fromZodError } from "@/domain/errors";
 import { transitionOrder } from "@/domain/orders";
 import { failure, success } from "../../../../response";
 import { requirePermission } from "@/domain/access";
@@ -17,7 +17,7 @@ const command = z.object({
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const parsed = command.safeParse(await request.json());
-    if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid status command", 422);
+    if (!parsed.success) throw fromZodError(parsed.error, "Unable to update order status. Please check your inputs.");
     const { id } = await params;
     await requirePermission(db(), request, "orders.transition");
     return success(await transitionOrder(db(), { orderId: id, ...parsed.data }));
