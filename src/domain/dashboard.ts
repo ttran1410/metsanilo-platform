@@ -52,6 +52,7 @@ export async function getDashboard(database: Database) {
       mobile: row.mobile,
       email: row.email,
       facebookProfile: row.facebookProfile,
+      orderSource: row.orderSource,
       version: row.version,
     }));
 

@@ -18,6 +18,7 @@ type DashboardData = {
     mobile: string | null;
     email?: string | null;
     facebookProfile?: string | null;
+    orderSource?: string | null;
     version?: number;
   }>;
   unconfirmedDeliveryCount: number;
@@ -279,42 +280,7 @@ export function DashboardModule() {
                     >
                       ✓ Quick Confirm
                     </button>
-                    {item.mobile && item.mobile.trim() ? (
-                      <a
-                        href={`tel:${item.mobile}`}
-                        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold"
-                        title={`Call ${item.mobile}`}
-                      >
-                        📞 Call
-                      </a>
-                    ) : null}
-                    {item.facebookProfile ? (
-                      <a
-                        href={
-                          item.facebookProfile.startsWith("http")
-                            ? item.facebookProfile
-                            : `https://facebook.com/${item.facebookProfile}`
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100"
-                        title={`Open Facebook Profile (${item.facebookProfile})`}
-                      >
-                        💬 FB Profile
-                      </a>
-                    ) : null}
-                    {item.email && item.email.trim() ? (
-                      <a
-                        href={`mailto:${item.email}`}
-                        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold text-slate-700 bg-slate-100 border-slate-300 hover:bg-slate-200"
-                        title={`Email ${item.email}`}
-                      >
-                        ✉️ Email
-                      </a>
-                    ) : null}
-                    {!item.mobile && !item.facebookProfile && !item.email && (
-                      <span className="text-[11px] px-2 py-1 muted font-semibold">No contact</span>
-                    )}
+                    {renderSinglePrimaryContact(item)}
                   </div>
                 </div>
               ))}
@@ -663,4 +629,90 @@ export function DashboardModule() {
       )}
     </section>
   );
+}
+
+function renderSinglePrimaryContact(item: {
+  mobile: string | null;
+  email?: string | null;
+  facebookProfile?: string | null;
+  orderSource?: string | null;
+}) {
+  const cleanMobile = item.mobile ? item.mobile.trim() : "";
+  const cleanEmail = item.email ? item.email.trim() : "";
+  const cleanFb = item.facebookProfile ? item.facebookProfile.trim() : "";
+  const source = (item.orderSource || "").toUpperCase();
+
+  // 1. Priority: WhatsApp (If order source is WHATSAPP or WA)
+  if (cleanMobile && (source === "WHATSAPP" || source === "WA")) {
+    const waNumber = cleanMobile.replace(/\D/g, "");
+    return (
+      <a
+        href={`https://wa.me/${waNumber}`}
+        target="_blank"
+        rel="noreferrer"
+        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold text-emerald-800 bg-emerald-50 border-emerald-300 hover:bg-emerald-100"
+        title={`WhatsApp ${cleanMobile}`}
+      >
+        💬 WhatsApp
+      </a>
+    );
+  }
+
+  // 2. Priority: SMS (If order source is SMS)
+  if (cleanMobile && source === "SMS") {
+    return (
+      <a
+        href={`sms:${cleanMobile}`}
+        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold text-sky-800 bg-sky-50 border-sky-300 hover:bg-sky-100"
+        title={`Send SMS to ${cleanMobile}`}
+      >
+        💬 SMS
+      </a>
+    );
+  }
+
+  // 3. Priority: Phone Call (If mobile exists and source is PHONE/MANUAL/WEBSITE/etc.)
+  if (cleanMobile) {
+    return (
+      <a
+        href={`tel:${cleanMobile}`}
+        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold"
+        title={`Call ${cleanMobile}`}
+      >
+        📞 Call
+      </a>
+    );
+  }
+
+  // 4. Priority: Facebook Profile (If no mobile, but has FB profile)
+  if (cleanFb) {
+    const url = cleanFb.startsWith("http") ? cleanFb : `https://facebook.com/${cleanFb}`;
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100"
+        title={`Open Facebook Profile (${cleanFb})`}
+      >
+        💬 FB Profile
+      </a>
+    );
+  }
+
+  // 5. Priority: Email (If no mobile/FB, but has email)
+  if (cleanEmail) {
+    return (
+      <a
+        href={`mailto:${cleanEmail}`}
+        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold text-slate-700 bg-slate-100 border-slate-300 hover:bg-slate-200"
+        title={`Send Email to ${cleanEmail}`}
+      >
+        ✉️ Email
+      </a>
+    );
+  }
+
+  // Fallback if no contact info
+  return <span className="text-[11px] px-2 py-1 muted font-semibold">No contact</span>;
 }
