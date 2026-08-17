@@ -259,6 +259,9 @@ export function MasterDetailUserWorkspace({
   }
 
   // Filter Master Roster
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
+
   const filteredUsers = useMemo(() => {
     return usersList.filter((u) => {
       const text = `${u.displayName} ${u.email ?? ""} ${u.role}`.toLowerCase();
@@ -267,6 +270,12 @@ export function MasterDetailUserWorkspace({
       return matchesSearch && matchesRole;
     });
   }, [usersList, searchQuery, roleFilter]);
+
+  const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [filteredUsers, currentPage, pageSize]);
 
   // Grant / Revoke Permission Override
   async function handleGrantPermission(permission: Permission, granted: boolean) {
@@ -467,14 +476,20 @@ export function MasterDetailUserWorkspace({
               <input
                 placeholder="Search user, email, or role…"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
               />
 
               <select
                 aria-label="Filter role"
                 value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value as any)}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value as any);
+                  setCurrentPage(1);
+                }}
                 className="text-xs py-1.5 px-2 rounded-lg border border-line bg-surface font-semibold"
               >
                 <option value="ALL">All Roles</option>
@@ -499,7 +514,7 @@ export function MasterDetailUserWorkspace({
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {filteredUsers.map((u) => {
+              {paginatedUsers.map((u) => {
                 const grantedCount = u.customOverrides?.granted?.length ?? 0;
                 const revokedCount = u.customOverrides?.revoked?.length ?? 0;
                 const hasOverrides = grantedCount > 0 || revokedCount > 0;
@@ -591,6 +606,38 @@ export function MasterDetailUserWorkspace({
               )}
             </tbody>
           </table>
+
+          {filteredUsers.length > pageSize && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs pt-3 border-t border-line mt-3">
+              <span className="muted font-medium">
+                Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> – <strong>{Math.min(currentPage * pageSize, filteredUsers.length)}</strong> of <strong>{filteredUsers.length}</strong> members
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  ← Previous
+                </button>
+
+                <span className="px-2.5 py-1 font-bold text-ink bg-surface-muted rounded-md border border-line">
+                  {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* MASTER-DETAIL SPLIT WORKSPACE GRID */
@@ -610,14 +657,20 @@ export function MasterDetailUserWorkspace({
               <input
                 placeholder="Search user, email, or role…"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
               />
 
               <select
                 aria-label="Filter role"
                 value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value as any)}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value as any);
+                  setCurrentPage(1);
+                }}
                 className="text-xs py-1.5 px-2 rounded-lg border border-line bg-surface font-semibold"
               >
                 <option value="ALL">All Roles</option>
@@ -629,8 +682,8 @@ export function MasterDetailUserWorkspace({
             </div>
 
             {/* USER ROSTER LIST */}
-            <div className="overflow-y-auto flex flex-col divide-y divide-line pr-1 border border-line rounded-xl">
-              {filteredUsers.map((u) => {
+            <div className="overflow-y-auto flex flex-col divide-y divide-line pr-1 border border-line rounded-xl flex-1">
+              {paginatedUsers.map((u) => {
                 const isSelected = u.id === selectedUser?.id;
 
                 return (
@@ -678,6 +731,33 @@ export function MasterDetailUserWorkspace({
                 <p className="p-6 text-center text-xs muted italic">No users found.</p>
               )}
             </div>
+
+            {/* SIDEBAR MINI PAGINATION CONTROLS */}
+            {filteredUsers.length > pageSize && (
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-line text-[11px]">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  className="btn btn-secondary text-[11px] py-1 px-2 disabled:opacity-40"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  ← Prev
+                </button>
+
+                <span className="font-bold text-ink">
+                  {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  className="btn btn-secondary text-[11px] py-1 px-2 disabled:opacity-40"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </aside>
 
           {/* RIGHT DETAIL WORKSPACE (8 Cols) */}
