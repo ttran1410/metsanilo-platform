@@ -122,6 +122,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
   const nextPickupLabel = nextPickupDate ? `${nextPickupDate === tomorrowIso ? (locale === "fi" ? "Huomenna" : "Tomorrow") : new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${nextPickupDate}T12:00:00`))}` : (locale === "fi" ? "Ei noutopäivää saatavilla" : "No pickup date available");
   const nextPickupRemainingMl = nextPickupDate ? products.reduce((total, product) => total + (product.dates.find((date) => date.date === nextPickupDate && date.acceptsOrders && !date.soldOut)?.remainingMl ?? 0), 0) : 0;
   const nextPickupCapacityLabel = nextPickupDate ? `${formatLitres(nextPickupRemainingMl, locale)} l ${locale === "fi" ? "jäljellä" : "remaining"}` : "";
+  const heroImage = products.flatMap((product) => product.media).find((image) => image.isPrimary) ?? products[0]?.media[0];
   const seasonYear = new Date().getFullYear();
   return (
     <main className="storefront">
@@ -145,20 +146,28 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
         </div>
       </header>
 
-      <section className="storefront-hero">
-        <div className="shell hero-content">
-          <div className="hero-badge"><span className="badge-dot" /><span className="badge-text">{locale === "fi" ? "Satakunnan luonnonmarjat" : "Satakunta wild berries"}</span></div>
-          <h1>{locale === "fi" ? "Tuoreita metsämarjoja" : "Fresh wild berries"}<br /><span className="hero-subhead">{locale === "fi" ? "suoraan poimijalta" : "straight from the picker"}</span></h1>
-          <p className="hero-description">{locale === "fi" ? "Tilaa puhdistetut 100 % suomalaiset metsämustikat ja puolukat. Nouto Porin torilta tai kotiintoimitus Satakunnan alueella." : "Order cleaned 100% Finnish wild blueberries and lingonberries. Pickup from Pori market or home delivery in Satakunta."}</p>
+      <section className="storefront-hero" aria-labelledby="hero-title">
+        <div className="shell hero-grid">
+          <div className="hero-content">
+            <div className="hero-badge"><span className="badge-dot" /><span className="badge-text">{locale === "fi" ? "Satakunnan luonnonmarjat" : "Satakunta wild berries"}</span></div>
+            <h1 id="hero-title">{locale === "fi" ? "Tuoreita metsämarjoja" : "Fresh wild berries"}<br /><span className="hero-subhead">{locale === "fi" ? "suoraan poimijalta" : "straight from the picker"}</span></h1>
+            <p className="hero-description">{locale === "fi" ? "Tilaa puhdistetut 100 % suomalaiset metsämustikat ja puolukat. Nouto Porin torilta tai kotiintoimitus Satakunnan alueella." : "Order cleaned 100% Finnish wild blueberries and lingonberries. Pickup from Pori market or home delivery in Satakunta."}</p>
 
-          <div className="hero-stats">
-            <div className="stat-card"><span className="stat-number">100%</span><span className="stat-label">{locale === "fi" ? "Kotimaista" : "Finnish"}</span></div>
-            <div className="stat-card"><span className="stat-number">{nextPickupLabel}</span><span className="stat-label">{locale === "fi" ? "Seuraava nouto" : "Next pickup"}</span><span className="stat-sublabel">{nextPickupCapacityLabel}</span></div>
+            <div className="hero-stats">
+              <div className="stat-card"><span className="stat-number">100%</span><span className="stat-label">{locale === "fi" ? "Kotimaista" : "Finnish"}</span></div>
+              <div className="stat-card"><span className="stat-number">{nextPickupLabel}</span><span className="stat-label">{locale === "fi" ? "Seuraava nouto" : "Next pickup"}</span><span className="stat-sublabel">{nextPickupCapacityLabel}</span></div>
+            </div>
+
+            <div className="hero-actions">
+              <Link className="btn btn-light hero-primary-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve products"}<span aria-hidden="true">→</span></Link>
+              <a className="btn btn-hero-secondary" href="#catalog">{locale === "fi" ? "Katso valikoima" : "Explore harvest"}<span aria-hidden="true">↓</span></a>
+            </div>
           </div>
 
-          <div className="hero-actions">
-            <Link className="btn btn-light hero-primary-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve products"}<span aria-hidden="true">→</span></Link>
-            <a className="btn btn-hero-secondary" href="#catalog">{locale === "fi" ? "Katso valikoima" : "Explore harvest"}<span aria-hidden="true">↓</span></a>
+          <div className="hero-visual" aria-hidden={!heroImage}>
+            {heroImage ? <Image src={heroImage.url} alt={heroImage.alt || (locale === "fi" ? "Tuoreita puhdistettuja metsämarjoja Satakunnasta" : "Fresh cleaned wild berries from Satakunta")} fill priority unoptimized sizes="(max-width: 960px) 100vw, 48vw" /> : <div className="hero-placeholder"><span>M</span></div>}
+            <div className="harvest-seal"><span>{locale === "fi" ? "Kauden" : "Seasonal"}</span><strong>{locale === "fi" ? "SATO" : "HARVEST"}</strong><span>{seasonYear}</span></div>
+            <p className="hero-caption">{locale === "fi" ? "Puhdistettu ja valmis pakastettavaksi" : "Cleaned and ready for freezing"}</p>
           </div>
         </div>
       </section>
