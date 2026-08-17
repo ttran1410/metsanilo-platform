@@ -12,6 +12,8 @@ export type PublicProduct = {
   id: string;
   name: string;
   description: string;
+  availableFrom?: string;
+  availableThrough?: string;
   media: Array<{ id: string; url: string; alt: string; isPrimary: boolean }>;
   packages: Array<{ id: string; label: string; volumeMl: number; priceCents: number; isDefault?: boolean; sortOrder?: number }>;
   dates: Array<{ date: string; remainingMl: number; acceptsOrders: boolean; soldOut: boolean }>;

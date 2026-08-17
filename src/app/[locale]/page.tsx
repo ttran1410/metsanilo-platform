@@ -15,20 +15,47 @@ import { HighlightReviews } from "./reviews/highlight-reviews";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type AvailabilityStatus = "available" | "today" | "unavailable" | "season";
-const availabilityLabels: Record<Locale, Record<AvailabilityStatus, string>> = {
-  fi: { available: "Saatavilla", today: "Tämän päivän erä on varattu", unavailable: "Tilapäisesti loppu", season: "Saatavuus päättynyt tältä kaudelta" },
-  en: { available: "Available", today: "Fully reserved for today", unavailable: "Currently unavailable", season: "Seasonal availability ended" },
+type AvailabilityStatus = "upcoming" | "available" | "batches_updating" | "season_ended";
+
+const availabilityLabels: Record<Locale, Record<AvailabilityStatus, (fromDateFormatted?: string) => string>> = {
+  fi: {
+    upcoming: (fromDate) => fromDate ? `Sato alkaa ${fromDate}` : "Sato alkaa pian",
+    available: () => "Saatavilla",
+    batches_updating: () => "Uusia satoeriä päivitetään",
+    season_ended: () => "Saatavuus päättynyt tältä kaudelta",
+  },
+  en: {
+    upcoming: (fromDate) => fromDate ? `Season starts ${fromDate}` : "Season starts soon",
+    available: () => "Available",
+    batches_updating: () => "New harvest batches updating",
+    season_ended: () => "Seasonal availability ended",
+  },
 };
 
-function getAvailabilityStatus(dates: PublicProduct["dates"], volumeMl?: number): AvailabilityStatus {
+function getAvailabilityStatus(product: PublicProduct, volumeMl?: number): { status: AvailabilityStatus; fromDateFormatted?: string } {
   const today = new Date().toISOString().slice(0, 10);
-  const canOrder = dates.some((date) => date.acceptsOrders && !date.soldOut && (volumeMl === undefined || date.remainingMl >= volumeMl));
-  if (canOrder) return "available";
-  const todayDate = dates.find((date) => date.date === today);
-  if (todayDate?.soldOut || (todayDate && volumeMl !== undefined && todayDate.remainingMl < volumeMl)) return "today";
-  if (!dates.some((date) => date.date > today && date.acceptsOrders)) return "season";
-  return "unavailable";
+  const from = product.availableFrom;
+  const through = product.availableThrough;
+
+  if (from && today < from) {
+    const parts = from.split("-");
+    const formattedFi = parts.length === 3 ? `${parseInt(parts[2], 10)}.${parseInt(parts[1], 10)}.` : from;
+    return { status: "upcoming", fromDateFormatted: formattedFi };
+  }
+
+  if (through && today > through) {
+    return { status: "season_ended" };
+  }
+
+  const hasOpenCapacity = product.dates.some(
+    (date) => date.acceptsOrders && !date.soldOut && (volumeMl === undefined || date.remainingMl >= volumeMl)
+  );
+
+  if (hasOpenCapacity) {
+    return { status: "available" };
+  }
+
+  return { status: "batches_updating" };
 }
 
 export default async function ShopPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -52,6 +79,8 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
         id: row.product.id,
         name: locale === "fi" ? row.product.nameFi : row.product.nameEn,
         description: locale === "fi" ? row.product.descriptionFi : row.product.descriptionEn,
+        availableFrom: row.product.availableFrom,
+        availableThrough: row.product.availableThrough,
         media: data.media.filter((image) => image.productId === row.product.id).map((image) => ({ id: image.id, url: image.url, alt: locale === "fi" ? image.altFi : image.altEn, isPrimary: image.isPrimary })),
         packages: [],
         dates: [],
@@ -93,7 +122,6 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
   const nextPickupLabel = nextPickupDate ? `${nextPickupDate === tomorrowIso ? (locale === "fi" ? "Huomenna" : "Tomorrow") : new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${nextPickupDate}T12:00:00`))}` : (locale === "fi" ? "Ei noutopäivää saatavilla" : "No pickup date available");
   const nextPickupRemainingMl = nextPickupDate ? products.reduce((total, product) => total + (product.dates.find((date) => date.date === nextPickupDate && date.acceptsOrders && !date.soldOut)?.remainingMl ?? 0), 0) : 0;
   const nextPickupCapacityLabel = nextPickupDate ? `${formatLitres(nextPickupRemainingMl, locale)} l ${locale === "fi" ? "jäljellä" : "remaining"}` : "";
-  const heroImage = products.flatMap((product) => product.media).find((image) => image.isPrimary) ?? products[0]?.media[0];
   const seasonYear = new Date().getFullYear();
   return (
     <main className="storefront">
@@ -117,25 +145,21 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
         </div>
       </header>
 
-      <section className="shell storefront-hero" aria-labelledby="hero-title">
-        <div className="hero-copy">
-          <p className="eyebrow">{locale === "fi" ? "Satakunnan metsistä" : "From Satakunta forests"}</p>
-          <h1 id="hero-title">{locale === "fi" ? "Tuoreet marjat suoraan metsästä" : "Fresh berries from the forest"}</h1>
-          <p className="hero-lede">{locale === "fi" ? "Huolellisesti puhdistettuja metsämustikoita. Tee varaus ennakkoon – ei ennakkomaksua." : "Carefully cleaned wild blueberries. Reserve ahead – no prepayment."}</p>
-          <div className="hero-highlights" aria-label={locale === "fi" ? "Tärkeät tiedot" : "Key information"}>
-            <span className="highlight-chip"><span aria-hidden="true">▣</span>{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: <strong>{nextPickupLabel}</strong></span>
-            {nextPickupCapacityLabel && <span className="highlight-chip"><span aria-hidden="true">🫐</span><strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong> {locale === "fi" ? "jäljellä yhteensä" : "total remaining"}</span>}
-            <span className="highlight-chip"><span aria-hidden="true">✓</span>{locale === "fi" ? "Maksu noudettaessa tai toimitettaessa" : "Pay at pickup or delivery"}</span>
+      <section className="storefront-hero">
+        <div className="shell hero-content">
+          <div className="hero-badge"><span className="badge-dot" /><span className="badge-text">{locale === "fi" ? "Satakunnan luonnonmarjat" : "Satakunta wild berries"}</span></div>
+          <h1>{locale === "fi" ? "Tuoreita metsämarjoja" : "Fresh wild berries"}<br /><span className="hero-subhead">{locale === "fi" ? "suoraan poimijalta" : "straight from the picker"}</span></h1>
+          <p className="hero-description">{locale === "fi" ? "Tilaa puhdistetut 100 % suomalaiset metsämustikat ja puolukat. Nouto Porin torilta tai kotiintoimitus Satakunnan alueella." : "Order cleaned 100% Finnish wild blueberries and lingonberries. Pickup from Pori market or home delivery in Satakunta."}</p>
+
+          <div className="hero-stats">
+            <div className="stat-card"><span className="stat-number">100%</span><span className="stat-label">{locale === "fi" ? "Kotimaista" : "Finnish"}</span></div>
+            <div className="stat-card"><span className="stat-number">{nextPickupLabel}</span><span className="stat-label">{locale === "fi" ? "Seuraava nouto" : "Next pickup"}</span><span className="stat-sublabel">{nextPickupCapacityLabel}</span></div>
           </div>
+
           <div className="hero-actions">
             <Link className="btn btn-light hero-primary-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve products"}<span aria-hidden="true">→</span></Link>
             <a className="btn btn-hero-secondary" href="#catalog">{locale === "fi" ? "Katso valikoima" : "Explore harvest"}<span aria-hidden="true">↓</span></a>
           </div>
-        </div>
-        <div className="hero-visual" aria-hidden={!heroImage}>
-          {heroImage ? <Image src={heroImage.url} alt={heroImage.alt || (locale === "fi" ? "Tuoreita puhdistettuja metsämarjoja Satakunnasta" : "Fresh cleaned wild berries from Satakunta")} fill priority unoptimized sizes="(max-width: 960px) 100vw, 48vw" /> : <div className="hero-placeholder"><span>M</span></div>}
-          <div className="harvest-seal"><span>{locale === "fi" ? "Kauden" : "Seasonal"}</span><strong>{locale === "fi" ? "SATO" : "HARVEST"}</strong><span>{seasonYear}</span></div>
-          <p className="hero-caption">{locale === "fi" ? "Puhdistettu ja valmis pakastettavaksi" : "Cleaned and ready for freezing"}</p>
         </div>
       </section>
 
@@ -151,17 +175,27 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           <p>{locale === "fi" ? "Saatavuus päivittyy varauksien mukaan. Valitse sopiva pakkaus ja tarkista vapaa noutopäivä." : "Availability updates as reservations arrive. Choose a package and check the available pickup dates."}</p>
         </div>
         <div className="catalog-grid">{products.map((product) => {
-          const available = product.packages.some((pkg) => product.dates.some((date) => date.acceptsOrders && !date.soldOut && date.remainingMl >= pkg.volumeMl));
-          const productStatus = available ? "available" : getAvailabilityStatus(product.dates);
+          const { status: productStatus, fromDateFormatted } = getAvailabilityStatus(product);
+          const badgeLabel = availabilityLabels[locale][productStatus](fromDateFormatted);
+          const badgeClass = `availability-badge catalog-availability-badge${
+            productStatus === "available"
+              ? ""
+              : productStatus === "upcoming"
+              ? " upcoming-badge"
+              : productStatus === "batches_updating"
+              ? " updating-badge"
+              : " unavailable"
+          }`;
+
           const availablePackages = product.packages.filter((pkg) => product.dates.some((date) => date.acceptsOrders && !date.soldOut && date.remainingMl >= pkg.volumeMl));
           const bestValueId = availablePackages.reduce((best, pkg) => !best || pkg.priceCents / pkg.volumeMl < best.priceCents / best.volumeMl ? pkg : best, availablePackages[0])?.id;
           const shortDescription = product.description?.trim().split(/[.!?]/)[0] ?? "";
           return <article className="catalog-card" key={product.id}>
-          <div className="catalog-media"><ProductGallery images={product.media} previousLabel={locale === "fi" ? "Edellinen kuva" : "Previous image"} nextLabel={locale === "fi" ? "Seuraava kuva" : "Next image"} slideLabel={locale === "fi" ? "Tuotekuva" : "Product image"} /><span className={`availability-badge catalog-availability-badge${available ? "" : " unavailable"}`}>{availabilityLabels[locale][productStatus]}</span></div>
+          <div className="catalog-media"><ProductGallery images={product.media} previousLabel={locale === "fi" ? "Edellinen kuva" : "Previous image"} nextLabel={locale === "fi" ? "Seuraava kuva" : "Next image"} slideLabel={locale === "fi" ? "Tuotekuva" : "Product image"} /><span className={badgeClass}>{badgeLabel}</span></div>
           <div className="catalog-content">
             <div className="catalog-title-row"><div><p className="product-kicker">{locale === "fi" ? "Metsämarja" : "Wild berry"}</p><h3>{product.name}</h3></div></div>
             {shortDescription && <p className="catalog-description">{shortDescription}{shortDescription.length < (product.description?.length ?? 0) ? "…" : ""}</p>}
-            <div className="package-list">{product.packages.slice(0, 3).map((pkg) => { const litres = pkg.volumeMl / 1000; const unitPriceCents = litres > 0 ? Math.round(pkg.priceCents / litres) : pkg.priceCents; const packageStatus = getAvailabilityStatus(product.dates, pkg.volumeMl); const packageAvailable = packageStatus === "available"; const packageContent = <><span className="package-info"><strong>{pkg.label}</strong><small>{formatLitres(pkg.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"}</small></span><span className="package-price-block"><strong className="package-price">{formatEuros(pkg.priceCents, locale)}</strong>{packageAvailable ? <span className="package-action">{locale === "fi" ? "Valitse" : "Select"}<span aria-hidden="true">↗</span></span> : <span className="package-status">{availabilityLabels[locale][packageStatus]}</span>}</span>{bestValueId === pkg.id && packageAvailable && <span className="package-best-value">{locale === "fi" ? "Paras hinta / l" : "Best value"}</span>}</>; return packageAvailable ? <a className="package-card" href={`/${locale}/reserve?product=${encodeURIComponent(product.id)}&package=${encodeURIComponent(pkg.id)}`} key={pkg.id}>{packageContent}</a> : <div className="package-card package-card-unavailable" key={pkg.id}>{packageContent}</div>; })}{product.packages.length > 3 && <Link className="package-more-note" href={`/${locale}/reserve?product=${encodeURIComponent(product.id)}`}>{locale === "fi" ? `+ ${product.packages.length - 3} pakkausta varauslomakkeella` : `+ ${product.packages.length - 3} more packages on the reservation page`}<span aria-hidden="true">→</span></Link>}</div>
+            <div className="package-list">{product.packages.slice(0, 3).map((pkg) => { const litres = pkg.volumeMl / 1000; const unitPriceCents = litres > 0 ? Math.round(pkg.priceCents / litres) : pkg.priceCents; const packageInfo = getAvailabilityStatus(product, pkg.volumeMl); const packageAvailable = packageInfo.status === "available"; const packageStatusText = availabilityLabels[locale][packageInfo.status](packageInfo.fromDateFormatted); const packageContent = <><span className="package-info"><strong>{pkg.label}</strong><small>{formatLitres(pkg.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"}</small></span><span className="package-price-block"><strong className="package-price">{formatEuros(pkg.priceCents, locale)}</strong>{packageAvailable ? <span className="package-action">{locale === "fi" ? "Valitse" : "Select"}<span aria-hidden="true">↗</span></span> : <span className="package-status">{packageStatusText}</span>}</span>{bestValueId === pkg.id && packageAvailable && <span className="package-best-value">{locale === "fi" ? "Paras hinta / l" : "Best value"}</span>}</>; return packageAvailable ? <a className="package-card" href={`/${locale}/reserve?product=${encodeURIComponent(product.id)}&package=${encodeURIComponent(pkg.id)}`} key={pkg.id}>{packageContent}</a> : <div className="package-card package-card-unavailable" key={pkg.id}>{packageContent}</div>; })}{product.packages.length > 3 && <Link className="package-more-note" href={`/${locale}/reserve?product=${encodeURIComponent(product.id)}`}>{locale === "fi" ? `+ ${product.packages.length - 3} pakkausta varauslomakkeella` : `+ ${product.packages.length - 3} more packages on the reservation page`}<span aria-hidden="true">→</span></Link>}</div>
             <p className="food-safe-note">{locale === "fi" ? "Pakattu puhtaisiin elintarvikekäyttöön hyväksyttyihin pakkauksiin." : "Packed in clean, food-safe containers."}</p>
           </div>
         </article>})}{Array.from({ length: Math.max(0, 3 - products.length) }).map((_, index) => <article className="catalog-card coming-soon-card" key={`coming-soon-${index}`}><div className="catalog-media"><div className="hero-placeholder"><span>+</span></div></div><div className="catalog-content"><p className="eyebrow">{locale === "fi" ? "Tulossa pian" : "Coming soon"}</p><h3>{locale === "fi" ? "Uusi sato" : "New harvest"}</h3><p className="catalog-description">{locale === "fi" ? "Valikoimamme täydentyy kauden aikana." : "Our seasonal selection will grow during the harvest."}</p></div></article>)}</div>

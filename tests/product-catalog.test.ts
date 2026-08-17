@@ -118,4 +118,28 @@ describe("Product Catalog Reordering & Archiving", () => {
     const unarchived = await setProductActive(database, p.product.id, true);
     expect(unarchived.product.active).toBe(true);
   });
+
+  it("creates upcoming product Puolukka and verifies getPublicCatalog returns seasonal dates", async () => {
+    const puolukka = await createProduct(database, {
+      code: "PUOLUKKA",
+      slug: "puolukka",
+      nameFi: "Puolukka",
+      nameEn: "Lingonberry",
+      descriptionFi: "Tuoretta puolukkaa",
+      descriptionEn: "Fresh lingonberries",
+      availableFrom: "2099-08-24",
+      availableThrough: "2099-10-16",
+      active: true,
+      showOnHomepage: true,
+      showOnReserve: true,
+      packages: [{ labelFi: "10L Sanko", labelEn: "10L Bucket", volumeMl: 10000, priceCents: 5000, active: true }],
+    });
+
+    const publicCatalog = await getPublicCatalog(database);
+    expect(publicCatalog).not.toBeNull();
+    const item = publicCatalog!.rows.find((r) => r.product.id === puolukka.product.id);
+    expect(item).toBeDefined();
+    expect(item!.product.availableFrom).toBe("2099-08-24");
+    expect(item!.product.availableThrough).toBe("2099-10-16");
+  });
 });
