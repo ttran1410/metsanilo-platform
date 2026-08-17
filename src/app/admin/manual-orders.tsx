@@ -271,14 +271,20 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
                 <button
                   type="button"
                   className={`toggle-btn${fulfillmentMethod === "PICKUP" ? " selected" : ""}`}
-                  onClick={() => setFulfillmentMethod("PICKUP")}
+                  onClick={() => {
+                    setFulfillmentMethod("PICKUP");
+                    setCompletedStatus("PICKED_UP");
+                  }}
                 >
                   🏪 Pickup
                 </button>
                 <button
                   type="button"
                   className={`toggle-btn${fulfillmentMethod === "DELIVERY" ? " selected" : ""}`}
-                  onClick={() => setFulfillmentMethod("DELIVERY")}
+                  onClick={() => {
+                    setFulfillmentMethod("DELIVERY");
+                    setCompletedStatus("DELIVERED");
+                  }}
                 >
                   🚚 Delivery
                 </button>
@@ -399,16 +405,22 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
                   <button
                     type="button"
                     className={`toggle-btn toggle-btn-danger${completedStatus === "PICKED_UP" ? " selected" : ""}`}
-                    onClick={() => setCompletedStatus("PICKED_UP")}
+                    onClick={() => {
+                      setCompletedStatus("PICKED_UP");
+                      setFulfillmentMethod("PICKUP");
+                    }}
                   >
-                    Picked up
+                    Picked up (Pickup)
                   </button>
                   <button
                     type="button"
                     className={`toggle-btn toggle-btn-danger${completedStatus === "DELIVERED" ? " selected" : ""}`}
-                    onClick={() => setCompletedStatus("DELIVERED")}
+                    onClick={() => {
+                      setCompletedStatus("DELIVERED");
+                      setFulfillmentMethod("DELIVERY");
+                    }}
                   >
-                    Delivered
+                    Delivered (Delivery)
                   </button>
                 </div>
               </div>
