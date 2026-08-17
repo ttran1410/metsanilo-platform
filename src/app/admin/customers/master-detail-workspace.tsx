@@ -75,14 +75,18 @@ export function MasterDetailCustomerWorkspace({
   canEdit,
   canAnonymize,
 }: {
-  initialCustomers: CustomerRow[];
+  initialCustomers: CustomerRow[] | { items: CustomerRow[]; summary?: { totalCustomers: number; vipCount: number; totalLitres: number; consentCount: number } };
   canEdit: boolean;
   canAnonymize: boolean;
 }) {
-  const [customersList, setCustomersList] = useState(initialCustomers);
-  const [selectedId, setSelectedId] = useState<string>(initialCustomers[0]?.id ?? "");
+  const rawList = Array.isArray(initialCustomers) ? initialCustomers : (initialCustomers?.items ?? []);
+  const [customersList, setCustomersList] = useState<CustomerRow[]>(rawList);
+  const [selectedId, setSelectedId] = useState<string>(rawList[0]?.id ?? "");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterChip, setFilterChip] = useState<"all" | "vip" | "conflicts" | "consent">("all");
+  const [sortMode, setSortMode] = useState<"recent" | "spend_desc" | "litres_desc" | "name_asc">("recent");
+  const [workspaceView, setWorkspaceView] = useState<"table" | "split">("table");
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -103,6 +107,7 @@ export function MasterDetailCustomerWorkspace({
 
   async function loadProfile(id: string) {
     setSelectedId(id);
+    setMobileView("detail");
     setLoadingProfile(true);
     setError("");
     try {
@@ -127,7 +132,8 @@ export function MasterDetailCustomerWorkspace({
       const response = await fetch("/api/admin/customers");
       const body = await response.json();
       if (response.ok && body.data) {
-        setCustomersList(body.data);
+        const list = Array.isArray(body.data) ? body.data : (body.data.items ?? []);
+        setCustomersList(list);
         const targetId = currentIdToSelect ?? selectedId;
         if (targetId) void loadProfile(targetId);
       }
@@ -138,15 +144,28 @@ export function MasterDetailCustomerWorkspace({
 
   // Load first profile on mount
   useMemo(() => {
-    if (initialCustomers[0]?.id && !profile) {
-      void loadProfile(initialCustomers[0].id);
+    if (rawList[0]?.id && !profile) {
+      void loadProfile(rawList[0].id);
     }
   }, []);
 
-  // Filter Master Customer List
+  // Calculate Summary KPI Metrics
+  const summaryMetrics = useMemo(() => {
+    const totalLitres = customersList.reduce((acc, c) => acc + (c.metrics?.lifetimeLitres ?? 0), 0);
+    const vipCount = customersList.filter((c) => c.metrics?.isVip).length;
+    const consentCount = customersList.filter((c) => c.marketingConsent).length;
+    return {
+      totalCustomers: customersList.length,
+      vipCount,
+      totalLitres,
+      consentCount,
+    };
+  }, [customersList]);
+
+  // Filter & Sort Customer Master List
   const filteredCustomers = useMemo(() => {
-    return customersList.filter((c) => {
-      const text = `${c.name} ${c.mobile} ${c.email ?? ""} ${c.facebookProfile ?? ""} ${c.notes ?? ""}`.toLowerCase();
+    const list = customersList.filter((c) => {
+      const text = `${c.name} ${c.mobile ?? ""} ${c.email ?? ""} ${c.facebookProfile ?? ""} ${c.notes ?? ""}`.toLowerCase();
       const matchesSearch = !searchQuery || text.includes(searchQuery.toLowerCase());
 
       let matchesChip = true;
@@ -156,7 +175,19 @@ export function MasterDetailCustomerWorkspace({
 
       return matchesSearch && matchesChip;
     });
-  }, [customersList, searchQuery, filterChip]);
+
+    if (sortMode === "spend_desc") {
+      list.sort((a, b) => (b.metrics?.totalSpendCents ?? 0) - (a.metrics?.totalSpendCents ?? 0));
+    } else if (sortMode === "litres_desc") {
+      list.sort((a, b) => (b.metrics?.lifetimeLitres ?? 0) - (a.metrics?.lifetimeLitres ?? 0));
+    } else if (sortMode === "name_asc") {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    }
+
+    return list;
+  }, [customersList, searchQuery, filterChip, sortMode]);
 
   // Save Pinned Note
   async function handleSaveNote() {
@@ -199,7 +230,6 @@ export function MasterDetailCustomerWorkspace({
     if (!profile) return;
     const cleanPhone = cleanPhoneForWhatsApp(profile.customer.mobile);
     const firstName = profile.customer.name.split(" ")[0] ?? profile.customer.name;
-    const volumeLitres = formatLitres(profile.metrics.lifetimeLitres);
 
     const msg =
       templateKind === "READY"
@@ -210,120 +240,328 @@ export function MasterDetailCustomerWorkspace({
   }
 
   return (
-    <section className="shell pb-10 flex flex-col gap-3">
+    <section className="shell pb-10 flex flex-col gap-4">
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
-      {/* MASTER-DETAIL SPLIT WORKSPACE GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* LEFT MASTER SIDEBAR (4 Cols) */}
-        <aside className="lg:col-span-4 card p-4 flex flex-col gap-3 max-h-[85vh] sticky top-4">
-          <div className="flex items-center justify-between border-b border-line pb-2.5">
-            <div>
-              <span className="eyebrow">CUSTOMER CONTEXT</span>
-              <h2 className="text-base font-bold text-ink">Customers ({filteredCustomers.length})</h2>
-            </div>
+      {/* TOP KPI SUMMARY METRICS BAR */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="card p-3 flex flex-col gap-1 border-line bg-surface">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
+            <span>👥</span> Total Customers
+          </span>
+          <strong className="text-xl font-extrabold text-ink">{summaryMetrics.totalCustomers}</strong>
+        </div>
 
-            {canEdit && (
-              <button type="button" className="btn text-xs py-1 px-2.5" onClick={() => setShowCreateModal(true)}>
-                ＋ New Customer
-              </button>
-            )}
-          </div>
+        <div className="card p-3 flex flex-col gap-1 border-amber-200 bg-amber-50/40">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+            <span>⭐</span> VIP Buyers (20L+)
+          </span>
+          <strong className="text-xl font-extrabold text-amber-900">{summaryMetrics.vipCount}</strong>
+        </div>
 
-          {/* Search & Filter Chips */}
-          <div className="flex flex-col gap-2">
+        <div className="card p-3 flex flex-col gap-1 border-emerald-200 bg-emerald-50/40">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+            <span>🫐</span> Berry Volume Sold
+          </span>
+          <strong className="text-xl font-extrabold text-emerald-900">{formatLitres(summaryMetrics.totalLitres)}</strong>
+        </div>
+
+        <div className="card p-3 flex flex-col gap-1 border-line bg-surface">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
+            <span>✉️</span> Marketing Consent
+          </span>
+          <strong className="text-xl font-extrabold text-ink">{summaryMetrics.consentCount}</strong>
+        </div>
+      </div>
+
+      {/* WORKSPACE TOOLBAR: SEARCH, SORT, VIEW SWITCHER & NEW CUSTOMER */}
+      <div className="card p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="relative flex-1">
             <input
               placeholder="Search by name, phone, email, notes…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
+              className="w-full text-xs py-2 px-3 pl-8 rounded-lg border border-line bg-surface"
             />
-
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
-              {[
-                { key: "all", label: "All" },
-                { key: "vip", label: "⭐ VIP Buyers" },
-                { key: "conflicts", label: "⚠️ Conflicts" },
-                { key: "consent", label: "✉️ Marketing" },
-              ].map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  className={`px-2.5 py-1 rounded-md font-semibold whitespace-nowrap transition-colors ${
-                    filterChip === chip.key
-                      ? "bg-primary text-on-primary"
-                      : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
-                  }`}
-                  onClick={() => setFilterChip(chip.key as typeof filterChip)}
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted pointer-events-none" />
           </div>
 
-          {/* Customer Master Items List */}
-          <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
-            {filteredCustomers.map((customer) => {
-              const isSelected = customer.id === selectedId;
-              const litresStr = formatLitres(customer.metrics?.lifetimeLitres ?? 0);
-              const spendStr = formatAdminMoney(customer.metrics?.totalSpendCents ?? 0);
+          <select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as typeof sortMode)}
+            className="text-xs py-2 px-2.5 rounded-lg border border-line bg-surface font-medium"
+          >
+            <option value="recent">🕒 Most Recent Activity</option>
+            <option value="spend_desc">💶 Highest Spend (€)</option>
+            <option value="litres_desc">🫐 Highest Volume (L)</option>
+            <option value="name_asc">🔤 Name (A–Z)</option>
+          </select>
+        </div>
 
-              return (
-                <button
-                  key={customer.id}
-                  type="button"
-                  className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? "border-primary bg-primary/5 ring-1 ring-primary shadow-sm"
-                      : "border-line bg-surface hover:border-muted"
-                  }`}
-                  onClick={() => void loadProfile(customer.id)}
-                >
-                  {/* Avatar Initials */}
-                  <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/30 shrink-0 flex items-center justify-center font-bold text-primary text-sm">
-                    {customer.name.slice(0, 1).toUpperCase()}
-                  </div>
+        <div className="flex items-center gap-2 justify-between sm:justify-end">
+          <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-lg border border-line">
+            <button
+              type="button"
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                workspaceView === "table" ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
+              }`}
+              onClick={() => setWorkspaceView("table")}
+            >
+              📋 Table View
+            </button>
+            <button
+              type="button"
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                workspaceView === "split" ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
+              }`}
+              onClick={() => setWorkspaceView("split")}
+            >
+              🔍 Split Inspector
+            </button>
+          </div>
 
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <strong className="text-sm font-bold text-ink truncate">{customer.name}</strong>
-                      {customer.metrics?.isVip && (
-                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
-                          ⭐ VIP
-                        </span>
-                      )}
+          {canEdit && (
+            <button type="button" className="btn text-xs py-1.5 px-3 flex items-center gap-1 shrink-0" onClick={() => setShowCreateModal(true)}>
+              <PlusCircle className="w-3.5 h-3.5" /> New Customer
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* FILTER CHIPS BAR */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        {[
+          { key: "all", label: `All Customers (${filteredCustomers.length})` },
+          { key: "vip", label: "⭐ VIP Buyers" },
+          { key: "conflicts", label: "⚠️ Conflicts" },
+          { key: "consent", label: "✉️ Marketing" },
+        ].map((chip) => (
+          <button
+            key={chip.key}
+            type="button"
+            className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-colors ${
+              filterChip === chip.key
+                ? "bg-primary text-on-primary shadow-xs"
+                : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
+            }`}
+            onClick={() => setFilterChip(chip.key as typeof filterChip)}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
+      {/* MOBILE STICKY NAVIGATION HEADER (Visible when inspecting a customer on mobile screens) */}
+      {mobileView === "detail" && workspaceView === "split" && (
+        <div className="lg:hidden sticky top-2 z-20 bg-surface border border-line p-3 flex items-center justify-between shadow-sm rounded-xl">
+          <button
+            type="button"
+            className="btn btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5"
+            onClick={() => setMobileView("list")}
+          >
+            ← Back to Customer List
+          </button>
+          <span className="text-xs font-bold text-ink truncate max-w-[160px]">{profile?.customer.name}</span>
+        </div>
+      )}
+
+      {/* SCALABLE FULL-WIDTH DATA TABLE VIEW */}
+      {workspaceView === "table" ? (
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-surface-muted border-b border-line text-muted font-bold uppercase text-[10px] tracking-wider">
+                  <th className="p-3">Customer</th>
+                  <th className="p-3">Contact</th>
+                  <th className="p-3">Lifetime Volume</th>
+                  <th className="p-3">Total Spend</th>
+                  <th className="p-3">Orders</th>
+                  <th className="p-3">Status / Tags</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line/60">
+                {filteredCustomers.map((c) => (
+                  <tr
+                    key={c.id}
+                    className={`hover:bg-primary/5 transition-colors cursor-pointer ${
+                      c.id === selectedId ? "bg-primary/5 font-medium" : ""
+                    }`}
+                    onClick={() => {
+                      void loadProfile(c.id);
+                      setWorkspaceView("split");
+                      setMobileView("detail");
+                    }}
+                  >
+                    <td className="p-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center font-bold text-primary text-xs shrink-0">
+                          {c.name.slice(0, 1).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <strong className="block text-ink text-xs font-bold truncate">{c.name}</strong>
+                          {c.facebookProfile && <span className="text-[10px] text-muted truncate block">{c.facebookProfile}</span>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-3 font-mono text-[11px]">
+                      <div>{c.mobile || "—"}</div>
+                      <div className="text-[10px] text-muted">{c.email || ""}</div>
+                    </td>
+                    <td className="p-3 font-bold text-forest">
+                      {formatLitres(c.metrics?.lifetimeLitres ?? 0)}
+                    </td>
+                    <td className="p-3 font-bold text-ink">
+                      {formatAdminMoney(c.metrics?.totalSpendCents ?? 0)}
+                    </td>
+                    <td className="p-3">
+                      {c.metrics?.completedOrders ?? 0} finished
+                    </td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-1">
+                        {c.metrics?.isVip && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                            ⭐ VIP
+                          </span>
+                        )}
+                        {c.matchStatus === "CONFLICT_REVIEW" && (
+                          <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded">
+                            ⚠️ Conflict
+                          </span>
+                        )}
+                        {c.marketingConsent && (
+                          <span className="text-[10px] font-bold text-emerald-900 bg-emerald-100 px-1.5 py-0.5 rounded">
+                            ✉️ Consent
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-3 text-right">
+                      <button
+                        type="button"
+                        className="btn btn-secondary text-[11px] py-1 px-2.5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void loadProfile(c.id);
+                          setWorkspaceView("split");
+                          setMobileView("detail");
+                        }}
+                      >
+                        Inspect Profile →
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredCustomers.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="p-6 text-center">
+                      <AdminEmptyState title="No customers found" description="Adjust search query or filter chips." />
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* MASTER-DETAIL SPLIT WORKSPACE GRID */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* LEFT MASTER SIDEBAR (4 Cols) */}
+          <aside className={`lg:col-span-4 card p-4 flex flex-col gap-3 max-h-[85vh] sticky top-4 ${mobileView === "detail" ? "hidden lg:flex" : "flex"}`}>
+            <div className="flex items-center justify-between border-b border-line pb-2.5">
+              <div>
+                <span className="eyebrow">CUSTOMER LIST</span>
+                <h2 className="text-base font-bold text-ink">Customers ({filteredCustomers.length})</h2>
+              </div>
+            </div>
+
+            {/* Customer Master Items List */}
+            <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
+              {filteredCustomers.map((customer) => {
+                const isSelected = customer.id === selectedId;
+                const litresStr = formatLitres(customer.metrics?.lifetimeLitres ?? 0);
+                const spendStr = formatAdminMoney(customer.metrics?.totalSpendCents ?? 0);
+
+                return (
+                  <div
+                    key={customer.id}
+                    className={`flex flex-col gap-2 p-3 rounded-xl border text-left transition-all cursor-pointer min-h-fit h-auto overflow-hidden customer-card-item ${
+                      isSelected
+                        ? "border-primary bg-primary/5 ring-1 ring-primary shadow-sm"
+                        : "border-line bg-surface hover:border-muted"
+                    }`}
+                    onClick={() => void loadProfile(customer.id)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/30 shrink-0 flex items-center justify-center font-bold text-primary text-sm">
+                        {customer.name.slice(0, 1).toUpperCase()}
+                      </div>
+
+                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <strong className="text-sm font-bold text-ink truncate">{customer.name}</strong>
+                          {customer.metrics?.isVip && (
+                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+                              ⭐ VIP
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="text-xs text-muted font-mono truncate">{customer.mobile || "No phone"}</span>
+
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-muted font-medium">
+                          <span className="font-bold text-forest">{litresStr}</span>
+                          <span>•</span>
+                          <span className="font-bold text-ink">{spendStr}</span>
+                          <span>•</span>
+                          <span>{customer.metrics?.totalOrders ?? 0} orders</span>
+                        </div>
+
+                        {customer.matchStatus === "CONFLICT_REVIEW" && (
+                          <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded mt-1 inline-block w-fit">
+                            ⚠️ Phone Conflict Review
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <span className="text-xs muted font-mono truncate">{customer.mobile}</span>
-
-                    <div className="flex items-center gap-2 mt-1 text-[11px] muted font-medium">
-                      <span>{litresStr}</span>
-                      <span>•</span>
-                      <span>{spendStr}</span>
-                      <span>•</span>
-                      <span>{customer.metrics?.totalOrders ?? 0} orders</span>
-                    </div>
-
-                    {customer.matchStatus === "CONFLICT_REVIEW" && (
-                      <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded mt-1 inline-block">
-                        ⚠️ Phone Conflict Review
-                      </span>
+                    {/* MOBILE QUICK ACTION SHORTCUTS (CALL & WHATSAPP) */}
+                    {customer.mobile && (
+                      <div className="flex items-center gap-2 pt-2 border-t border-line/40 text-xs">
+                        <a
+                          href={`tel:${customer.mobile}`}
+                          className="btn btn-secondary text-[11px] py-1 px-2.5 flex items-center gap-1 text-emerald-800 border-emerald-300"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Phone className="w-3 h-3" /> Call
+                        </a>
+                        <a
+                          href={`https://wa.me/${cleanPhoneForWhatsApp(customer.mobile)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn text-[11px] py-1 px-2.5 flex items-center gap-1 bg-emerald-600 text-white hover:bg-emerald-700"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MessageSquare className="w-3 h-3" /> WhatsApp
+                        </a>
+                      </div>
                     )}
                   </div>
-                </button>
-              );
-            })}
+                );
+              })}
 
-            {filteredCustomers.length === 0 && (
-              <AdminEmptyState title="No customers found" description="Adjust search query or filter chips." />
-            )}
-          </div>
-        </aside>
+              {filteredCustomers.length === 0 && (
+                <AdminEmptyState title="No customers found" description="Adjust search query or filter chips." />
+              )}
+            </div>
+          </aside>
 
-        {/* RIGHT DETAIL WORKSPACE PANE (8 Cols) */}
-        <main className="lg:col-span-8 flex flex-col gap-4">
+          {/* RIGHT DETAIL WORKSPACE PANE (8 Cols) */}
+          <main className={`lg:col-span-8 flex flex-col gap-4 ${mobileView === "list" ? "hidden lg:flex" : "flex"}`}>
           {profile ? (
             <div className="flex flex-col gap-4">
               {/* PROFILE HEADER CARD & OMNICHANNEL FAST-COMMUNICATION BAR */}
@@ -645,6 +883,7 @@ export function MasterDetailCustomerWorkspace({
           )}
         </main>
       </div>
+      )}
 
       {/* CREATE / EDIT CUSTOMER MODAL */}
       {(showCreateModal || editingCustomer) && (

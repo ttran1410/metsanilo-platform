@@ -32,14 +32,22 @@ export async function searchCustomers(database: Database, query: string) {
     .limit(25);
 }
 
-export async function listCustomers(database: Database) {
+export async function listCustomers(
+  database: Database,
+  options?: {
+    search?: string;
+    filter?: "all" | "vip" | "conflicts" | "consent";
+    sort?: "spend_desc" | "litres_desc" | "recent" | "name_asc";
+    page?: number;
+    limit?: number;
+  },
+) {
   const { SHOP_ID } = env();
   const rows = await database
     .select()
     .from(customers)
     .where(eq(customers.shopId, SHOP_ID))
-    .orderBy(desc(customers.updatedAt))
-    .limit(150);
+    .orderBy(desc(customers.updatedAt));
 
   const customerOrders = await database
     .select({
@@ -55,7 +63,7 @@ export async function listCustomers(database: Database) {
     .from(orders)
     .where(eq(orders.shopId, SHOP_ID));
 
-  return rows.map((customer) => {
+  const allWithMetrics = rows.map((customer) => {
     const related = customerOrders.filter((order) => order.customerId === customer.id);
     const completed = related.filter(
       (o) => !["CANCELLED", "REJECTED", "NO_SHOW", "CUSTOMER_DECLINED"].includes(o.status)
@@ -91,6 +99,56 @@ export async function listCustomers(database: Database) {
       },
     };
   });
+
+  const summary = {
+    totalCustomers: allWithMetrics.length,
+    vipCount: allWithMetrics.filter((c) => c.metrics.isVip).length,
+    totalLitres: allWithMetrics.reduce((acc, c) => acc + c.metrics.lifetimeLitres, 0),
+    consentCount: allWithMetrics.filter((c) => c.marketingConsent).length,
+  };
+
+  let filtered = allWithMetrics;
+
+  if (options?.search && options.search.trim()) {
+    const q = options.search.trim().toLowerCase();
+    filtered = filtered.filter((c) => {
+      const text = `${c.name} ${c.mobile ?? ""} ${c.email ?? ""} ${c.facebookProfile ?? ""} ${c.notes ?? ""}`.toLowerCase();
+      return text.includes(q);
+    });
+  }
+
+  if (options?.filter === "vip") {
+    filtered = filtered.filter((c) => c.metrics.isVip);
+  } else if (options?.filter === "conflicts") {
+    filtered = filtered.filter((c) => c.matchStatus === "CONFLICT_REVIEW");
+  } else if (options?.filter === "consent") {
+    filtered = filtered.filter((c) => c.marketingConsent);
+  }
+
+  const sortMode = options?.sort ?? "recent";
+  if (sortMode === "spend_desc") {
+    filtered.sort((a, b) => b.metrics.totalSpendCents - a.metrics.totalSpendCents);
+  } else if (sortMode === "litres_desc") {
+    filtered.sort((a, b) => b.metrics.lifetimeLitres - a.metrics.lifetimeLitres);
+  } else if (sortMode === "name_asc") {
+    filtered.sort((a, b) => a.name.localeCompare(b.name));
+  } else {
+    filtered.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }
+
+  const page = options?.page ?? 1;
+  const limit = options?.limit ?? 150;
+  const startIndex = (page - 1) * limit;
+  const paginatedItems = filtered.slice(startIndex, startIndex + limit);
+
+  return {
+    items: paginatedItems,
+    total: filtered.length,
+    page,
+    limit,
+    totalPages: Math.ceil(filtered.length / limit) || 1,
+    summary,
+  };
 }
 
 export async function getCustomerProfile(database: Database, customerId: string) {

@@ -18,8 +18,22 @@ const createSchema = z.object({
 export async function GET(request: Request) {
   try {
     await requirePermission(db(), request, "customers.read");
-    const query = new URL(request.url).searchParams.get("q") ?? "";
-    return success(query.trim().length >= 2 ? await searchCustomers(db(), query) : await listCustomers(db()));
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q") ?? searchParams.get("search") ?? "";
+    const filter = (searchParams.get("filter") ?? "all") as "all" | "vip" | "conflicts" | "consent";
+    const sort = (searchParams.get("sort") ?? "recent") as "spend_desc" | "litres_desc" | "recent" | "name_asc";
+    const page = Math.max(1, Number(searchParams.get("page") ?? 1));
+    const limit = Math.max(1, Math.min(250, Number(searchParams.get("limit") ?? 150)));
+
+    return success(
+      await listCustomers(db(), {
+        search: q,
+        filter,
+        sort,
+        page,
+        limit,
+      }),
+    );
   } catch (error) {
     return failure(error);
   }
