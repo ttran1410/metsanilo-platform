@@ -252,4 +252,32 @@ describe("Customer Facebook Profile CRM & Order Sync", () => {
     expect(json.data.mobile).toBeNull();
     expect(json.data.orderSource).toBe("FACEBOOK");
   });
+
+  it("does not report identity conflicts for customers without mobile number unless another record shares facebookProfile or email", async () => {
+    const customerNoMobile = await createCustomer(database, {
+      name: "Riitta Seppä",
+      facebookProfile: "riitta.seppa.5",
+    });
+
+    await createCustomer(database, {
+      name: "Ismo Rinne",
+      mobile: "+358504679703",
+    });
+
+    const profile1 = await getCustomerProfile(database, customerNoMobile.id);
+    expect(profile1?.identityConflicts).toHaveLength(0);
+
+    const duplicateFbCustomer = await createCustomer(database, {
+      name: "Riitta Seppä Alternate Profile",
+      facebookProfile: "riitta.seppa.6",
+    });
+
+    await updateCustomer(database, duplicateFbCustomer.id, {
+      facebookProfile: "riitta.seppa.5",
+    });
+
+    const profile2 = await getCustomerProfile(database, customerNoMobile.id);
+    expect(profile2?.identityConflicts).toHaveLength(1);
+    expect(profile2?.identityConflicts[0].id).toBe(duplicateFbCustomer.id);
+  });
 });

@@ -120,25 +120,45 @@ export async function getCustomerProfile(database: Database, customerId: string)
     .orderBy(desc(orders.createdAt))
     .limit(100);
 
-  // Other records with same phone number
-  const identityConflicts = await database
-    .select({
-      id: customers.id,
-      name: customers.name,
-      mobile: customers.mobile,
-      email: customers.email,
-      notes: customers.notes,
-      createdAt: customers.createdAt,
-    })
-    .from(customers)
-    .where(
-      and(
-        eq(customers.shopId, SHOP_ID),
-        customer.mobile ? eq(customers.mobile, customer.mobile) : ne(customers.id, customerId),
-        ne(customers.id, customerId)
+  // Find potential identity conflicts / duplicate records matching phone, email, or facebookProfile
+  const hasMobile = Boolean(customer.mobile && customer.mobile.trim());
+  const hasEmail = Boolean(customer.email && customer.email.trim());
+  const hasFb = Boolean(customer.facebookProfile && customer.facebookProfile.trim());
+
+  let identityConflicts: Array<{
+    id: string;
+    name: string;
+    mobile: string | null;
+    email: string | null;
+    notes: string | null;
+    createdAt: string;
+  }> = [];
+
+  if (hasMobile || hasEmail || hasFb) {
+    const conditions = [];
+    if (hasMobile) conditions.push(eq(customers.mobile, customer.mobile!));
+    if (hasEmail) conditions.push(eq(customers.email, customer.email!));
+    if (hasFb) conditions.push(eq(customers.facebookProfile, customer.facebookProfile!));
+
+    identityConflicts = await database
+      .select({
+        id: customers.id,
+        name: customers.name,
+        mobile: customers.mobile,
+        email: customers.email,
+        notes: customers.notes,
+        createdAt: customers.createdAt,
+      })
+      .from(customers)
+      .where(
+        and(
+          eq(customers.shopId, SHOP_ID),
+          ne(customers.id, customerId),
+          or(...conditions)
+        )
       )
-    )
-    .limit(20);
+      .limit(20);
+  }
 
   const audit = await database
     .select({
