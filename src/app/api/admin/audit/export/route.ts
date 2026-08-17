@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const { request: req } = await adminContext();
-  if (!(await hasAdminPermission(req, "audit.read"))) {
-    return NextResponse.json({ message: "Forbidden: Audit access required" }, { status: 403 });
+  if (!(await hasAdminPermission(req, "audit.export"))) {
+    return NextResponse.json({ message: "Forbidden: Audit export permission required" }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);

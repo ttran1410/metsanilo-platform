@@ -19,6 +19,7 @@ export default async function AuditPage() {
 
   const initialEntries = await listAuditEntries(db(), { page: 1, limit: 15, dateRange: "7d" });
   const metrics = await getAuditMetrics(db());
+  const canExportAudit = await hasAdminPermission(request, "audit.export");
 
   const initialData = {
     ...initialEntries,
@@ -27,7 +28,7 @@ export default async function AuditPage() {
 
   return (
     <AdminRouteFrame permission="audit.read">
-      <MasterAuditWorkspace initialData={initialData} />
+      <MasterAuditWorkspace initialData={initialData} canExportAudit={canExportAudit} />
     </AdminRouteFrame>
   );
 }

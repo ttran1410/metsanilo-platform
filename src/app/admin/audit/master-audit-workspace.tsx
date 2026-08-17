@@ -7,6 +7,7 @@ import { DiffInspectorDrawer } from "./diff-inspector-drawer";
 
 export function MasterAuditWorkspace({
   initialData,
+  canExportAudit = true,
 }: {
   initialData: {
     items: FormattedAuditItem[];
@@ -23,6 +24,7 @@ export function MasterAuditWorkspace({
       total7Days: number;
     };
   };
+  canExportAudit?: boolean;
 }) {
   const [data, setData] = useState(initialData);
   const [searchQuery, setSearchQuery] = useState("");
@@ -126,22 +128,24 @@ export function MasterAuditWorkspace({
           <h1 className="text-2xl font-bold tracking-tight text-ink">🛡️ Security &amp; Audit Trail</h1>
         </div>
 
-        <div className="flex items-center gap-2">
-          <a
-            href={exportUrl.csv}
-            download
-            className="btn btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5"
-          >
-            📥 Export CSV
-          </a>
-          <a
-            href={exportUrl.json}
-            download
-            className="btn btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5"
-          >
-            📜 Export JSON
-          </a>
-        </div>
+        {canExportAudit && (
+          <div className="flex items-center gap-2">
+            <a
+              href={exportUrl.csv}
+              download
+              className="btn btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5"
+            >
+              📥 Export CSV
+            </a>
+            <a
+              href={exportUrl.json}
+              download
+              className="btn btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5"
+            >
+              📜 Export JSON
+            </a>
+          </div>
+        )}
       </div>
 
       {/* 1. SECURITY & ANOMALY SIGNALS (Past 7 Days) */}

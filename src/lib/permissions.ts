@@ -10,7 +10,7 @@ export const PERMISSIONS = [
   "customers.read", "customers.write", "customers.anonymize", "customers.identity.resolve", "customers.consent.read", "customers.consent.write",
   "reviews.read", "reviews.create", "reviews.moderate", "reviews.feature", "reviews.visibility",
   "shop_users.read", "shop_users.manage", "shop_users.password_reset", "shop_permissions.read", "shop_permissions.assign",
-  "settings.read", "settings.operational", "settings.sources.read", "settings.sources.manage", "settings.fulfillment.read", "settings.fulfillment.manage", "audit.read",
+  "settings.read", "settings.operational", "settings.sources.read", "settings.sources.manage", "settings.fulfillment.read", "settings.fulfillment.manage", "audit.read", "audit.export",
 ] as const;
 
 export const COMING_SOON_PERMISSIONS = [
@@ -28,6 +28,7 @@ export const HIGH_RISK_PERMISSIONS: Permission[] = [
   "orders.delete",
   "customers.anonymize",
   "orders.export",
+  "audit.export",
   "catalog.product.delete",
   "delivery.override",
   "shop_users.manage",
@@ -44,7 +45,7 @@ export function isHighRiskPermission(permission: string): boolean {
 
 export function defaultPermissionsForRole(role: Role): Permission[] {
   if (role === "ADMIN") return [...PERMISSIONS];
-  if (role === "MANAGER") return PERMISSIONS.filter((p) => p !== "orders.delete");
+  if (role === "MANAGER") return PERMISSIONS.filter((p) => p !== "orders.delete" && p !== "audit.export");
   if (role === "STAFF") return [
     "dashboard.read", "notifications.read",
     "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.read", "orders.payment.write",
