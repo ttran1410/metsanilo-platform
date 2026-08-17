@@ -206,9 +206,11 @@ export const products = sqliteTable(
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     showOnHomepage: integer("show_on_homepage", { mode: "boolean" }).notNull().default(true),
     showOnReserve: integer("show_on_reserve", { mode: "boolean" }).notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
   },
   (table) => [
     uniqueIndex("products_shop_code_unique").on(table.shopId, table.code),
+    index("products_shop_sort_idx").on(table.shopId, table.active, table.sortOrder),
     check("products_valid_window", sql`${table.availableFrom} <= ${table.availableThrough}`),
   ],
 );

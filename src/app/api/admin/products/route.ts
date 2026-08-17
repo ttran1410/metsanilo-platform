@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { createProduct, listManagerProducts } from "@/domain/products";
+import { createProduct, listManagerProducts, reorderProducts } from "@/domain/products";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../response";
 import { requirePermission } from "@/domain/access";
@@ -19,5 +19,17 @@ export async function POST(request: Request) {
     const parsed = product.safeParse(await request.json());
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422);
     return success(await createProduct(db(), parsed.data), 201);
+  } catch (error) { return failure(error); }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    await requirePermission(db(), request, "catalog.product.write");
+    const body = await request.json();
+    if (body?.action === "reorder" && Array.isArray(body.productIds)) {
+      const updated = await reorderProducts(db(), body.productIds);
+      return success(updated);
+    }
+    throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422);
   } catch (error) { return failure(error); }
 }
