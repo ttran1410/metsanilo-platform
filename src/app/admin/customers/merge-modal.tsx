@@ -55,7 +55,13 @@ export function MergeModal({
           <div>
             <p className="eyebrow text-amber-900">IDENTITY CONFLICT ASSISTANT</p>
             <h3 className="text-lg font-bold text-ink">Merge Duplicate Profiles</h3>
-            <span className="text-xs muted">Matching Phone: {primaryCustomer.mobile}</span>
+            <span className="text-xs muted">
+              {primaryCustomer.mobile
+                ? `Matching Phone: ${primaryCustomer.mobile}`
+                : primaryCustomer.email
+                ? `Matching Email: ${primaryCustomer.email}`
+                : "Duplicate Profile Conflict"}
+            </span>
           </div>
           <button type="button" className="btn btn-secondary text-xs py-1 px-2.5" onClick={onClose}>
             ✕ Close
@@ -73,14 +79,14 @@ export function MergeModal({
           <div className="p-3.5 rounded-xl border border-primary/40 bg-primary/5 flex flex-col gap-1.5">
             <span className="font-bold text-primary uppercase text-[11px] block">PRIMARY RECORD (Target)</span>
             <strong className="text-sm font-bold text-ink">{primaryCustomer.name}</strong>
-            <span className="muted font-mono">{primaryCustomer.mobile}</span>
+            <span className="muted font-mono">{primaryCustomer.mobile || "No mobile phone"}</span>
             <span className="muted">{primaryCustomer.email || "No email"}</span>
           </div>
 
           <div className="p-3.5 rounded-xl border border-amber-300 bg-amber-50/60 flex flex-col gap-1.5">
             <span className="font-bold text-amber-900 uppercase text-[11px] block">DUPLICATE RECORD (To Merge)</span>
             <strong className="text-sm font-bold text-ink">{duplicateCustomer.name}</strong>
-            <span className="muted font-mono">{duplicateCustomer.mobile}</span>
+            <span className="muted font-mono">{duplicateCustomer.mobile || "No mobile phone"}</span>
             <span className="muted">{duplicateCustomer.email || "No email"}</span>
           </div>
         </div>
