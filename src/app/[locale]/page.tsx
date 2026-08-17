@@ -9,7 +9,7 @@ import type { PublicProduct } from "./order-form";
 import { ProductGallery } from "./product-gallery";
 import { LocaleDocument } from "./locale-document";
 import { MobileNav } from "./mobile-nav";
-import { getReviewRollup, listPublishedReviews } from "@/domain/reviews";
+import { getReviewRollup, listFeaturedReviews } from "@/domain/reviews";
 import { HighlightReviews } from "./reviews/highlight-reviews";
 
 export const dynamic = "force-dynamic";
@@ -110,7 +110,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
 
   const shopName = locale === "fi" ? data.shop.nameFi : data.shop.nameEn;
   const products = [...productMap.values()];
-  const publishedReviews = data.shop.reviewsVisible ? (await listPublishedReviews(db())).filter((review) => review.featured).slice(0, 3) : [];
+  const publishedReviews = data.shop.reviewsVisible ? await listFeaturedReviews(db(), 3) : [];
   const rollup = await getReviewRollup(db());
   const nextPickupDates = products.flatMap((product) => product.dates.filter((date) => date.acceptsOrders && !date.soldOut).map((date) => date.date)).filter((date, index, dates) => dates.indexOf(date) === index).sort();
   const toLocalIso = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;

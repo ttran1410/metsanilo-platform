@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Search } from "lucide-react";
 import { AdminNotice, AdminPageHeader } from "../presentation";
 
 type Review = {
@@ -42,6 +43,9 @@ export function ReviewsManager({
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [activeTab, setActiveTab] = useState<"pending" | "approved" | "featured" | "rejected" | "all">("pending");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
   const [editingDisplayTextId, setEditingDisplayTextId] = useState<string | null>(null);
@@ -177,14 +181,27 @@ export function ReviewsManager({
     if (starCounts[star] !== undefined) starCounts[star]++;
   }
 
-  // Filtered Rows for active tab
+  // Filtered & Searched Rows for active tab
   const filteredRows = rows.filter((r) => {
-    if (activeTab === "pending") return r.status === "PENDING" || r.status === "PENDING_CONFIRMATION";
-    if (activeTab === "approved") return r.status === "APPROVED";
-    if (activeTab === "featured") return r.featured && r.status === "APPROVED";
-    if (activeTab === "rejected") return r.status === "REJECTED";
+    let matchesTab = true;
+    if (activeTab === "pending") matchesTab = r.status === "PENDING" || r.status === "PENDING_CONFIRMATION";
+    else if (activeTab === "approved") matchesTab = r.status === "APPROVED";
+    else if (activeTab === "featured") matchesTab = r.featured && r.status === "APPROVED";
+    else if (activeTab === "rejected") matchesTab = r.status === "REJECTED";
+
+    if (!matchesTab) return false;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const text = `${r.displayName} ${r.contact ?? ""} ${r.orderId ?? ""} ${r.originalText} ${r.displayText ?? ""}`.toLowerCase();
+      return text.includes(q);
+    }
+
     return true;
   });
+
+  const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
+  const paginatedRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <main className="shell py-8 space-y-6">
@@ -265,6 +282,29 @@ export function ReviewsManager({
         </div>
       </div>
 
+      {/* Search Bar & Active Featured Badge Toolbar */}
+      <div className="card p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="Search reviews by customer name, order ref, rating, text..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full text-xs py-2 px-3 pl-8 rounded-lg border border-slate-300 bg-white"
+          />
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
+        </div>
+
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 shrink-0">
+          <span className="px-3 py-1.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-bold">
+            ⭐ {featuredReviews.length} Featured Active (Top 3 displayed on Homepage)
+          </span>
+        </div>
+      </div>
+
       {/* Tabs Navigation */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
         <button
@@ -272,7 +312,10 @@ export function ReviewsManager({
           className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
             activeTab === "pending" ? "bg-blue-600 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
           }`}
-          onClick={() => setActiveTab("pending")}
+          onClick={() => {
+            setActiveTab("pending");
+            setCurrentPage(1);
+          }}
         >
           📬 Inbox / Pending ({pendingTriage.length})
         </button>
@@ -281,7 +324,10 @@ export function ReviewsManager({
           className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
             activeTab === "approved" ? "bg-emerald-600 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
           }`}
-          onClick={() => setActiveTab("approved")}
+          onClick={() => {
+            setActiveTab("approved");
+            setCurrentPage(1);
+          }}
         >
           🟢 Approved ({totalApproved.length})
         </button>
@@ -290,7 +336,10 @@ export function ReviewsManager({
           className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
             activeTab === "featured" ? "bg-amber-500 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
           }`}
-          onClick={() => setActiveTab("featured")}
+          onClick={() => {
+            setActiveTab("featured");
+            setCurrentPage(1);
+          }}
         >
           ⭐ Featured ({featuredReviews.length})
         </button>
@@ -299,7 +348,10 @@ export function ReviewsManager({
           className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
             activeTab === "rejected" ? "bg-rose-600 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
           }`}
-          onClick={() => setActiveTab("rejected")}
+          onClick={() => {
+            setActiveTab("rejected");
+            setCurrentPage(1);
+          }}
         >
           🚫 Rejected ({rejectedReviews.length})
         </button>
@@ -308,7 +360,10 @@ export function ReviewsManager({
           className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
             activeTab === "all" ? "bg-slate-800 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
           }`}
-          onClick={() => setActiveTab("all")}
+          onClick={() => {
+            setActiveTab("all");
+            setCurrentPage(1);
+          }}
         >
           All Reviews ({rows.length})
         </button>
@@ -318,11 +373,11 @@ export function ReviewsManager({
       <div className="space-y-4">
         {filteredRows.length === 0 && (
           <div className="card p-8 text-center text-slate-500">
-            No reviews found in this tab.
+            No reviews found in this view.
           </div>
         )}
 
-        {filteredRows.map((review) => (
+        {paginatedRows.map((review) => (
           <article key={review.id} className="card p-6 space-y-4 border border-slate-200/80 shadow-sm relative">
             {/* Header / Badges */}
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
@@ -605,6 +660,39 @@ export function ReviewsManager({
           </article>
         ))}
       </div>
+
+      {/* Pagination Controls */}
+      {filteredRows.length > pageSize && (
+        <div className="card p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs border border-slate-200 shadow-xs">
+          <span className="text-slate-600 font-medium">
+            Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> – <strong>{Math.min(currentPage * pageSize, filteredRows.length)}</strong> of <strong>{filteredRows.length}</strong> reviews
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              className="btn btn-secondary text-xs py-1.5 px-3 disabled:opacity-40 font-semibold cursor-pointer"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >
+              ← Previous
+            </button>
+
+            <span className="px-3 py-1 font-bold text-slate-700 bg-slate-100 rounded-md">
+              Page {currentPage} of {totalPages}
+            </span>
+
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              className="btn btn-secondary text-xs py-1.5 px-3 disabled:opacity-40 font-semibold cursor-pointer"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Manual Import Modal */}
       {showManualModal && (
