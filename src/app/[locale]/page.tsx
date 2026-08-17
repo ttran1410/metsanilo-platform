@@ -221,11 +221,37 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
       )}
 
       <footer className="storefront-footer">
-        <div className="shell footer-grid">
-          <div><strong>METSÄNILO</strong><p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${seasonYear}` : `From Satakunta forest to table · Season ${seasonYear}`}</p></div>
-          <div><span>{locale === "fi" ? "Tutustu" : "Explore"}</span><Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link><Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten varaus toimii" : "How it works"}</Link>{data.shop.reviewsVisible && <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>}<Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link></div>
-          <div><span>{locale === "fi" ? "Yhteys" : "Contact"}</span>{data.shop.contactPhone && <a href={`tel:${data.shop.contactPhone}`}>{data.shop.contactPhone}</a>}{data.shop.contactEmail && <a href={`mailto:${data.shop.contactEmail}`}>{data.shop.contactEmail}</a>}</div>
-          <div><span>{locale === "fi" ? "Tietoa" : "Information"}</span><Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link></div>
+        <div className="shell">
+          <div className="footer-tier-top">
+            <div className="footer-brand-summary">
+              <strong>METSÄNILO</strong>
+              <p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${seasonYear}` : `From Satakunta forest to table · Season ${seasonYear}`}</p>
+            </div>
+            <div className="footer-contact-links">
+              {data.shop.contactPhone && (
+                <a className="footer-contact-item" href={`tel:${data.shop.contactPhone}`}>
+                  <span>📞</span> {data.shop.contactPhone}
+                </a>
+              )}
+              {data.shop.contactEmail && (
+                <a className="footer-contact-item" href={`mailto:${data.shop.contactEmail}`}>
+                  <span>✉️</span> {data.shop.contactEmail}
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div className="footer-tier-bottom">
+            <nav className="footer-inline-nav" aria-label={locale === "fi" ? "Alatunnisteen valikko" : "Footer links"}>
+              <Link href={`/${locale}`}>{locale === "fi" ? "Etusivu" : "Home"}</Link>
+              <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link>
+              <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
+              {data.shop.reviewsVisible && <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>}
+              <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
+              <Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link>
+            </nav>
+            <span className="footer-copy-note">© {seasonYear} METSÄNILO</span>
+          </div>
         </div>
       </footer>
       <a className="mobile-reserve-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}<span aria-hidden="true">→</span></a>
