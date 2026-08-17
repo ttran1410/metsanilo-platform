@@ -47,6 +47,9 @@ export function MasterDetailWorkspace({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [activeTab, setActiveTab] = useState<ActiveTab>("general");
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [showUnarchiveConfirm, setShowUnarchiveConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -58,6 +61,53 @@ export function MasterDetailWorkspace({
   const selectedRow = useMemo(() => {
     return productsList.find((p) => p.product.id === selectedId) ?? productsList[0];
   }, [productsList, selectedId]);
+
+  // Reorder Products
+  async function handleMoveProduct(index: number, direction: "up" | "down") {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= productsList.length) return;
+    const next = [...productsList];
+    const temp = next[index];
+    next[index] = next[targetIndex];
+    next[targetIndex] = temp;
+    setProductsList(next);
+
+    const orderedIds = next.map((item) => item.product.id);
+    const response = await fetch("/api/admin/products", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "reorder", productIds: orderedIds }),
+    });
+    if (!response.ok) {
+      setError("Could not save product order.");
+    } else {
+      setMessage("Product display order updated.");
+    }
+  }
+
+  // Toggle Active (Archive / Un-archive)
+  async function handleToggleActive(targetActive: boolean) {
+    if (!selectedRow) return;
+    setError("");
+    setMessage("");
+
+    const response = await fetch(`/api/admin/products/${selectedRow.product.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "active", active: targetActive }),
+    });
+
+    const body = await response.json();
+    if (!response.ok) {
+      return setError(body.message ?? "Could not update product active status.");
+    }
+
+    setActive(targetActive);
+    setProductsList((current) =>
+      current.map((item) => (item.product.id === selectedRow.product.id ? body.data : item))
+    );
+    setMessage(targetActive ? `${selectedRow.product.nameFi} is now active.` : `${selectedRow.product.nameFi} has been archived.`);
+  }
 
   // Form State for currently selected product
   const [nameFi, setNameFi] = useState(selectedRow?.product.nameFi ?? "");
@@ -269,7 +319,7 @@ export function MasterDetailWorkspace({
 
           {/* Product Master Items List */}
           <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
-            {filteredMasterList.map((row) => {
+            {filteredMasterList.map((row, index) => {
               const isSelected = row.product.id === selectedId;
               const primaryImg = row.media?.find((m) => m.isPrimary) ?? row.media?.[0];
               const isPreSeason = today < row.product.availableFrom;
@@ -278,53 +328,84 @@ export function MasterDetailWorkspace({
               const activePkgs = row.packages.filter((pkg) => pkg.active);
 
               return (
-                <button
+                <div
                   key={row.product.id}
-                  type="button"
-                  className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                     isSelected
                       ? "border-primary bg-primary/5 ring-1 ring-primary shadow-sm"
                       : "border-line bg-surface hover:border-muted"
                   }`}
                   onClick={() => selectProduct(row)}
                 >
-                  {/* Thumbnail Avatar */}
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-surface-muted border border-line shrink-0 flex items-center justify-center">
-                    {primaryImg ? (
-                      <img src={primaryImg.url} alt={row.product.nameFi} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-lg">🫐</span>
-                    )}
-                  </div>
-
-                  {/* Text Details */}
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <strong className="text-sm font-bold text-ink truncate">{row.product.nameFi}</strong>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-muted border border-line text-ink/80 shrink-0">
-                        {row.product.code}
-                      </span>
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {/* Thumbnail Avatar */}
+                    <div className="w-11 h-11 rounded-lg overflow-hidden bg-surface-muted border border-line shrink-0 flex items-center justify-center">
+                      {primaryImg ? (
+                        <img src={primaryImg.url} alt={row.product.nameFi} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-lg">🫐</span>
+                      )}
                     </div>
 
-                    <span className="text-xs muted truncate">{row.product.nameEn}</span>
+                    {/* Text Details */}
+                    <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <strong className="text-sm font-bold text-ink truncate">{row.product.nameFi}</strong>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-muted border border-line text-ink/80 shrink-0">
+                          {row.product.code}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
-                        isInSeason
-                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                          : isPreSeason
-                          ? "bg-amber-50 text-amber-900 border-amber-200"
-                          : "bg-surface-muted text-muted border-line"
-                      }`}>
-                        {isInSeason ? "🟢 In Season" : isPreSeason ? "🟡 Upcoming" : "⚪ Ended"}
-                      </span>
+                      <span className="text-xs muted truncate">{row.product.nameEn}</span>
 
-                      <span className="text-[10px] muted font-medium">
-                        {activePkgs.length} pkg{activePkgs.length === 1 ? "" : "s"}
-                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+                          isInSeason
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : isPreSeason
+                            ? "bg-amber-50 text-amber-900 border-amber-200"
+                            : "bg-surface-muted text-muted border-line"
+                        }`}>
+                          {isInSeason ? "🟢 In Season" : isPreSeason ? "🟡 Upcoming" : "⚪ Ended"}
+                        </span>
+
+                        <span className="text-[10px] muted font-medium">
+                          {activePkgs.length} pkg{activePkgs.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </button>
+
+                  {/* Re-order Up / Down Controls */}
+                  {canManageProducts && (
+                    <div className="flex flex-col gap-1 shrink-0 border-l border-line/60 pl-1.5 ml-1">
+                      <button
+                        type="button"
+                        title="Move product position up on storefront"
+                        disabled={index === 0}
+                        className="p-1 rounded hover:bg-surface-muted disabled:opacity-20 text-[10px] font-bold leading-none"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleMoveProduct(index, "up");
+                        }}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        title="Move product position down on storefront"
+                        disabled={index === filteredMasterList.length - 1}
+                        className="p-1 rounded hover:bg-surface-muted disabled:opacity-20 text-[10px] font-bold leading-none"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleMoveProduct(index, "down");
+                        }}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
 
@@ -448,9 +529,41 @@ export function MasterDetailWorkspace({
               {activeTab === "channels" && (
                 <div className="flex flex-col gap-4">
                   <div className="card p-4 md:p-5 grid gap-5">
-                    <div className="border-b border-line pb-3">
-                      <span className="eyebrow">STOREFRONT CHANNELS &amp; SEO</span>
-                      <h3 className="text-base font-bold text-ink">Publishing Channels &amp; Identifiers</h3>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+                      <div>
+                        <span className="eyebrow">STOREFRONT CHANNELS &amp; SEO</span>
+                        <h3 className="text-base font-bold text-ink">Publishing Channels &amp; Identifiers</h3>
+                      </div>
+
+                      {canManageProducts && (
+                        <div className="flex items-center gap-2">
+                          {active ? (
+                            <button
+                              type="button"
+                              className="btn btn-secondary text-xs text-amber-900 border-amber-300 bg-amber-50 hover:bg-amber-100 py-1.5 px-3 flex items-center gap-1.5 font-medium"
+                              onClick={() => setShowArchiveConfirm(true)}
+                            >
+                              📦 Archive Product
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn text-xs bg-emerald-700 hover:bg-emerald-800 text-white py-1.5 px-3 flex items-center gap-1.5 font-bold shadow-sm"
+                              onClick={() => setShowUnarchiveConfirm(true)}
+                            >
+                              🟢 Un-archive Product
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            className="btn btn-secondary text-xs text-danger border-rose-200 bg-rose-50/50 hover:bg-rose-100 py-1.5 px-3 flex items-center gap-1.5 font-medium"
+                            onClick={() => setShowDeleteConfirm(true)}
+                          >
+                            🗑️ Delete Product
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-2">
@@ -523,27 +636,6 @@ export function MasterDetailWorkspace({
                         <span>📝 Show on Reservation Form</span>
                       </label>
                     </div>
-
-                    {/* SMART DELETE GUARD & NON-DESTRUCTIVE ARCHIVING */}
-                    {canManageProducts && (
-                      <div className="border-t border-line pt-4 flex items-center justify-between">
-                        <div>
-                          <strong className="text-xs font-bold uppercase text-danger block">Danger Zone</strong>
-                          <span className="text-xs muted">
-                            Deleting permanent product records is protected if historical orders exist.
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          className="btn btn-secondary text-xs text-danger py-1.5 px-3"
-                          onClick={() => void handleDeleteOrArchive()}
-                          disabled={deleting}
-                        >
-                          {deleting ? "Processing…" : "🗑️ Delete / Archive Product"}
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -557,6 +649,90 @@ export function MasterDetailWorkspace({
       {/* LIVE MOBILE STOREFRONT PREVIEW DRAWER */}
       {showPreviewDrawer && selectedRow && (
         <PreviewDrawer row={selectedRow} onClose={() => setShowPreviewDrawer(false)} />
+      )}
+
+      {/* ARCHIVE CONFIRMATION MODAL */}
+      {showArchiveConfirm && selectedRow && (
+        <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowArchiveConfirm(false)}>
+          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
+            <p className="eyebrow text-amber-900">CONFIRM ARCHIVE</p>
+            <h3 className="text-lg font-bold text-ink">Archive {selectedRow.product.nameFi}?</h3>
+            <p className="text-xs muted leading-relaxed">
+              Archiving hides this product from the customer storefront and reservation portal. Historical order records and audit receipts will be preserved intact.
+            </p>
+            <div className="profile-actions justify-end gap-2 mt-2 pt-3 border-t border-line">
+              <button className="btn btn-secondary text-xs" type="button" onClick={() => setShowArchiveConfirm(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 shadow-md"
+                type="button"
+                onClick={() => {
+                  setShowArchiveConfirm(false);
+                  void handleToggleActive(false);
+                }}
+              >
+                📦 Confirm Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UN-ARCHIVE CONFIRMATION MODAL */}
+      {showUnarchiveConfirm && selectedRow && (
+        <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowUnarchiveConfirm(false)}>
+          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
+            <p className="eyebrow text-emerald-800">CONFIRM RESTORE</p>
+            <h3 className="text-lg font-bold text-ink">Un-archive {selectedRow.product.nameFi}?</h3>
+            <p className="text-xs muted leading-relaxed">
+              Un-archiving restores this product to active status in your product catalog. Check availability dates to ensure storefront ordering is ready.
+            </p>
+            <div className="profile-actions justify-end gap-2 mt-2 pt-3 border-t border-line">
+              <button className="btn btn-secondary text-xs" type="button" onClick={() => setShowUnarchiveConfirm(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 shadow-md"
+                type="button"
+                onClick={() => {
+                  setShowUnarchiveConfirm(false);
+                  void handleToggleActive(true);
+                }}
+              >
+                🟢 Confirm Un-archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {showDeleteConfirm && selectedRow && (
+        <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
+          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
+            <p className="eyebrow text-danger">CONFIRM PERMANENT DELETE</p>
+            <h3 className="text-lg font-bold text-ink">Delete {selectedRow.product.nameFi}?</h3>
+            <p className="text-xs muted leading-relaxed">
+              Permanently delete this product from the database? This action cannot be undone. If historical orders exist, deletion will be blocked and the product will be archived instead.
+            </p>
+            <div className="profile-actions justify-end gap-2 mt-2 pt-3 border-t border-line">
+              <button className="btn btn-secondary text-xs" type="button" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-danger text-xs font-bold py-2 px-4 shadow-md"
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  void handleDeleteOrArchive();
+                }}
+              >
+                🗑️ Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

@@ -74,7 +74,7 @@ export async function listManagerProducts(database: Database) {
   const shopId = env().SHOP_ID;
   const rows = await database.select({ product: products, package: packages }).from(products)
     .leftJoin(packages, and(eq(packages.productId, products.id), eq(packages.shopId, products.shopId)))
-    .where(eq(products.shopId, shopId)).orderBy(asc(products.nameFi), asc(packages.sortOrder), asc(packages.volumeMl));
+    .where(eq(products.shopId, shopId)).orderBy(asc(products.sortOrder), asc(products.nameFi), asc(packages.sortOrder), asc(packages.volumeMl));
   const grouped = new Map<string, { product: typeof products.$inferSelect; packages: Array<typeof packages.$inferSelect> }>();
   for (const row of rows) {
     let group = grouped.get(row.product.id);
@@ -185,6 +185,21 @@ export async function setDefaultPackage(database: Database, id: string) {
   });
   await audit(database, "package.default_changed", "package", id, { productId: current.productId });
   return (await database.query.packages.findFirst({ where: eq(packages.id, id) }))!;
+}
+
+export async function reorderProducts(database: Database, productIds: string[]) {
+  const shopId = env().SHOP_ID;
+  const existing = await database.select({ id: products.id }).from(products).where(eq(products.shopId, shopId));
+  if (existing.length !== productIds.length || existing.some((row) => !productIds.includes(row.id))) {
+    throw new DomainError("VALIDATION_ERROR", "Product reorder must include every product", 422);
+  }
+  await database.transaction(async (tx) => {
+    for (const [index, productId] of productIds.entries()) {
+      await tx.update(products).set({ sortOrder: index }).where(and(eq(products.id, productId), eq(products.shopId, shopId)));
+    }
+  });
+  await audit(database, "product.reordered", "shop", shopId, { productIds });
+  return listManagerProducts(database);
 }
 
 export async function reorderPackages(database: Database, productId: string, packageIds: string[]) {

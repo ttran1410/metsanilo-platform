@@ -1,0 +1,121 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { migrate } from "drizzle-orm/libsql/migrator";
+import { createDatabaseConnection, type Database } from "@/db/client";
+import { shops } from "@/db/schema";
+import { createProduct, listManagerProducts, reorderProducts, setProductActive } from "@/domain/products";
+import { getPublicCatalog } from "@/domain/availability";
+import { resetEnvForTests } from "@/lib/env";
+
+const directory = mkdtempSync(join(tmpdir(), "metsanilo-product-catalog-test-"));
+let databaseUrl = "";
+let database: Database;
+let closeDatabase: () => void;
+let testNumber = 0;
+
+beforeEach(async () => {
+  testNumber += 1;
+  databaseUrl = `file:${join(directory, `test-${testNumber}.db`)}`;
+  process.env.TURSO_DATABASE_URL = databaseUrl;
+  process.env.SHOP_ID = "shop-default";
+  process.env.ADMIN_AUTH_TOKEN = "secret-token";
+  resetEnvForTests();
+
+  const conn = createDatabaseConnection(databaseUrl);
+  database = conn.database;
+  closeDatabase = conn.close;
+
+  await migrate(database, { migrationsFolder: "./drizzle" });
+
+  await database.insert(shops).values({
+    id: "shop-default",
+    slug: "main",
+    nameFi: "Metsänilö Test",
+    nameEn: "Metsanilo Test",
+    timezone: "Europe/Helsinki",
+    pickupAddress: "Torikatu 1",
+    pickupInstructionsFi: "Nouto torilta",
+    pickupInstructionsEn: "Pickup at market",
+    pickupNameFi: "Pori Tori",
+    pickupNameEn: "Pori Market",
+    pickupTime: "10:00 - 14:00",
+  });
+});
+
+afterAll(() => {
+  if (closeDatabase) closeDatabase();
+  rmSync(directory, { recursive: true, force: true });
+});
+
+describe("Product Catalog Reordering & Archiving", () => {
+  it("creates products, reorders them, and reflects reorder on manager & public catalog", async () => {
+    const p1 = await createProduct(database, {
+      code: "STRAWBERRY",
+      slug: "strawberry",
+      nameFi: "Mansikka",
+      nameEn: "Strawberry",
+      descriptionFi: "Tuore",
+      descriptionEn: "Fresh",
+      availableFrom: "2099-06-01",
+      availableThrough: "2099-08-31",
+      active: true,
+      showOnHomepage: true,
+      showOnReserve: true,
+      packages: [{ labelFi: "5L Laatikko", labelEn: "5L Box", volumeMl: 5000, priceCents: 4000, active: true }],
+    });
+
+    const p2 = await createProduct(database, {
+      code: "RASPBERRY",
+      slug: "raspberry",
+      nameFi: "Vadelma",
+      nameEn: "Raspberry",
+      descriptionFi: "Makea",
+      descriptionEn: "Sweet",
+      availableFrom: "2099-06-01",
+      availableThrough: "2099-08-31",
+      active: true,
+      showOnHomepage: true,
+      showOnReserve: true,
+      packages: [{ labelFi: "3L Laatikko", labelEn: "3L Box", volumeMl: 3000, priceCents: 3500, active: true }],
+    });
+
+    // Reorder: Raspberry first, Strawberry second
+    await reorderProducts(database, [p2.product.id, p1.product.id]);
+
+    const managerList = await listManagerProducts(database);
+    expect(managerList[0].product.id).toBe(p2.product.id);
+    expect(managerList[1].product.id).toBe(p1.product.id);
+
+    const publicCatalog = await getPublicCatalog(database);
+    expect(publicCatalog).not.toBeNull();
+    const publicProducts = publicCatalog!.rows.map((r) => r.product.id);
+    expect(publicProducts[0]).toBe(p2.product.id);
+  });
+
+  it("archives and un-archives products correctly", async () => {
+    const p = await createProduct(database, {
+      code: "BLUEBERRY",
+      slug: "blueberry",
+      nameFi: "Mustikka",
+      nameEn: "Blueberry",
+      descriptionFi: "Metsä",
+      descriptionEn: "Wild",
+      availableFrom: "2099-06-01",
+      availableThrough: "2099-08-31",
+      active: true,
+      showOnHomepage: true,
+      showOnReserve: true,
+      packages: [{ labelFi: "5L Laatikko", labelEn: "5L Box", volumeMl: 5000, priceCents: 4500, active: true }],
+    });
+
+    // Archive
+    const archived = await setProductActive(database, p.product.id, false);
+    expect(archived.product.active).toBe(false);
+
+    // Un-archive
+    const unarchived = await setProductActive(database, p.product.id, true);
+    expect(unarchived.product.active).toBe(true);
+  });
+});
