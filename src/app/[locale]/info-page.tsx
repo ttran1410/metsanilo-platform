@@ -218,26 +218,36 @@ export function InfoPage({
         </>
       )}
       <footer className="storefront-footer">
-        <div className="shell footer-grid">
-          <div>
-            <strong>METSÄNILO</strong>
-            <p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${new Date().getFullYear()}` : `From Satakunta forest to table · Season ${new Date().getFullYear()}`}</p>
+        <div className="shell">
+          <div className="footer-tier-top">
+            <div className="footer-brand-summary">
+              <strong>METSÄNILO</strong>
+              <p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${new Date().getFullYear()}` : `From Satakunta forest to table · Season ${new Date().getFullYear()}`}</p>
+            </div>
+            <div className="footer-contact-links">
+              {contactPhone && (
+                <a className="footer-contact-item" href={`tel:${contactPhone}`}>
+                  <span>📞</span> {contactPhone}
+                </a>
+              )}
+              {contactEmail && (
+                <a className="footer-contact-item" href={`mailto:${contactEmail}`}>
+                  <span>✉️</span> {contactEmail}
+                </a>
+              )}
+            </div>
           </div>
-          <div>
-            <span>{locale === "fi" ? "Tutustu" : "Explore"}</span>
-            <Link href={`/${locale}/reserve`}>{nav.reserve}</Link>
-            {howItWorksVisible && <Link href={`/${locale}/how-it-works`}>{nav.how}</Link>}
-            {reviewsVisible && <Link href={`/${locale}/reviews`}>{nav.reviews}</Link>}
-            {aboutUsVisible && <Link href={`/${locale}/about`}>{nav.about}</Link>}
-          </div>
-          <div>
-            <span>{nav.contact}</span>
-            {contactPhone && <a href={`tel:${contactPhone}`}>{contactPhone}</a>}
-            {contactEmail && <a href={`mailto:${contactEmail}`}>{contactEmail}</a>}
-          </div>
-          <div>
-            <span>{locale === "fi" ? "Tietoa" : "Information"}</span>
-            <Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link>
+
+          <div className="footer-tier-bottom">
+            <nav className="footer-inline-nav" aria-label={locale === "fi" ? "Alatunnisteen valikko" : "Footer links"}>
+              <Link href={`/${locale}`}>{nav.home}</Link>
+              <Link href={`/${locale}/reserve`}>{nav.reserve}</Link>
+              {howItWorksVisible && <Link href={`/${locale}/how-it-works`}>{nav.how}</Link>}
+              {reviewsVisible && <Link href={`/${locale}/reviews`}>{nav.reviews}</Link>}
+              {aboutUsVisible && <Link href={`/${locale}/about`}>{nav.about}</Link>}
+              <Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link>
+            </nav>
+            <span className="footer-copy-note">© {new Date().getFullYear()} METSÄNILO</span>
           </div>
         </div>
       </footer>
