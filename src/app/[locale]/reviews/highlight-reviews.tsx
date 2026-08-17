@@ -46,41 +46,43 @@ export function HighlightReviews({
   }[locale];
 
   return (
-    <section className="shell py-8 my-6 rounded-2xl bg-[#FFFCF6] border border-[#D8D3C8] shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EBE6DC] pb-4 mb-6">
+    <section className="shell py-10 md:py-14 my-4">
+      <div className="flex flex-wrap items-end justify-between gap-4 pb-6 mb-8 border-b border-[#E4ECE6]">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-[#5C5549]">{copy.eyebrow}</p>
-          <h2 className="text-xl font-extrabold text-[#2C261E] mt-0.5">{copy.heading}</h2>
+          <p className="text-xs font-extrabold uppercase tracking-widest text-[#1E6B34]">{copy.eyebrow}</p>
+          <h2 className="text-2xl md:text-3xl font-serif font-semibold text-[#1B3626] mt-1 tracking-tight">{copy.heading}</h2>
         </div>
 
-        <div className="flex items-center gap-3 bg-[#FAF5EC] px-4 py-2 rounded-xl border border-[#E5E0D5]">
-          <span className="text-amber-500 text-lg">⭐⭐⭐⭐⭐</span>
-          <div className="text-xs">
-            <span className="font-extrabold text-[#2C261E] block text-sm">{copy.score}</span>
-            <span className="text-[#6B6355]">{copy.countNote}</span>
-          </div>
+        <div className="inline-flex items-center gap-2.5 bg-[#edf8ef] border border-[#a8d6b8] px-4 py-2 rounded-full text-xs font-bold text-[#1B3626] shadow-xs">
+          <span className="text-amber-500 text-sm">★★★★★</span>
+          <span className="font-extrabold">{copy.score}</span>
+          <span className="text-[#a8d6b8]">·</span>
+          <span className="text-[#274d39]">{copy.countNote}</span>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3">
         {reviews.slice(0, 3).map((review) => (
           <article
             key={review.id}
-            className="p-5 rounded-xl bg-white border border-[#E7E2D7] shadow-xs flex flex-col justify-between"
+            className="p-6 rounded-2xl bg-white border border-[#E4ECE6] shadow-xs hover:shadow-md hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between"
           >
-            <div>
-              <div className="flex items-center gap-1 text-amber-500 text-sm mb-2">
-                {"★".repeat(review.rating)}
-                {"☆".repeat(5 - review.rating)}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1 text-amber-500 text-sm">
+                  {"★".repeat(review.rating)}
+                  {"☆".repeat(5 - review.rating)}
+                </div>
+                <span className="text-2xl text-[#a8d6b8] leading-none select-none font-serif font-bold">“</span>
               </div>
-              <p className="text-sm text-[#383228] italic leading-relaxed">
+              <p className="text-[1.025rem] text-[#24362b] leading-relaxed">
                 "{review.displayText || review.originalText}"
               </p>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-[#F2ECE1] flex items-center justify-between text-xs">
-              <span className="font-bold text-[#2C261E]">— {review.displayName}</span>
-              <span className="bg-[#EAF5EC] text-[#1E6B34] font-semibold px-2 py-0.5 rounded-full border border-[#C5E5CC]">
+            <div className="mt-6 pt-3.5 border-t border-[#EAF0EC] flex items-center justify-between text-xs">
+              <span className="font-bold text-[#1B3626]">— {review.displayName}</span>
+              <span className="bg-[#edf8ef] text-[#1E6B34] font-bold px-2.5 py-1 rounded-full border border-[#a8d6b8] text-[0.75rem]">
                 {copy.verifiedBadge}
               </span>
             </div>
@@ -88,12 +90,12 @@ export function HighlightReviews({
         ))}
       </div>
 
-      <div className="mt-6 text-center">
+      <div className="mt-8 text-center">
         <Link
           href={`/${locale}/reviews`}
-          className="inline-flex items-center gap-2 font-bold text-sm text-[#1E6B34] hover:text-[#144A23] transition-colors"
+          className="btn btn-secondary rounded-full px-6 py-2.5 text-sm font-extrabold gap-2 inline-flex items-center shadow-xs hover:shadow-sm"
         >
-          {copy.readAll} <span aria-hidden="true">──►</span>
+          {copy.readAll} <span aria-hidden="true">→</span>
         </Link>
       </div>
     </section>
