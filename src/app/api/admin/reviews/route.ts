@@ -4,6 +4,8 @@ import { confirmManualReview, createManualReview, listManagerReviews, moderateRe
 import { requirePermission } from "@/domain/access";
 import { failure, success } from "../../response";
 
+import { fromZodError } from "@/domain/errors";
+
 export const runtime = "nodejs";
 
 const commandSchema = z.object({
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
       })
       .safeParse(await request.json());
 
-    if (!parsed.success) return failure(new Error("Invalid manual review"));
+    if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid manual review payload"));
 
     const actorName = actor.email ?? actor.username ?? actor.id;
     return success(await createManualReview(db(), { ...parsed.data, actor: actorName }), 201);
@@ -57,7 +59,7 @@ export async function PATCH(request: Request) {
   try {
     const actor = await requirePermission(db(), request, "reviews.moderate");
     const parsed = commandSchema.safeParse(await request.json());
-    if (!parsed.success) return failure(new Error("Invalid review moderation command"));
+    if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid review moderation payload"));
 
     const actorName = actor.email ?? actor.username ?? actor.id;
 
