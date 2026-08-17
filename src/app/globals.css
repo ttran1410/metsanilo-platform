@@ -410,8 +410,9 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .admin-user-copy { display: grid; gap: .05rem; text-align: left; }
 .admin-user-copy strong { font-size: .74rem; }
 .admin-user-copy small { max-width: 10rem; overflow: hidden; color: #b9c8be; font-size: .62rem; text-overflow: ellipsis; white-space: nowrap; }
-.admin-user-dropdown { position: absolute; top: calc(100% + .55rem); right: 0; z-index: 30; display: grid; min-width: 12rem; gap: .2rem; border: 1px solid #dce3db; border-radius: .85rem; background: var(--paper); padding: .4rem; box-shadow: 0 18px 42px rgb(23 55 43 / 18%); }
-.admin-user-dropdown a, .admin-user-dropdown button { display: block; width: 100%; border: 0; border-radius: .55rem; background: transparent; color: var(--ink); padding: .65rem .7rem; font-size: .78rem; text-align: left; text-decoration: none; cursor: pointer; }
+.admin-user-dropdown { position: absolute; top: calc(100% + .55rem); right: 0; z-index: 30; display: grid; min-width: 13rem; gap: .2rem; border: 1px solid #dce3db; border-radius: .85rem; background: var(--paper); padding: .4rem; box-shadow: 0 18px 42px rgb(23 55 43 / 18%); }
+.admin-user-dropdown a, .admin-user-dropdown button { display: flex; align-items: center; gap: .6rem; width: 100%; border: 0; border-radius: .55rem; background: transparent; color: var(--ink); padding: .65rem .75rem; font-size: .8rem; font-weight: 600; text-align: left; text-decoration: none; cursor: pointer; }
+.admin-user-dropdown svg { flex-shrink: 0; }
 .admin-user-dropdown a:hover, .admin-user-dropdown button:hover { background: #edf5ef; color: var(--forest); }
 .admin-user-dropdown button { color: var(--berry); font-weight: 750; }
 .admin-user-divider { height: 1px; margin: .25rem .4rem; background: var(--line); }
