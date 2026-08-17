@@ -757,6 +757,7 @@ export function AvailabilityWorkspace({
                   type="date"
                   value={batchStart}
                   onChange={(event) => setBatchStart(event.target.value)}
+                  onClick={(event) => event.currentTarget.showPicker?.()}
                   required
                 />
               </label>
@@ -768,6 +769,7 @@ export function AvailabilityWorkspace({
                   type="date"
                   value={batchEnd}
                   onChange={(event) => setBatchEnd(event.target.value)}
+                  onClick={(event) => event.currentTarget.showPicker?.()}
                   required
                 />
               </label>

@@ -293,7 +293,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
 
             <label className="field">
               <span>Fulfillment date</span>
-              <input name="fulfillmentDate" type="date" required />
+              <input name="fulfillmentDate" type="date" required onClick={(e) => e.currentTarget.showPicker?.()} />
             </label>
 
             {fulfillmentMethod === "DELIVERY" && (

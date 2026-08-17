@@ -593,6 +593,7 @@ export function MasterDetailWorkspace({
                           type="date"
                           value={availableFrom}
                           onChange={(e) => setAvailableFrom(e.target.value)}
+                          onClick={(e) => e.currentTarget.showPicker?.()}
                           required
                         />
                       </label>
@@ -603,6 +604,7 @@ export function MasterDetailWorkspace({
                           type="date"
                           value={availableThrough}
                           onChange={(e) => setAvailableThrough(e.target.value)}
+                          onClick={(e) => e.currentTarget.showPicker?.()}
                           required
                         />
                       </label>

@@ -60,6 +60,7 @@ button, input, select, textarea { font: inherit; }
 select, textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { min-height: var(--form-control-min-height); }
 button.btn-input, button.form-control { min-height: var(--form-control-min-height); }
 input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; flex: 0 0 auto; accent-color: var(--forest); }
+input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 ::selection { background: var(--berry); color: white; }
 

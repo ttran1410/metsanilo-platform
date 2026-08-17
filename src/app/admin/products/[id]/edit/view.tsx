@@ -125,12 +125,12 @@ export function ProductEditView({
           <div className="grid gap-3 md:grid-cols-2">
             <label className="field">
               <span>Available from</span>
-              <input name="availableFrom" type="date" defaultValue={initial.availableFrom} required />
+              <input name="availableFrom" type="date" defaultValue={initial.availableFrom} required onClick={(e) => e.currentTarget.showPicker?.()} />
             </label>
 
             <label className="field">
               <span>Available through</span>
-              <input name="availableThrough" type="date" defaultValue={initial.availableThrough} required />
+              <input name="availableThrough" type="date" defaultValue={initial.availableThrough} required onClick={(e) => e.currentTarget.showPicker?.()} />
             </label>
           </div>
 

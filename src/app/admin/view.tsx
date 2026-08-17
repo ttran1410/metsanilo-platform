@@ -263,8 +263,8 @@ export function ManagerView({
             <label className="field"><span>Capacity (litres)</span><input name="capacityLitres" type="number" min="0" step="0.001" required /></label>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
-            <label className="field"><span>Start date</span><input name="startDate" type="date" required /></label>
-            <label className="field"><span>End date</span><input name="endDate" type="date" required /></label>
+            <label className="field"><span>Start date</span><input name="startDate" type="date" required onClick={(e) => e.currentTarget.showPicker?.()} /></label>
+            <label className="field"><span>End date</span><input name="endDate" type="date" required onClick={(e) => e.currentTarget.showPicker?.()} /></label>
             <label className="field"><span>Custom dates (YYYY-MM-DD, comma-separated)</span><input name="dates" placeholder="2026-08-20, 2026-08-23" /></label>
           </div>
           <div className="grid gap-2 md:grid-cols-[auto_1fr_auto] md:items-end">
