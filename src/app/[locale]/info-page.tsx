@@ -90,8 +90,11 @@ export function InfoPage({
             <p>{t.intro}</p>
           </section>
           <section className="shell info-trust-banner" aria-label={locale === "fi" ? "Maksutiedot" : "Payment information"}>
-            <strong>{locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</strong>
-            <span>{locale === "fi" ? "Maksat vasta kun saat marjat noudon tai toimituksen yhteydessä." : "You pay when you receive your berries at pickup or delivery."}</span>
+            <span className="trust-badge-icon" aria-hidden="true">🛡️</span>
+            <div className="trust-banner-copy">
+              <strong>{locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</strong>
+              <span>{locale === "fi" ? "Maksat vasta kun saat marjat noudon tai toimituksen yhteydessä." : "You pay when you receive your berries at pickup or delivery."}</span>
+            </div>
           </section>
           <section className="shell info-grid" aria-label={t.title}>
             {t.steps.map(([number, title, text]: [string, string, string]) => (
@@ -105,11 +108,17 @@ export function InfoPage({
           <section className="shell info-faq" aria-labelledby="faq-title">
             <h2 id="faq-title">{locale === "fi" ? "Usein kysyttyä" : "Common questions"}</h2>
             <details>
-              <summary>{locale === "fi" ? "Voinko maksaa käteisellä?" : "Can I pay with cash?"}</summary>
+              <summary>
+                <span>{locale === "fi" ? "Voinko maksaa käteisellä?" : "Can I pay with cash?"}</span>
+                <span className="faq-icon" aria-hidden="true">↓</span>
+              </summary>
               <p>{locale === "fi" ? "Maksutavasta sovitaan noudon tai toimituksen yhteydessä." : "Payment is arranged at pickup or delivery."}</p>
             </details>
             <details>
-              <summary>{locale === "fi" ? "Mitä jos sää muuttaa poimintaa?" : "What if weather changes the harvest?"}</summary>
+              <summary>
+                <span>{locale === "fi" ? "Mitä jos sää muuttaa poimintaa?" : "What if weather changes the harvest?"}</span>
+                <span className="faq-icon" aria-hidden="true">↓</span>
+              </summary>
               <p>{locale === "fi" ? "Ilmoitamme mahdollisesta päivämäärän muutoksesta viestillä." : "We will message you if the fulfillment date needs to change."}</p>
             </details>
           </section>
