@@ -69,7 +69,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (body && typeof body === "object" && body.action === "transition") {
       const parsedTransition = transitionActionSchema.safeParse(body);
       if (!parsedTransition.success) {
-        throw fromZodError(parsedTransition.error, "Invalid order transition payload");
+        throw fromZodError(parsedTransition.error, "Unable to transition order status. Please check input parameters.");
       }
       await requirePermission(db(), request, "orders.transition");
 
@@ -93,7 +93,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     await requirePermission(db(), request, "orders.update");
     const parsed = updateSchema.safeParse({ ...body, orderId: id });
     if (!parsed.success) {
-      throw fromZodError(parsed.error, "Invalid order update payload");
+      throw fromZodError(parsed.error, "Unable to update order details. Please check input fields.");
     }
     return success(await updateManagerOrder(db(), { ...parsed.data, orderId: id }));
   } catch (error) {

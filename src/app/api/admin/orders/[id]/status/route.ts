@@ -17,7 +17,7 @@ const command = z.object({
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const parsed = command.safeParse(await request.json());
-    if (!parsed.success) throw fromZodError(parsed.error, "Invalid status command");
+    if (!parsed.success) throw fromZodError(parsed.error, "Unable to update order status. Please check your inputs.");
     const { id } = await params;
     await requirePermission(db(), request, "orders.transition");
     return success(await transitionOrder(db(), { orderId: id, ...parsed.data }));

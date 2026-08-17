@@ -12,7 +12,7 @@ export class DomainError extends Error {
   }
 }
 
-export function fromZodError(error: z.ZodError, customMessage = "Validation failed"): DomainError {
+export function fromZodError(error: z.ZodError, customMessage = "Validation failed. Please check your inputs."): DomainError {
   const fieldErrors: Record<string, string> = {};
   const detail = error.issues.map((issue) => ({
     field: issue.path.join(".") || "root",
@@ -25,9 +25,6 @@ export function fromZodError(error: z.ZodError, customMessage = "Validation fail
       fieldErrors[field] = issue.message;
     }
   }
-  const summaryMessage = detail.length > 0
-    ? `${customMessage}: ${detail.map((d) => `${d.field} (${d.message})`).join("; ")}`
-    : customMessage;
 
-  return new DomainError("VALIDATION_ERROR", summaryMessage, 422, fieldErrors, detail);
+  return new DomainError("VALIDATION_ERROR", customMessage, 422, fieldErrors, detail);
 }
