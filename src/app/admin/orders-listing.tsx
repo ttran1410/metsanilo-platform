@@ -688,6 +688,7 @@ export function OrdersListing({
                     type="date"
                     value={from}
                     onChange={(e) => handleFromChange(e.target.value)}
+                    onClick={(e) => e.currentTarget.showPicker?.()}
                   />
                 </label>
 
@@ -697,6 +698,7 @@ export function OrdersListing({
                     type="date"
                     value={to}
                     onChange={(e) => handleToChange(e.target.value)}
+                    onClick={(e) => e.currentTarget.showPicker?.()}
                   />
                 </label>
 

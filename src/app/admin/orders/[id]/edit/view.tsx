@@ -422,6 +422,7 @@ export function OrderEditForm({
               min={!isHistorical ? minAllowedDate : undefined}
               max={!isHistorical ? maxAllowedDate : undefined}
               onChange={(e) => update("fulfillmentDate", e.target.value)}
+              onClick={(e) => e.currentTarget.showPicker?.()}
               required
             />
             {!isHistorical && (
