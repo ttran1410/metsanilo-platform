@@ -46,6 +46,10 @@ export function MasterDetailWorkspace({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [activeTab, setActiveTab] = useState<ActiveTab>("general");
+  const [viewMode, setViewMode] = useState<"split" | "table">("split");
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showUnarchiveConfirm, setShowUnarchiveConfirm] = useState(false);
@@ -57,6 +61,24 @@ export function MasterDetailWorkspace({
   const [deleting, setDeleting] = useState(false);
 
   const today = todayStr();
+
+  const metrics = useMemo(() => {
+    const total = productsList.length;
+    const inSeason = productsList.filter((row) => {
+      const isPreSeason = today < row.product.availableFrom;
+      const isPostSeason = today > row.product.availableThrough;
+      return row.product.active && !isPreSeason && !isPostSeason;
+    }).length;
+    const activePackages = productsList.reduce(
+      (sum, row) => sum + row.packages.filter((pkg) => pkg.active).length,
+      0,
+    );
+    const storefrontVisible = productsList.filter(
+      (row) => row.product.active && row.product.showOnHomepage,
+    ).length;
+
+    return { total, inSeason, activePackages, storefrontVisible };
+  }, [productsList, today]);
 
   const selectedRow = useMemo(() => {
     return productsList.find((p) => p.product.id === selectedId) ?? productsList[0];
@@ -125,6 +147,7 @@ export function MasterDetailWorkspace({
   // Sync state when selected product changes
   function selectProduct(row: ProductRow) {
     setSelectedId(row.product.id);
+    setMobileView("detail");
     setNameFi(row.product.nameFi);
     setNameEn(row.product.nameEn);
     setDescFi(row.product.descriptionFi ?? "");
@@ -173,6 +196,12 @@ export function MasterDetailWorkspace({
       return matchesSearch && matchesFilter;
     });
   }, [productsList, searchQuery, filterStatus, today]);
+
+  const totalPages = Math.ceil(filteredMasterList.length / pageSize) || 1;
+  const paginatedMasterList = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredMasterList.slice(start, start + pageSize);
+  }, [filteredMasterList, currentPage, pageSize]);
 
   // Save Changes
   async function handleSaveChanges() {
@@ -268,155 +297,450 @@ export function MasterDetailWorkspace({
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
-      {/* MASTER-DETAIL SPLIT WORKSPACE GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* LEFT MASTER SIDEBAR (4 Cols) */}
-        <aside className="lg:col-span-4 card p-4 flex flex-col gap-3 max-h-[85vh] sticky top-4">
-          <div className="flex items-center justify-between border-b border-line pb-2.5">
-            <div>
-              <span className="eyebrow">CATALOG MASTER</span>
-              <h2 className="text-base font-bold text-ink">Products ({filteredMasterList.length})</h2>
+      {/* TOP KPI METRICS SUMMARY BAR */}
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4 my-1">
+        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
+          <span className="eyebrow text-muted text-[10px]">TOTAL VARIETIES</span>
+          <p className="text-2xl font-black text-ink mt-1">{metrics.total} <span className="text-xs font-normal muted">products</span></p>
+          <span className="text-[11px] text-primary font-semibold mt-1">Catalog Varieties</span>
+        </div>
+
+        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
+          <span className="eyebrow text-muted text-[10px]">IN SEASON NOW</span>
+          <p className="text-2xl font-black text-emerald-950 mt-1">{metrics.inSeason} <span className="text-xs font-normal text-emerald-700">active</span></p>
+          <span className="text-[11px] text-emerald-800 font-semibold mt-1">Harvest Window Open</span>
+        </div>
+
+        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
+          <span className="eyebrow text-muted text-[10px]">ACTIVE PACKAGES</span>
+          <p className="text-2xl font-black text-blue-950 mt-1">{metrics.activePackages} <span className="text-xs font-normal text-blue-700">skus</span></p>
+          <span className="text-[11px] text-blue-800 font-semibold mt-1">Available Volumes</span>
+        </div>
+
+        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
+          <span className="eyebrow text-muted text-[10px]">STOREFRONT HIGHLIGHTS</span>
+          <p className="text-2xl font-black text-amber-950 mt-1">{metrics.storefrontVisible} <span className="text-xs font-normal text-amber-700">featured</span></p>
+          <span className="text-[11px] text-amber-800 font-semibold mt-1">Homepage Display</span>
+        </div>
+      </div>
+
+      {/* VIEW SWITCHER TOOLBAR */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-muted p-2.5 rounded-xl border border-line">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={`btn text-xs px-3.5 py-1.5 font-bold transition-all cursor-pointer ${
+              viewMode === "split" ? "bg-primary text-white shadow-xs" : "btn-secondary"
+            }`}
+            onClick={() => setViewMode("split")}
+          >
+            🔍 Split Inspector View
+          </button>
+
+          <button
+            type="button"
+            className={`btn text-xs px-3.5 py-1.5 font-bold transition-all cursor-pointer ${
+              viewMode === "table" ? "bg-primary text-white shadow-xs" : "btn-secondary"
+            }`}
+            onClick={() => setViewMode("table")}
+          >
+            📋 Table Matrix View
+          </button>
+        </div>
+
+        {canManageProducts && (
+          <Link
+            className="btn bg-emerald-700 hover:bg-emerald-800 text-white text-xs py-1.5 px-3 font-bold shadow-xs"
+            href="/admin/products/new"
+          >
+            ＋ New Product
+          </Link>
+        )}
+      </div>
+
+      {/* WORKSPACE CONTENT AREA */}
+      {viewMode === "table" ? (
+        /* TABLE MATRIX VIEW */
+        <div className="card p-4 overflow-x-auto border border-line flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+            <div className="flex flex-wrap items-center gap-2 flex-1 max-w-lg">
+              <input
+                placeholder="Search products by name or code…"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
+              />
+
+              <div className="flex items-center gap-1 text-[11px]">
+                {[
+                  { key: "all", label: "All" },
+                  { key: "in_season", label: "🟢 In Season" },
+                  { key: "upcoming", label: "🟡 Upcoming" },
+                  { key: "archived", label: "⚪ Archived" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={`px-2.5 py-1 rounded-md font-semibold whitespace-nowrap transition-colors ${
+                      filterStatus === tab.key
+                        ? "bg-primary text-on-primary"
+                        : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
+                    }`}
+                    onClick={() => {
+                      setFilterStatus(tab.key as FilterStatus);
+                      setCurrentPage(1);
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {canManageProducts && (
-              <a className="btn text-xs py-1 px-2.5" href="/admin/products/new">
-                ＋ New Product
-              </a>
-            )}
+            <span className="text-xs muted font-semibold">Showing {filteredMasterList.length} products</span>
           </div>
 
-          {/* Search & Filter Controls */}
-          <div className="flex flex-col gap-2">
-            <input
-              placeholder="Search products by name or code…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
-            />
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-line text-muted font-bold uppercase text-[10px] tracking-wider">
+                <th className="pb-3 pt-1 px-3">Product Variety</th>
+                <th className="pb-3 pt-1 px-3">Code / Slug</th>
+                <th className="pb-3 pt-1 px-3">Harvest Season Window</th>
+                <th className="pb-3 pt-1 px-3">Active Packages</th>
+                <th className="pb-3 pt-1 px-3">Storefront Channels</th>
+                <th className="pb-3 pt-1 px-3">Status</th>
+                <th className="pb-3 pt-1 px-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {paginatedMasterList.map((row) => {
+                const primaryImg = row.media?.find((m) => m.isPrimary) ?? row.media?.[0];
+                const isPreSeason = today < row.product.availableFrom;
+                const isPostSeason = today > row.product.availableThrough;
+                const isInSeason = row.product.active && !isPreSeason && !isPostSeason;
+                const activePkgs = row.packages.filter((pkg) => pkg.active);
 
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
-              {[
-                { key: "all", label: "All" },
-                { key: "in_season", label: "🟢 In Season" },
-                { key: "upcoming", label: "🟡 Upcoming" },
-                { key: "archived", label: "⚪ Archived" },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  className={`px-2.5 py-1 rounded-md font-semibold whitespace-nowrap transition-colors ${
-                    filterStatus === tab.key
-                      ? "bg-primary text-on-primary"
-                      : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
-                  }`}
-                  onClick={() => setFilterStatus(tab.key as FilterStatus)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Product Master Items List */}
-          <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
-            {filteredMasterList.map((row, index) => {
-              const isSelected = row.product.id === selectedId;
-              const primaryImg = row.media?.find((m) => m.isPrimary) ?? row.media?.[0];
-              const isPreSeason = today < row.product.availableFrom;
-              const isPostSeason = today > row.product.availableThrough;
-              const isInSeason = row.product.active && !isPreSeason && !isPostSeason;
-              const activePkgs = row.packages.filter((pkg) => pkg.active);
-
-              return (
-                <div
-                  key={row.product.id}
-                  className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                    isSelected
-                      ? "border-primary bg-primary/5 ring-1 ring-primary shadow-sm"
-                      : "border-line bg-surface hover:border-muted"
-                  }`}
-                  onClick={() => selectProduct(row)}
-                >
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
-                    {/* Thumbnail Avatar */}
-                    <div className="w-11 h-11 rounded-lg overflow-hidden bg-surface-muted border border-line shrink-0 flex items-center justify-center">
-                      {primaryImg ? (
-                        <img src={primaryImg.url} alt={row.product.nameFi} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-lg">🫐</span>
-                      )}
-                    </div>
-
-                    {/* Text Details */}
-                    <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <strong className="text-sm font-bold text-ink truncate">{row.product.nameFi}</strong>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-muted border border-line text-ink/80 shrink-0">
-                          {row.product.code}
-                        </span>
+                return (
+                  <tr key={row.product.id} className="hover:bg-surface-muted/60 transition-colors">
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-surface-muted border border-line shrink-0 flex items-center justify-center">
+                          {primaryImg ? (
+                            <img src={primaryImg.url} alt={row.product.nameFi} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-base">🫐</span>
+                          )}
+                        </div>
+                        <div>
+                          <strong className="text-ink font-bold block">{row.product.nameFi}</strong>
+                          <span className="muted text-[11px]">{row.product.nameEn}</span>
+                        </div>
                       </div>
-
-                      <span className="text-xs muted truncate">{row.product.nameEn}</span>
-
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="font-mono font-bold text-ink bg-surface-muted px-2 py-0.5 rounded border border-line text-[11px]">
+                        {row.product.code}
+                      </span>
+                      <span className="block text-[10px] muted truncate mt-0.5">/{row.product.slug}</span>
+                    </td>
+                    <td className="py-3 px-3 font-mono text-[11px] muted">
+                      {row.product.availableFrom} → {row.product.availableThrough}
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="flex flex-wrap items-center gap-1">
+                        {activePkgs.map((pkg) => (
+                          <span key={pkg.id} className="bg-blue-50 text-blue-900 border border-blue-200 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                            {pkg.labelFi} ({(pkg.priceCents / 100).toFixed(2)}€)
+                          </span>
+                        ))}
+                        {activePkgs.length === 0 && <span className="text-muted text-[11px]">No packages</span>}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-1 text-[10px] font-semibold">
+                        {row.product.showOnHomepage && (
+                          <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded border border-amber-300">
+                            🛒 Homepage
+                          </span>
+                        )}
+                        {row.product.showOnReserve && (
+                          <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded border border-emerald-300">
+                            📝 Reserve Form
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span
+                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
                           isInSeason
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            ? "bg-emerald-100 text-emerald-900 border-emerald-300"
                             : isPreSeason
-                            ? "bg-amber-50 text-amber-900 border-amber-200"
-                            : "bg-surface-muted text-muted border-line"
-                        }`}>
-                          {isInSeason ? "🟢 In Season" : isPreSeason ? "🟡 Upcoming" : "⚪ Ended"}
-                        </span>
+                            ? "bg-amber-100 text-amber-900 border-amber-300"
+                            : "bg-surface-muted text-ink/70 border-line"
+                        }`}
+                      >
+                        {isInSeason ? "🟢 In Season" : isPreSeason ? "🟡 Upcoming" : "⚪ Archived"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <button
+                        type="button"
+                        className="btn btn-secondary text-xs py-1 px-2.5 font-bold"
+                        onClick={() => {
+                          selectProduct(row);
+                          setViewMode("split");
+                        }}
+                      >
+                        Inspect / Edit 🔍
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
 
-                        <span className="text-[10px] muted font-medium">
-                          {activePkgs.length} pkg{activePkgs.length === 1 ? "" : "s"}
-                        </span>
+              {filteredMasterList.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center muted italic">
+                    No products match the selected criteria.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {filteredMasterList.length > pageSize && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs pt-3 border-t border-line">
+              <span className="muted font-medium">
+                Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> – <strong>{Math.min(currentPage * pageSize, filteredMasterList.length)}</strong> of <strong>{filteredMasterList.length}</strong> products
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  ← Previous
+                </button>
+
+                <span className="px-2.5 py-1 font-bold text-ink bg-surface-muted rounded-md border border-line">
+                  {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* MASTER-DETAIL SPLIT WORKSPACE GRID */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* LEFT MASTER SIDEBAR (4 Cols) */}
+          <aside className={`lg:col-span-4 card p-4 flex flex-col gap-3 max-h-[85vh] sticky top-4 ${
+            mobileView === "detail" ? "hidden lg:flex" : "flex"
+          }`}>
+            <div className="flex items-center justify-between border-b border-line pb-2.5">
+              <div>
+                <span className="eyebrow">CATALOG MASTER</span>
+                <h2 className="text-base font-bold text-ink">Products ({filteredMasterList.length})</h2>
+              </div>
+
+              {canManageProducts && (
+                <a className="btn text-xs py-1 px-2.5" href="/admin/products/new">
+                  ＋ New Product
+                </a>
+              )}
+            </div>
+
+            {/* Search & Filter Controls */}
+            <div className="flex flex-col gap-2">
+              <input
+                placeholder="Search products by name or code…"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
+              />
+
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
+                {[
+                  { key: "all", label: "All" },
+                  { key: "in_season", label: "🟢 In Season" },
+                  { key: "upcoming", label: "🟡 Upcoming" },
+                  { key: "archived", label: "⚪ Archived" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={`px-2.5 py-1 rounded-md font-semibold whitespace-nowrap transition-colors ${
+                      filterStatus === tab.key
+                        ? "bg-primary text-on-primary"
+                        : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
+                    }`}
+                    onClick={() => {
+                      setFilterStatus(tab.key as FilterStatus);
+                      setCurrentPage(1);
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Product Master Items List */}
+            <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
+              {paginatedMasterList.map((row, index) => {
+                const isSelected = row.product.id === selectedId;
+                const primaryImg = row.media?.find((m) => m.isPrimary) ?? row.media?.[0];
+                const isPreSeason = today < row.product.availableFrom;
+                const isPostSeason = today > row.product.availableThrough;
+                const isInSeason = row.product.active && !isPreSeason && !isPostSeason;
+                const activePkgs = row.packages.filter((pkg) => pkg.active);
+
+                return (
+                  <div
+                    key={row.product.id}
+                    className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? "border-primary bg-primary/5 ring-1 ring-primary shadow-sm"
+                        : "border-line bg-surface hover:border-muted"
+                    }`}
+                    onClick={() => selectProduct(row)}
+                  >
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      {/* Thumbnail Avatar */}
+                      <div className="w-11 h-11 rounded-lg overflow-hidden bg-surface-muted border border-line shrink-0 flex items-center justify-center">
+                        {primaryImg ? (
+                          <img src={primaryImg.url} alt={row.product.nameFi} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-lg">🫐</span>
+                        )}
+                      </div>
+
+                      {/* Text Details */}
+                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <strong className="text-sm font-bold text-ink truncate">{row.product.nameFi}</strong>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-muted border border-line text-ink/80 shrink-0">
+                            {row.product.code}
+                          </span>
+                        </div>
+
+                        <span className="text-xs muted truncate">{row.product.nameEn}</span>
+
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+                            isInSeason
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              : isPreSeason
+                              ? "bg-amber-50 text-amber-900 border-amber-200"
+                              : "bg-surface-muted text-muted border-line"
+                          }`}>
+                            {isInSeason ? "🟢 In Season" : isPreSeason ? "🟡 Upcoming" : "⚪ Ended"}
+                          </span>
+
+                          <span className="text-[10px] muted font-medium">
+                            {activePkgs.length} pkg{activePkgs.length === 1 ? "" : "s"}
+                          </span>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Re-order Up / Down Controls */}
+                    {canManageProducts && (
+                      <div className="flex flex-col gap-1 shrink-0 border-l border-line/60 pl-1.5 ml-1">
+                        <button
+                          type="button"
+                          title="Move product position up on storefront"
+                          disabled={index === 0}
+                          className="p-1 rounded hover:bg-surface-muted disabled:opacity-20 text-[10px] font-bold leading-none"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleMoveProduct(index, "up");
+                          }}
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          title="Move product position down on storefront"
+                          disabled={index === filteredMasterList.length - 1}
+                          className="p-1 rounded hover:bg-surface-muted disabled:opacity-20 text-[10px] font-bold leading-none"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleMoveProduct(index, "down");
+                          }}
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    )}
                   </div>
+                );
+              })}
 
-                  {/* Re-order Up / Down Controls */}
-                  {canManageProducts && (
-                    <div className="flex flex-col gap-1 shrink-0 border-l border-line/60 pl-1.5 ml-1">
-                      <button
-                        type="button"
-                        title="Move product position up on storefront"
-                        disabled={index === 0}
-                        className="p-1 rounded hover:bg-surface-muted disabled:opacity-20 text-[10px] font-bold leading-none"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleMoveProduct(index, "up");
-                        }}
-                      >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        title="Move product position down on storefront"
-                        disabled={index === filteredMasterList.length - 1}
-                        className="p-1 rounded hover:bg-surface-muted disabled:opacity-20 text-[10px] font-bold leading-none"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleMoveProduct(index, "down");
-                        }}
-                      >
-                        ▼
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+              {filteredMasterList.length === 0 && (
+                <AdminEmptyState title="No products found" description="Adjust search term or filter tab." />
+              )}
+            </div>
 
-            {filteredMasterList.length === 0 && (
-              <AdminEmptyState title="No products found" description="Adjust search term or filter tab." />
+            {/* SIDEBAR MINI PAGINATION CONTROLS */}
+            {filteredMasterList.length > pageSize && (
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-line text-[11px]">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  className="btn btn-secondary text-[11px] py-1 px-2 disabled:opacity-40"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  ← Prev
+                </button>
+
+                <span className="font-bold text-ink">
+                  {currentPage} / {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  className="btn btn-secondary text-[11px] py-1 px-2 disabled:opacity-40"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next →
+                </button>
+              </div>
             )}
-          </div>
-        </aside>
+          </aside>
 
-        {/* RIGHT DETAIL WORKSPACE EDITOR (8 Cols) */}
-        <main className="lg:col-span-8 flex flex-col gap-4">
+          {/* RIGHT DETAIL WORKSPACE EDITOR (8 Cols) */}
+          <main className={`lg:col-span-8 flex flex-col gap-4 ${
+            mobileView === "list" ? "hidden lg:flex" : "flex"
+          }`}>
+            {/* STICKY MOBILE BACK TO ROSTER BUTTON */}
+            <div className="lg:hidden">
+              <button
+                type="button"
+                className="btn btn-secondary text-xs px-3.5 py-2 font-bold flex items-center gap-1.5 w-full justify-center"
+                onClick={() => setMobileView("list")}
+              >
+                ← Back to Product Catalog
+              </button>
+            </div>
           {selectedRow ? (
             <div className="flex flex-col gap-4">
               {/* DETAIL EDITOR HEADER */}
@@ -647,6 +971,7 @@ export function MasterDetailWorkspace({
           )}
         </main>
       </div>
+    )}
 
       {/* LIVE MOBILE STOREFRONT PREVIEW DRAWER */}
       {showPreviewDrawer && selectedRow && (
