@@ -150,7 +150,7 @@ export function DiffInspectorDrawer({
               href="/admin/users"
               className="btn btn-secondary text-xs py-1.5 px-3 font-bold text-purple-900 border-purple-300 hover:bg-purple-50"
             >
-              👤 Inspect User Roster Profile ↗
+              👤 View User Roster Profile ↗
             </Link>
           )}
 
@@ -159,7 +159,7 @@ export function DiffInspectorDrawer({
               href={`/admin/customers/${item.entityId}`}
               className="btn btn-secondary text-xs py-1.5 px-3 font-bold text-blue-900 border-blue-300 hover:bg-blue-50"
             >
-              📇 Inspect Customer CRM Record ↗
+              📇 View Customer CRM Record ↗
             </Link>
           )}
 

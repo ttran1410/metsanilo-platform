@@ -318,7 +318,7 @@ export function MasterDetailCustomerWorkspace({
               }`}
               onClick={() => setWorkspaceView("split")}
             >
-              🔍 Split Inspector
+              🔍 Split View
             </button>
           </div>
 
@@ -450,7 +450,7 @@ export function MasterDetailCustomerWorkspace({
                           setMobileView("detail");
                         }}
                       >
-                        Inspect Profile →
+                        View Profile →
                       </button>
                     </td>
                   </tr>

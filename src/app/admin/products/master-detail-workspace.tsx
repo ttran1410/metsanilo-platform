@@ -334,7 +334,7 @@ export function MasterDetailWorkspace({
             }`}
             onClick={() => setViewMode("split")}
           >
-            🔍 Split Inspector View
+            🔍 Split View
           </button>
 
           <button
@@ -495,7 +495,7 @@ export function MasterDetailWorkspace({
                           setViewMode("split");
                         }}
                       >
-                        Inspect / Edit 🔍
+                        View / Edit 🔍
                       </button>
                     </td>
                   </tr>

@@ -268,7 +268,7 @@ export function MasterAuditWorkspace({
               <th className="pb-3 pt-1 px-3">Severity &amp; Action</th>
               <th className="pb-3 pt-1 px-3">Target Entity</th>
               <th className="pb-3 pt-1 px-3">Summary / Reason</th>
-              <th className="pb-3 pt-1 px-3 text-right">Inspect</th>
+              <th className="pb-3 pt-1 px-3 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -321,7 +321,7 @@ export function MasterAuditWorkspace({
                       setSelectedItem(item);
                     }}
                   >
-                    Inspect Diff 🔍
+                    View Diff 🔍
                   </button>
                 </td>
               </tr>
