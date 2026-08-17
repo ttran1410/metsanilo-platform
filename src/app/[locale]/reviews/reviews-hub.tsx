@@ -31,6 +31,7 @@ export function ReviewsHub({
   const [starFilter, setStarFilter] = useState<number | "all">("all");
   const [productFilter, setProductFilter] = useState<string | "all">("all");
   const [sortBy, setSortBy] = useState<"newest" | "highest">("newest");
+  const [visibleCount, setVisibleCount] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const copy = {
@@ -50,6 +51,8 @@ export function ReviewsHub({
       publicReview: "Julkinen arvostelu",
       sellerReplyTitle: "↳ 🌲 Vastaus myyjältä (Metsänilo):",
       noReviews: "Ei arvosteluja valitulla suodattimella.",
+      loadMore: "💬 Lataa lisää arvosteluja",
+      showingCount: (visible: number, total: number) => `Näytetään ${Math.min(visible, total)} / ${total} arvostelusta`,
     },
     en: {
       eyebrow: "CUSTOMER EXPERIENCES",
@@ -67,6 +70,8 @@ export function ReviewsHub({
       publicReview: "Public Review",
       sellerReplyTitle: "↳ 🌲 Seller Reply (Metsänilo):",
       noReviews: "No reviews found for selected filter.",
+      loadMore: "💬 Load More Reviews",
+      showingCount: (visible: number, total: number) => `Showing ${Math.min(visible, total)} of ${total} reviews`,
     },
   }[locale];
 
@@ -81,6 +86,8 @@ export function ReviewsHub({
     if (sortBy === "highest") return b.rating - a.rating;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
+
+  const visibleReviews = sorted.slice(0, visibleCount);
 
   const totalReviewsCount = rollup.reviewCount || reviewsList.length;
   const avgRating = rollup.ratingAvg || 4.92;
@@ -183,7 +190,7 @@ export function ReviewsHub({
           </div>
         )}
 
-        {sorted.map((review) => (
+        {visibleReviews.map((review) => (
           <article
             key={review.id}
             className="p-6 rounded-2xl bg-white border border-[#E7E2D7] shadow-xs space-y-3"
@@ -225,6 +232,21 @@ export function ReviewsHub({
             )}
           </article>
         ))}
+
+        {sorted.length > visibleCount && (
+          <div className="pt-4 text-center space-y-2">
+            <p className="text-xs font-semibold text-[#8C8375]">
+              {copy.showingCount(visibleCount, sorted.length)}
+            </p>
+            <button
+              type="button"
+              className="btn bg-[#1E6B34] hover:bg-[#144A23] text-white font-extrabold text-xs px-6 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer"
+              onClick={() => setVisibleCount((prev) => prev + 10)}
+            >
+              {copy.loadMore}
+            </button>
+          </div>
+        )}
       </section>
 
       <ReviewModal

@@ -53,13 +53,69 @@ export async function getReviewRollup(database: Database) {
   }
 }
 
-export async function listPublishedReviews(database: Database) {
+export async function listPublishedReviews(
+  database: Database,
+  options?: { page?: number; limit?: number },
+) {
   const { SHOP_ID } = env();
-  return database
+  const all = await database
     .select()
     .from(reviews)
     .where(and(eq(reviews.shopId, SHOP_ID), eq(reviews.status, "APPROVED")))
-    .orderBy(desc(reviews.createdAt));
+    .orderBy(desc(reviews.featured), desc(reviews.createdAt));
+
+  if (!options?.page || !options?.limit) {
+    return all;
+  }
+
+  const page = Math.max(1, options.page);
+  const limit = Math.max(1, options.limit);
+  const startIndex = (page - 1) * limit;
+
+  return {
+    items: all.slice(startIndex, startIndex + limit),
+    total: all.length,
+    page,
+    limit,
+    totalPages: Math.ceil(all.length / limit) || 1,
+  };
+}
+
+export async function listFeaturedReviews(database: Database, limit = 3) {
+  const { SHOP_ID } = env();
+  const featured = await database
+    .select()
+    .from(reviews)
+    .where(
+      and(
+        eq(reviews.shopId, SHOP_ID),
+        eq(reviews.status, "APPROVED"),
+        eq(reviews.featured, true),
+      ),
+    )
+    .orderBy(desc(reviews.createdAt))
+    .limit(limit);
+
+  if (featured.length >= limit) {
+    return featured;
+  }
+
+  const featuredIds = new Set(featured.map((r) => r.id));
+  const fallback = await database
+    .select()
+    .from(reviews)
+    .where(and(eq(reviews.shopId, SHOP_ID), eq(reviews.status, "APPROVED")))
+    .orderBy(desc(reviews.createdAt))
+    .limit(limit * 2);
+
+  const combined = [...featured];
+  for (const item of fallback) {
+    if (!featuredIds.has(item.id) && combined.length < limit) {
+      combined.push(item);
+    }
+  }
+
+  return combined;
 }
 
 export async function createPublicReview(

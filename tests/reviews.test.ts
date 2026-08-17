@@ -11,6 +11,7 @@ import {
   createManualReview,
   createPublicReview,
   getReviewRollup,
+  listFeaturedReviews,
   listManagerReviews,
   listPublishedReviews,
   moderateReview,
@@ -228,5 +229,53 @@ describe("Review Engine & Social Proof Trust System", () => {
     expect(featured.featured).toBe(true);
     expect(featured.status).toBe("APPROVED");
     expect(featured.featuredUntil).toBe("2026-11-15T14:34:00.452Z");
+  });
+
+  it("supports listFeaturedReviews top 3 limit and fallback behavior", async () => {
+    for (let i = 1; i <= 5; i++) {
+      const rev = await createPublicReview(database, {
+        displayName: `User ${i}`,
+        rating: 5,
+        originalText: `Review text ${i} for testing featured limit.`,
+        publicationAcknowledgement: true,
+        locale: "fi",
+      });
+      await moderateReview(database, {
+        id: rev.id,
+        status: "APPROVED",
+        featured: i <= 2,
+        actor: "admin@test.fi",
+      });
+    }
+
+    const featured = await listFeaturedReviews(database, 3);
+    expect(featured.length).toBe(3);
+    expect(featured[0].displayName).toBe("User 2");
+    expect(featured[1].displayName).toBe("User 1");
+  });
+
+  it("supports pagination in listPublishedReviews", async () => {
+    for (let i = 1; i <= 15; i++) {
+      const rev = await createPublicReview(database, {
+        displayName: `Customer ${i}`,
+        rating: 5,
+        originalText: `Test review number ${i} for published reviews pagination.`,
+        publicationAcknowledgement: true,
+        locale: "fi",
+      });
+      await moderateReview(database, {
+        id: rev.id,
+        status: "APPROVED",
+        actor: "admin@test.fi",
+      });
+    }
+
+    const page1 = (await listPublishedReviews(database, { page: 1, limit: 10 })) as any;
+    expect(page1.items.length).toBe(10);
+    expect(page1.total).toBe(15);
+    expect(page1.totalPages).toBe(2);
+
+    const page2 = (await listPublishedReviews(database, { page: 2, limit: 10 })) as any;
+    expect(page2.items.length).toBe(5);
   });
 });
