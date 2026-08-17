@@ -134,12 +134,13 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             <span><strong>METSÄNILO</strong></span>
           </Link>
           <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
+            <Link className="nav-link-active" href={`/${locale}`}>{locale === "fi" ? "Etusivu" : "Home"}</Link>
             <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link>
             <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
             {data.shop.reviewsVisible && <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>}
             <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
           </nav>
-          <MobileNav locale={locale} />
+          <MobileNav locale={locale} active="home" />
           <Link className="locale-switch" href={`/${otherLocale}`} hrefLang={otherLocale}>
             {t.switchLocale}<span aria-hidden="true">↗</span>
           </Link>

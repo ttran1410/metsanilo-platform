@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { Locale } from "@/lib/format";
 
 const labels = {
-  fi: { menu: "Valikko", reserve: "Varaa tuotteet", how: "Miten toimii", reviews: "Arvostelut", about: "Meistä" },
-  en: { menu: "Menu", reserve: "Reserve products", how: "How it works", reviews: "Reviews", about: "About us" },
+  fi: { menu: "Valikko", home: "Etusivu", reserve: "Varaa tuotteet", how: "Miten toimii", reviews: "Arvostelut", about: "Meistä" },
+  en: { menu: "Menu", home: "Home", reserve: "Reserve products", how: "How it works", reviews: "Reviews", about: "About us" },
 } satisfies Record<Locale, Record<string, string>>;
 
 export function MobileNav({
@@ -14,13 +14,14 @@ export function MobileNav({
   aboutUsVisible = true,
 }: {
   locale: Locale;
-  active?: "reserve" | "how" | "reviews" | "about";
+  active?: "home" | "reserve" | "how" | "reviews" | "about";
   reviewsVisible?: boolean;
   howItWorksVisible?: boolean;
   aboutUsVisible?: boolean;
 }) {
   const t = labels[locale];
   const links = [
+    ["home", t.home, `/${locale}`, true],
     ["reserve", t.reserve, `/${locale}/reserve`, true],
     ["how", t.how, `/${locale}/how-it-works`, howItWorksVisible],
     ["reviews", t.reviews, `/${locale}/reviews`, reviewsVisible],
