@@ -15,7 +15,9 @@ type DashboardData = {
     customerName: string;
     createdAt: string;
     ageMinutes: number;
-    mobile: string;
+    mobile: string | null;
+    facebookProfile?: string | null;
+    version?: number;
   }>;
   unconfirmedDeliveryCount: number;
   funnel: {
@@ -76,6 +78,10 @@ export function DashboardModule() {
   const [refreshing, setRefreshing] = useState(false);
   const [actionNotice, setActionNotice] = useState("");
 
+  const [alertsModalOpen, setAlertsModalOpen] = useState(false);
+  const [alertsList, setAlertsList] = useState<Array<{ id: string; category: string; title: string; body: string; createdAt: string; orderId: string | null }>>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(false);
+
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setRefreshing(true);
     try {
@@ -90,6 +96,39 @@ export function DashboardModule() {
       setRefreshing(false);
     }
   }, []);
+
+  const openAlertsModal = useCallback(async () => {
+    setAlertsModalOpen(true);
+    setLoadingAlerts(true);
+    try {
+      const response = await fetch("/api/admin/notifications", { cache: "no-store" });
+      const body = await response.json();
+      if (response.ok && body.data) setAlertsList(body.data);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingAlerts(false);
+    }
+  }, []);
+
+  async function markAlertsRead(id?: string) {
+    try {
+      await fetch("/api/admin/notifications", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(id ? { id } : {}),
+      });
+      if (id) {
+        setAlertsList((prev) => prev.filter((a) => a.id !== id));
+      } else {
+        setAlertsList([]);
+        setAlertsModalOpen(false);
+      }
+      void load();
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     const initial = window.setTimeout(() => void load(), 0);
@@ -108,15 +147,16 @@ export function DashboardModule() {
   }, [load]);
 
   // 1-Click Quick Confirm from Triage Ribbon
-  async function handleQuickConfirm(orderId: string, ref: string) {
+  async function handleQuickConfirm(orderId: string, ref: string, expectedVersion = 1) {
     setActionNotice("");
     try {
-      const response = await fetch(`/api/admin/orders/${orderId}`, {
-        method: "PATCH",
+      const response = await fetch(`/api/admin/orders/${orderId}/status`, {
+        method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "transition", status: "CONFIRMED" }),
+        body: JSON.stringify({ status: "CONFIRMED", expectedVersion }),
       });
-      if (!response.ok) throw new Error("Could not confirm order");
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message ?? "Could not confirm order");
       setActionNotice(`✓ Quick confirmed order ${ref}.`);
       void load();
     } catch (err) {
@@ -205,7 +245,13 @@ export function DashboardModule() {
               <span>⚠️ {data.unconfirmedDeliveryCount} Delivery Address Unconfirmed</span>
             )}
             {data.unreadNotifications > 0 && (
-              <span>🔔 {data.unreadNotifications} Unread Team Alert(s)</span>
+              <button
+                type="button"
+                className="hover:underline flex items-center gap-1 cursor-pointer font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded-lg border border-amber-300 transition-colors"
+                onClick={openAlertsModal}
+              >
+                🔔 {data.unreadNotifications} Unread Team Alert(s)
+              </button>
             )}
           </div>
 
@@ -227,17 +273,34 @@ export function DashboardModule() {
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      className="btn text-[11px] py-1 px-2.5 font-bold"
-                      onClick={() => void handleQuickConfirm(item.id, item.publicReference)}
+                      className="btn text-[11px] py-1 px-2.5 font-bold bg-emerald-700 text-white hover:bg-emerald-800"
+                      onClick={() => void handleQuickConfirm(item.id, item.publicReference, item.version)}
                     >
                       ✓ Quick Confirm
                     </button>
-                    <a
-                      href={`tel:${item.mobile}`}
-                      className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold"
-                    >
-                      📞 Call
-                    </a>
+                    {item.mobile && item.mobile.trim() ? (
+                      <a
+                        href={`tel:${item.mobile}`}
+                        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold"
+                      >
+                        📞 Call
+                      </a>
+                    ) : item.facebookProfile ? (
+                      <a
+                        href={
+                          item.facebookProfile.startsWith("http")
+                            ? item.facebookProfile
+                            : `https://facebook.com/${item.facebookProfile}`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary text-[11px] py-1 px-2.5 font-bold text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100"
+                      >
+                        💬 FB Profile
+                      </a>
+                    ) : (
+                      <span className="text-[11px] px-2 py-1 muted font-semibold">No contact</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -493,11 +556,97 @@ export function DashboardModule() {
             </div>
           ))}
 
-          {data.activity.length === 0 && (
-            <p className="py-4 text-xs muted italic text-center">No recent activity recorded.</p>
-          )}
         </div>
       </div>
+
+      {/* 8. TEAM ALERTS MODAL */}
+      {alertsModalOpen && (
+        <div
+          className="admin-command-backdrop"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setAlertsModalOpen(false);
+          }}
+        >
+          <div className="card p-5 max-w-lg w-full bg-surface shadow-2xl rounded-2xl flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div>
+                <span className="eyebrow text-amber-800">UNREAD TEAM ALERTS</span>
+                <h3 className="text-base font-bold text-ink flex items-center gap-2">
+                  <span>🔔</span> Active Team Notifications ({alertsList.length})
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="text-muted hover:text-ink text-xl font-bold p-1"
+                onClick={() => setAlertsModalOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            {loadingAlerts ? (
+              <AdminLoadingState label="Fetching team alerts…" />
+            ) : alertsList.length === 0 ? (
+              <p className="text-xs muted py-6 text-center italic">No unread alerts remaining.</p>
+            ) : (
+              <div className="divide-y divide-line/60 flex flex-col">
+                {alertsList.map((alert) => (
+                  <div key={alert.id} className="py-3 flex items-start justify-between gap-3 text-xs">
+                    <div className="flex flex-col gap-1">
+                      <strong className="text-ink font-bold text-sm flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        {alert.title}
+                      </strong>
+                      <p className="text-slate-700">{alert.body}</p>
+                      <span className="muted text-[11px] font-mono">
+                        {alert.createdAt.slice(0, 16).replace("T", " ")}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {alert.orderId && (
+                        <Link
+                          href={`/admin/orders/${alert.orderId}`}
+                          className="btn btn-secondary text-[11px] py-1 px-2 font-bold"
+                          onClick={() => setAlertsModalOpen(false)}
+                        >
+                          View Order ►
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn-secondary text-[11px] py-1 px-2 font-bold text-muted hover:text-ink"
+                        onClick={() => void markAlertsRead(alert.id)}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t border-line pt-3 text-xs">
+              {alertsList.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary text-xs font-bold text-amber-900 bg-amber-50 border-amber-200"
+                  onClick={() => void markAlertsRead()}
+                >
+                  ✓ Mark all as read
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-secondary text-xs font-bold ml-auto"
+                onClick={() => setAlertsModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
