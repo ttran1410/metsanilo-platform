@@ -50,6 +50,8 @@ export async function getDashboard(database: Database) {
       createdAt: row.createdAt,
       ageMinutes: Math.floor((now - new Date(row.createdAt).getTime()) / 60000),
       mobile: row.mobile,
+      facebookProfile: row.facebookProfile,
+      version: row.version,
     }));
 
   const unconfirmedDelivery = activeToday.filter(
