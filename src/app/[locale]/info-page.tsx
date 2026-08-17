@@ -7,8 +7,8 @@ import { MobileNav } from "./mobile-nav";
 type InfoKind = "how-it-works" | "reviews" | "about";
 
 const navCopy = {
-  fi: { how: "Miten varaus toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjat", contact: "Yhteys" },
-  en: { how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve products", contact: "Contact" },
+  fi: { home: "Etusivu", how: "Miten varaus toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjat", contact: "Yhteys" },
+  en: { home: "Home", how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve products", contact: "Contact" },
 } satisfies Record<Locale, Record<string, string>>;
 
 const content = {
@@ -65,6 +65,7 @@ export function InfoPage({
             <span><strong>METSÄNILO</strong></span>
           </Link>
           <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
+            {navLink(`/${locale}`, nav.home, false)}
             {navLink(`/${locale}/reserve`, nav.reserve, false)}
             {howItWorksVisible && navLink(`/${locale}/how-it-works`, nav.how, kind === "how-it-works")}
             {reviewsVisible && navLink(`/${locale}/reviews`, nav.reviews, kind === "reviews")}
