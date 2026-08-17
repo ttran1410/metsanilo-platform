@@ -400,7 +400,12 @@ export function OrdersListing({
         const response = await fetch(`/api/admin/orders/${order.id}`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "transition", status: pending.target, reason: reason.trim() || undefined }),
+          body: JSON.stringify({
+            action: "transition",
+            status: pending.target,
+            expectedVersion: order.version,
+            reason: reason.trim() || undefined,
+          }),
         });
         const body = await response.json();
         if (!response.ok) throw new Error(body.message ?? `Transition failed for ${order.publicReference}`);

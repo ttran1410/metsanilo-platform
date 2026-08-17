@@ -10,7 +10,13 @@ export function failure(error: unknown) {
   const correlationId = randomUUID();
   if (error instanceof DomainError) {
     return NextResponse.json(
-      { code: error.code, message: error.message, fieldErrors: error.fieldErrors, correlationId },
+      {
+        code: error.code,
+        message: error.message,
+        detail: error.detail ?? (error.fieldErrors ? JSON.stringify(error.fieldErrors) : undefined),
+        fieldErrors: error.fieldErrors,
+        correlationId,
+      },
       { status: error.status },
     );
   }
