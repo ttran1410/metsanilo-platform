@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { AdminNotice, AdminPageHeader } from "../presentation";
+import { AdminPagination } from "../ui/admin-pagination";
 import { LinkIdentityModal } from "./link-identity-modal";
 
 type Review = {
@@ -46,7 +47,7 @@ export function ReviewsManager({
   const [activeTab, setActiveTab] = useState<"pending" | "approved" | "featured" | "rejected" | "all">("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 15;
+  const [pageSize, setPageSize] = useState(20);
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
   const [editingDisplayTextId, setEditingDisplayTextId] = useState<string | null>(null);
@@ -696,37 +697,14 @@ export function ReviewsManager({
       </div>
 
       {/* Pagination Controls */}
-      {filteredRows.length > pageSize && (
-        <div className="card p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs border border-slate-200 shadow-xs">
-          <span className="text-slate-600 font-medium">
-            Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> – <strong>{Math.min(currentPage * pageSize, filteredRows.length)}</strong> of <strong>{filteredRows.length}</strong> reviews
-          </span>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={currentPage <= 1}
-              className="btn btn-secondary text-xs py-1.5 px-3 disabled:opacity-40 font-semibold cursor-pointer"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            >
-              ← Previous
-            </button>
-
-            <span className="px-3 py-1 font-bold text-slate-700 bg-slate-100 rounded-md">
-              Page {currentPage} of {totalPages}
-            </span>
-
-            <button
-              type="button"
-              disabled={currentPage >= totalPages}
-              className="btn btn-secondary text-xs py-1.5 px-3 disabled:opacity-40 font-semibold cursor-pointer"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-      )}
+      <AdminPagination
+        page={currentPage}
+        limit={pageSize}
+        total={filteredRows.length}
+        onPageChange={setCurrentPage}
+        onLimitChange={(newLimit) => setPageSize(newLimit)}
+        itemLabel="reviews"
+      />
 
       {/* Manual Import Modal */}
       {showManualModal && (

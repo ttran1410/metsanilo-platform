@@ -11,6 +11,7 @@ import { OrderInspector } from "./order-inspector";
 import { PickupTerminal } from "./orders/pickup-terminal";
 import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
+import { AdminPagination } from "./ui/admin-pagination";
 
 export type AdminOrder = typeof orders.$inferSelect & {
   paidCents?: number;
@@ -161,7 +162,12 @@ export function OrdersListing({
   const [archiving, setArchiving] = useState(false);
   const [reason, setReason] = useState("");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, from, to, method, status, source, view, archiveScope]);
 
   const refreshOrders = useCallback(async (announce = false) => {
     try {
@@ -380,9 +386,9 @@ export function OrdersListing({
   }, [filtered, view]);
 
   const visibleRows = useMemo(() => {
-    const start = (page - 1) * 50;
-    return sortedRows.slice(start, start + 50);
-  }, [sortedRows, page]);
+    const start = (page - 1) * limit;
+    return sortedRows.slice(start, start + limit);
+  }, [sortedRows, page, limit]);
 
   const selectedOrders = useMemo(() => {
     return rows.filter((order) => selected.includes(order.id));
@@ -923,6 +929,15 @@ export function OrdersListing({
               </tbody>
             </table>
           </div>
+
+          <AdminPagination
+            page={page}
+            limit={limit}
+            total={sortedRows.length}
+            onPageChange={setPage}
+            onLimitChange={(newLimit) => setLimit(newLimit)}
+            itemLabel="orders"
+          />
         </div>
       )}
 
