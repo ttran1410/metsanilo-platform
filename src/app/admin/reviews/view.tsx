@@ -135,7 +135,7 @@ export function ReviewsManager({
     setRejectingId(null);
   }
 
-  async function confirmManual(reviewId: string, source: "SMS" | "WHATSAPP" | "PHONE" | "OTHER") {
+  async function confirmManual(reviewId: string, source: string) {
     setMessage("");
     setErrorMsg("");
     const res = await fetch("/api/admin/reviews", {
@@ -162,7 +162,7 @@ export function ReviewsManager({
     const originalText = (form.get("originalText") as string)?.trim();
     const orderId = (form.get("orderId") as string)?.trim() || undefined;
     const verifiedBuyer = form.get("verifiedBuyer") === "on";
-    const source = form.get("acknowledgementSource") as "SMS" | "WHATSAPP" | "PHONE" | "OTHER";
+    const source = (form.get("acknowledgementSource") as string)?.trim() || undefined;
 
     const res = await fetch("/api/admin/reviews", {
       method: "POST",
