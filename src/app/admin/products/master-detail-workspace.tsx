@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { packages, products } from "@/db/schema";
@@ -205,6 +205,17 @@ export function MasterDetailWorkspace({
   }, [filteredMasterList, currentPage, pageSize]);
 
   const [splitLimit, setSplitLimit] = useState(20);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (activeMenuId && !(event.target as HTMLElement).closest(".row-action-menu")) {
+        setActiveMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [activeMenuId]);
   const sidebarDisplayedProducts = useMemo(() => {
     return filteredMasterList.slice(0, splitLimit);
   }, [filteredMasterList, splitLimit]);
@@ -493,16 +504,68 @@ export function MasterDetailWorkspace({
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">
-                      <button
-                        type="button"
-                        className="btn btn-secondary text-xs py-1 px-2.5 font-bold"
-                        onClick={() => {
-                          selectProduct(row);
-                          setViewMode("split");
-                        }}
-                      >
-                        View / Edit 🔍
-                      </button>
+                      <div className="relative inline-block text-left row-action-menu">
+                        <button
+                          type="button"
+                          className="p-1.5 px-2.5 rounded-lg text-ink/80 hover:text-ink hover:bg-surface-muted border border-line/60 hover:border-line font-bold transition-all shadow-2xs"
+                          title="Product Actions Menu"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(activeMenuId === row.product.id ? null : row.product.id);
+                          }}
+                        >
+                          <span className="text-xs font-mono tracking-widest font-extrabold">•••</span>
+                        </button>
+
+                        {activeMenuId === row.product.id && (
+                          <div className="absolute right-0 mt-1 w-48 bg-surface rounded-xl shadow-xl border border-line py-1 z-40 text-left text-xs divide-y divide-line/60 animate-in fade-in-50 zoom-in-95">
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(null);
+                                  selectProduct(row);
+                                  setViewMode("split");
+                                }}
+                              >
+                                <span>👁️</span> View &amp; Edit Product
+                              </button>
+                            </div>
+
+                            <div className="py-1">
+                              <a
+                                href={`/products/${row.product.slug}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 px-3 py-2 text-ink/80 hover:bg-surface-muted transition-colors font-semibold"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(null);
+                                }}
+                              >
+                                <span>🛍️</span> Preview Storefront
+                              </a>
+                            </div>
+
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink/80 hover:bg-surface-muted transition-colors font-semibold"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(null);
+                                  selectProduct(row);
+                                  setViewMode("split");
+                                }}
+                              >
+                                <span>📦</span> Packages &amp; Pricing
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
