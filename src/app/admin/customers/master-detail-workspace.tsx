@@ -32,6 +32,8 @@ type CustomerRow = {
     lastFulfillmentDate: string | null;
     isVip: boolean;
     preferredMethod: "PICKUP" | "DELIVERY";
+    reviewCount?: number;
+    averageRating?: number | null;
   };
 };
 
@@ -50,9 +52,24 @@ type OrderItem = {
   createdAt: string;
 };
 
+type ReviewItem = {
+  id: string;
+  rating: number;
+  originalText: string;
+  displayText?: string | null;
+  status: string;
+  featured: boolean;
+  verifiedBuyer: boolean;
+  orderId?: string | null;
+  sellerReplyText?: string | null;
+  sellerRepliedAt?: string | null;
+  createdAt: string;
+};
+
 type ProfileData = {
   customer: CustomerRow;
   orders: OrderItem[];
+  reviews?: ReviewItem[];
   timelineByYear: Record<string, OrderItem[]>;
   audit: Array<{ id: string; action: string; actor: string; createdAt: string }>;
   metrics: NonNullable<CustomerRow["metrics"]>;
@@ -440,6 +457,11 @@ export function MasterDetailCustomerWorkspace({
                             ⭐ VIP
                           </span>
                         )}
+                        {Boolean(c.metrics?.averageRating) && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300">
+                            ⭐ {c.metrics?.averageRating} ({c.metrics?.reviewCount})
+                          </span>
+                        )}
                         {c.matchStatus === "CONFLICT_REVIEW" && (
                           <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded">
                             ⚠️ Conflict
@@ -541,6 +563,12 @@ export function MasterDetailCustomerWorkspace({
                           <span className="font-bold text-ink">{spendStr}</span>
                           <span>•</span>
                           <span>{customer.metrics?.totalOrders ?? 0} orders</span>
+                          {Boolean(customer.metrics?.averageRating) && (
+                            <>
+                              <span>•</span>
+                              <span className="font-bold text-amber-700">⭐ {customer.metrics?.averageRating}</span>
+                            </>
+                          )}
                         </div>
 
                         {customer.matchStatus === "CONFLICT_REVIEW" && (
@@ -710,7 +738,7 @@ export function MasterDetailCustomerWorkspace({
               </div>
 
               {/* KEY METRICS & RELIABILITY SCORE CARD */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div className="card p-3 flex flex-col justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider muted">Total Volume</span>
                   <div className="flex items-baseline justify-between mt-2">
@@ -728,6 +756,18 @@ export function MasterDetailCustomerWorkspace({
                       {formatAdminMoney(profile.metrics.totalSpendCents)}
                     </span>
                     <span className="text-xs text-primary/70 font-semibold">Euros</span>
+                  </div>
+                </div>
+
+                <div className="card p-3 flex flex-col justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Customer Sentiment</span>
+                  <div className="flex items-baseline justify-between mt-2">
+                    <span className="text-2xl font-bold text-amber-800 ops-tabular flex items-center gap-1">
+                      {profile.metrics.averageRating ? `⭐ ${profile.metrics.averageRating}` : "—"}
+                    </span>
+                    <span className="text-xs text-amber-900 font-semibold">
+                      {profile.metrics.reviewCount ? `${profile.metrics.reviewCount} review(s)` : "No reviews"}
+                    </span>
                   </div>
                 </div>
 
@@ -811,6 +851,91 @@ export function MasterDetailCustomerWorkspace({
                     {profile.customer.notes || "No special handling instructions added yet."}
                   </p>
                 )}
+              </div>
+
+              {/* REVIEWS & SENTIMENT FEEDBACK CARD */}
+              <div className="card p-4 md:p-5 flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-line pb-3">
+                  <div>
+                    <span className="eyebrow">CUSTOMER SENTIMENT &amp; FEEDBACK</span>
+                    <h3 className="text-base font-bold text-ink flex items-center gap-2">
+                      ⭐ Customer Reviews &amp; Testimonials
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                        {profile.reviews?.length ?? 0}
+                      </span>
+                    </h3>
+                  </div>
+                  <Link className="btn btn-secondary text-xs py-1.5 px-3 font-semibold" href="/admin/reviews">
+                    Manage All Reviews ↗
+                  </Link>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {profile.reviews?.map((rev) => (
+                    <div key={rev.id} className="p-4 rounded-xl border border-line bg-surface flex flex-col gap-2 text-xs shadow-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/50 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-500 font-bold text-sm tracking-wider">
+                            {"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)}
+                          </span>
+                          <strong className="font-bold text-ink text-sm">{rev.rating}.0 / 5.0</strong>
+                          {rev.verifiedBuyer && (
+                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
+                              ✓ Verified Buyer
+                            </span>
+                          )}
+                          {rev.featured && (
+                            <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-1.5 py-0.5 rounded border border-purple-300">
+                              ✨ Featured
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                            rev.status === "APPROVED"
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              : rev.status === "REJECTED"
+                              ? "bg-rose-50 text-rose-800 border-rose-200"
+                              : "bg-amber-50 text-amber-900 border-amber-200"
+                          }`}>
+                            {rev.status}
+                          </span>
+                          <span className="muted text-[11px] font-mono">{rev.createdAt.slice(0, 10)}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-ink font-medium text-xs whitespace-pre-wrap leading-relaxed">
+                        "{rev.displayText || rev.originalText}"
+                      </p>
+
+                      {rev.orderId && (
+                        <div className="text-[11px] muted flex items-center gap-1 mt-0.5">
+                          <span>Linked Order:</span>
+                          <Link className="text-primary hover:underline font-bold font-mono" href={`/admin/orders/${rev.orderId}`}>
+                            View Order ↗
+                          </Link>
+                        </div>
+                      )}
+
+                      {rev.sellerReplyText && (
+                        <div className="mt-1 p-2.5 bg-surface-muted rounded-lg border-l-4 border-primary text-xs space-y-1">
+                          <strong className="text-primary font-bold block text-[11px] uppercase tracking-wider">
+                            💬 Official Store Reply ({rev.sellerRepliedAt?.slice(0, 10)})
+                          </strong>
+                          <p className="text-ink font-medium leading-relaxed">{rev.sellerReplyText}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {(!profile.reviews || profile.reviews.length === 0) && (
+                    <AdminEmptyState
+                      title="No reviews submitted yet"
+                      description="This customer has not submitted any public reviews or ratings."
+                    />
+                  )}
+                </div>
               </div>
 
               {/* YEAR-OVER-YEAR SEASONAL BUYING TIMELINE */}

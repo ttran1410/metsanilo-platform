@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, like, ne, or } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, customers, orders } from "@/db/schema";
+import { auditEntries, customers, orders, reviews } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { normalizeEmail, normalizeMobile } from "./order-input";
@@ -63,6 +63,15 @@ export async function listCustomers(
     .from(orders)
     .where(eq(orders.shopId, SHOP_ID));
 
+  const allReviews = await database
+    .select({
+      id: reviews.id,
+      customerId: reviews.customerId,
+      rating: reviews.rating,
+    })
+    .from(reviews)
+    .where(eq(reviews.shopId, SHOP_ID));
+
   const allWithMetrics = rows.map((customer) => {
     const related = customerOrders.filter((order) => order.customerId === customer.id);
     const completed = related.filter(
@@ -84,6 +93,12 @@ export async function listCustomers(
     const totalFinished = completed.length + noShows.length;
     const reliabilityRatePercent = totalFinished > 0 ? Math.round((completed.length / totalFinished) * 100) : 100;
 
+    const customerRev = allReviews.filter((r) => r.customerId === customer.id);
+    const reviewCount = customerRev.length;
+    const averageRating = reviewCount > 0
+      ? Number((customerRev.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1))
+      : null;
+
     return {
       ...customer,
       metrics: {
@@ -96,6 +111,8 @@ export async function listCustomers(
         lastFulfillmentDate: completed[0]?.fulfillmentDate ?? null,
         isVip,
         preferredMethod,
+        reviewCount,
+        averageRating,
       },
     };
   });
@@ -265,9 +282,33 @@ export async function getCustomerProfile(database: Database, customerId: string)
     timelineByYear[seasonLabel].push(order);
   }
 
+  const customerReviews = await database
+    .select({
+      id: reviews.id,
+      rating: reviews.rating,
+      originalText: reviews.originalText,
+      displayText: reviews.displayText,
+      status: reviews.status,
+      featured: reviews.featured,
+      verifiedBuyer: reviews.verifiedBuyer,
+      orderId: reviews.orderId,
+      sellerReplyText: reviews.sellerReplyText,
+      sellerRepliedAt: reviews.sellerRepliedAt,
+      createdAt: reviews.createdAt,
+    })
+    .from(reviews)
+    .where(and(eq(reviews.shopId, SHOP_ID), eq(reviews.customerId, customerId)))
+    .orderBy(desc(reviews.createdAt));
+
+  const reviewCount = customerReviews.length;
+  const averageRating = reviewCount > 0
+    ? Number((customerReviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1))
+    : null;
+
   return {
     customer,
     orders: customerOrders,
+    reviews: customerReviews,
     timelineByYear,
     audit,
     metrics: {
@@ -280,6 +321,8 @@ export async function getCustomerProfile(database: Database, customerId: string)
       isVip,
       preferredMethod,
       lastFulfillmentDate: completed[0]?.fulfillmentDate ?? null,
+      reviewCount,
+      averageRating,
     },
     identityConflicts,
   };
