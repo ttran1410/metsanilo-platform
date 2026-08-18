@@ -43,6 +43,7 @@ type Order = {
   city: string | null;
   itemSubtotalCents: number;
   deliveryFeeCents: number | null;
+  status: string;
   historicalEntry?: boolean;
 };
 
@@ -270,47 +271,61 @@ export function OrderEditForm({
     router.refresh();
   }
 
+  const isClosedOrder = ["PICKED_UP", "DELIVERED", "CANCELLED", "REJECTED", "NO_SHOW"].includes(initial.status);
+
   return (
     <form className="space-y-5 pb-28 md:pb-10" onSubmit={save}>
-      {/* REAL-TIME PRE-FLIGHT CAPACITY GUARD BANNER */}
-      <div className="card p-4 bg-surface-muted/60 border-2 border-primary/40 rounded-xl flex flex-col gap-2 shadow-xs">
-        <div className="flex items-center justify-between">
-          <strong className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-            ⚡ REAL-TIME PRE-FLIGHT CAPACITY GUARD
+      {isClosedOrder ? (
+        <div className="card p-4 bg-purple-500/10 border-2 border-purple-500/40 rounded-xl flex flex-col gap-1 text-xs shadow-xs">
+          <strong className="font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+            🔒 COMPLETED ORDER METADATA EDIT MODE
           </strong>
-          <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
-            Capacity OK ✓
-          </span>
+          <p className="text-purple-950 font-medium leading-relaxed">
+            This order is completed (<strong>{initial.status}</strong>). Core items, quantities, date, method, and pricing are locked to protect financial ledgers. You can update <strong>Order Source</strong>, <strong>Facebook Profile</strong>, and <strong>Customer Contact Info</strong> below.
+          </p>
         </div>
+      ) : (
+        /* REAL-TIME PRE-FLIGHT CAPACITY GUARD BANNER */
+        <div className="card p-4 bg-surface-muted/60 border-2 border-primary/40 rounded-xl flex flex-col gap-2 shadow-xs">
+          <div className="flex items-center justify-between">
+            <strong className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+              ⚡ REAL-TIME PRE-FLIGHT CAPACITY GUARD
+            </strong>
+            <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+              Capacity OK ✓
+            </span>
+          </div>
 
-        <p className="text-xs font-medium text-ink leading-relaxed">
-          {form.fulfillmentDate !== initial.fulfillmentDate ? (
-            <>
-              Releasing <strong>{(initial.volumeMl / 1000).toFixed(1)} L</strong> on <strong>{initial.fulfillmentDate}</strong> → Reserving <strong>{((initial.volumeMl + volumeDelta) / 1000).toFixed(1)} L</strong> on <strong>{form.fulfillmentDate}</strong>.
-            </>
-          ) : volumeDelta === 0 ? (
-            "No volume capacity change required for this order."
-          ) : volumeDelta > 0 ? (
-            <>
-              Reserving <strong>+{(volumeDelta / 1000).toFixed(1)} L</strong> additional capacity on <strong>{form.fulfillmentDate}</strong> (Total: {((initial.volumeMl + volumeDelta) / 1000).toFixed(1)} L).
-            </>
-          ) : (
-            <>
-              Releasing <strong>{(-volumeDelta / 1000).toFixed(1)} L</strong> capacity on <strong>{form.fulfillmentDate}</strong> (Total: {((initial.volumeMl + volumeDelta) / 1000).toFixed(1)} L).
-            </>
-          )}
-        </p>
+          <p className="text-xs font-medium text-ink leading-relaxed">
+            {form.fulfillmentDate !== initial.fulfillmentDate ? (
+              <>
+                Releasing <strong>{(initial.volumeMl / 1000).toFixed(1)} L</strong> on <strong>{initial.fulfillmentDate}</strong> → Reserving <strong>{((initial.volumeMl + volumeDelta) / 1000).toFixed(1)} L</strong> on <strong>{form.fulfillmentDate}</strong>.
+              </>
+            ) : volumeDelta === 0 ? (
+              "No volume capacity change required for this order."
+            ) : volumeDelta > 0 ? (
+              <>
+                Reserving <strong>+{(volumeDelta / 1000).toFixed(1)} L</strong> additional capacity on <strong>{form.fulfillmentDate}</strong> (Total: {((initial.volumeMl + volumeDelta) / 1000).toFixed(1)} L).
+              </>
+            ) : (
+              <>
+                Releasing <strong>{(-volumeDelta / 1000).toFixed(1)} L</strong> capacity on <strong>{form.fulfillmentDate}</strong> (Total: {((initial.volumeMl + volumeDelta) / 1000).toFixed(1)} L).
+              </>
+            )}
+          </p>
 
-        <small className="muted text-[11px]">
-          🔒 Atomic capacity reservation will be verified strictly when you save.
-        </small>
-      </div>
+          <small className="muted text-[11px]">
+            🔒 Atomic capacity reservation will be verified strictly when you save.
+          </small>
+        </div>
+      )}
 
       {/* CARD 01: Product & Pricing */}
       <div className="card p-5 space-y-4">
         <div className="flex items-center justify-between border-b border-line/60 pb-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
             <span className="text-base">📦</span> 01. Item Selection &amp; Pricing
+            {isClosedOrder && <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">Locked</span>}
           </h3>
           <span className="text-xs font-bold text-forest bg-primary-soft/80 px-2.5 py-1 rounded-full border border-forest/20">
             Current Agreed: {form.agreedItemSubtotal} €
@@ -320,7 +335,7 @@ export function OrderEditForm({
         <div className="grid gap-4 md:grid-cols-3">
           <label className="field">
             <span>Product</span>
-            <select value={form.productId} onChange={(e) => handleProductChange(e.target.value)} required>
+            <select value={form.productId} onChange={(e) => handleProductChange(e.target.value)} disabled={isClosedOrder} required>
               {products
                 .filter((item) => item.packages.some((pkg) => pkg.active))
                 .map((item) => (
@@ -333,7 +348,7 @@ export function OrderEditForm({
 
           <label className="field">
             <span>Package variant</span>
-            <select value={form.packageId} onChange={(e) => handlePackageChange(e.target.value)} required>
+            <select value={form.packageId} onChange={(e) => handlePackageChange(e.target.value)} disabled={isClosedOrder} required>
               {packages.map((pkg) => (
                 <option key={pkg.id} value={pkg.id}>
                   {pkg.labelFi} · {(pkg.volumeMl / 1000).toFixed(0)} L · {(pkg.priceCents / 100).toFixed(2)} €
@@ -344,7 +359,7 @@ export function OrderEditForm({
 
           <label className="field">
             <span>Quantity</span>
-            <input type="number" min="1" max="100" value={form.quantity} onChange={(e) => handleQuantityChange(e.target.value)} required />
+            <input type="number" min="1" max="100" value={form.quantity} onChange={(e) => handleQuantityChange(e.target.value)} disabled={isClosedOrder} required />
           </label>
         </div>
 
@@ -352,7 +367,7 @@ export function OrderEditForm({
           <div className="field">
             <label className="checkbox-field">
               <span>Override catalog price</span>
-              <input type="checkbox" checked={overridePrice} onChange={(e) => handleOverrideToggle(e.target.checked)} />
+              <input type="checkbox" checked={overridePrice} onChange={(e) => handleOverrideToggle(e.target.checked)} disabled={isClosedOrder} />
             </label>
             <small className="muted">Catalog standard total: {(standardCents / 100).toFixed(2)} €</small>
           </div>
@@ -365,7 +380,7 @@ export function OrderEditForm({
               step="0.01"
               value={form.agreedItemSubtotal}
               onChange={(e) => update("agreedItemSubtotal", e.target.value)}
-              disabled={!overridePrice}
+              disabled={!overridePrice || isClosedOrder}
               required
             />
           </label>
@@ -377,7 +392,8 @@ export function OrderEditForm({
                 value={form.adjustmentReason}
                 onChange={(e) => update("adjustmentReason", e.target.value)}
                 minLength={2}
-                required
+                disabled={isClosedOrder}
+                required={!isClosedOrder}
                 placeholder="Discount, customer-provided container…"
               />
             </label>
@@ -390,6 +406,7 @@ export function OrderEditForm({
         <div className="flex items-center justify-between border-b border-line/60 pb-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
             <span className="text-base">🚚</span> 02. Fulfillment &amp; Schedule
+            {isClosedOrder && <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">Locked</span>}
           </h3>
         </div>
 
@@ -400,6 +417,7 @@ export function OrderEditForm({
               <button
                 type="button"
                 className={`toggle-btn${form.fulfillmentMethod === "PICKUP" ? " selected" : ""}`}
+                disabled={isClosedOrder}
                 onClick={() => update("fulfillmentMethod", "PICKUP")}
               >
                 🏪 Pickup
@@ -407,6 +425,7 @@ export function OrderEditForm({
               <button
                 type="button"
                 className={`toggle-btn${form.fulfillmentMethod === "DELIVERY" ? " selected" : ""}`}
+                disabled={isClosedOrder}
                 onClick={() => update("fulfillmentMethod", "DELIVERY")}
               >
                 🚚 Delivery
@@ -419,13 +438,16 @@ export function OrderEditForm({
             <input
               type="date"
               value={form.fulfillmentDate}
-              min={!isHistorical ? minAllowedDate : undefined}
-              max={!isHistorical ? maxAllowedDate : undefined}
+              min={!isHistorical && !isClosedOrder ? minAllowedDate : undefined}
+              max={!isHistorical && !isClosedOrder ? maxAllowedDate : undefined}
+              disabled={isClosedOrder}
               onChange={(e) => update("fulfillmentDate", e.target.value)}
-              onClick={(e) => e.currentTarget.showPicker?.()}
+              onClick={(e) => {
+                if (!isClosedOrder) e.currentTarget.showPicker?.();
+              }}
               required
             />
-            {!isHistorical && (
+            {!isHistorical && !isClosedOrder && (
               <small className="muted">
                 Allowed window: Today ({minAllowedDate}) to {maxAllowedDate} (next 7 days)
               </small>
@@ -440,6 +462,7 @@ export function OrderEditForm({
                 min="0"
                 step="0.01"
                 value={form.deliveryFee}
+                disabled={isClosedOrder}
                 onChange={(e) => update("deliveryFee", e.target.value)}
                 placeholder="To be agreed"
               />
