@@ -241,11 +241,12 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {!isClosed && (
-              <Link className="btn btn-secondary text-xs py-1.5 px-3" href={`/admin/orders/${detail.order.id}/edit?from=${encodeURIComponent(`/admin/orders/${detail.order.id}`)}`}>
-                Edit order ✏️
-              </Link>
-            )}
+            <Link
+              className="btn btn-secondary text-xs py-1.5 px-3 font-semibold"
+              href={`/admin/orders/${detail.order.id}/edit?from=${encodeURIComponent(`/admin/orders/${detail.order.id}`)}`}
+            >
+              {isClosed ? "Edit Metadata ✏️" : "Edit order ✏️"}
+            </Link>
 
             {canDelete ? (
               <button

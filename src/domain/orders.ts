@@ -396,7 +396,26 @@ export async function updateManagerOrder(database: Database, input: ManagerOrder
     const current = await tx.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, SHOP_ID)) });
     if (!current) throw new DomainError("NOT_FOUND", "Order not found", 404);
     if (current.version !== input.expectedVersion) throw new DomainError("STALE_VERSION", "Order changed", 409);
-    if ((completedOrderStatuses as readonly string[]).includes(current.status)) throw new DomainError("ORDER_LOCKED", "Completed or closed orders only allow notes, payment corrections, and refunds", 409);
+    const isClosed = (completedOrderStatuses as readonly string[]).includes(current.status);
+    if (isClosed) {
+      const coreChanged =
+        (input.productId !== undefined && input.productId !== current.productId) ||
+        (input.packageId !== undefined && input.packageId !== current.packageId) ||
+        (input.quantity !== undefined && input.quantity !== current.quantity) ||
+        (input.fulfillmentDate !== undefined && input.fulfillmentDate !== current.fulfillmentDate) ||
+        (input.fulfillmentMethod !== undefined && input.fulfillmentMethod !== current.fulfillmentMethod) ||
+        (input.agreedItemSubtotalCents !== undefined && input.agreedItemSubtotalCents !== current.itemSubtotalCents) ||
+        (input.deliveryFeeCents !== undefined && input.deliveryFeeCents !== current.deliveryFeeCents);
+
+      if (coreChanged) {
+        throw new DomainError(
+          "ORDER_LOCKED",
+          "Items, quantity, date, method, and pricing are locked on completed orders. Only metadata (Source, Facebook profile, Contact details) can be updated.",
+          409
+        );
+      }
+    }
+
     const productId = input.productId ?? current.productId;
     const packageId = input.packageId ?? current.packageId;
     const quantity = input.quantity ?? current.quantity;
@@ -413,7 +432,7 @@ export async function updateManagerOrder(database: Database, input: ManagerOrder
       .where(and(eq(products.id, productId), eq(products.shopId, SHOP_ID))).limit(1);
     const row = catalog[0];
     if (!row || !row.product.active || !row.package.active) throw new DomainError("NOT_AVAILABLE", "Product or package is unavailable", 409);
-    if (fulfillmentDate < row.product.availableFrom || fulfillmentDate > row.product.availableThrough || fulfillmentDate < todayInTimezone(row.shop.timezone)) throw new DomainError("DATE_CLOSED", "Fulfillment date is outside the product window", 409);
+    if (!isClosed && (fulfillmentDate < row.product.availableFrom || fulfillmentDate > row.product.availableThrough || fulfillmentDate < todayInTimezone(row.shop.timezone))) throw new DomainError("DATE_CLOSED", "Fulfillment date is outside the product window", 409);
     if (row.package.volumeMl !== 10000 && quantity !== 1) throw new DomainError("INVALID_QUANTITY", "Only the 10 litre package supports multiple quantity", 422);
     const itemSubtotalCents = row.package.priceCents * quantity;
     const agreed = input.agreedItemSubtotalCents;

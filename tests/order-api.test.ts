@@ -8,7 +8,7 @@ import { createDatabaseConnection, type Database } from "@/db/client";
 import { availability, customers, notifications, orderPayments, orders, outboxJobs, packages, products, shops, userPermissions } from "@/db/schema";
 import { createUser, requirePermission, setUserPermission } from "@/domain/access";
 import { createExternalOrder, createHistoricalOrder, runAutomation } from "@/domain/operations";
-import { addOrderNote, archiveManagerOrder, confirmPickup, deleteManagerOrder, getManagerOrder, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder, unarchiveManagerOrder } from "@/domain/orders";
+import { addOrderNote, archiveManagerOrder, confirmPickup, deleteManagerOrder, getManagerOrder, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder, unarchiveManagerOrder, updateManagerOrder } from "@/domain/orders";
 import { createProduct, deleteProduct } from "@/domain/products";
 import { planAvailability } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
@@ -381,6 +381,37 @@ describe("order operations", () => {
       expectedVersion: order.version,
     });
     expect(transitionRes.status).toBe("CONFIRMED");
+  });
+
+  it("allows metadata updates on closed orders while blocking core contract changes", async () => {
+    const receipt = await submitOrder(database, pickupInput("closed-order-metadata"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+
+    // Transition to PICKED_UP
+    await transitionOrder(database, { orderId: order.id, status: "CONFIRMED", expectedVersion: order.version });
+    await transitionOrder(database, { orderId: order.id, status: "PICKING", expectedVersion: order.version + 1 });
+    await transitionOrder(database, { orderId: order.id, status: "READY", expectedVersion: order.version + 2 });
+    const pickedUp = await transitionOrder(database, { orderId: order.id, status: "PICKED_UP", expectedVersion: order.version + 3 });
+    expect(pickedUp.status).toBe("PICKED_UP");
+
+    // Updating metadata (orderSource, facebookProfile) succeeds on PICKED_UP order
+    const updated = await updateManagerOrder(database, {
+      orderId: order.id,
+      expectedVersion: pickedUp.version,
+      orderSource: "FACEBOOK_MESSAGE",
+      facebookProfile: "facebook.com/john.doe",
+    });
+    expect(updated.orderSource).toBe("FACEBOOK_MESSAGE");
+    expect(updated.facebookProfile).toBe("facebook.com/john.doe");
+
+    // Attempting to change core fields (quantity) on DELIVERED order throws ORDER_LOCKED error
+    await expect(
+      updateManagerOrder(database, {
+        orderId: order.id,
+        expectedVersion: updated.version,
+        quantity: 5,
+      })
+    ).rejects.toThrow(/locked/i);
   });
 });
 
