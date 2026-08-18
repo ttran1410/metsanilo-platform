@@ -26,6 +26,25 @@ function addMonths(value: string) {
   return date.toISOString().slice(0, 10);
 }
 
+export function getStartOfWeek(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  const day = d.getUTCDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diffToMonday);
+  return d.toISOString().slice(0, 10);
+}
+
+export function getStartOfMonth(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  d.setUTCDate(1);
+  return d.toISOString().slice(0, 10);
+}
+
+export function getDaysInMonth(dateStr: string): number {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+}
+
 function planDates(input: { frequency: PlanFrequency; startDate: string; endDate: string; dates?: string[] }) {
   if (!datePattern.test(input.startDate) || !datePattern.test(input.endDate) || input.startDate > input.endDate) {
     throw new DomainError("VALIDATION_ERROR", "Planning dates are invalid", 422);
@@ -223,7 +242,16 @@ export async function getAvailabilityWorkspace(
     rows,
     products: productRows
       .filter((product) => product.active || rows.some((row) => row.product.id === product.id))
-      .map((product) => ({ id: product.id, nameFi: product.nameFi, nameEn: product.nameEn, active: product.active, showOnHomepage: product.showOnHomepage, showOnReserve: product.showOnReserve })),
+      .map((product) => ({
+        id: product.id,
+        nameFi: product.nameFi,
+        nameEn: product.nameEn,
+        active: product.active,
+        availableFrom: product.availableFrom,
+        availableThrough: product.availableThrough,
+        showOnHomepage: product.showOnHomepage,
+        showOnReserve: product.showOnReserve,
+      })),
     ordersByDate,
     queues: {
       picking: orderRows.filter((order) => order.status === "CONFIRMED" || order.status === "PICKING").map(queueOrder),
