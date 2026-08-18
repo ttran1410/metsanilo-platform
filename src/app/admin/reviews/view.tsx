@@ -56,6 +56,27 @@ export function ReviewsManager({
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<"SPAM" | "PROFANITY" | "UNRELATED" | "COMPETITOR" | "OTHER">("SPAM");
   const [linkingReview, setLinkingReview] = useState<Review | null>(null);
+  const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([
+    { key: "WHATSAPP", labelEn: "WhatsApp" },
+    { key: "FACEBOOK", labelEn: "Facebook" },
+    { key: "SMS", labelEn: "SMS Text Message" },
+    { key: "PHONE", labelEn: "Phone Call" },
+    { key: "OTHER", labelEn: "Other Direct Consent" },
+  ]);
+
+  useEffect(() => {
+    fetch("/api/admin/order-sources")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        const rows: Array<{ key: string; labelEn: string; active: boolean }> = body?.data ?? body;
+        if (Array.isArray(rows) && rows.length > 0) {
+          setSources(rows.filter((s) => s.active).map((s) => ({ key: s.key, labelEn: s.labelEn })));
+        }
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+  }, []);
 
   useEffect(() => {
     fetch("/api/admin/reviews/visibility")
@@ -561,16 +582,16 @@ export function ReviewsManager({
               <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
                 <div className="flex flex-wrap items-center gap-2">
                   {!review.publicationAcknowledgement && review.source === "MANUAL_IMPORT" && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-xs font-medium text-slate-600">Confirm consent:</span>
-                      {(["WHATSAPP", "SMS", "PHONE"] as const).map((src) => (
+                      {sources.map((src) => (
                         <button
-                          key={src}
+                          key={src.key}
                           type="button"
                           className="btn btn-secondary text-xs px-2.5 py-1"
-                          onClick={() => void confirmManual(review.id, src)}
+                          onClick={() => void confirmManual(review.id, src.key)}
                         >
-                          {src}
+                          {src.labelEn || src.key}
                         </button>
                       ))}
                     </div>
@@ -748,11 +769,12 @@ export function ReviewsManager({
 
                 <label className="block text-sm font-medium text-slate-700">
                   Consent Source *
-                  <select name="acknowledgementSource" defaultValue="WHATSAPP" className="mt-1 block w-full rounded border-slate-300 p-2 text-sm">
-                    <option value="WHATSAPP">WhatsApp</option>
-                    <option value="SMS">SMS Text Message</option>
-                    <option value="PHONE">Phone Call</option>
-                    <option value="OTHER">Other Direct Consent</option>
+                  <select name="acknowledgementSource" defaultValue={sources[0]?.key ?? "WHATSAPP"} className="mt-1 block w-full rounded border-slate-300 p-2 text-sm">
+                    {sources.map((src) => (
+                      <option key={src.key} value={src.key}>
+                        {src.labelEn || src.key}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
