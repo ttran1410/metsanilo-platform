@@ -3,6 +3,8 @@
 import { useMemo, useState, type FormEvent } from "react";
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
+import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
+import { BatchPlannerPanel } from "./batch-planner-panel";
 import { DateInspectorDrawer } from "./date-inspector-drawer";
 import { FreezeModal } from "./freeze-modal";
 
@@ -34,23 +36,35 @@ function addDays(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
+function addMonths(dateStr: string, months: number): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  d.setUTCDate(1);
+  return d.toISOString().slice(0, 10);
+}
+
+function getStartOfWeek(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  const day = d.getUTCDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diffToMonday);
+  return d.toISOString().slice(0, 10);
+}
+
+function getStartOfMonth(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  d.setUTCDate(1);
+  return d.toISOString().slice(0, 10);
+}
+
+function getDaysInMonth(dateStr: string): number {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+}
+
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function previewDates(start: string, end: string, frequency: string, weekdays: number[]) {
-  if (!start || !end || start > end) return [];
-  const dates: string[] = [];
-  for (let cursor = start; cursor <= end; cursor = addDays(cursor, 1)) {
-    const day = new Date(`${cursor}T12:00:00Z`).getUTCDay();
-    const include =
-      frequency === "DAY" ||
-      (frequency === "WEEK" && dates.length % 7 === 0) ||
-      (frequency === "CUSTOM" && weekdays.includes(day));
-    if (include) dates.push(cursor);
-  }
-  return dates;
 }
 
 export function AvailabilityWorkspace({
@@ -67,18 +81,22 @@ export function AvailabilityWorkspace({
   const [productFilter, setProductFilter] = useState("ALL");
   const [viewFilter, setViewFilter] = useState("ALL");
 
-  const [currentStartDate, setCurrentStartDate] = useState(initialWorkspace.dates[0] ?? todayStr());
+  // Always align initial week start to Monday
+  const [currentStartDate, setCurrentStartDate] = useState(getStartOfWeek(todayStr()));
   const [inspectingDate, setInspectingDate] = useState<string | null>(null);
   const [freezingRow, setFreezingRow] = useState<AvailabilityRow | null>(null);
 
   const [editing, setEditing] = useState<AvailabilityRow | null>(null);
-  const [batchOpen, setBatchOpen] = useState(false);
-  const [batchStart, setBatchStart] = useState(initialWorkspace.dates[0] ?? todayStr());
-  const [batchEnd, setBatchEnd] = useState(initialWorkspace.dates[6] ?? addDays(todayStr(), 7));
-  const [batchFrequency, setBatchFrequency] = useState("CUSTOM");
-  const [batchWeekdays, setBatchWeekdays] = useState<number[]>([1, 2, 3, 4, 5, 6]);
+  const [batchPanelOpen, setBatchPanelOpen] = useState(false);
+
+  // Inline Editing State
+  const [inlineEditingRowId, setInlineEditingRowId] = useState<string | null>(null);
+  const [inlineCapacityVal, setInlineCapacityVal] = useState<string>("");
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const today = todayStr();
 
   async function fetchWorkspaceForDates(start: string, days = 7) {
     try {
@@ -97,15 +115,37 @@ export function AvailabilityWorkspace({
     }
   }
 
-  function handleNavigateWeek(daysDelta: number) {
-    const nextStart = addDays(currentStartDate, daysDelta);
-    setCurrentStartDate(nextStart);
-    void fetchWorkspaceForDates(nextStart, viewMode === "MONTH" ? 30 : 7);
+  function handleNavigate(direction: -1 | 1) {
+    if (viewMode === "WEEK") {
+      const nextStart = addDays(currentStartDate, direction * 7);
+      setCurrentStartDate(nextStart);
+      void fetchWorkspaceForDates(nextStart, 7);
+    } else if (viewMode === "MONTH") {
+      const nextStart = addMonths(currentStartDate, direction);
+      setCurrentStartDate(nextStart);
+      const daysCount = getDaysInMonth(nextStart);
+      void fetchWorkspaceForDates(nextStart, daysCount);
+    } else {
+      const nextStart = addDays(currentStartDate, direction * 30);
+      setCurrentStartDate(nextStart);
+      void fetchWorkspaceForDates(nextStart, 30);
+    }
   }
 
   function handleViewModeChange(mode: ViewMode) {
     setViewMode(mode);
-    void fetchWorkspaceForDates(currentStartDate, mode === "MONTH" ? 30 : 7);
+    if (mode === "WEEK") {
+      const monday = getStartOfWeek(currentStartDate);
+      setCurrentStartDate(monday);
+      void fetchWorkspaceForDates(monday, 7);
+    } else if (mode === "MONTH") {
+      const monthStart = getStartOfMonth(currentStartDate);
+      setCurrentStartDate(monthStart);
+      const daysCount = getDaysInMonth(monthStart);
+      void fetchWorkspaceForDates(monthStart, daysCount);
+    } else {
+      void fetchWorkspaceForDates(currentStartDate, 30);
+    }
   }
 
   const rows = useMemo(() => {
@@ -127,14 +167,24 @@ export function AvailabilityWorkspace({
       const utilization = capacity ? Math.round((reserved / capacity) * 100) : 0;
       const soldOut = dayRows.some((row) => row.soldOut);
       const freezeReason = dayRows.find((r) => r.availability.manualSoldOutReason)?.availability.manualSoldOutReason;
-      return { date, dayRows, capacity, reserved, utilization, soldOut, freezeReason };
-    });
-  }, [workspace.dates, rows]);
+      const isPast = date < today;
+      const isUnplanned = dayRows.length === 0;
 
-  // Overall Week Capacity Summary
-  const weekCapacityTotalMl = useMemo(() => dateCards.reduce((sum, d) => sum + d.capacity, 0), [dateCards]);
-  const weekReservedTotalMl = useMemo(() => dateCards.reduce((sum, d) => sum + d.reserved, 0), [dateCards]);
-  const weekUtilization = weekCapacityTotalMl > 0 ? Math.round((weekReservedTotalMl / weekCapacityTotalMl) * 100) : 0;
+      // Check product harvest window if filtered
+      const selectedProduct = workspace.products.find((p) => p.id === productFilter);
+      const isOffSeason = selectedProduct
+        ? (selectedProduct.availableFrom && date < selectedProduct.availableFrom) ||
+          (selectedProduct.availableThrough && date > selectedProduct.availableThrough)
+        : false;
+
+      return { date, dayRows, capacity, reserved, utilization, soldOut, freezeReason, isPast, isUnplanned, isOffSeason };
+    });
+  }, [workspace.dates, rows, today, productFilter, workspace.products]);
+
+  // Overall Capacity Summary
+  const windowCapacityTotalMl = useMemo(() => dateCards.reduce((sum, d) => sum + d.capacity, 0), [dateCards]);
+  const windowReservedTotalMl = useMemo(() => dateCards.reduce((sum, d) => sum + d.reserved, 0), [dateCards]);
+  const windowUtilization = windowCapacityTotalMl > 0 ? Math.round((windowReservedTotalMl / windowCapacityTotalMl) * 100) : 0;
 
   // Inline Stepper Quick Bump Capacity
   async function bumpCapacity(row: AvailabilityRow, deltaLitres: number) {
@@ -155,7 +205,30 @@ export function AvailabilityWorkspace({
     const body = await response.json();
     if (!response.ok) return setError(body.message ?? "Could not update capacity.");
     setMessage(`Capacity for ${row.availability.businessDate} updated to ${litres(nextCapacityMl)}.`);
-    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? 30 : 7);
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
+  }
+
+  // Save Inline Direct Capacity Entry
+  async function saveInlineCapacity(row: AvailabilityRow, newLitresVal: number) {
+    setError("");
+    setMessage("");
+    setInlineEditingRowId(null);
+
+    const newCapacityMl = Math.max(row.availability.reservedMl, Math.round(newLitresVal * 1000));
+    const response = await fetch(`/api/admin/availability/${row.availability.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        expectedVersion: row.availability.version,
+        capacityMl: newCapacityMl,
+        manualSoldOut: row.availability.manualSoldOut,
+        soldOutReason: row.availability.manualSoldOutReason ?? undefined,
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok) return setError(body.message ?? "Could not update capacity.");
+    setMessage(`Capacity for ${row.availability.businessDate} updated to ${litres(newCapacityMl)}.`);
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
   }
 
   // Emergency Freeze Lock
@@ -179,7 +252,7 @@ export function AvailabilityWorkspace({
     setFreezingRow(null);
     if (!response.ok) return setError(body.message ?? "Could not update sold-out lock.");
     setMessage(isLocking ? `Date ${freezingRow.availability.businessDate} frozen (${reason}).` : "Date reopened.");
-    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? 30 : 7);
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
   }
 
   async function saveAvailability(event: FormEvent<HTMLFormElement>) {
@@ -199,54 +272,21 @@ export function AvailabilityWorkspace({
         expectedVersion: editing.availability.version,
         capacityMl: Math.round(Number(form.get("capacityLitres")) * 1000),
         manualSoldOut,
-        soldOutReason: reason || undefined,
+        soldOutReason: manualSoldOut ? reason : undefined,
       }),
     });
+
     const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not update availability.");
-    setMessage("Availability updated.");
+    if (!response.ok) return setError(body.message ?? "Could not save availability.");
     setEditing(null);
-    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? 30 : 7);
+    setMessage(`Availability for ${editing.availability.businessDate} saved.`);
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
   }
 
-  async function planBatch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setMessage("");
-    const form = new FormData(event.currentTarget);
-    const frequency = String(form.get("frequency"));
-    const startDate = String(form.get("startDate"));
-    const endDate = String(form.get("endDate"));
-    const weekdays = form.getAll("weekday").map(Number);
-    const dates = previewDates(startDate, endDate, frequency, weekdays);
-
-    if (!dates.length) return setError("Choose a valid date range and at least one weekday.");
-
-    const response = await fetch("/api/admin/availability/plan", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        productId: String(form.get("productId")),
-        frequency: frequency === "CUSTOM" ? "CUSTOM" : frequency,
-        startDate,
-        endDate,
-        dates: frequency === "CUSTOM" ? dates : undefined,
-        capacityMl: Math.round(Number(form.get("capacityLitres")) * 1000),
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not plan availability.");
-    setMessage(`${dates.length} date(s) planned.`);
-    setBatchOpen(false);
-    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? 30 : 7);
-  }
-
-  const inspectedOrdersData =
-    inspectingDate && workspace.ordersByDate
-      ? (workspace.ordersByDate as Record<string, any>)[inspectingDate]
-      : undefined;
-
-  const inspectedDayRow = inspectingDate ? rows.find((r) => r.availability.businessDate === inspectingDate) : undefined;
+  const inspectedDayRow = inspectingDate ? rows.find((r) => r.availability.businessDate === inspectingDate) : null;
+  const inspectedOrdersData = inspectingDate && workspace.ordersByDate
+    ? (workspace.ordersByDate as Record<string, any>)[inspectingDate]
+    : undefined;
   const inspectedProductName = inspectedDayRow?.product.nameFi ?? "All Products";
 
   return (
@@ -257,8 +297,8 @@ export function AvailabilityWorkspace({
         description="Manage perishable wild produce capacity, emergency weather locks, and customer reservation intake."
         actions={
           canManage ? (
-            <button className="btn" type="button" onClick={() => setBatchOpen(true)}>
-              ＋ Batch Plan Dates
+            <button className="btn font-bold text-xs shadow-2xs" type="button" onClick={() => setBatchPanelOpen((prev) => !prev)}>
+              {batchPanelOpen ? "✕ Close Batch Panel" : "⚡ In-Page Batch Planner"}
             </button>
           ) : undefined
         }
@@ -267,23 +307,38 @@ export function AvailabilityWorkspace({
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
+      {/* EXPANDABLE IN-PAGE BATCH PLANNER PANEL */}
+      {batchPanelOpen && canManage && (
+        <BatchPlannerPanel
+          initialStartDate={workspace.startDate ?? todayStr()}
+          initialEndDate={workspace.endDate ?? todayStr()}
+          products={workspace.products}
+          onClose={() => setBatchPanelOpen(false)}
+          onApplied={() => {
+            setBatchPanelOpen(false);
+            setMessage("Batch capacity planning applied successfully.");
+            void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
+          }}
+        />
+      )}
+
       {/* TOP CONTROLS & MULTI-VIEW SELECTOR BAR */}
-      <section className="card p-4 flex flex-col gap-3">
+      <section className="card p-4 flex flex-col gap-3 border border-line">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* View Mode Tabs */}
           <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-line">
             {[
-              { key: "WEEK", label: "📅 Week Timeline" },
+              { key: "WEEK", label: "📅 Calendar Week" },
               { key: "MONTH", label: "📆 Month Heatmap" },
               { key: "TABLE", label: "📋 Dense Table" },
             ].map((mode) => (
               <button
                 key={mode.key}
                 type="button"
-                className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+                className={`text-xs font-bold px-3.5 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
                   viewMode === mode.key
-                    ? "bg-primary text-on-primary shadow-sm"
-                    : "text-ink/70 hover:text-ink hover:bg-surface"
+                    ? "bg-primary text-on-primary shadow-xs"
+                    : "text-muted hover:text-ink hover:bg-surface"
                 }`}
                 onClick={() => handleViewModeChange(mode.key as ViewMode)}
               >
@@ -292,59 +347,63 @@ export function AvailabilityWorkspace({
             ))}
           </div>
 
-          {/* Product Filter Tabs */}
+          {/* Product Filter Tabs with High-Contrast Ring */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider muted">Product:</span>
-            <div className="flex items-center gap-1 overflow-x-auto text-xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
               <button
                 type="button"
-                className={`px-2.5 py-1 rounded-lg border font-medium ${
-                  productFilter === "ALL" ? "bg-primary text-on-primary border-primary font-bold" : "bg-surface text-ink border-line"
+                className={`px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs ${
+                  productFilter === "ALL"
+                    ? "bg-slate-900 text-white border-slate-900 ring-2 ring-slate-400/40"
+                    : "bg-surface text-ink border-line hover:border-slate-400"
                 }`}
                 onClick={() => setProductFilter("ALL")}
               >
-                All Products
+                {productFilter === "ALL" && "✓ "}All Products
               </button>
 
               {workspace.products.map((prod) => (
                 <button
                   key={prod.id}
                   type="button"
-                  className={`px-2.5 py-1 rounded-lg border font-medium ${
-                    productFilter === prod.id ? "bg-primary text-on-primary border-primary font-bold" : "bg-surface text-ink border-line"
+                  className={`px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs ${
+                    productFilter === prod.id
+                      ? "bg-slate-900 text-white border-slate-900 ring-2 ring-slate-400/40"
+                      : "bg-surface text-ink border-line hover:border-slate-400"
                   }`}
                   onClick={() => setProductFilter(prod.id)}
                 >
-                  {prod.nameFi}
+                  {productFilter === prod.id && "✓ "}{prod.nameFi}
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Navigation & Summary Line */}
+        {/* Dynamic Navigation & Summary Line */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-line text-xs">
           <div className="flex items-center gap-2">
-            <button type="button" className="btn btn-secondary text-xs py-1 px-2.5" onClick={() => handleNavigateWeek(-7)}>
-              ◄ Previous Week
+            <button type="button" className="btn btn-secondary text-xs py-1 px-3 font-bold" onClick={() => handleNavigate(-1)}>
+              {viewMode === "WEEK" ? "◄ Previous Week" : viewMode === "MONTH" ? "◄ Previous Month" : "◄ Previous Range"}
             </button>
             <span className="font-bold text-ink">
               {workspace.startDate} – {workspace.endDate}
             </span>
-            <button type="button" className="btn btn-secondary text-xs py-1 px-2.5" onClick={() => handleNavigateWeek(7)}>
-              Next Week ►
+            <button type="button" className="btn btn-secondary text-xs py-1 px-3 font-bold" onClick={() => handleNavigate(1)}>
+              {viewMode === "WEEK" ? "Next Week ►" : viewMode === "MONTH" ? "Next Month ►" : "Next Range ►"}
             </button>
           </div>
 
           <div className="flex items-center gap-4 text-xs muted font-medium">
-            <span>Total Window Capacity: <strong className="text-ink ops-tabular">{litres(weekCapacityTotalMl)}</strong></span>
-            <span>Reserved Orders: <strong className="text-primary ops-tabular">{litres(weekReservedTotalMl)} ({weekUtilization}%)</strong></span>
-            <span className="text-emerald-700 font-semibold">Remaining to sell: {litres(Math.max(0, weekCapacityTotalMl - weekReservedTotalMl))}</span>
+            <span>Window Capacity: <strong className="text-ink ops-tabular">{litres(windowCapacityTotalMl)}</strong></span>
+            <span>Reserved Orders: <strong className="text-primary ops-tabular">{litres(windowReservedTotalMl)} ({windowUtilization}%)</strong></span>
+            <span className="text-emerald-700 font-semibold">Remaining to sell: {litres(Math.max(0, windowCapacityTotalMl - windowReservedTotalMl))}</span>
           </div>
         </div>
       </section>
 
-      {/* VIEW MODE 1: WEEK TIMELINE VIEW (DEFAULT) */}
+      {/* VIEW MODE 1: CALENDAR WEEK TIMELINE VIEW (MON-SUN) */}
       {viewMode === "WEEK" && (
         <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2.5">
           {dateCards.map((day) => {
@@ -354,13 +413,18 @@ export function AvailabilityWorkspace({
               ? (workspace.ordersByDate as Record<string, any>)[day.date]
               : undefined;
 
-
             return (
               <article
                 key={day.date}
-                className={`card p-2.5 sm:p-3 flex flex-col justify-between gap-3 border transition-colors cursor-pointer hover:border-primary min-w-0 ${
-                  day.soldOut
-                    ? "bg-slate-100/70 border-slate-300"
+                className={`card p-3 flex flex-col justify-between gap-3 border transition-all cursor-pointer hover:border-primary min-w-0 ${
+                  day.isPast
+                    ? "bg-slate-100/60 border-slate-200 opacity-75"
+                    : day.isOffSeason
+                    ? "bg-slate-50 border-dashed border-slate-300 text-slate-400"
+                    : day.isUnplanned
+                    ? "bg-surface border-dashed border-slate-300"
+                    : day.soldOut
+                    ? "bg-slate-100/80 border-slate-300"
                     : tone === "danger"
                     ? "bg-rose-50/50 border-rose-300"
                     : tone === "warning"
@@ -380,27 +444,93 @@ export function AvailabilityWorkspace({
                     </div>
 
                     <AdminStatusBadge
-                      status={day.soldOut ? "CANCELLED" : day.utilization >= 75 ? "CAPACITY_NEAR_LIMIT" : "CONFIRMED"}
-                      label={day.soldOut ? "Sold Out" : day.utilization >= 75 ? `${day.utilization}% Near` : `${day.utilization}%`}
+                      status={
+                        day.isPast
+                          ? "EXPIRED"
+                          : day.isOffSeason
+                          ? "EXPIRED"
+                          : day.isUnplanned
+                          ? "NEW"
+                          : day.soldOut
+                          ? "CANCELLED"
+                          : day.utilization >= 75
+                          ? "CAPACITY_NEAR_LIMIT"
+                          : "CONFIRMED"
+                      }
+                      label={
+                        day.isPast
+                          ? "Past"
+                          : day.isOffSeason
+                          ? "Off-Season"
+                          : day.isUnplanned
+                          ? "Unplanned"
+                          : day.soldOut
+                          ? "Sold Out"
+                          : day.utilization >= 75
+                          ? `${day.utilization}% Near`
+                          : `${day.utilization}%`
+                      }
                     />
                   </div>
 
-                  {/* Capacity Metrics */}
+                  {/* Capacity Metrics & Inline Direct Numeric Editing */}
                   <div className="my-2.5">
-                    <span className="text-xl font-bold text-ink ops-tabular block">{litres(remainingLitres)}</span>
-                    <span className="text-[11px] muted font-medium block">
-                      remaining of {litres(day.capacity)}
-                    </span>
-                    <span className="text-[10px] text-primary font-semibold block mt-0.5">
-                      {litres(day.reserved)} reserved ({day.utilization}%)
-                    </span>
+                    {day.dayRows[0] && inlineEditingRowId === day.dayRows[0].availability.id ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (day.dayRows[0]) void saveInlineCapacity(day.dayRows[0], Number(inlineCapacityVal));
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 my-1"
+                      >
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          value={inlineCapacityVal}
+                          onChange={(e) => setInlineCapacityVal(e.target.value)}
+                          autoFocus
+                          className="w-20 px-2 py-1 text-xs font-bold rounded border border-primary bg-surface text-ink"
+                        />
+                        <button type="submit" className="btn text-[10px] font-bold py-1 px-2">
+                          Save
+                        </button>
+                      </form>
+                    ) : (
+                      <div
+                        onClick={(e) => {
+                          if (canManage && day.dayRows[0] && !day.isPast) {
+                            e.stopPropagation();
+                            setInlineEditingRowId(day.dayRows[0].availability.id);
+                            setInlineCapacityVal(String(day.dayRows[0].availability.capacityMl / 1000));
+                          }
+                        }}
+                        title={canManage && !day.isPast ? "Click to type exact capacity" : undefined}
+                        className={`group ${canManage && !day.isPast ? "cursor-edit hover:text-primary" : ""}`}
+                      >
+                        <span className="text-xl font-bold text-ink ops-tabular block">
+                          {litres(remainingLitres)}
+                          {canManage && !day.isPast && day.dayRows[0] && (
+                            <span className="text-[10px] muted ml-1 opacity-0 group-hover:opacity-100 transition-opacity">✏️</span>
+                          )}
+                        </span>
+                        <span className="text-[11px] muted font-medium block">
+                          remaining of {litres(day.capacity)}
+                        </span>
+                        <span className="text-[10px] text-primary font-semibold block mt-0.5">
+                          {litres(day.reserved)} reserved ({day.utilization}%)
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Visual Utilization Bar */}
                   <div className="w-full h-2.5 rounded-full bg-line/60 overflow-hidden p-0.5 mb-2">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        day.soldOut
+                        day.isPast || day.isOffSeason || day.soldOut
                           ? "bg-slate-400"
                           : day.utilization >= 90
                           ? "bg-rose-600"
@@ -418,6 +548,8 @@ export function AvailabilityWorkspace({
                       <span className="font-bold text-ink">📦 {dayOrders.orders.length} order(s)</span>
                       <span className="muted">📍 {dayOrders.pickupCount} pickup · 🚚 {dayOrders.deliveryCount} delivery</span>
                     </div>
+                  ) : day.isUnplanned ? (
+                    <span className="text-[11px] text-slate-500 italic block">No capacity set for this date</span>
                   ) : (
                     <span className="text-[11px] muted italic block">No orders yet</span>
                   )}
@@ -434,7 +566,7 @@ export function AvailabilityWorkspace({
                   className="flex flex-wrap items-center justify-between gap-1.5 border-t border-line/60 pt-2 text-xs min-w-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {day.dayRows[0] && (
+                  {day.dayRows[0] && !day.isPast ? (
                     <>
                       {/* Emergency Freeze Toggle */}
                       {canSoldOut && (
@@ -471,6 +603,16 @@ export function AvailabilityWorkspace({
                         </div>
                       )}
                     </>
+                  ) : day.isUnplanned && canManage && !day.isPast ? (
+                    <button
+                      type="button"
+                      className="btn text-[11px] font-bold py-1 px-2.5 w-full shadow-2xs"
+                      onClick={() => setBatchPanelOpen(true)}
+                    >
+                      ＋ Set Capacity
+                    </button>
+                  ) : (
+                    <span className="text-[10px] muted italic">Read-only history</span>
                   )}
                 </div>
               </article>
@@ -481,11 +623,11 @@ export function AvailabilityWorkspace({
 
       {/* VIEW MODE 2: MONTH CALENDAR HEATMAP */}
       {viewMode === "MONTH" && (
-        <section className="card p-4 md:p-5 flex flex-col gap-4">
+        <section className="card p-4 md:p-5 flex flex-col gap-4 border border-line">
           <div className="flex items-center justify-between border-b border-line pb-3">
             <div>
               <span className="eyebrow">MONTHLY SEASON OVERVIEW</span>
-              <h3 className="text-base font-bold text-ink">30-Day Capacity Heatmap</h3>
+              <h3 className="text-base font-bold text-ink">Calendar Month Capacity Heatmap</h3>
             </div>
 
             <div className="flex items-center gap-4 text-xs font-semibold">
@@ -504,24 +646,28 @@ export function AvailabilityWorkspace({
               return (
                 <div
                   key={day.date}
-                  className={`p-3 rounded-xl border text-center flex flex-col justify-between gap-1 cursor-pointer transition-transform hover:scale-105 ${
-                    day.soldOut
+                  className={`p-3 rounded-xl border text-center flex flex-col justify-between gap-1 cursor-pointer transition-all hover:scale-105 ${
+                    day.isPast
+                      ? "bg-slate-200 text-slate-700 border-slate-300 opacity-75"
+                      : day.isUnplanned
+                      ? "bg-white text-slate-600 border-dashed border-slate-300"
+                      : day.soldOut
                       ? "bg-slate-200 text-slate-800 border-slate-300"
                       : tone === "danger"
-                      ? "bg-rose-600 text-on-primary border-rose-700 shadow-sm"
+                      ? "bg-rose-600 text-on-primary border-rose-700 shadow-xs"
                       : tone === "warning"
-                      ? "bg-amber-500 text-on-primary border-amber-600 shadow-sm"
-                      : "bg-emerald-600 text-on-primary border-emerald-700 shadow-sm"
+                      ? "bg-amber-500 text-on-primary border-amber-600 shadow-xs"
+                      : "bg-emerald-600 text-on-primary border-emerald-700 shadow-xs"
                   }`}
                   onClick={() => setInspectingDate(day.date)}
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">
+                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-90 block">
                     {formatDay(day.date).weekday} {formatDay(day.date).short}
                   </span>
 
-                  <span className="text-lg font-bold ops-tabular">{litres(remainingLitres)}</span>
-                  <span className="text-[10px] font-semibold opacity-90">
-                    {day.soldOut ? "Locked" : `${day.utilization}% Reserved`}
+                  <span className="text-lg font-bold ops-tabular block">{litres(remainingLitres)}</span>
+                  <span className="text-[10px] font-semibold opacity-90 block">
+                    {day.isPast ? "Past Date" : day.isUnplanned ? "Unplanned" : day.soldOut ? "Locked" : `${day.utilization}% Reserved`}
                   </span>
                 </div>
               );
@@ -530,9 +676,9 @@ export function AvailabilityWorkspace({
         </section>
       )}
 
-      {/* VIEW MODE 3: DENSE TABLE VIEW */}
+      {/* VIEW MODE 3: DENSE TABLE VIEW (STANDARDIZED WITH ADMINROWACTIONMENU) */}
       {viewMode === "TABLE" && (
-        <section className="card p-4 overflow-x-auto">
+        <section className="card p-4 overflow-x-auto border border-line">
           <table className="w-full text-left text-xs">
             <thead className="bg-surface-muted border-b border-line text-muted uppercase font-bold text-[11px]">
               <tr>
@@ -549,7 +695,6 @@ export function AvailabilityWorkspace({
 
             <tbody className="divide-y divide-line">
               {rows.map((row) => {
-                const tone = fillTone(row.utilization, row.soldOut);
                 const remainingLitres = Math.max(0, row.availability.capacityMl - row.availability.reservedMl);
 
                 return (
@@ -576,24 +721,33 @@ export function AvailabilityWorkspace({
                     </td>
                     {canManage && (
                       <td className="p-3 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-secondary text-xs py-1 px-2"
-                            onClick={() => setEditing(row)}
-                          >
-                            Edit
-                          </button>
-                          {canSoldOut && (
-                            <button
-                              type="button"
-                              className="text-button text-xs text-danger"
-                              onClick={() => setFreezingRow(row)}
-                            >
-                              {row.soldOut ? "Reopen" : "Lock"}
-                            </button>
-                          )}
-                        </div>
+                        <AdminRowActionMenu
+                          items={[
+                            {
+                              id: "edit-capacity",
+                              label: "Edit Capacity",
+                              icon: <IconPencil />,
+                              onClick: () => setEditing(row),
+                            },
+                            {
+                              id: "inspect-date",
+                              label: "Inspect Date & Orders",
+                              icon: <IconEye />,
+                              onClick: () => setInspectingDate(row.availability.businessDate),
+                            },
+                            ...(canSoldOut
+                              ? [
+                                  {
+                                    id: "toggle-lock",
+                                    label: row.soldOut ? "Reopen Date" : "Emergency Freeze",
+                                    icon: <IconLock />,
+                                    danger: !row.soldOut,
+                                    onClick: () => setFreezingRow(row),
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
                       </td>
                     )}
                   </tr>
@@ -609,7 +763,7 @@ export function AvailabilityWorkspace({
         <div className="admin-section-heading">
           <div>
             <p className="admin-section-kicker">FULFILMENT QUEUES</p>
-            <h2>Active Order Pipeline</h2>
+            <h2>Active Order Pipeline ({workspace.startDate} – {workspace.endDate})</h2>
           </div>
         </div>
         <div className="availability-queue-grid">
@@ -618,7 +772,7 @@ export function AvailabilityWorkspace({
             ["pickup", "Pickup Ready Queue", workspace.queues.pickup],
             ["delivery", "Delivery Dispatch Queue", workspace.queues.delivery],
           ] as Array<[string, string, QueueItem[]]>).map(([key, title, queue]) => (
-            <article className="card availability-queue-card p-4" key={key}>
+            <article className="card availability-queue-card p-4 border border-line" key={key}>
               <div className="flex items-center justify-between gap-2 border-b border-line pb-2 mb-2">
                 <h3 className="font-bold text-ink text-sm">{title}</h3>
                 <span className="font-bold text-primary text-base ops-tabular">{queue.length}</span>
@@ -639,7 +793,7 @@ export function AvailabilityWorkspace({
               ) : (
                 <p className="text-xs muted py-2">No orders in this queue.</p>
               )}
-              <a className="btn btn-secondary text-xs mt-2 text-center" href={`/admin/orders?view=${key}`}>
+              <a className="btn btn-secondary text-xs mt-2 text-center font-bold" href={`/admin/orders?view=${key}`}>
                 Open queue ↗
               </a>
             </article>
@@ -699,141 +853,22 @@ export function AvailabilityWorkspace({
               />
             </label>
 
+            <label className="field-checkbox">
+              <input name="manualSoldOut" type="checkbox" defaultChecked={editing.availability.manualSoldOut} />
+              <span>Manually freeze date (Emergency Lock)</span>
+            </label>
+
             <label className="field">
-              <span>Sold-out / Lock reason</span>
-              <input
-                name="reason"
-                defaultValue={editing.availability.manualSoldOutReason ?? ""}
-                placeholder="e.g. Heavy Rain / Pickers unavailable"
-              />
+              <span>Reason for freeze</span>
+              <input name="reason" defaultValue={editing.availability.manualSoldOutReason ?? ""} placeholder="Rain / Storm / Crop Shortage..." />
             </label>
 
-            <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
-              <input
-                name="manualSoldOut"
-                type="checkbox"
-                defaultChecked={editing.availability.manualSoldOut}
-              />
-              <span>🔒 Lock public customer intake for this date</span>
-            </label>
-
-            <div className="profile-actions">
+            <div className="admin-dialog-actions">
               <button className="btn btn-secondary" type="button" onClick={() => setEditing(null)}>
                 Cancel
               </button>
               <button className="btn" type="submit">
-                Save availability
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* RECURRING BATCH PLANNER MODAL */}
-      {batchOpen && (
-        <div className="admin-dialog-backdrop">
-          <form className="admin-dialog card availability-dialog" onSubmit={(event) => void planBatch(event)}>
-            <p className="eyebrow">BATCH PLANNER</p>
-            <h2>Plan Recurring Harvest Dates</h2>
-
-            <label className="field">
-              <span>Product</span>
-              <select name="productId" required>
-                {workspace.products
-                  .filter((product) => product.active)
-                  .map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.nameFi}
-                    </option>
-                  ))}
-              </select>
-            </label>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="field">
-                <span>Start Date</span>
-                <input
-                  name="startDate"
-                  type="date"
-                  value={batchStart}
-                  onChange={(event) => setBatchStart(event.target.value)}
-                  onClick={(event) => event.currentTarget.showPicker?.()}
-                  required
-                />
-              </label>
-
-              <label className="field">
-                <span>End Date</span>
-                <input
-                  name="endDate"
-                  type="date"
-                  value={batchEnd}
-                  onChange={(event) => setBatchEnd(event.target.value)}
-                  onClick={(event) => event.currentTarget.showPicker?.()}
-                  required
-                />
-              </label>
-            </div>
-
-            <label className="field">
-              <span>Pattern</span>
-              <select
-                name="frequency"
-                value={batchFrequency}
-                onChange={(event) => setBatchFrequency(event.target.value)}
-              >
-                <option value="CUSTOM">Selected Weekdays</option>
-                <option value="DAY">Every Day</option>
-                <option value="WEEK">Every 7 Days</option>
-              </select>
-            </label>
-
-            <fieldset className="weekday-picker">
-              <legend>Weekdays for Selected Pattern</legend>
-              {[
-                [1, "Mon"],
-                [2, "Tue"],
-                [3, "Wed"],
-                [4, "Thu"],
-                [5, "Fri"],
-                [6, "Sat"],
-                [0, "Sun"],
-              ].map(([value, label]) => (
-                <label key={value as number}>
-                  <input
-                    name="weekday"
-                    type="checkbox"
-                    value={value as number}
-                    checked={batchWeekdays.includes(value as number)}
-                    onChange={(event) =>
-                      setBatchWeekdays((current) =>
-                        event.target.checked ? [...current, value as number] : current.filter((day) => day !== value)
-                      )
-                    }
-                  />{" "}
-                  {label}
-                </label>
-              ))}
-            </fieldset>
-
-            <div className="batch-preview">
-              <strong>Preview · {previewDates(batchStart, batchEnd, batchFrequency, batchWeekdays).length} date(s)</strong>
-              <span>
-                {previewDates(batchStart, batchEnd, batchFrequency, batchWeekdays).join(" · ") || "Choose dates to preview"}
-              </span>
-            </div>
-
-            <label className="field">
-              <span>Daily Harvest Capacity (Litres)</span>
-              <input name="capacityLitres" type="number" min="0" step="0.1" required placeholder="e.g. 50" />
-            </label>
-
-            <div className="profile-actions">
-              <button className="btn btn-secondary" type="button" onClick={() => setBatchOpen(false)}>
-                Cancel
-              </button>
-              <button className="btn" type="submit">
-                🚀 Generate Harvest Dates
+                Save Changes
               </button>
             </div>
           </form>
