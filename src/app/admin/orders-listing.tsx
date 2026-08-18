@@ -182,7 +182,7 @@ export function OrdersListing({
     }
   }, []);
 
-  const selectQuickView = useCallback((targetView: OrdersView) => {
+  const selectQuickView = useCallback((targetView: OrdersView, customStatus?: string) => {
     setView(targetView);
     const today = todayStr();
 
@@ -196,35 +196,35 @@ export function OrdersListing({
       setDatePreset("TODAY");
       setFrom(today);
       setTo(today);
-      setStatus("ALL");
+      setStatus(customStatus ?? "ALL");
       setMethod("ALL");
       setSource("ALL");
     } else if (targetView === "PICKUP_TODAY") {
       setDatePreset("TODAY");
       setFrom(today);
       setTo(today);
-      setStatus("ALL");
+      setStatus(customStatus ?? "ALL");
       setMethod("PICKUP");
       setSource("ALL");
     } else if (targetView === "DELIVERY_TODAY") {
       setDatePreset("TODAY");
       setFrom(today);
       setTo(today);
-      setStatus("ALL");
+      setStatus(customStatus ?? "ALL");
       setMethod("DELIVERY");
       setSource("ALL");
     } else if (targetView === "NEEDS_CONFIRMATION") {
       setDatePreset("ALL");
       setFrom("");
       setTo("");
-      setStatus("NEW");
+      setStatus(customStatus ?? "NEW");
       setMethod("ALL");
       setSource("ALL");
     } else if (targetView === "TRIAGE" || targetView === "UNPAID" || targetView === "ALL" || targetView === "ARCHIVED") {
       setDatePreset("ALL");
       setFrom("");
       setTo("");
-      setStatus("ALL");
+      setStatus(customStatus ?? "ALL");
       setMethod("ALL");
       setSource("ALL");
     }
@@ -232,8 +232,8 @@ export function OrdersListing({
 
   // Sync state whenever initialView or initialStatus prop changes from URL navigation
   useEffect(() => {
-    if (initialView) {
-      selectQuickView(initialView);
+    if (initialView || (initialStatus && initialStatus !== "ALL")) {
+      selectQuickView(initialView ?? "ALL", initialStatus !== "ALL" ? initialStatus : undefined);
     }
   }, [initialView, initialStatus, selectQuickView]);
 
@@ -364,7 +364,12 @@ export function OrdersListing({
       const matchesDate =
         (!from || order.fulfillmentDate >= from) && (!to || order.fulfillmentDate <= to);
       const matchesMethod = method === "ALL" || order.fulfillmentMethod === method;
-      const matchesStatus = status === "ALL" || order.status === status;
+      const matchesStatus =
+        status === "ALL"
+          ? true
+          : status === "FULFILLED"
+          ? order.status === "PICKED_UP" || order.status === "DELIVERED"
+          : order.status === status;
       const matchesSource = source === "ALL" || order.orderSource === source;
 
       return (
@@ -720,6 +725,7 @@ export function OrdersListing({
                     <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
                     <option value="PICKED_UP">PICKED_UP</option>
                     <option value="DELIVERED">DELIVERED</option>
+                    <option value="FULFILLED">FULFILLED (Picked up &amp; Delivered)</option>
                     <option value="CANCELLED">CANCELLED</option>
                     <option value="NO_SHOW">NO_SHOW</option>
                     <option value="REJECTED">REJECTED</option>
