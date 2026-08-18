@@ -304,6 +304,7 @@ export function OrdersListing({
   function handleDatePresetChange(preset: DatePreset) {
     setDatePreset(preset);
     if (preset === "CUSTOM") {
+      setShowAdvancedFilters(true);
       setView("ALL");
       return;
     }
@@ -751,26 +752,61 @@ export function OrdersListing({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                {/* Custom From/To Dates */}
-                <label className="field">
-                  <span>From Date</span>
-                  <input
-                    type="date"
-                    value={from}
-                    onChange={(e) => handleFromChange(e.target.value)}
-                    onClick={(e) => e.currentTarget.showPicker?.()}
-                  />
-                </label>
+                {/* Date Range Inputs: Hidden when ALL, Read-Only when Fixed Preset, Editable when CUSTOM */}
+                {datePreset === "ALL" ? (
+                  <div className="col-span-1 sm:col-span-2 p-2.5 rounded-xl bg-surface-muted border border-line flex items-center justify-between text-xs text-ink/70">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <span>📅</span> Date Range: <strong className="text-ink">All Time</strong> (No date boundaries)
+                    </span>
+                    <button
+                      type="button"
+                      className="text-primary font-bold hover:underline cursor-pointer"
+                      onClick={() => handleDatePresetChange("CUSTOM")}
+                    >
+                      Set Custom Range…
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <label className="field">
+                      <span className="flex items-center justify-between">
+                        <span>From Date</span>
+                        {datePreset !== "CUSTOM" && (
+                          <span className="text-[10px] font-semibold text-ink/50">(Read-Only)</span>
+                        )}
+                      </span>
+                      <input
+                        type="date"
+                        value={from}
+                        readOnly={datePreset !== "CUSTOM"}
+                        onChange={(e) => handleFromChange(e.target.value)}
+                        onClick={(e) => {
+                          if (datePreset === "CUSTOM") e.currentTarget.showPicker?.();
+                        }}
+                        className={datePreset !== "CUSTOM" ? "bg-surface-muted cursor-not-allowed opacity-80" : ""}
+                      />
+                    </label>
 
-                <label className="field">
-                  <span>To Date</span>
-                  <input
-                    type="date"
-                    value={to}
-                    onChange={(e) => handleToChange(e.target.value)}
-                    onClick={(e) => e.currentTarget.showPicker?.()}
-                  />
-                </label>
+                    <label className="field">
+                      <span className="flex items-center justify-between">
+                        <span>To Date</span>
+                        {datePreset !== "CUSTOM" && (
+                          <span className="text-[10px] font-semibold text-ink/50">(Read-Only)</span>
+                        )}
+                      </span>
+                      <input
+                        type="date"
+                        value={to}
+                        readOnly={datePreset !== "CUSTOM"}
+                        onChange={(e) => handleToChange(e.target.value)}
+                        onClick={(e) => {
+                          if (datePreset === "CUSTOM") e.currentTarget.showPicker?.();
+                        }}
+                        className={datePreset !== "CUSTOM" ? "bg-surface-muted cursor-not-allowed opacity-80" : ""}
+                      />
+                    </label>
+                  </>
+                )}
 
                 {/* Status Dropdown */}
                 <label className="field">
