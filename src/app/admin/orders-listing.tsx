@@ -37,6 +37,39 @@ type DatePreset = "TODAY" | "TOMORROW" | "YESTERDAY" | "THIS_WEEK" | "LAST_WEEK"
 type Column = "fulfillment" | "source" | "status" | "payment" | "updated";
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
 type ArchiveScope = "ACTIVE_ONLY" | "ARCHIVED_ONLY" | "ALL";
+type EntryTypeFilter = "ALL" | "LIVE_ONLY" | "HISTORICAL_ONLY";
+
+function formatOrderSourceBadge(order: AdminOrder) {
+  const srcMap: Record<string, { label: string; icon: string }> = {
+    WEBSITE: { label: "Website", icon: "🌐" },
+    SMS: { label: "SMS", icon: "✉️" },
+    WHATSAPP: { label: "WhatsApp", icon: "💬" },
+    FACEBOOK_MESSAGE: { label: "Facebook", icon: "📘" },
+    FACEBOOK: { label: "Facebook", icon: "📘" },
+    MANUAL: { label: "Phone / Manual", icon: "📞" },
+    PHONE: { label: "Phone / Manual", icon: "📞" },
+    HISTORICAL: { label: "Phone / Manual", icon: "📞" },
+  };
+
+  const info = srcMap[order.orderSource?.toUpperCase() ?? "WEBSITE"] ?? {
+    label: order.orderSource ?? "Website",
+    icon: "📋",
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-muted border border-line flex items-center gap-1 text-ink">
+        <span>{info.icon}</span>
+        <span>{info.label}</span>
+      </span>
+      {order.historicalEntry && (
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-200">
+          📜 Historical
+        </span>
+      )}
+    </div>
+  );
+}
 
 const QUICK_VIEWS: Array<{ key: OrdersView; label: string }> = [
   { key: "TODAY", label: "Today" },
@@ -144,13 +177,13 @@ export function OrdersListing({
   const [method, setMethod] = useState("ALL");
   const [status, setStatus] = useState(initialStatus);
   const [source, setSource] = useState("ALL");
+  const [entryType, setEntryType] = useState<EntryTypeFilter>("ALL");
   const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([
     { key: "WEBSITE", labelEn: "🌐 Website" },
     { key: "SMS", labelEn: "✉️ SMS" },
     { key: "WHATSAPP", labelEn: "💬 WhatsApp" },
     { key: "FACEBOOK_MESSAGE", labelEn: "📘 Facebook Message" },
     { key: "MANUAL", labelEn: "📞 Manual / Phone" },
-    { key: "HISTORICAL", labelEn: "📜 Historical" },
   ]);
 
   const [selected, setSelected] = useState<string[]>([]);
@@ -167,7 +200,7 @@ export function OrdersListing({
 
   useEffect(() => {
     setPage(1);
-  }, [search, from, to, method, status, source, view, archiveScope]);
+  }, [search, from, to, method, status, source, entryType, view, archiveScope]);
 
   const refreshOrders = useCallback(async (announce = false) => {
     try {
@@ -243,7 +276,11 @@ export function OrdersListing({
         const response = await fetch("/api/admin/settings");
         const body = await response.json();
         if (response.ok && body.data?.sources) {
-          setSources(body.data.sources);
+          setSources(
+            (body.data.sources as Array<{ key: string; labelEn: string }>).filter(
+              (s) => s.key !== "HISTORICAL"
+            )
+          );
         }
       } catch {
         /* Ignore */
@@ -291,6 +328,11 @@ export function OrdersListing({
     setView("ALL");
   }
 
+  function handleEntryTypeChange(nextEntryType: EntryTypeFilter) {
+    setEntryType(nextEntryType);
+    setView("ALL");
+  }
+
   function handleFromChange(nextFrom: string) {
     setFrom(nextFrom);
     setDatePreset("CUSTOM");
@@ -305,6 +347,7 @@ export function OrdersListing({
 
   function handleClearFilters() {
     setSearch("");
+    setEntryType("ALL");
     setArchiveScope("ACTIVE_ONLY");
     selectQuickView("ALL");
   }
@@ -315,10 +358,11 @@ export function OrdersListing({
     if (status !== "ALL") count++;
     if (method !== "ALL") count++;
     if (source !== "ALL") count++;
+    if (entryType !== "ALL") count++;
     if (archiveScope !== "ACTIVE_ONLY") count++;
     if (search.trim()) count++;
     return count;
-  }, [datePreset, status, method, source, archiveScope, search]);
+  }, [datePreset, status, method, source, entryType, archiveScope, search]);
 
   const quickViewCounts = useMemo(() => {
     const day = todayStr();
@@ -370,7 +414,21 @@ export function OrdersListing({
           : status === "FULFILLED"
           ? order.status === "PICKED_UP" || order.status === "DELIVERED"
           : order.status === status;
-      const matchesSource = source === "ALL" || order.orderSource === source;
+      const matchesSource =
+        source === "ALL"
+          ? true
+          : source === "FACEBOOK_MESSAGE" || source === "FACEBOOK"
+          ? order.orderSource === "FACEBOOK_MESSAGE" || order.orderSource === "FACEBOOK"
+          : source === "MANUAL" || source === "PHONE"
+          ? order.orderSource === "MANUAL" || order.orderSource === "PHONE"
+          : order.orderSource === source;
+
+      const matchesEntryType =
+        entryType === "ALL"
+          ? true
+          : entryType === "HISTORICAL_ONLY"
+          ? Boolean(order.historicalEntry)
+          : !order.historicalEntry;
 
       return (
         matchesSearch &&
@@ -378,10 +436,11 @@ export function OrdersListing({
         matchesMethod &&
         matchesStatus &&
         matchesSource &&
+        matchesEntryType &&
         matchesQuickView(order, view, archiveScope)
       );
     });
-  }, [rows, search, from, to, method, status, source, view, archiveScope, matchesQuickView]);
+  }, [rows, search, from, to, method, status, source, entryType, view, archiveScope, matchesQuickView]);
 
   const sortedRows = useMemo(() => {
     if (view === "TRIAGE") {
@@ -746,12 +805,22 @@ export function OrdersListing({
                 <label className="field">
                   <span>Order Source Filter</span>
                   <select value={source} onChange={(e) => handleSourceChange(e.target.value)}>
-                    <option value="ALL">All Sources</option>
+                    <option value="ALL">All Channels</option>
                     {sources.map((item) => (
                       <option key={item.key} value={item.key}>
                         {item.labelEn}
                       </option>
                     ))}
+                  </select>
+                </label>
+
+                {/* Entry Type Dropdown */}
+                <label className="field">
+                  <span>Entry Type Filter</span>
+                  <select value={entryType} onChange={(e) => handleEntryTypeChange(e.target.value as EntryTypeFilter)}>
+                    <option value="ALL">All Entries (Live &amp; Historical)</option>
+                    <option value="LIVE_ONLY">⚡ Live Real-Time Orders Only</option>
+                    <option value="HISTORICAL_ONLY">📜 Historical Entries Only</option>
                   </select>
                 </label>
 
@@ -848,9 +917,7 @@ export function OrdersListing({
                       </td>
 
                       <td className="p-3">
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-muted border border-line">
-                          {order.historicalEntry ? "📜 Historical" : order.orderSource}
-                        </span>
+                        {formatOrderSourceBadge(order)}
                       </td>
 
                       <td className="p-3">
