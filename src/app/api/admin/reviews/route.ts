@@ -20,7 +20,7 @@ const commandSchema = z.object({
   featured: z.boolean().optional(),
   featuredUntil: z.string().optional(),
   verifiedBuyer: z.boolean().optional(),
-  confirmSource: z.enum(["SMS", "WHATSAPP", "PHONE", "OTHER"]).optional(),
+  confirmSource: z.string().max(80).optional(),
   confirmNote: z.string().max(500).optional(),
   sellerReplyText: z.string().max(2000).optional(),
 });
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
         orderId: z.string().optional(),
         productId: z.string().optional(),
         verifiedBuyer: z.boolean().optional(),
-        acknowledgementSource: z.enum(["SMS", "WHATSAPP", "PHONE", "OTHER"]).optional(),
+        acknowledgementSource: z.string().max(80).optional(),
       })
       .safeParse(await request.json());
 

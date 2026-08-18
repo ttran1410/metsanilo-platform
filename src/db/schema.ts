@@ -94,7 +94,7 @@ export const reviews = sqliteTable(
     source: text("source", { enum: ["PUBLIC_FORM", "MANUAL_IMPORT"] }).notNull().default("PUBLIC_FORM"),
     status: text("status", { enum: ["PENDING", "PENDING_CONFIRMATION", "APPROVED", "REJECTED", "HIDDEN", "ARCHIVED"] }).notNull().default("PENDING"),
     publicationAcknowledgement: integer("publication_acknowledgement", { mode: "boolean" }).notNull().default(false),
-    acknowledgementSource: text("acknowledgement_source", { enum: ["PUBLIC_FORM", "SMS", "WHATSAPP", "PHONE", "OTHER"] }),
+    acknowledgementSource: text("acknowledgement_source"),
     acknowledgedAt: text("acknowledged_at"),
     verifiedBuyer: integer("verified_buyer", { mode: "boolean" }).notNull().default(false),
     verificationType: text("verification_type", { enum: ["DIGITAL_ORDER", "HISTORICAL_MATCH", "STAFF_MANUAL", "UNVERIFIED"] }).notNull().default("UNVERIFIED"),

@@ -206,6 +206,36 @@ describe("Review Engine & Social Proof Trust System", () => {
     expect(imported.verificationType).toBe("STAFF_MANUAL");
   });
 
+  it("supports FACEBOOK and custom channel sources for manual review import and consent confirmation", async () => {
+    const fbImported = await createManualReview(database, {
+      displayName: "Facebook User",
+      rating: 5,
+      originalText: "Ihanaa marjasatoa, tilattiin Facebookin kautta!",
+      verifiedBuyer: true,
+      acknowledgementSource: "FACEBOOK",
+      actor: "staff@test.fi",
+    });
+    expect(fbImported.publicationAcknowledgement).toBe(true);
+    expect(fbImported.acknowledgementSource).toBe("FACEBOOK");
+
+    const unconfirmed = await createManualReview(database, {
+      displayName: "Unconfirmed User",
+      rating: 5,
+      originalText: "Upea tuote ja ystävällinen palvelu!",
+      actor: "staff@test.fi",
+    });
+    expect(unconfirmed.publicationAcknowledgement).toBe(false);
+
+    const confirmed = await confirmManualReview(database, {
+      id: unconfirmed.id,
+      source: "FACEBOOK",
+      note: "Confirmed via Facebook Messenger chat",
+      actor: "staff@test.fi",
+    });
+    expect(confirmed.publicationAcknowledgement).toBe(true);
+    expect(confirmed.acknowledgementSource).toBe("FACEBOOK");
+  });
+
   it("allows featuring an approved review without providing status parameter", async () => {
     const rev = await createPublicReview(database, {
       displayName: "Sari H.",

@@ -285,7 +285,7 @@ export async function createManualReview(
     orderId?: string;
     productId?: string;
     verifiedBuyer?: boolean;
-    acknowledgementSource?: "SMS" | "WHATSAPP" | "PHONE" | "OTHER";
+    acknowledgementSource?: string;
     actor: string;
   },
 ) {
@@ -515,7 +515,7 @@ export async function confirmManualReview(
   database: Database,
   input: {
     id: string;
-    source: "SMS" | "WHATSAPP" | "PHONE" | "OTHER";
+    source: string;
     note?: string;
     actor: string;
   },
