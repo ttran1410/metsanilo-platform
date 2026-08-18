@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
+import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { BatchPlannerPanel } from "./batch-planner-panel";
 import { DateInspectorDrawer } from "./date-inspector-drawer";
@@ -148,6 +149,10 @@ export function AvailabilityWorkspace({
     }
   }
 
+  // Pagination state for Dense Table view
+  const [tablePage, setTablePage] = useState(1);
+  const [tableLimit, setTableLimit] = useState(20);
+
   const rows = useMemo(() => {
     return workspace.rows.filter((row) => {
       if (productFilter !== "ALL" && row.product.id !== productFilter) return false;
@@ -157,6 +162,10 @@ export function AvailabilityWorkspace({
       return true;
     });
   }, [workspace.rows, productFilter, viewFilter]);
+
+  const paginatedRows = useMemo(() => {
+    return rows.slice((tablePage - 1) * tableLimit, tablePage * tableLimit);
+  }, [rows, tablePage, tableLimit]);
 
   // Daily cards calculation
   const dateCards = useMemo(() => {
@@ -694,7 +703,7 @@ export function AvailabilityWorkspace({
             </thead>
 
             <tbody className="divide-y divide-line">
-              {rows.map((row) => {
+              {paginatedRows.map((row) => {
                 const remainingLitres = Math.max(0, row.availability.capacityMl - row.availability.reservedMl);
 
                 return (
@@ -755,6 +764,15 @@ export function AvailabilityWorkspace({
               })}
             </tbody>
           </table>
+
+          <AdminPagination
+            page={tablePage}
+            limit={tableLimit}
+            total={rows.length}
+            onPageChange={setTablePage}
+            onLimitChange={setTableLimit}
+            itemLabel="availability dates"
+          />
         </section>
       )}
 
