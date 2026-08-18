@@ -9,6 +9,7 @@ import {
 } from "@/lib/permissions";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
+import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { OnboardingModal } from "./onboarding-modal";
 
 type UserRow = {
@@ -644,71 +645,44 @@ export function MasterDetailUserWorkspace({
                       )}
                     </td>
                     <td className="py-3 px-3 text-right">
-                      <div className="relative inline-block text-left row-action-menu">
-                        <button
-                          type="button"
-                          className="p-1.5 px-2.5 rounded-lg text-ink/80 hover:text-ink hover:bg-surface-muted border border-line/60 hover:border-line font-bold transition-all shadow-2xs"
-                          title="User Actions Menu"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveMenuId(activeMenuId === u.id ? null : u.id);
-                          }}
-                        >
-                          <span className="text-xs font-mono tracking-widest font-extrabold">•••</span>
-                        </button>
-
-                        {activeMenuId === u.id && (
-                          <div className="absolute right-0 mt-1 w-48 bg-surface rounded-xl shadow-xl border border-line py-1 z-40 text-left text-xs divide-y divide-line/60 animate-in fade-in-50 zoom-in-95">
-                            <div className="py-1">
-                              <button
-                                type="button"
-                                className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuId(null);
-                                  void loadUserExtras(u.id);
-                                  setViewMode("split");
-                                }}
-                              >
-                                <span>👁️</span> View RBAC &amp; Audit
-                              </button>
-                            </div>
-
-                            {canManageUsers && (
-                              <div className="py-1">
-                                <button
-                                  type="button"
-                                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-surface-muted transition-colors font-semibold"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveMenuId(null);
+                      <AdminRowActionMenu
+                        items={[
+                          {
+                            id: "view-rbac",
+                            label: "View RBAC & Audit",
+                            icon: <IconEye />,
+                            onClick: () => {
+                              void loadUserExtras(u.id);
+                              setViewMode("split");
+                            },
+                          },
+                          ...(canManageUsers
+                            ? [
+                                {
+                                  id: "edit-profile",
+                                  label: "Edit Profile",
+                                  icon: <IconPencil />,
+                                  onClick: () => {
                                     setEditingUser(u);
-                                  }}
-                                >
-                                  <span>✏️</span> Edit Profile
-                                </button>
-                              </div>
-                            )}
-
-                            {canResetPasswords && (
-                              <div className="py-1">
-                                <button
-                                  type="button"
-                                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-surface-muted transition-colors font-semibold"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveMenuId(null);
+                                  },
+                                },
+                              ]
+                            : []),
+                          ...(canResetPasswords
+                            ? [
+                                {
+                                  id: "reset-password",
+                                  label: "Reset Password",
+                                  icon: <IconLock />,
+                                  onClick: () => {
                                     void loadUserExtras(u.id);
                                     void handleResetPassword();
-                                  }}
-                                >
-                                  <span>🔑</span> Reset Password
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                                  },
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
                     </td>
                   </tr>
                 );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { AuditCategory, AuditSeverity, FormattedAuditItem } from "@/domain/audit";
 import { AdminNotice } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
+import { AdminRowActionMenu, IconCopy, IconEye, IconLink } from "../ui/admin-row-action-menu";
 import { DiffInspectorDrawer } from "./diff-inspector-drawer";
 
 export function MasterAuditWorkspace({
@@ -374,67 +375,39 @@ export function MasterAuditWorkspace({
                   </td>
 
                   <td className="py-3 px-3 text-right whitespace-nowrap">
-                    <div className="relative inline-block text-left row-action-menu">
-                      <button
-                        type="button"
-                        className="p-1.5 px-2.5 rounded-lg text-ink/80 hover:text-ink hover:bg-surface-muted border border-line/60 hover:border-line font-bold transition-all shadow-2xs"
-                        title="Audit Actions Menu"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuId(activeMenuId === item.id ? null : item.id);
-                        }}
-                      >
-                        <span className="text-xs font-mono tracking-widest font-extrabold">•••</span>
-                      </button>
-
-                      {activeMenuId === item.id && (
-                        <div className="absolute right-0 mt-1 w-48 bg-surface rounded-xl shadow-xl border border-line py-1 z-40 text-left text-xs divide-y divide-line/60 animate-in fade-in-50 zoom-in-95">
-                          <div className="py-1">
-                            <button
-                              type="button"
-                              className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(null);
-                                setSelectedItem(item);
-                              }}
-                            >
-                              <span>🔍</span> View Detailed Diff
-                            </button>
-                          </div>
-
-                          <div className="py-1">
-                            <button
-                              type="button"
-                              className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink/80 hover:bg-surface-muted transition-colors font-semibold"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(null);
-                                void navigator.clipboard.writeText(item.id);
-                                alert(`Copied Audit Event ID: ${item.id}`);
-                              }}
-                            >
-                              <span>📋</span> Copy Event ID
-                            </button>
-                          </div>
-
-                          {targetHref && (
-                            <div className="py-1">
-                              <Link
-                                href={targetHref}
-                                className="flex items-center gap-2 px-3 py-2 text-ink/80 hover:bg-surface-muted transition-colors font-semibold"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuId(null);
-                                }}
-                              >
-                                <span>🔗</span> Jump to Entity
-                              </Link>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <AdminRowActionMenu
+                      items={[
+                        {
+                          id: "view-diff",
+                          label: "View Detailed Diff",
+                          icon: <IconEye />,
+                          onClick: () => {
+                            setSelectedItem(item);
+                          },
+                        },
+                        {
+                          id: "copy-id",
+                          label: "Copy Event ID",
+                          icon: <IconCopy />,
+                          onClick: () => {
+                            void navigator.clipboard.writeText(item.id);
+                            alert(`Copied Audit Event ID: ${item.id}`);
+                          },
+                        },
+                        ...(targetHref
+                          ? [
+                              {
+                                id: "jump-entity",
+                                label: "Jump to Entity",
+                                icon: <IconLink />,
+                                onClick: () => {
+                                  window.location.href = targetHref;
+                                },
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
                   </td>
                 </tr>
               );

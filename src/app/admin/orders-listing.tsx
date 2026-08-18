@@ -12,6 +12,7 @@ import { PickupTerminal } from "./orders/pickup-terminal";
 import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
 import { AdminPagination } from "./ui/admin-pagination";
+import { AdminRowActionMenu, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
 
 export type AdminOrder = typeof orders.$inferSelect & {
   paidCents?: number;
@@ -1013,89 +1014,58 @@ export function OrdersListing({
                       </td>
 
                       <td className="p-3 text-right">
-                        <div className="relative inline-block text-left row-action-menu">
-                          <button
-                            type="button"
-                            className="p-1.5 px-2.5 rounded-lg text-ink/80 hover:text-ink hover:bg-surface-muted border border-line/60 hover:border-line font-bold transition-all shadow-2xs"
-                            title="Order Actions Menu"
-                            onClick={() => setActiveMenuId(activeMenuId === order.id ? null : order.id)}
-                          >
-                            <span className="text-xs font-mono tracking-widest font-extrabold">•••</span>
-                          </button>
-
-                          {activeMenuId === order.id && (
-                            <div className="absolute right-0 mt-1 w-48 bg-surface rounded-xl shadow-xl border border-line py-1 z-40 text-left text-xs divide-y divide-line/60 animate-in fade-in-50 zoom-in-95">
-                              <div className="py-1">
-                                <Link
-                                  className="flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
-                                  href={`/admin/orders/${order.id}`}
-                                  onClick={() => setActiveMenuId(null)}
-                                >
-                                  <span>👁️</span> View details
-                                </Link>
-
-                                {canUpdate && (
-                                  <Link
-                                    className="flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
-                                    href={`/admin/orders/${order.id}/edit`}
-                                    onClick={() => setActiveMenuId(null)}
-                                  >
-                                    <span>✏️</span> Edit order
-                                  </Link>
-                                )}
-                              </div>
-
-                              {canTransition && getNextQuickAction(order) && (
-                                <div className="py-1">
-                                  {(() => {
-                                    const quick = getNextQuickAction(order)!;
-                                    return (
-                                      <button
-                                        type="button"
-                                        className="w-full text-left flex items-center gap-2 px-3 py-2 text-emerald-800 font-bold hover:bg-emerald-50 transition-colors"
-                                        onClick={() => {
-                                          setActiveMenuId(null);
-                                          setPending({ target: quick.target, orders: [order] });
-                                        }}
-                                      >
-                                        <span>{quick.icon}</span> {quick.label}
-                                      </button>
-                                    );
-                                  })()}
-                                </div>
-                              )}
-
-                              <div className="py-1">
-                                {canDelete ? (
-                                  <button
-                                    type="button"
-                                    className="w-full text-left flex items-center gap-2 px-3 py-2 text-rose-700 font-semibold hover:bg-rose-50 transition-colors"
-                                    onClick={() => {
-                                      setActiveMenuId(null);
-                                      setSelected([order.id]);
-                                      const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0;
-                                      setPendingDelete({
-                                        deletable: isPaidOrder ? [] : [order],
-                                        skippedPaid: isPaidOrder ? [order] : [],
-                                      });
-                                    }}
-                                  >
-                                    <span>🗑️</span> Delete order
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    disabled
-                                    title="🔒 Requires Permanent Delete permission (orders.delete)"
-                                    className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink/30 cursor-not-allowed opacity-50 font-medium"
-                                  >
-                                    <span>🔒 🗑️</span> Delete order
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        <AdminRowActionMenu
+                          items={[
+                            {
+                              id: "view-details",
+                              label: "View Details",
+                              icon: <IconEye />,
+                              onClick: () => {
+                                window.location.href = `/admin/orders/${order.id}`;
+                              },
+                            },
+                            ...(canUpdate
+                              ? [
+                                  {
+                                    id: "edit-order",
+                                    label: "Edit Order",
+                                    icon: <IconPencil />,
+                                    onClick: () => {
+                                      window.location.href = `/admin/orders/${order.id}/edit`;
+                                    },
+                                  },
+                                ]
+                              : []),
+                            ...(canTransition && getNextQuickAction(order)
+                              ? [
+                                  {
+                                    id: "quick-transition",
+                                    label: getNextQuickAction(order)!.label,
+                                    icon: <span className="text-emerald-600 font-bold">{getNextQuickAction(order)!.icon}</span>,
+                                    onClick: () => {
+                                      const quick = getNextQuickAction(order)!;
+                                      setPending({ target: quick.target, orders: [order] });
+                                    },
+                                  },
+                                ]
+                              : []),
+                            {
+                              id: "delete-order",
+                              label: "Delete Order",
+                              icon: <IconTrash />,
+                              danger: true,
+                              disabled: !canDelete,
+                              onClick: () => {
+                                setSelected([order.id]);
+                                const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0;
+                                setPendingDelete({
+                                  deletable: isPaidOrder ? [] : [order],
+                                  skippedPaid: isPaidOrder ? [order] : [],
+                                });
+                              },
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );

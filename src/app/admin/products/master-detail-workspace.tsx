@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { packages, products } from "@/db/schema";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
+import { AdminRowActionMenu, IconEye, IconLink } from "../ui/admin-row-action-menu";
 
 import { BilingualEditor } from "./bilingual-editor";
 import { MediaGalleryTab } from "./media-gallery-tab";
@@ -504,68 +505,36 @@ export function MasterDetailWorkspace({
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">
-                      <div className="relative inline-block text-left row-action-menu">
-                        <button
-                          type="button"
-                          className="p-1.5 px-2.5 rounded-lg text-ink/80 hover:text-ink hover:bg-surface-muted border border-line/60 hover:border-line font-bold transition-all shadow-2xs"
-                          title="Product Actions Menu"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveMenuId(activeMenuId === row.product.id ? null : row.product.id);
-                          }}
-                        >
-                          <span className="text-xs font-mono tracking-widest font-extrabold">•••</span>
-                        </button>
-
-                        {activeMenuId === row.product.id && (
-                          <div className="absolute right-0 mt-1 w-48 bg-surface rounded-xl shadow-xl border border-line py-1 z-40 text-left text-xs divide-y divide-line/60 animate-in fade-in-50 zoom-in-95">
-                            <div className="py-1">
-                              <button
-                                type="button"
-                                className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuId(null);
-                                  selectProduct(row);
-                                  setViewMode("split");
-                                }}
-                              >
-                                <span>👁️</span> View &amp; Edit Product
-                              </button>
-                            </div>
-
-                            <div className="py-1">
-                              <a
-                                href={`/products/${row.product.slug}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-2 px-3 py-2 text-ink/80 hover:bg-surface-muted transition-colors font-semibold"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuId(null);
-                                }}
-                              >
-                                <span>🛍️</span> Preview Storefront
-                              </a>
-                            </div>
-
-                            <div className="py-1">
-                              <button
-                                type="button"
-                                className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink/80 hover:bg-surface-muted transition-colors font-semibold"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuId(null);
-                                  selectProduct(row);
-                                  setViewMode("split");
-                                }}
-                              >
-                                <span>📦</span> Packages &amp; Pricing
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      <AdminRowActionMenu
+                        items={[
+                          {
+                            id: "edit-product",
+                            label: "View & Edit Product",
+                            icon: <IconEye />,
+                            onClick: () => {
+                              selectProduct(row);
+                              setViewMode("split");
+                            },
+                          },
+                          {
+                            id: "preview-storefront",
+                            label: "Preview Storefront",
+                            icon: <IconLink />,
+                            onClick: () => {
+                              window.open(`/products/${row.product.slug}`, "_blank");
+                            },
+                          },
+                          {
+                            id: "packages-pricing",
+                            label: "Packages & Pricing",
+                            icon: <span className="text-slate-500 font-bold">📦</span>,
+                            onClick: () => {
+                              selectProduct(row);
+                              setViewMode("split");
+                            },
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Edit3, Phone, MessageSquare, Share2, ExternalLink, PlusCircle, GitMerge, Trash2, UserPlus, Search } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
+import { AdminRowActionMenu, IconDocument, IconEye } from "../ui/admin-row-action-menu";
 import { CustomerModal } from "./customer-modal";
 import { MergeModal } from "./merge-modal";
 
@@ -492,73 +493,44 @@ export function MasterDetailCustomerWorkspace({
                       </div>
                     </td>
                     <td className="p-3 text-right">
-                      <div className="relative inline-block text-left row-action-menu">
-                        <button
-                          type="button"
-                          className="p-1.5 px-2.5 rounded-lg text-ink/80 hover:text-ink hover:bg-surface-muted border border-line/60 hover:border-line font-bold transition-all shadow-2xs"
-                          title="Customer Actions Menu"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveMenuId(activeMenuId === c.id ? null : c.id);
-                          }}
-                        >
-                          <span className="text-xs font-mono tracking-widest font-extrabold">•••</span>
-                        </button>
-
-                        {activeMenuId === c.id && (
-                          <div className="absolute right-0 mt-1 w-48 bg-surface rounded-xl shadow-xl border border-line py-1 z-40 text-left text-xs divide-y divide-line/60 animate-in fade-in-50 zoom-in-95">
-                            <div className="py-1">
-                              <button
-                                type="button"
-                                className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuId(null);
-                                  void loadProfile(c.id);
-                                  setWorkspaceView("split");
-                                  setMobileView("detail");
-                                }}
-                              >
-                                <span>👁️</span> View Profile &amp; Orders
-                              </button>
-                            </div>
-
-                            {c.matchStatus === "CONFLICT_REVIEW" && (
-                              <div className="py-1">
-                                <button
-                                  type="button"
-                                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-amber-900 hover:bg-amber-50 transition-colors font-semibold"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveMenuId(null);
+                      <AdminRowActionMenu
+                        items={[
+                          {
+                            id: "view-profile",
+                            label: "View Profile & Orders",
+                            icon: <IconEye />,
+                            onClick: () => {
+                              void loadProfile(c.id);
+                              setWorkspaceView("split");
+                              setMobileView("detail");
+                            },
+                          },
+                          ...(c.matchStatus === "CONFLICT_REVIEW"
+                            ? [
+                                {
+                                  id: "resolve-conflict",
+                                  label: "Resolve Conflict",
+                                  icon: <span className="text-amber-600 font-bold">⚠️</span>,
+                                  onClick: () => {
                                     void loadProfile(c.id);
                                     setWorkspaceView("split");
                                     setMobileView("detail");
-                                  }}
-                                >
-                                  <span>⚠️</span> Resolve Conflict
-                                </button>
-                              </div>
-                            )}
-
-                            <div className="py-1">
-                              <button
-                                type="button"
-                                className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink/80 hover:bg-surface-muted transition-colors font-semibold"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuId(null);
-                                  void loadProfile(c.id);
-                                  setWorkspaceView("split");
-                                  setMobileView("detail");
-                                }}
-                              >
-                                <span>📝</span> View Pinned Notes
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                                  },
+                                },
+                              ]
+                            : []),
+                          {
+                            id: "view-notes",
+                            label: "View Pinned Notes",
+                            icon: <IconDocument />,
+                            onClick: () => {
+                              void loadProfile(c.id);
+                              setWorkspaceView("split");
+                              setMobileView("detail");
+                            },
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}
