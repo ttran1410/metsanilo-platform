@@ -154,38 +154,53 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
     }
   }
 
+  const [submittingAction, setSubmittingAction] = useState(false);
+
   async function submitAction(event: FormEvent<HTMLFormElement>, kind: "note" | "payment" | "pricing" | "exception") {
     event.preventDefault();
-    const values = new FormData(event.currentTarget);
-    const endpoint = kind === "note" ? "notes" : kind === "payment" ? "payment" : kind === "pricing" ? "pricing" : "delivery-exception";
-    const payload =
-      kind === "note"
-        ? { body: values.get("body") }
-        : kind === "payment"
-        ? { amountCents: Math.round(Number(values.get("paymentEuros")) * 100), method: values.get("method"), reference: String(values.get("reference") ?? "").trim() || undefined }
-        : kind === "pricing"
-        ? {
-            expectedVersion: detail.order.version,
-            itemSubtotalCents: Math.round(Number(values.get("itemEuros")) * 100),
-            deliveryFeeCents: detail.order.fulfillmentMethod === "DELIVERY" ? (values.get("feeEuros") === "" ? null : Math.round(Number(values.get("feeEuros")) * 100)) : 0,
-            reason: values.get("reason"),
-          }
-        : { type: values.get("type"), nextAction: values.get("nextAction"), note: values.get("note"), rescheduledDate: values.get("rescheduledDate") || undefined };
+    if (submittingAction) return;
+    setSubmittingAction(true);
+    setMessage("");
 
-    const response = await fetch(`/api/admin/orders/${detail.order.id}/${endpoint}`, {
-      method: kind === "note" || kind === "payment" || kind === "exception" ? "POST" : "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = await response.json();
-    if (!response.ok) return setMessage(body.message ?? body.code ?? "Order update failed");
-    event.currentTarget.reset();
-    setActiveModal(null);
-    if (body.data && "order" in body.data) {
-      setDetail(body.data);
+    try {
+      const values = new FormData(event.currentTarget);
+      const endpoint = kind === "note" ? "notes" : kind === "payment" ? "payment" : kind === "pricing" ? "pricing" : "delivery-exception";
+      const payload =
+        kind === "note"
+          ? { body: values.get("body") }
+          : kind === "payment"
+          ? { amountCents: Math.round(Number(values.get("paymentEuros")) * 100), method: values.get("method"), reference: String(values.get("reference") ?? "").trim() || undefined }
+          : kind === "pricing"
+          ? {
+              expectedVersion: detail.order.version,
+              itemSubtotalCents: Math.round(Number(values.get("itemEuros")) * 100),
+              deliveryFeeCents: detail.order.fulfillmentMethod === "DELIVERY" ? (values.get("feeEuros") === "" ? null : Math.round(Number(values.get("feeEuros")) * 100)) : 0,
+              reason: values.get("reason"),
+            }
+          : { type: values.get("type"), nextAction: values.get("nextAction"), note: values.get("note"), rescheduledDate: values.get("rescheduledDate") || undefined };
+
+      const response = await fetch(`/api/admin/orders/${detail.order.id}/${endpoint}`, {
+        method: kind === "note" || kind === "payment" || kind === "exception" ? "POST" : "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        setMessage(body.message ?? body.code ?? "Order update failed");
+        return;
+      }
+      event.currentTarget.reset();
+      setActiveModal(null);
+      if (body.data && "order" in body.data) {
+        setDetail(body.data);
+      }
+      await refresh();
+      setMessage(`Order ${kind} recorded.`);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Action failed");
+    } finally {
+      setSubmittingAction(false);
     }
-    await refresh();
-    setMessage(`Order ${kind} recorded.`);
   }
 
   const configuredLocation = snapshot(detail.order.fulfillmentMethod === "PICKUP" ? detail.order.pickupLocationSnapshotJson : detail.order.deliveryOriginSnapshotJson);
@@ -598,9 +613,57 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
 
             {activeModal === "payment" && (
               <form className="space-y-3 text-sm" onSubmit={(event) => void submitAction(event, "payment")}>
+                {/* Financial Summary Card */}
+                <div className="p-3 bg-surface-muted/80 rounded-xl border border-line space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted font-medium">Order Total:</span>
+                    <strong className="text-ink ops-tabular font-bold">
+                      {money(detail.order.finalTotalCents ?? detail.order.itemSubtotalCents)}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between items-center text-muted">
+                    <span>Paid to Date:</span>
+                    <span className="text-emerald-700 font-semibold ops-tabular">
+                      {money(detail.paymentSummary.paidCents)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-line/60 pt-1.5 font-bold text-ink">
+                    <span>Remaining Balance:</span>
+                    <span className={`ops-tabular ${detail.paymentSummary.outstandingCents > 0 ? "text-amber-700 font-mono" : "text-emerald-700 font-mono"}`}>
+                      {money(detail.paymentSummary.outstandingCents)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Delivery Fee Pending Warning */}
+                {detail.order.fulfillmentMethod === "DELIVERY" && detail.order.deliveryFeeCents === null && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-900 space-y-2">
+                    <strong className="font-bold flex items-center gap-1.5 text-amber-950">
+                      ⚠️ Delivery Fee Pending
+                    </strong>
+                    <p className="leading-relaxed">
+                      The delivery fee is not set yet. Please adjust pricing and set the delivery fee before recording payment.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-secondary text-xs py-1 px-2.5 font-bold"
+                      onClick={() => setActiveModal("pricing")}
+                    >
+                      ✍️ Set Delivery Fee First
+                    </button>
+                  </div>
+                )}
+
                 <label className="field">
                   <span>Payment amount (€)</span>
-                  <input name="paymentEuros" type="number" min="0.01" step="0.01" defaultValue={(detail.paymentSummary.outstandingCents / 100).toFixed(2)} required />
+                  <input
+                    name="paymentEuros"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    defaultValue={(detail.paymentSummary.outstandingCents / 100).toFixed(2)}
+                    required
+                  />
                 </label>
                 <label className="field">
                   <span>Payment method</span>
@@ -617,11 +680,11 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
                   <input name="reference" placeholder="Transaction ref or note" />
                 </label>
                 <div className="flex justify-end gap-2 pt-2 border-t border-line">
-                  <button className="btn btn-secondary text-xs" type="button" onClick={() => setActiveModal(null)}>
+                  <button className="btn btn-secondary text-xs" type="button" disabled={submittingAction} onClick={() => setActiveModal(null)}>
                     Cancel
                   </button>
-                  <button className="btn text-xs font-bold" type="submit">
-                    Confirm Payment
+                  <button className="btn text-xs font-bold min-w-[130px]" type="submit" disabled={submittingAction}>
+                    {submittingAction ? "⏳ Saving…" : "Confirm Payment"}
                   </button>
                 </div>
               </form>
@@ -629,6 +692,17 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
 
             {activeModal === "pricing" && (
               <form className="space-y-3 text-sm" onSubmit={(event) => void submitAction(event, "pricing")}>
+                {detail.paymentSummary.paidCents > 0 && (
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-xs text-blue-950 space-y-1">
+                    <strong className="font-bold flex items-center gap-1 text-blue-900">
+                      ℹ️ Payment Recorded Notice
+                    </strong>
+                    <p className="leading-relaxed">
+                      A payment of <strong>{money(detail.paymentSummary.paidCents)}</strong> has already been recorded. Adjusting total below will update the remaining balance or overpayment status.
+                    </p>
+                  </div>
+                )}
+
                 <label className="field">
                   <span>Agreed items price (€)</span>
                   <input name="itemEuros" type="number" min="0" step="0.01" defaultValue={(detail.order.itemSubtotalCents / 100).toFixed(2)} required />
@@ -644,11 +718,11 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
                   <input name="reason" minLength={2} placeholder="Discount, custom container..." required />
                 </label>
                 <div className="flex justify-end gap-2 pt-2 border-t border-line">
-                  <button className="btn btn-secondary text-xs" type="button" onClick={() => setActiveModal(null)}>
+                  <button className="btn btn-secondary text-xs" type="button" disabled={submittingAction} onClick={() => setActiveModal(null)}>
                     Cancel
                   </button>
-                  <button className="btn text-xs font-bold" type="submit">
-                    Save Pricing
+                  <button className="btn text-xs font-bold min-w-[110px]" type="submit" disabled={submittingAction}>
+                    {submittingAction ? "⏳ Saving…" : "Save Pricing"}
                   </button>
                 </div>
               </form>
@@ -675,11 +749,11 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
                   <textarea name="note" rows={2} placeholder="Additional details" />
                 </label>
                 <div className="flex justify-end gap-2 pt-2 border-t border-line">
-                  <button className="btn btn-secondary text-xs" type="button" onClick={() => setActiveModal(null)}>
+                  <button className="btn btn-secondary text-xs" type="button" disabled={submittingAction} onClick={() => setActiveModal(null)}>
                     Cancel
                   </button>
-                  <button className="btn text-xs font-bold" type="submit">
-                    Record Exception
+                  <button className="btn text-xs font-bold min-w-[140px]" type="submit" disabled={submittingAction}>
+                    {submittingAction ? "⏳ Saving…" : "Record Exception"}
                   </button>
                 </div>
               </form>
