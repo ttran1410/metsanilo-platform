@@ -1,7 +1,7 @@
 /** Shared permission catalogue used by both the server guard and the admin UI. */
 export const PERMISSIONS = [
   "dashboard.read", "notifications.read",
-  "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.read", "orders.payment.write", "orders.export", "orders.delete", "orders.archive",
+  "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.read", "orders.payment.write", "orders.export", "orders.delete", "orders.archive", "orders.override_closed_date",
   "catalog.product.read", "catalog.product.write", "catalog.product.delete", "catalog.package.read", "catalog.package.write",
   "availability.read", "availability.write", "availability.sold_out",
   "delivery.read", "delivery.write", "delivery.override",

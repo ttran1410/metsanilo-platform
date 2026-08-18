@@ -212,6 +212,15 @@ describe("order operations", () => {
     expect(jobs.some((job) => job.type === "EMAIL")).toBe(false);
   });
 
+  it("supports date override permission for external orders on past or closed dates", async () => {
+    await expect(
+      createExternalOrder(database, { ...pickupInput("external-closed", "2020-01-01"), source: "PHONE", status: "NEW", allowDateOverride: false })
+    ).rejects.toMatchObject({ code: "DATE_CLOSED" });
+
+    const overrideOrder = await createExternalOrder(database, { ...pickupInput("external-override", "2020-01-01"), source: "PHONE", status: "NEW", allowDateOverride: true });
+    expect(overrideOrder.fulfillmentDate).toBe("2020-01-01");
+  });
+
   it("matches repeat customers and flags conflicting identifiers for review", async () => {
     const first = await submitOrder(database, pickupInput("customer-match-one"));
     const second = await submitOrder(database, { ...pickupInput("customer-match-two"), fulfillmentDate: "2099-08-14" });

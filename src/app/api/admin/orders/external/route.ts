@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { requirePermission } from "@/domain/access";
+import { hasUserPermission, requirePermission } from "@/domain/access";
 import { createExternalOrder } from "@/domain/operations";
 import { fromZodError } from "@/domain/errors";
 import { failure, success } from "../../../response";
@@ -11,10 +11,13 @@ const command = z.object({ productId: z.string(), packageId: z.string(), quantit
 
 export async function POST(request: Request) {
   try {
-    await requirePermission(db(), request, "orders.create");
+    const actor = await requirePermission(db(), request, "orders.create");
     const parsed = command.safeParse(await request.json());
     if (!parsed.success) throw fromZodError(parsed.error, "Invalid external order payload");
-    return success(await createExternalOrder(db(), parsed.data), 201);
+
+    const allowDateOverride = await hasUserPermission(db(), actor, "orders.override_closed_date");
+
+    return success(await createExternalOrder(db(), { ...parsed.data, allowDateOverride }), 201);
   } catch (error) {
     return failure(error);
   }
