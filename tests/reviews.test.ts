@@ -351,4 +351,50 @@ describe("Review Engine & Social Proof Trust System", () => {
     expect(updated.verifiedBuyer).toBe(true);
     expect(updated.verificationType).toBe("STAFF_MANUAL");
   });
+
+  it("fetches review history and sentiment metrics inside getCustomerProfile", async () => {
+    const cust = await database
+      .insert(customers)
+      .values({
+        id: "cust-rev-1",
+        shopId: "shop-main",
+        name: "Sentiment Tester",
+        email: "sentiment@test.fi",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      .returning();
+
+    await database.insert(reviews).values({
+      id: "rev-c1",
+      shopId: "shop-main",
+      customerId: "cust-rev-1",
+      displayName: "Sentiment Tester",
+      rating: 5,
+      originalText: "Fantastic quality!",
+      status: "APPROVED",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await database.insert(reviews).values({
+      id: "rev-c2",
+      shopId: "shop-main",
+      customerId: "cust-rev-1",
+      displayName: "Sentiment Tester",
+      rating: 4,
+      originalText: "Great service",
+      status: "APPROVED",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const { getCustomerProfile } = await import("@/domain/customers");
+    const profile = await getCustomerProfile(database, "cust-rev-1");
+
+    expect(profile).not.toBeNull();
+    expect(profile?.reviews).toHaveLength(2);
+    expect(profile?.metrics.reviewCount).toBe(2);
+    expect(profile?.metrics.averageRating).toBe(4.5);
+  });
 });
