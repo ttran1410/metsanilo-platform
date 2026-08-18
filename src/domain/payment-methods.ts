@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, shopPaymentMethods } from "@/db/schema";
+import { auditEntries, orderPayments, orders, shopPaymentMethods } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 
@@ -79,5 +79,43 @@ export async function setPaymentMethod(
   });
 
   return (await listPaymentMethods(database)).find((row) => row.method === method)!;
+}
+
+export async function deletePaymentMethod(database: Database, method: string, actor: string) {
+  if (["CASH", "BANK_TRANSFER", "MOBILEPAY"].includes(method)) {
+    throw new DomainError("FORBIDDEN", "System default payment methods cannot be deleted. Disable them instead.", 409);
+  }
+
+  // Check if any orders or payments use this method
+  const row = await database.query.shopPaymentMethods.findFirst({
+    where: and(eq(shopPaymentMethods.shopId, env().SHOP_ID), eq(shopPaymentMethods.method, method as any)),
+  });
+  if (!row) throw new DomainError("NOT_FOUND", "Payment method not found", 404);
+
+  const [{ count }] = await database
+    .select({ count: sql<number>`count(*)` })
+    .from(orderPayments)
+    .where(and(eq(orderPayments.shopId, env().SHOP_ID), eq(orderPayments.method, method as any)));
+
+  if (Number(count) > 0) {
+    throw new DomainError("CONFLICT", `Cannot delete payment method: used in ${count} historical orders. Disable it instead.`, 409);
+  }
+
+  await database
+    .delete(shopPaymentMethods)
+    .where(and(eq(shopPaymentMethods.shopId, env().SHOP_ID), eq(shopPaymentMethods.method, method as any)));
+
+  await database.insert(auditEntries).values({
+    id: randomUUID(),
+    shopId: env().SHOP_ID,
+    actor,
+    action: "payment_method.deleted",
+    entityType: "shop_payment_method",
+    entityId: method,
+    detailsJson: JSON.stringify({ method }),
+    createdAt: new Date().toISOString(),
+  });
+
+  return { deleted: true, method };
 }
 
