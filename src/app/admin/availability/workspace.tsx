@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
@@ -78,9 +79,17 @@ export function AvailabilityWorkspace({
   canSoldOut: boolean;
 }) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>("WEEK");
   const [productFilter, setProductFilter] = useState("ALL");
   const [viewFilter, setViewFilter] = useState("ALL");
+
+  useEffect(() => {
+    const viewParam = searchParams.get("view")?.toUpperCase();
+    if (viewParam === "WEEK" || viewParam === "MONTH" || viewParam === "TABLE") {
+      setViewMode(viewParam as ViewMode);
+    }
+  }, [searchParams]);
 
   // Always align initial week start to Monday
   const [currentStartDate, setCurrentStartDate] = useState(getStartOfWeek(todayStr()));

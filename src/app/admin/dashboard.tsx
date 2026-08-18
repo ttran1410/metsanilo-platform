@@ -519,8 +519,8 @@ export function DashboardModule() {
             <span className="eyebrow">HARVEST FORECAST</span>
             <h3 className="text-base font-bold text-ink">48-Hour Lookahead &amp; Demand Cards</h3>
           </div>
-          <Link className="text-xs font-bold text-primary hover:underline" href="/admin/availability">
-            Full 14-Day Calendar ►
+          <Link className="text-xs font-bold text-primary hover:underline" href="/admin/availability?view=WEEK">
+            Full 7-Day Calendar ►
           </Link>
         </div>
 

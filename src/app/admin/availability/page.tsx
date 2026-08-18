@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { db } from "@/db/client";
 import { getAvailabilityWorkspace } from "@/domain/availability";
 import { AvailabilityWorkspace } from "./workspace";
@@ -15,5 +16,11 @@ export default async function AvailabilityPage() {
   if (!canRead) return <AdminRouteFrame><main className="shell py-10"><p className="card" role="alert">You do not have access to availability.</p></main></AdminRouteFrame>;
   const database = db();
   const workspace = await getAvailabilityWorkspace(database);
-  return <AdminRouteFrame><AvailabilityWorkspace initialWorkspace={workspace} canManage={canWrite} canSoldOut={canSoldOut} /></AdminRouteFrame>;
+  return (
+    <AdminRouteFrame>
+      <Suspense fallback={<main className="shell py-10"><p className="card">Loading availability...</p></main>}>
+        <AvailabilityWorkspace initialWorkspace={workspace} canManage={canWrite} canSoldOut={canSoldOut} />
+      </Suspense>
+    </AdminRouteFrame>
+  );
 }
