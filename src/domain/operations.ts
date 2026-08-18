@@ -14,10 +14,11 @@ export async function createExternalOrder(database: Database, input: {
   productId: string; packageId: string; quantity: number; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY";
   customerName: string; mobile?: string; email?: string; facebookProfile?: string; streetAddress?: string; postalCode?: string; city?: string; notes?: string;
   status: "NEW" | "CONFIRMED"; source: "PHONE" | "SMS" | "WHATSAPP" | "FACEBOOK" | "WEBSITE" | "OTHER"; deliveryFeeCents?: number;
+  allowDateOverride?: boolean;
 }) {
   const receipt = await submitOrder(database, {
     locale: "fi", ...input, idempotencyKey: `external-${randomBytes(12).toString("hex")}`,
-  });
+  }, 0, { allowDateOverride: input.allowDateOverride });
   const order = await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) });
   if (!order) throw new DomainError("NOT_FOUND", "External order was not created", 404);
   await database.update(orders).set({ orderSource: input.source, facebookProfile: input.facebookProfile?.trim() || null, notes: input.notes?.trim() || order.notes }).where(eq(orders.id, order.id));

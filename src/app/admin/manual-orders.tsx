@@ -22,7 +22,14 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
   const [packageId, setPackageId] = useState(products[0]?.packages[0]?.id ?? "");
   const [quantity, setQuantity] = useState(1);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<"PICKUP" | "DELIVERY">("PICKUP");
+  const [fulfillmentDateInput, setFulfillmentDateInput] = useState("");
   const [deliveryFeeStr, setDeliveryFeeStr] = useState("");
+
+  const isPastDate = useMemo(() => {
+    if (!fulfillmentDateInput) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    return fulfillmentDateInput < today;
+  }, [fulfillmentDateInput]);
   const [paymentEurosStr, setPaymentEurosStr] = useState("");
   const [userEditedPayment, setUserEditedPayment] = useState(false);
   const [mobileInput, setMobileInput] = useState("");
@@ -293,8 +300,33 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
 
             <label className="field">
               <span>Fulfillment date</span>
-              <input name="fulfillmentDate" type="date" required onClick={(e) => e.currentTarget.showPicker?.()} />
+              <input
+                name="fulfillmentDate"
+                type="date"
+                required
+                value={fulfillmentDateInput}
+                onChange={(e) => setFulfillmentDateInput(e.target.value)}
+                onClick={(e) => e.currentTarget.showPicker?.()}
+              />
             </label>
+
+            {!historical && isPastDate && (
+              <div className="md:col-span-2 rounded-xl border border-amber-300/80 bg-amber-50/90 p-3.5 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-2.5 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">⚠️</span>
+                  <span>
+                    <strong>Selected date ({fulfillmentDateInput}) is in the past.</strong> If recording a completed past order, switch to Historical Record mode.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary py-1 px-3 text-xs bg-white border-amber-300 text-amber-950 hover:bg-amber-100 font-bold"
+                  onClick={() => setHistorical(true)}
+                >
+                  📜 Switch to Historical Mode
+                </button>
+              </div>
+            )}
 
             {fulfillmentMethod === "DELIVERY" && (
               <label className="field md:col-span-2">

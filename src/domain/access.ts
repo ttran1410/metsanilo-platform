@@ -75,11 +75,14 @@ export async function currentUser(database: Database, request: Request) {
   throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
 }
 
-export async function requirePermission(database: Database, request: Request, permission: Permission) {
-  const actor = await currentUser(database, request);
-  if (actor.role === "ADMIN" || actor.role === "MANAGER") return actor;
+export async function hasUserPermission(
+  database: Database,
+  actor: { id: string; shopId: string; role: Role },
+  permission: Permission
+): Promise<boolean> {
+  if (actor.role === "ADMIN" || actor.role === "MANAGER") return true;
   const normalized = normalizePermission(permission);
-  if (!normalized) throw new DomainError("FORBIDDEN", `Permission is not available: ${permission}`, 403);
+  if (!normalized) return false;
   const legacyNames = Object.entries(LEGACY_PERMISSION_ALIASES)
     .filter(([, target]) => target === normalized)
     .map(([name]) => name);
@@ -92,8 +95,14 @@ export async function requirePermission(database: Database, request: Request, pe
         : eq(userPermissions.permission, normalized)
     ),
   });
-  if (grant ? !grant.granted : !defaultPermissionsForRole(actor.role).includes(normalized))
-    throw new DomainError("FORBIDDEN", `Permission required: ${permission}`, 403);
+  if (grant) return grant.granted;
+  return defaultPermissionsForRole(actor.role).includes(normalized);
+}
+
+export async function requirePermission(database: Database, request: Request, permission: Permission) {
+  const actor = await currentUser(database, request);
+  const allowed = await hasUserPermission(database, actor, permission);
+  if (!allowed) throw new DomainError("FORBIDDEN", `Permission required: ${permission}`, 403);
   return actor;
 }
 

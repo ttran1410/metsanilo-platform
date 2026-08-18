@@ -61,7 +61,7 @@ function toReceipt(order: typeof orders.$inferSelect): OrderReceipt {
   };
 }
 
-export async function submitOrder(database: Database, unknownInput: unknown, busyRetry = 0) {
+export async function submitOrder(database: Database, unknownInput: unknown, busyRetry = 0, options?: { allowDateOverride?: boolean }) {
   const parsed = orderInputSchema.safeParse(unknownInput);
   if (!parsed.success) {
     const fieldErrors = Object.fromEntries(
@@ -118,28 +118,52 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
 
       const row = catalog[0];
       if (!row) throw new DomainError("NOT_AVAILABLE", "Product is unavailable", 404);
-      const today = todayInTimezone(row.shop.timezone);
-      if (
-        input.fulfillmentDate < today ||
-        input.fulfillmentDate < row.product.availableFrom ||
-        input.fulfillmentDate > row.product.availableThrough
-      ) {
-        throw new DomainError("DATE_CLOSED", "Date is not orderable", 409);
-      }
 
-      const current = await tx.query.availability.findFirst({
+      let current = await tx.query.availability.findFirst({
         where: and(
           eq(availability.shopId, SHOP_ID),
           eq(availability.productId, input.productId),
           eq(availability.businessDate, input.fulfillmentDate),
         ),
       });
-      if (!current || !current.acceptsOrders) {
-        throw new DomainError("DATE_CLOSED", "Date is closed", 409);
+
+      if (!options?.allowDateOverride) {
+        const today = todayInTimezone(row.shop.timezone);
+        if (
+          input.fulfillmentDate < today ||
+          input.fulfillmentDate < row.product.availableFrom ||
+          input.fulfillmentDate > row.product.availableThrough
+        ) {
+          throw new DomainError("DATE_CLOSED", "Date is not orderable", 409);
+        }
+
+        if (!current || !current.acceptsOrders) {
+          throw new DomainError("DATE_CLOSED", "Date is closed", 409);
+        }
+        if (current.manualSoldOut || current.capacityMl - current.reservedMl === 0) {
+          throw new DomainError("SOLD_OUT", "Product is sold out", 409);
+        }
+      } else {
+        if (!current) {
+          const availId = randomUUID();
+          const now = nowIso();
+          await tx.insert(availability).values({
+            id: availId,
+            shopId: SHOP_ID,
+            productId: input.productId,
+            businessDate: input.fulfillmentDate,
+            capacityMl: 100000,
+            reservedMl: 0,
+            acceptsOrders: true,
+            manualSoldOut: false,
+            updatedAt: now,
+          });
+          current = (await tx.query.availability.findFirst({
+            where: eq(availability.id, availId),
+          }))!;
+        }
       }
-      if (current.manualSoldOut || current.capacityMl - current.reservedMl === 0) {
-        throw new DomainError("SOLD_OUT", "Product is sold out", 409);
-      }
+
       if (row.package.volumeMl !== 10000 && input.quantity !== 1) {
         throw new DomainError("INVALID_QUANTITY", "Only the 10 litre package supports a selectable quantity", 422);
       }
@@ -157,9 +181,13 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
           and(
             eq(availability.id, current.id),
             eq(availability.shopId, SHOP_ID),
-            eq(availability.acceptsOrders, true),
-            eq(availability.manualSoldOut, false),
-            gte(sql`${availability.capacityMl} - ${availability.reservedMl}`, totalVolumeMl),
+            ...(options?.allowDateOverride
+              ? []
+              : [
+                  eq(availability.acceptsOrders, true),
+                  eq(availability.manualSoldOut, false),
+                  gte(sql`${availability.capacityMl} - ${availability.reservedMl}`, totalVolumeMl),
+                ]),
           ),
         )
         .run();
