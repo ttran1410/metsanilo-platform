@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   defaultPermissionsForRole,
   isHighRiskPermission,
@@ -406,11 +406,51 @@ export function MasterDetailUserWorkspace({
     void loadUserExtras(selectedUser.id);
   }
 
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  async function handleSaveUserEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingUser || savingEdit) return;
+    setSavingEdit(true);
+    setError("");
+    setMessage("");
+
+    const formData = new FormData(event.currentTarget);
+    const displayName = String(formData.get("displayName") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim() || null;
+    const role = String(formData.get("role") ?? "") as Role;
+
+    try {
+      const response = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "update", displayName, email, role }),
+      });
+
+      const body = await response.json();
+      setSavingEdit(false);
+
+      if (!response.ok) {
+        setError(body.message ?? "Could not update user profile.");
+        return;
+      }
+
+      setEditingUser(null);
+      setMessage(`User profile updated for ${displayName}.`);
+      void refreshUsersList(editingUser.id);
+    } catch {
+      setSavingEdit(false);
+      setError("Network error while updating user profile.");
+    }
+  }
+
   const selectedDefaults = selectedUser ? defaultPermissionsForRole(selectedUser.role) : [];
   const editable =
     canAssignPermissions &&
     selectedUser &&
-    (selectedUser.role === "STAFF" || selectedUser.role === "CONTENT_CREATOR");
+    (actorRole === "ADMIN" || selectedUser.role === "STAFF" || selectedUser.role === "CONTENT_CREATOR") &&
+    (actorRole === "ADMIN" || selectedUser.role !== "ADMIN");
 
   return (
     <section className="shell pb-10 flex flex-col gap-4">
@@ -793,6 +833,16 @@ export function MasterDetailUserWorkspace({
                     </label>
                   )}
 
+                  {canManageUsers && (
+                    <button
+                      type="button"
+                      className="btn text-xs py-1.5 px-3 flex items-center gap-1 font-bold shadow-xs"
+                      onClick={() => setEditingUser(selectedUser)}
+                    >
+                      ✏️ Edit Profile
+                    </button>
+                  )}
+
                   {canResetPasswords && (
                     <button
                       type="button"
@@ -1009,6 +1059,55 @@ export function MasterDetailUserWorkspace({
             void refreshUsersList(createdUser.id);
           }}
         />
+      )}
+
+      {/* EDIT USER PROFILE MODAL */}
+      {editingUser && (
+        <div className="admin-dialog-backdrop">
+          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-line pb-2">
+              <h3 className="text-base font-bold text-ink flex items-center gap-2">
+                <span>✏️</span> Edit User Profile
+              </h3>
+              <button type="button" className="text-lg font-bold text-muted hover:text-ink" onClick={() => setEditingUser(null)}>
+                ✕
+              </button>
+            </div>
+
+            <form className="space-y-4 text-xs" onSubmit={(e) => void handleSaveUserEdit(e)}>
+              <label className="field">
+                <span>Display Name</span>
+                <input name="displayName" defaultValue={editingUser.displayName} required minLength={2} maxLength={120} />
+              </label>
+
+              <label className="field">
+                <span>Email Address</span>
+                <input name="email" type="email" defaultValue={editingUser.email ?? ""} placeholder="e.g. staff@metsanilo.fi" />
+              </label>
+
+              <label className="field">
+                <span>Assigned Role</span>
+                <select name="role" defaultValue={editingUser.role} disabled={actorRole !== "ADMIN" && editingUser.role === "ADMIN"}>
+                  <option value="ADMIN" disabled={actorRole !== "ADMIN"}>
+                    {actorRole !== "ADMIN" ? "ADMIN (Requires Store Owner)" : "ADMIN"}
+                  </option>
+                  <option value="MANAGER">MANAGER</option>
+                  <option value="STAFF">STAFF</option>
+                  <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
+                </select>
+              </label>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-line">
+                <button className="btn btn-secondary text-xs" type="button" disabled={savingEdit} onClick={() => setEditingUser(null)}>
+                  Cancel
+                </button>
+                <button className="btn text-xs font-bold min-w-[120px]" type="submit" disabled={savingEdit}>
+                  {savingEdit ? "⏳ Saving…" : "Save Profile"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* TEMPORARY PASSWORD COPY MODAL */}

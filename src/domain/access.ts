@@ -214,8 +214,15 @@ export async function setUserPermission(
   if (!target) throw new DomainError("NOT_FOUND", "User not found", 404);
   const permission = normalizePermission(input.permission);
   if (!permission) throw new DomainError("VALIDATION_ERROR", "Permission is not available", 422);
-  if (target.role !== "STAFF" && target.role !== "CONTENT_CREATOR")
-    throw new DomainError("FORBIDDEN", "Only Staff and Content Creator permissions are assignable", 403);
+
+  // Hierarchy check: Non-admins cannot modify permissions of an Admin account
+  if (actor.role !== "ADMIN" && target.role === "ADMIN") {
+    throw new DomainError("FORBIDDEN", "Only Admin can modify permissions of an Admin account", 403);
+  }
+  if (actor.role !== "ADMIN" && target.role === "MANAGER") {
+    throw new DomainError("FORBIDDEN", "Managers cannot modify permissions of another Manager", 403);
+  }
+
   const updatedAt = new Date().toISOString();
   await database
     .insert(userPermissions)
@@ -232,6 +239,74 @@ export async function setUserPermission(
     createdAt: updatedAt,
   });
   return { userId: target.id, permission, granted: input.granted };
+}
+
+export async function updateUserProfile(
+  database: Database,
+  request: Request,
+  input: { userId: string; displayName?: string; email?: string | null; role?: Role }
+) {
+  const actor = await requirePermission(database, request, "shop_users.manage");
+  const target = await database.query.users.findFirst({
+    where: and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID)),
+  });
+  if (!target) throw new DomainError("NOT_FOUND", "User not found", 404);
+
+  // Hierarchy check: Non-admins cannot edit ADMIN accounts or elevate role to ADMIN
+  if (actor.role !== "ADMIN") {
+    if (target.role === "ADMIN") {
+      throw new DomainError("FORBIDDEN", "Only Admin can modify an Admin account", 403);
+    }
+    if (input.role === "ADMIN") {
+      throw new DomainError("FORBIDDEN", "Only Admin can set role to Admin", 403);
+    }
+  }
+
+  // Prevent demoting self if actor is editing their own user record
+  if (target.id === actor.id && input.role && input.role !== target.role) {
+    throw new DomainError("FORBIDDEN", "Cannot change your own role", 403);
+  }
+
+  const updates: Record<string, any> = {};
+  if (input.displayName && input.displayName.trim()) {
+    updates.displayName = input.displayName.trim();
+  }
+  if (input.email !== undefined) {
+    const emailVal = input.email && input.email.trim() ? input.email.trim().toLowerCase() : null;
+    if (emailVal && emailVal !== target.email) {
+      const existing = await database.query.users.findFirst({
+        where: and(eq(users.email, emailVal), eq(users.shopId, env().SHOP_ID)),
+      });
+      if (existing) {
+        throw new DomainError("CONFLICT", "Email is already in use by another user", 409);
+      }
+    }
+    updates.email = emailVal;
+  }
+  if (input.role) {
+    updates.role = input.role;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await database
+      .update(users)
+      .set(updates)
+      .where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID)))
+      .run();
+
+    await database.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId: env().SHOP_ID,
+      actor: actor.email ?? actor.username ?? actor.id,
+      action: "user.profile_updated",
+      entityType: "user",
+      entityId: target.id,
+      detailsJson: JSON.stringify(updates),
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  return (await database.query.users.findFirst({ where: eq(users.id, input.userId) }))!;
 }
 
 export async function updateUserRole(database: Database, request: Request, input: { userId: string; role: Role }) {
