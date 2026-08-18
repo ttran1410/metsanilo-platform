@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, users } from "@/db/schema";
+import { auditEntries, customers, orders, products, users } from "@/db/schema";
 import { env } from "@/lib/env";
 
 export type AuditSeverity = "HIGH" | "MEDIUM" | "STANDARD";
@@ -20,14 +20,100 @@ export interface FormattedAuditItem {
   actor: string;
   actorDisplayName?: string;
   actorEmail?: string;
+  actorInfo: { name: string; subtitle?: string; type: "SYSTEM" | "PUBLIC" | "STAFF" };
   action: string;
+  actionTitle: string;
+  actionIcon: string;
   entityType: string;
   entityId: string;
+  targetInfo: { label: string; href?: string };
   detailsJson: string;
   createdAt: string;
   severity: AuditSeverity;
   category: AuditCategory;
   diff: AuditDiff;
+}
+
+export function formatAuditActionTitle(action: string): { title: string; icon: string } {
+  const act = action.toLowerCase();
+  if (act === "order.payment_recorded" || act.includes("payment")) return { title: "Payment Recorded", icon: "💳" };
+  if (act === "order.status_transition" || act.includes("status")) return { title: "Status Changed", icon: "🔄" };
+  if (act === "order.price_adjusted" || act.includes("price")) return { title: "Price Adjusted", icon: "🏷️" };
+  if (act === "order.refund_recorded" || act.includes("refund")) return { title: "Refund Processed", icon: "💸" };
+  if (act.includes("created")) return { title: "Record Created", icon: "✨" };
+  if (act.includes("permission_granted") || act.includes("grant")) return { title: "Permission Granted", icon: "🔑" };
+  if (act.includes("permission_revoked") || act.includes("revoke")) return { title: "Permission Revoked", icon: "🔒" };
+  if (act.includes("role")) return { title: "Role Updated", icon: "👔" };
+  if (act.includes("merged")) return { title: "Profiles Merged", icon: "🔗" };
+  if (act.includes("availability")) return { title: "Availability Set", icon: "📅" };
+  if (act.includes("note")) return { title: "Note Added", icon: "📝" };
+  if (act.includes("updated")) return { title: "Record Updated", icon: "✏️" };
+  if (act.includes("delete")) return { title: "Record Deleted", icon: "🗑️" };
+  return { title: action.replaceAll(".", " ").replaceAll("_", " "), icon: "📋" };
+}
+
+export function formatAuditActor(
+  actor: string,
+  matchedUser?: { displayName: string; email?: string | null; role: string }
+) {
+  const norm = actor.toLowerCase().trim();
+  if (norm === "system" || norm === "webhook" || norm.includes("cron")) {
+    return { name: "System / Webhook", type: "SYSTEM" as const };
+  }
+  if (norm === "public" || norm === "guest" || norm === "customer") {
+    return { name: "Online Customer", type: "PUBLIC" as const };
+  }
+  if (matchedUser) {
+    return {
+      name: matchedUser.displayName,
+      subtitle: matchedUser.email ?? matchedUser.role,
+      type: "STAFF" as const,
+    };
+  }
+  if (actor.includes("@")) {
+    return { name: actor.split("@")[0], subtitle: actor, type: "STAFF" as const };
+  }
+  return { name: actor, type: "STAFF" as const };
+}
+
+export function resolveAuditTargetLabel(
+  entityType: string,
+  entityId: string,
+  detailsJson: string,
+  orderMap?: Map<string, string>,
+  customerMap?: Map<string, { name: string; email?: string | null }>,
+  productMap?: Map<string, string>,
+  userMap?: Map<string, { displayName: string }>
+): { label: string; href?: string } {
+  const type = entityType.toLowerCase();
+  try {
+    const details = JSON.parse(detailsJson);
+    if (type === "order") {
+      const ref = details.publicReference ?? details.orderRef ?? orderMap?.get(entityId);
+      if (ref) return { label: `Order #${ref}`, href: `/admin/orders/${entityId}` };
+      return { label: `Order #${entityId.slice(0, 8)}`, href: `/admin/orders/${entityId}` };
+    }
+    if (type === "customer") {
+      const cust = customerMap?.get(entityId);
+      const name = details.customerName ?? cust?.name;
+      if (name) return { label: `Customer: ${name}`, href: `/admin/customers` };
+      return { label: `Customer #${entityId.slice(0, 8)}`, href: `/admin/customers` };
+    }
+    if (type === "product") {
+      const prodName = details.productName ?? productMap?.get(entityId);
+      if (prodName) return { label: `Product: ${prodName}`, href: `/admin/products` };
+      return { label: `Product #${entityId.slice(0, 8)}`, href: `/admin/products` };
+    }
+    if (type === "user") {
+      const u = userMap?.get(entityId);
+      const name = details.displayName ?? u?.displayName;
+      if (name) return { label: `User: ${name}`, href: `/admin/users` };
+      return { label: `User #${entityId.slice(0, 8)}`, href: `/admin/users` };
+    }
+  } catch {
+    /* fallback */
+  }
+  return { label: `${entityType}: ${entityId.slice(0, 8)}` };
 }
 
 export function getAuditSeverity(action: string): AuditSeverity {
@@ -178,9 +264,18 @@ export async function listAuditEntries(
 
   const allEntries = await query;
 
-  // Load user directory for actor display names
-  const allUsers = await database.select().from(users).where(eq(users.shopId, shopId));
+  // Load entity lookup directories for human-friendly target titles
+  const [allUsers, allOrders, allCustomers, allProducts] = await Promise.all([
+    database.select().from(users).where(eq(users.shopId, shopId)),
+    database.select({ id: orders.id, publicReference: orders.publicReference }).from(orders).where(eq(orders.shopId, shopId)),
+    database.select({ id: customers.id, name: customers.name, email: customers.email }).from(customers).where(eq(customers.shopId, shopId)),
+    database.select({ id: products.id, nameFi: products.nameFi }).from(products).where(eq(products.shopId, shopId)),
+  ]);
+
   const userMap = new Map(allUsers.map((u) => [u.id, u]));
+  const orderMap = new Map(allOrders.map((o) => [o.id, o.publicReference]));
+  const customerMap = new Map(allCustomers.map((c) => [c.id, c]));
+  const productMap = new Map(allProducts.map((p) => [p.id, p.nameFi]));
 
   // Date filtering threshold
   let dateThreshold = "";
@@ -221,10 +316,26 @@ export async function listAuditEntries(
 
   const formatted: FormattedAuditItem[] = paginated.map((entry) => {
     const matchedUser = userMap.get(entry.actor);
+    const actionMeta = formatAuditActionTitle(entry.action);
+    const actorInfo = formatAuditActor(entry.actor, matchedUser);
+    const targetInfo = resolveAuditTargetLabel(
+      entry.entityType,
+      entry.entityId,
+      entry.detailsJson,
+      orderMap,
+      customerMap,
+      productMap,
+      userMap
+    );
+
     return {
       ...entry,
       actorDisplayName: matchedUser?.displayName ?? entry.actor,
       actorEmail: matchedUser?.email ?? undefined,
+      actorInfo,
+      actionTitle: actionMeta.title,
+      actionIcon: actionMeta.icon,
+      targetInfo,
       severity: getAuditSeverity(entry.action),
       category: getAuditCategory(entry.entityType),
       diff: parseAuditDiff(entry.detailsJson),

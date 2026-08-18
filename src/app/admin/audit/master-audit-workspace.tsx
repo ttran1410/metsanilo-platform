@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { AuditCategory, AuditSeverity, FormattedAuditItem } from "@/domain/audit";
 import { AdminNotice } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
@@ -28,6 +29,21 @@ export function MasterAuditWorkspace({
   canExportAudit?: boolean;
 }) {
   const [data, setData] = useState(initialData);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [selectedItem, setSelectedItem] = useState<FormattedAuditItem | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (activeMenuId && !(event.target as HTMLElement).closest(".row-action-menu")) {
+        setActiveMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [activeMenuId]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<AuditSeverity | "ALL">("ALL");
   const [categoryFilter, setCategoryFilter] = useState<AuditCategory | "ALL">("ALL");
@@ -35,9 +51,6 @@ export function MasterAuditWorkspace({
   const [dateRange, setDateRange] = useState<"24h" | "7d" | "30d" | "all">("7d");
   const [currentPage, setCurrentPage] = useState(1);
   const [limitState, setLimitState] = useState(initialData.limit || 20);
-  const [selectedItem, setSelectedItem] = useState<FormattedAuditItem | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   async function fetchFilteredAudit(
     page = currentPage,
@@ -278,60 +291,154 @@ export function MasterAuditWorkspace({
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {data.items.map((item) => (
-              <tr
-                key={item.id}
-                className="hover:bg-surface-muted/60 transition-colors cursor-pointer"
-                onClick={() => setSelectedItem(item)}
-              >
-                <td className="py-3 px-3 font-mono text-[11px] muted whitespace-nowrap">
-                  {item.createdAt?.slice(0, 16).replace("T", " ")}
-                </td>
-                <td className="py-3 px-3">
-                  <strong className="text-ink font-bold block">{item.actorDisplayName ?? item.actor}</strong>
-                  {item.actorEmail && <span className="muted text-[11px]">{item.actorEmail}</span>}
-                </td>
-                <td className="py-3 px-3">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        item.severity === "HIGH"
-                          ? "bg-rose-100 text-rose-900 border-rose-300"
-                          : item.severity === "MEDIUM"
-                          ? "bg-amber-100 text-amber-900 border-amber-300"
-                          : "bg-surface-muted text-ink/70 border-line"
-                      }`}
-                    >
-                      {item.severity === "HIGH" ? "🔴 High Risk" : item.severity === "MEDIUM" ? "🟡 Sensitive" : "⚪ Ops"}
-                    </span>
-                    <span className="font-mono text-[11px] font-bold text-ink">{item.action}</span>
-                  </div>
-                </td>
-                <td className="py-3 px-3 font-mono text-[11px] text-primary font-bold">
-                  {item.entityType}: {item.entityId}
-                </td>
-                <td className="py-3 px-3 max-w-xs truncate">
-                  <span className="text-ink font-medium">{item.diff.summary}</span>
-                  {item.diff.reason && (
-                    <span className="block text-[11px] text-amber-900 italic truncate">
-                      &quot;{item.diff.reason}&quot;
-                    </span>
-                  )}
-                </td>
-                <td className="py-3 px-3 text-right whitespace-nowrap">
-                  <button
-                    type="button"
-                    className="btn btn-secondary text-xs py-1 px-2.5 font-bold"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedItem(item);
-                    }}
-                  >
-                    View Diff 🔍
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {data.items.map((item) => {
+              const actorType = item.actorInfo?.type ?? "STAFF";
+              const targetLabel = item.targetInfo?.label ?? `${item.entityType}: ${item.entityId.slice(0, 8)}`;
+              const targetHref = item.targetInfo?.href;
+
+              return (
+                <tr
+                  key={item.id}
+                  className="hover:bg-surface-muted/60 transition-colors cursor-pointer"
+                  onClick={() => setSelectedItem(item)}
+                >
+                  <td className="py-3 px-3 font-mono text-[11px] muted whitespace-nowrap">
+                    {item.createdAt?.slice(0, 16).replace("T", " ")}
+                  </td>
+
+                  <td className="py-3 px-3">
+                    {actorType === "SYSTEM" ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300">
+                        🤖 System / Webhook
+                      </span>
+                    ) : actorType === "PUBLIC" ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300">
+                        🌐 Online Customer
+                      </span>
+                    ) : (
+                      <div>
+                        <strong className="text-ink font-bold block text-xs">
+                          {item.actorInfo?.name ?? item.actorDisplayName ?? item.actor}
+                        </strong>
+                        {(item.actorInfo?.subtitle || item.actorEmail) && (
+                          <span className="muted text-[11px] block truncate max-w-[160px]">
+                            {item.actorInfo?.subtitle ?? item.actorEmail}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+
+                  <td className="py-3 px-3">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                          item.severity === "HIGH"
+                            ? "bg-rose-100 text-rose-900 border-rose-300"
+                            : item.severity === "MEDIUM"
+                            ? "bg-amber-100 text-amber-900 border-amber-300"
+                            : "bg-surface-muted text-ink/80 border-line"
+                        }`}
+                      >
+                        {item.severity === "HIGH" ? "🔴 High Risk" : item.severity === "MEDIUM" ? "🟡 Sensitive" : "⚪ Ops"}
+                      </span>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-xs font-bold text-ink truncate">
+                          {item.actionIcon ?? "📋"} {item.actionTitle ?? item.action}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="py-3 px-3 font-semibold text-xs text-primary">
+                    {targetHref ? (
+                      <Link
+                        href={targetHref}
+                        className="hover:underline font-bold text-primary flex items-center gap-1 truncate"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {targetLabel} ↗
+                      </Link>
+                    ) : (
+                      <span className="text-ink/80 truncate font-mono text-[11px]">{targetLabel}</span>
+                    )}
+                  </td>
+
+                  <td className="py-3 px-3 max-w-xs truncate">
+                    <span className="text-ink font-medium">{item.diff.summary}</span>
+                    {item.diff.reason && (
+                      <span className="block text-[11px] text-amber-900 italic truncate">
+                        &quot;{item.diff.reason}&quot;
+                      </span>
+                    )}
+                  </td>
+
+                  <td className="py-3 px-3 text-right whitespace-nowrap">
+                    <div className="relative inline-block text-left row-action-menu">
+                      <button
+                        type="button"
+                        className="p-1.5 px-2.5 rounded-lg text-ink/80 hover:text-ink hover:bg-surface-muted border border-line/60 hover:border-line font-bold transition-all shadow-2xs"
+                        title="Audit Actions Menu"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(activeMenuId === item.id ? null : item.id);
+                        }}
+                      >
+                        <span className="text-xs font-mono tracking-widest font-extrabold">•••</span>
+                      </button>
+
+                      {activeMenuId === item.id && (
+                        <div className="absolute right-0 mt-1 w-48 bg-surface rounded-xl shadow-xl border border-line py-1 z-40 text-left text-xs divide-y divide-line/60 animate-in fade-in-50 zoom-in-95">
+                          <div className="py-1">
+                            <button
+                              type="button"
+                              className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(null);
+                                setSelectedItem(item);
+                              }}
+                            >
+                              <span>🔍</span> View Detailed Diff
+                            </button>
+                          </div>
+
+                          <div className="py-1">
+                            <button
+                              type="button"
+                              className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink/80 hover:bg-surface-muted transition-colors font-semibold"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(null);
+                                void navigator.clipboard.writeText(item.id);
+                                alert(`Copied Audit Event ID: ${item.id}`);
+                              }}
+                            >
+                              <span>📋</span> Copy Event ID
+                            </button>
+                          </div>
+
+                          {targetHref && (
+                            <div className="py-1">
+                              <Link
+                                href={targetHref}
+                                className="flex items-center gap-2 px-3 py-2 text-ink/80 hover:bg-surface-muted transition-colors font-semibold"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(null);
+                                }}
+                              >
+                                <span>🔗</span> Jump to Entity
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
 
             {data.items.length === 0 && (
               <tr>
