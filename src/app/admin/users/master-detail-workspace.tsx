@@ -8,7 +8,7 @@ import {
   type Role,
 } from "@/lib/permissions";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
-import { AdminPagination } from "../ui/admin-pagination";
+import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { OnboardingModal } from "./onboarding-modal";
 
 type UserRow = {
@@ -265,6 +265,7 @@ export function MasterDetailUserWorkspace({
 
   useEffect(() => {
     setCurrentPage(1);
+    setSplitLimit(20);
   }, [searchQuery, roleFilter]);
 
   const filteredUsers = useMemo(() => {
@@ -275,6 +276,12 @@ export function MasterDetailUserWorkspace({
       return matchesSearch && matchesRole;
     });
   }, [usersList, searchQuery, roleFilter]);
+
+  const [splitLimit, setSplitLimit] = useState(20);
+
+  const sidebarDisplayedUsers = useMemo(() => {
+    return filteredUsers.slice(0, splitLimit);
+  }, [filteredUsers, splitLimit]);
 
   const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
   const paginatedUsers = useMemo(() => {
@@ -664,8 +671,18 @@ export function MasterDetailUserWorkspace({
             </div>
 
             {/* USER ROSTER LIST */}
-            <div className="overflow-y-auto flex flex-col divide-y divide-line pr-1 border border-line rounded-xl flex-1">
-              {paginatedUsers.map((u) => {
+            <div
+              className="overflow-y-auto flex flex-col divide-y divide-line pr-1 border border-line rounded-xl flex-1"
+              onScroll={(e) => {
+                const target = e.currentTarget;
+                if (target.scrollTop + target.clientHeight >= target.scrollHeight - 40) {
+                  if (splitLimit < filteredUsers.length) {
+                    setSplitLimit((prev) => Math.min(prev + 20, filteredUsers.length));
+                  }
+                }
+              }}
+            >
+              {sidebarDisplayedUsers.map((u) => {
                 const isSelected = u.id === selectedUser?.id;
 
                 return (
@@ -714,14 +731,11 @@ export function MasterDetailUserWorkspace({
               )}
             </div>
 
-            {/* SIDEBAR MINI PAGINATION CONTROLS */}
-            <AdminPagination
-              compact
-              page={currentPage}
-              limit={pageSize}
+            <AdminSidebarInfiniteFooter
+              displayed={sidebarDisplayedUsers.length}
               total={filteredUsers.length}
-              onPageChange={setCurrentPage}
-              onLimitChange={setPageSize}
+              onLoadMore={() => setSplitLimit((prev) => Math.min(prev + 20, filteredUsers.length))}
+              itemLabel="users"
             />
           </aside>
 

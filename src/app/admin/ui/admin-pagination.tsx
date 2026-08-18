@@ -33,7 +33,7 @@ export function AdminPagination({
   onPageChange,
   onLimitChange,
   compact = false,
-  pageSizeOptions = compact ? [15, 30, 50] : [20, 50, 100],
+  pageSizeOptions = [20, 50, 100],
   itemLabel = "items",
 }: AdminPaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -206,6 +206,42 @@ export function AdminPagination({
           »
         </button>
       </div>
+    </div>
+  );
+}
+
+export interface AdminSidebarInfiniteFooterProps {
+  displayed: number;
+  total: number;
+  onLoadMore?: () => void;
+  itemLabel?: string;
+}
+
+export function AdminSidebarInfiniteFooter({
+  displayed,
+  total,
+  onLoadMore,
+  itemLabel = "items",
+}: AdminSidebarInfiniteFooterProps) {
+  const hasMore = displayed < total;
+
+  return (
+    <div className="flex items-center justify-between gap-2 pt-2.5 pb-1 border-t border-line text-xs select-none mt-auto">
+      <span className="muted font-medium text-[11px]">
+        Showing <strong className="text-ink">{displayed}</strong> of <strong className="text-ink">{total}</strong> {itemLabel}
+      </span>
+
+      {hasMore ? (
+        <button
+          type="button"
+          onClick={onLoadMore}
+          className="btn btn-secondary text-[11px] py-0.5 px-2 font-bold text-forest hover:bg-forest/10 border-forest/30 cursor-pointer"
+        >
+          Load More +
+        </button>
+      ) : (
+        <span className="text-[10px] font-semibold muted italic">All {total} loaded</span>
+      )}
     </div>
   );
 }
