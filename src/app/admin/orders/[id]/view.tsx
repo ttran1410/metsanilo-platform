@@ -245,7 +245,7 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
               className="btn btn-secondary text-xs py-1.5 px-3 font-semibold"
               href={`/admin/orders/${detail.order.id}/edit?from=${encodeURIComponent(`/admin/orders/${detail.order.id}`)}`}
             >
-              {isClosed ? "Edit Metadata ✏️" : "Edit order ✏️"}
+              Edit order ✏️
             </Link>
 
             {canDelete ? (
