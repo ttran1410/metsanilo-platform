@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, customers, orders, reviews, shops } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -84,7 +84,7 @@ export async function listPublishedReviews(
 
 export async function listFeaturedReviews(database: Database, limit = 3) {
   const { SHOP_ID } = env();
-  const featured = await database
+  const allFeatured = await database
     .select()
     .from(reviews)
     .where(
@@ -94,22 +94,21 @@ export async function listFeaturedReviews(database: Database, limit = 3) {
         eq(reviews.featured, true),
       ),
     )
-    .orderBy(desc(reviews.createdAt))
-    .limit(limit);
+    .orderBy(sql`RANDOM()`);
 
-  if (featured.length >= limit) {
-    return featured;
+  if (allFeatured.length >= limit) {
+    return allFeatured.slice(0, limit);
   }
 
-  const featuredIds = new Set(featured.map((r) => r.id));
+  const featuredIds = new Set(allFeatured.map((r) => r.id));
   const fallback = await database
     .select()
     .from(reviews)
     .where(and(eq(reviews.shopId, SHOP_ID), eq(reviews.status, "APPROVED")))
-    .orderBy(desc(reviews.createdAt))
-    .limit(limit * 2);
+    .orderBy(sql`RANDOM()`)
+    .limit(limit * 3);
 
-  const combined = [...featured];
+  const combined = [...allFeatured];
   for (const item of fallback) {
     if (!featuredIds.has(item.id) && combined.length < limit) {
       combined.push(item);
