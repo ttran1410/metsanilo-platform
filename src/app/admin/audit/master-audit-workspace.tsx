@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { AuditCategory, AuditSeverity, FormattedAuditItem } from "@/domain/audit";
 import { AdminNotice } from "../presentation";
+import { AdminPagination } from "../ui/admin-pagination";
 import { DiffInspectorDrawer } from "./diff-inspector-drawer";
 
 export function MasterAuditWorkspace({
@@ -33,12 +34,14 @@ export function MasterAuditWorkspace({
   const [actorFilter, setActorFilter] = useState<string>("ALL");
   const [dateRange, setDateRange] = useState<"24h" | "7d" | "30d" | "all">("7d");
   const [currentPage, setCurrentPage] = useState(1);
+  const [limitState, setLimitState] = useState(initialData.limit || 20);
   const [selectedItem, setSelectedItem] = useState<FormattedAuditItem | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   async function fetchFilteredAudit(
     page = currentPage,
+    limit = limitState,
     search = searchQuery,
     severity = severityFilter,
     category = categoryFilter,
@@ -50,7 +53,7 @@ export function MasterAuditWorkspace({
     try {
       const params = new URLSearchParams({
         page: String(page),
-        limit: "15",
+        limit: String(limit),
         search,
         severity,
         category,
@@ -76,18 +79,21 @@ export function MasterAuditWorkspace({
   }
 
   function handleFilterChange(updates: {
+    limit?: number;
     search?: string;
     severity?: AuditSeverity | "ALL";
     category?: AuditCategory | "ALL";
     actor?: string;
     dateRange?: "24h" | "7d" | "30d" | "all";
   }) {
+    const nextLimit = updates.limit ?? limitState;
     const nextSearch = updates.search ?? searchQuery;
     const nextSev = updates.severity ?? severityFilter;
     const nextCat = updates.category ?? categoryFilter;
     const nextActor = updates.actor ?? actorFilter;
     const nextRange = updates.dateRange ?? dateRange;
 
+    if (updates.limit !== undefined) setLimitState(nextLimit);
     if (updates.search !== undefined) setSearchQuery(nextSearch);
     if (updates.severity !== undefined) setSeverityFilter(nextSev);
     if (updates.category !== undefined) setCategoryFilter(nextCat);
@@ -95,7 +101,7 @@ export function MasterAuditWorkspace({
     if (updates.dateRange !== undefined) setDateRange(nextRange);
 
     setCurrentPage(1);
-    void fetchFilteredAudit(1, nextSearch, nextSev, nextCat, nextActor, nextRange);
+    void fetchFilteredAudit(1, nextLimit, nextSearch, nextSev, nextCat, nextActor, nextRange);
   }
 
   function handlePageChange(newPage: number) {
@@ -338,37 +344,14 @@ export function MasterAuditWorkspace({
         </table>
 
         {/* PAGINATION CONTROLS */}
-        {data.totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs pt-3 border-t border-line mt-2">
-            <span className="muted font-medium">
-              Showing <strong>{(data.page - 1) * data.limit + 1}</strong> – <strong>{Math.min(data.page * data.limit, data.total)}</strong> of <strong>{data.total}</strong> audit events
-            </span>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                disabled={data.page <= 1 || loading}
-                className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
-                onClick={() => handlePageChange(data.page - 1)}
-              >
-                ← Previous
-              </button>
-
-              <span className="px-2.5 py-1 font-bold text-ink bg-surface-muted rounded-md border border-line">
-                {data.page} / {data.totalPages}
-              </span>
-
-              <button
-                type="button"
-                disabled={data.page >= data.totalPages || loading}
-                className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
-                onClick={() => handlePageChange(data.page + 1)}
-              >
-                Next →
-              </button>
-            </div>
-          </div>
-        )}
+        <AdminPagination
+          page={data.page}
+          limit={data.limit}
+          total={data.total}
+          onPageChange={handlePageChange}
+          onLimitChange={(newLimit) => handleFilterChange({ limit: newLimit })}
+          itemLabel="audit events"
+        />
       </div>
 
       {/* EVENT INSPECTOR SIDE DRAWER */}

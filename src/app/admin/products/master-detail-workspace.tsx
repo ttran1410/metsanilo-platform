@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { packages, products } from "@/db/schema";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
+import { AdminPagination } from "../ui/admin-pagination";
 
 import { BilingualEditor } from "./bilingual-editor";
 import { MediaGalleryTab } from "./media-gallery-tab";
@@ -49,7 +50,7 @@ export function MasterDetailWorkspace({
   const [viewMode, setViewMode] = useState<"split" | "table">("split");
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(20);
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showUnarchiveConfirm, setShowUnarchiveConfirm] = useState(false);
@@ -512,37 +513,14 @@ export function MasterDetailWorkspace({
             </tbody>
           </table>
 
-          {filteredMasterList.length > pageSize && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs pt-3 border-t border-line">
-              <span className="muted font-medium">
-                Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> – <strong>{Math.min(currentPage * pageSize, filteredMasterList.length)}</strong> of <strong>{filteredMasterList.length}</strong> products
-              </span>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                >
-                  ← Previous
-                </button>
-
-                <span className="px-2.5 py-1 font-bold text-ink bg-surface-muted rounded-md border border-line">
-                  {currentPage} / {totalPages}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            page={currentPage}
+            limit={pageSize}
+            total={filteredMasterList.length}
+            onPageChange={setCurrentPage}
+            onLimitChange={setPageSize}
+            itemLabel="products"
+          />
         </div>
       ) : (
         /* MASTER-DETAIL SPLIT WORKSPACE GRID */
@@ -700,31 +678,14 @@ export function MasterDetailWorkspace({
             </div>
 
             {/* SIDEBAR MINI PAGINATION CONTROLS */}
-            {filteredMasterList.length > pageSize && (
-              <div className="flex items-center justify-between gap-2 pt-2 border-t border-line text-[11px]">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  className="btn btn-secondary text-[11px] py-1 px-2 disabled:opacity-40"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                >
-                  ← Prev
-                </button>
-
-                <span className="font-bold text-ink">
-                  {currentPage} / {totalPages}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  className="btn btn-secondary text-[11px] py-1 px-2 disabled:opacity-40"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next →
-                </button>
-              </div>
-            )}
+            <AdminPagination
+              compact
+              page={currentPage}
+              limit={pageSize}
+              total={filteredMasterList.length}
+              onPageChange={setCurrentPage}
+              onLimitChange={setPageSize}
+            />
           </aside>
 
           {/* RIGHT DETAIL WORKSPACE EDITOR (8 Cols) */}

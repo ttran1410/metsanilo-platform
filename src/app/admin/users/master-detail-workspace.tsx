@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   defaultPermissionsForRole,
   isHighRiskPermission,
@@ -8,6 +8,7 @@ import {
   type Role,
 } from "@/lib/permissions";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
+import { AdminPagination } from "../ui/admin-pagination";
 import { OnboardingModal } from "./onboarding-modal";
 
 type UserRow = {
@@ -260,7 +261,11 @@ export function MasterDetailUserWorkspace({
 
   // Filter Master Roster
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 15;
+  const [pageSize, setPageSize] = useState(20);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, roleFilter]);
 
   const filteredUsers = useMemo(() => {
     return usersList.filter((u) => {
@@ -607,37 +612,14 @@ export function MasterDetailUserWorkspace({
             </tbody>
           </table>
 
-          {filteredUsers.length > pageSize && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs pt-3 border-t border-line mt-3">
-              <span className="muted font-medium">
-                Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> – <strong>{Math.min(currentPage * pageSize, filteredUsers.length)}</strong> of <strong>{filteredUsers.length}</strong> members
-              </span>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                >
-                  ← Previous
-                </button>
-
-                <span className="px-2.5 py-1 font-bold text-ink bg-surface-muted rounded-md border border-line">
-                  {currentPage} / {totalPages}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  className="btn btn-secondary text-xs py-1 px-3 disabled:opacity-40 font-semibold cursor-pointer"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
+          <AdminPagination
+            page={currentPage}
+            limit={pageSize}
+            total={filteredUsers.length}
+            onPageChange={setCurrentPage}
+            onLimitChange={setPageSize}
+            itemLabel="members"
+          />
         </div>
       ) : (
         /* MASTER-DETAIL SPLIT WORKSPACE GRID */
@@ -733,31 +715,14 @@ export function MasterDetailUserWorkspace({
             </div>
 
             {/* SIDEBAR MINI PAGINATION CONTROLS */}
-            {filteredUsers.length > pageSize && (
-              <div className="flex items-center justify-between gap-2 pt-2 border-t border-line text-[11px]">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  className="btn btn-secondary text-[11px] py-1 px-2 disabled:opacity-40"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                >
-                  ← Prev
-                </button>
-
-                <span className="font-bold text-ink">
-                  {currentPage} / {totalPages}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  className="btn btn-secondary text-[11px] py-1 px-2 disabled:opacity-40"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next →
-                </button>
-              </div>
-            )}
+            <AdminPagination
+              compact
+              page={currentPage}
+              limit={pageSize}
+              total={filteredUsers.length}
+              onPageChange={setCurrentPage}
+              onLimitChange={setPageSize}
+            />
           </aside>
 
           {/* RIGHT DETAIL WORKSPACE (8 Cols) */}

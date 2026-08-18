@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Edit3, Phone, MessageSquare, Share2, ExternalLink, PlusCircle, GitMerge, Trash2, UserPlus, Search } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
+import { AdminPagination } from "../ui/admin-pagination";
 import { CustomerModal } from "./customer-modal";
 import { MergeModal } from "./merge-modal";
 
@@ -188,6 +189,18 @@ export function MasterDetailCustomerWorkspace({
 
     return list;
   }, [customersList, searchQuery, filterChip, sortMode]);
+
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+
+  const paginatedCustomers = useMemo(() => {
+    const start = (page - 1) * limit;
+    return filteredCustomers.slice(start, start + limit);
+  }, [filteredCustomers, page, limit]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, filterChip, sortMode]);
 
   // Save Pinned Note
   async function handleSaveNote() {
@@ -384,7 +397,7 @@ export function MasterDetailCustomerWorkspace({
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
-                {filteredCustomers.map((c) => (
+                {paginatedCustomers.map((c) => (
                   <tr
                     key={c.id}
                     className={`hover:bg-primary/5 transition-colors cursor-pointer ${
@@ -466,6 +479,15 @@ export function MasterDetailCustomerWorkspace({
               </tbody>
             </table>
           </div>
+
+          <AdminPagination
+            page={page}
+            limit={limit}
+            total={filteredCustomers.length}
+            onPageChange={setPage}
+            onLimitChange={(newLimit) => setLimit(newLimit)}
+            itemLabel="customers"
+          />
         </div>
       ) : (
         /* MASTER-DETAIL SPLIT WORKSPACE GRID */
@@ -481,7 +503,7 @@ export function MasterDetailCustomerWorkspace({
 
             {/* Customer Master Items List */}
             <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
-              {filteredCustomers.map((customer) => {
+              {paginatedCustomers.map((customer) => {
                 const isSelected = customer.id === selectedId;
                 const litresStr = formatLitres(customer.metrics?.lifetimeLitres ?? 0);
                 const spendStr = formatAdminMoney(customer.metrics?.totalSpendCents ?? 0);
@@ -558,6 +580,15 @@ export function MasterDetailCustomerWorkspace({
                 <AdminEmptyState title="No customers found" description="Adjust search query or filter chips." />
               )}
             </div>
+
+            <AdminPagination
+              compact
+              page={page}
+              limit={limit}
+              total={filteredCustomers.length}
+              onPageChange={setPage}
+              onLimitChange={(newLimit) => setLimit(newLimit)}
+            />
           </aside>
 
           {/* RIGHT DETAIL WORKSPACE PANE (8 Cols) */}
