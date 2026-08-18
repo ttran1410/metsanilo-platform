@@ -7,6 +7,7 @@ import {
   resetUserPermissionsToRole,
   revokeUserSessions,
   toggleUserActive,
+  updateUserProfile,
   updateUserRole,
 } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
@@ -15,7 +16,14 @@ import { failure, success } from "../../../response";
 export const runtime = "nodejs";
 
 const commandSchema = z.object({
-  action: z.enum(["role", "active", "reset_permissions", "revoke_sessions"]),
+  action: z.enum(["update", "role", "active", "reset_permissions", "revoke_sessions"]),
+  displayName: z.string().min(2).max(120).optional(),
+  email: z
+    .preprocess(
+      (value) => (typeof value === "string" ? value.trim().toLowerCase() : value),
+      z.string().email().optional().nullable().or(z.literal(""))
+    )
+    .optional(),
   role: z.enum(["ADMIN", "MANAGER", "STAFF", "CONTENT_CREATOR"]).optional(),
   active: z.boolean().optional(),
 });
@@ -42,6 +50,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { id } = await context.params;
     const parsed = commandSchema.safeParse(await request.json());
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid command payload", 422);
+
+    if (parsed.data.action === "update") {
+      return success(
+        await updateUserProfile(db(), request, {
+          userId: id,
+          displayName: parsed.data.displayName,
+          email: parsed.data.email,
+          role: parsed.data.role,
+        })
+      );
+    }
 
     if (parsed.data.action === "role") {
       if (!parsed.data.role) throw new DomainError("VALIDATION_ERROR", "Role is required", 422);
