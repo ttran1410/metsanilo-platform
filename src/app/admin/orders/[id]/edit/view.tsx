@@ -278,7 +278,7 @@ export function OrderEditForm({
       {isClosedOrder ? (
         <div className="card p-4 bg-purple-500/10 border-2 border-purple-500/40 rounded-xl flex flex-col gap-1 text-xs shadow-xs">
           <strong className="font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
-            🔒 COMPLETED ORDER METADATA EDIT MODE
+            🔒 COMPLETED ORDER NOTICE
           </strong>
           <p className="text-purple-950 font-medium leading-relaxed">
             This order is completed (<strong>{initial.status}</strong>). Core items, quantities, date, method, and pricing are locked to protect financial ledgers. You can update <strong>Order Source</strong>, <strong>Facebook Profile</strong>, and <strong>Customer Contact Info</strong> below.

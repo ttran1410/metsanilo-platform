@@ -197,6 +197,39 @@ export function OrdersListing({
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handleDocClick(e: MouseEvent) {
+      if (!(e.target as HTMLElement).closest(".row-action-menu")) {
+        setActiveMenuId(null);
+      }
+    }
+    document.addEventListener("click", handleDocClick);
+    return () => document.removeEventListener("click", handleDocClick);
+  }, []);
+
+  function getNextQuickAction(order: AdminOrder): { target: OrderStatus; label: string; icon: string } | null {
+    if (["PICKED_UP", "DELIVERED", "CANCELLED", "REJECTED", "NO_SHOW"].includes(order.status)) {
+      return null;
+    }
+    switch (order.status) {
+      case "NEW":
+        return { target: "CONFIRMED", label: "✓ Confirm Order", icon: "✓" };
+      case "CONFIRMED":
+        return { target: "PICKING", label: "📦 Start Picking", icon: "📦" };
+      case "PICKING":
+        return { target: "READY", label: "🟢 Mark Ready", icon: "🟢" };
+      case "READY":
+        return order.fulfillmentMethod === "PICKUP"
+          ? { target: "PICKED_UP", label: "🤝 Confirm Pickup", icon: "🤝" }
+          : { target: "OUT_FOR_DELIVERY", label: "🚚 Out for Delivery", icon: "🚚" };
+      case "OUT_FOR_DELIVERY":
+        return { target: "DELIVERED", label: "🏁 Mark Delivered", icon: "🏁" };
+      default:
+        return null;
+    }
+  }
 
   useEffect(() => {
     setPage(1);
@@ -980,45 +1013,87 @@ export function OrdersListing({
                       </td>
 
                       <td className="p-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Link className="btn btn-secondary text-xs py-1 px-2.5" href={`/admin/orders/${order.id}`}>
-                            View
-                          </Link>
+                        <div className="relative inline-block text-left row-action-menu">
+                          <button
+                            type="button"
+                            className="p-1.5 px-2.5 rounded-lg text-ink/80 hover:text-ink hover:bg-surface-muted border border-line/60 hover:border-line font-bold transition-all shadow-2xs"
+                            title="Order Actions Menu"
+                            onClick={() => setActiveMenuId(activeMenuId === order.id ? null : order.id)}
+                          >
+                            <span className="text-xs font-mono tracking-widest font-extrabold">•••</span>
+                          </button>
 
-                          {canUpdate && !isClosed && (
-                            <Link
-                              className="btn btn-secondary text-xs py-1 px-2.5"
-                              href={`/admin/orders/${order.id}/edit`}
-                            >
-                              Edit
-                            </Link>
-                          )}
+                          {activeMenuId === order.id && (
+                            <div className="absolute right-0 mt-1 w-48 bg-surface rounded-xl shadow-xl border border-line py-1 z-40 text-left text-xs divide-y divide-line/60 animate-in fade-in-50 zoom-in-95">
+                              <div className="py-1">
+                                <Link
+                                  className="flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
+                                  href={`/admin/orders/${order.id}`}
+                                  onClick={() => setActiveMenuId(null)}
+                                >
+                                  <span>👁️</span> View details
+                                </Link>
 
-                          {canDelete ? (
-                            <button
-                              type="button"
-                              className="btn btn-secondary text-xs py-1 px-2.5 text-rose-700 hover:bg-rose-50 hover:border-rose-300"
-                              onClick={() => {
-                                setSelected([order.id]);
-                                const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0;
-                                setPendingDelete({
-                                  deletable: isPaidOrder ? [] : [order],
-                                  skippedPaid: isPaidOrder ? [order] : [],
-                                });
-                              }}
-                              title="Permanently delete order"
-                            >
-                              🗑️ Delete
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled
-                              title="🔒 Requires Permanent Delete permission (orders.delete). Contact Store Owner to grant access."
-                              className="btn btn-secondary text-xs py-1 px-2.5 text-ink/30 cursor-not-allowed opacity-50"
-                            >
-                              🔒 🗑️
-                            </button>
+                                {canUpdate && (
+                                  <Link
+                                    className="flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
+                                    href={`/admin/orders/${order.id}/edit`}
+                                    onClick={() => setActiveMenuId(null)}
+                                  >
+                                    <span>✏️</span> Edit order
+                                  </Link>
+                                )}
+                              </div>
+
+                              {canTransition && getNextQuickAction(order) && (
+                                <div className="py-1">
+                                  {(() => {
+                                    const quick = getNextQuickAction(order)!;
+                                    return (
+                                      <button
+                                        type="button"
+                                        className="w-full text-left flex items-center gap-2 px-3 py-2 text-emerald-800 font-bold hover:bg-emerald-50 transition-colors"
+                                        onClick={() => {
+                                          setActiveMenuId(null);
+                                          setPending({ target: quick.target, orders: [order] });
+                                        }}
+                                      >
+                                        <span>{quick.icon}</span> {quick.label}
+                                      </button>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+
+                              <div className="py-1">
+                                {canDelete ? (
+                                  <button
+                                    type="button"
+                                    className="w-full text-left flex items-center gap-2 px-3 py-2 text-rose-700 font-semibold hover:bg-rose-50 transition-colors"
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      setSelected([order.id]);
+                                      const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0;
+                                      setPendingDelete({
+                                        deletable: isPaidOrder ? [] : [order],
+                                        skippedPaid: isPaidOrder ? [order] : [],
+                                      });
+                                    }}
+                                  >
+                                    <span>🗑️</span> Delete order
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title="🔒 Requires Permanent Delete permission (orders.delete)"
+                                    className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink/30 cursor-not-allowed opacity-50 font-medium"
+                                  >
+                                    <span>🔒 🗑️</span> Delete order
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
                       </td>
@@ -1061,7 +1136,7 @@ export function OrdersListing({
           </div>
 
           {canTransition && view !== "ARCHIVED" && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
@@ -1084,6 +1159,22 @@ export function OrdersListing({
                 onClick={() => setPending({ target: "READY", orders: selectedOrders })}
               >
                 🟢 Mark Ready ({selected.length})
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
+                onClick={() => setPending({ target: "OUT_FOR_DELIVERY", orders: selectedOrders })}
+              >
+                🚚 Out for Delivery ({selected.length})
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
+                onClick={() => setPending({ target: "PICKED_UP", orders: selectedOrders })}
+              >
+                🤝 Mark Picked Up ({selected.length})
               </button>
 
               <button
