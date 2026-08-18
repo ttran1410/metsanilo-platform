@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { packages, products } from "@/db/schema";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
-import { AdminPagination } from "../ui/admin-pagination";
+import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 
 import { BilingualEditor } from "./bilingual-editor";
 import { MediaGalleryTab } from "./media-gallery-tab";
@@ -203,6 +203,11 @@ export function MasterDetailWorkspace({
     const start = (currentPage - 1) * pageSize;
     return filteredMasterList.slice(start, start + pageSize);
   }, [filteredMasterList, currentPage, pageSize]);
+
+  const [splitLimit, setSplitLimit] = useState(20);
+  const sidebarDisplayedProducts = useMemo(() => {
+    return filteredMasterList.slice(0, splitLimit);
+  }, [filteredMasterList, splitLimit]);
 
   // Save Changes
   async function handleSaveChanges() {
@@ -581,8 +586,18 @@ export function MasterDetailWorkspace({
             </div>
 
             {/* Product Master Items List */}
-            <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
-              {paginatedMasterList.map((row, index) => {
+            <div
+              className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1"
+              onScroll={(e) => {
+                const target = e.currentTarget;
+                if (target.scrollTop + target.clientHeight >= target.scrollHeight - 40) {
+                  if (splitLimit < filteredMasterList.length) {
+                    setSplitLimit((prev) => Math.min(prev + 20, filteredMasterList.length));
+                  }
+                }
+              }}
+            >
+              {sidebarDisplayedProducts.map((row, index) => {
                 const isSelected = row.product.id === selectedId;
                 const primaryImg = row.media?.find((m) => m.isPrimary) ?? row.media?.[0];
                 const isPreSeason = today < row.product.availableFrom;
@@ -677,14 +692,11 @@ export function MasterDetailWorkspace({
               )}
             </div>
 
-            {/* SIDEBAR MINI PAGINATION CONTROLS */}
-            <AdminPagination
-              compact
-              page={currentPage}
-              limit={pageSize}
+            <AdminSidebarInfiniteFooter
+              displayed={sidebarDisplayedProducts.length}
               total={filteredMasterList.length}
-              onPageChange={setCurrentPage}
-              onLimitChange={setPageSize}
+              onLoadMore={() => setSplitLimit((prev) => Math.min(prev + 20, filteredMasterList.length))}
+              itemLabel="products"
             />
           </aside>
 
