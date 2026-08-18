@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AdminStatusBadge } from "../../presentation";
+import { AdminNotice, AdminStatusBadge } from "../../presentation";
 import { getLifecycleSteps } from "@/domain/order-transitions";
 
 type Snapshot = { address?: string; nameEn?: string; instructionsEn?: string };
@@ -154,16 +154,25 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
     }
   }
 
+  const [modalError, setModalError] = useState("");
   const [submittingAction, setSubmittingAction] = useState(false);
+
+  function openModal(kind: null | "pricing" | "payment" | "exception") {
+    setModalError("");
+    setActiveModal(kind);
+  }
 
   async function submitAction(event: FormEvent<HTMLFormElement>, kind: "note" | "payment" | "pricing" | "exception") {
     event.preventDefault();
     if (submittingAction) return;
     setSubmittingAction(true);
     setMessage("");
+    setModalError("");
+
+    const formElement = event.currentTarget; // Safely capture before async boundary!
 
     try {
-      const values = new FormData(event.currentTarget);
+      const values = new FormData(formElement);
       const endpoint = kind === "note" ? "notes" : kind === "payment" ? "payment" : kind === "pricing" ? "pricing" : "delivery-exception";
       const payload =
         kind === "note"
@@ -186,18 +195,30 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
       });
       const body = await response.json();
       if (!response.ok) {
-        setMessage(body.message ?? body.code ?? "Order update failed");
+        const errText = body.message ?? body.code ?? "Order update failed";
+        if (kind !== "note") {
+          setModalError(errText);
+        } else {
+          setMessage(errText);
+        }
         return;
       }
-      event.currentTarget.reset();
+
+      formElement.reset();
       setActiveModal(null);
+      setModalError("");
       if (body.data && "order" in body.data) {
         setDetail(body.data);
       }
       await refresh();
       setMessage(`Order ${kind} recorded.`);
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Action failed");
+      const errText = err instanceof Error ? err.message : "Action failed";
+      if (kind !== "note") {
+        setModalError(errText);
+      } else {
+        setMessage(errText);
+      }
     } finally {
       setSubmittingAction(false);
     }
@@ -522,14 +543,14 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
 
           {/* Action Trigger Buttons */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button type="button" className="btn text-xs py-1.5 px-3 font-bold shadow-xs" onClick={() => setActiveModal("payment")}>
+            <button type="button" className="btn text-xs py-1.5 px-3 font-bold shadow-xs" onClick={() => openModal("payment")}>
               💵 Record Payment
             </button>
-            <button type="button" className="btn btn-secondary text-xs py-1.5 px-3 font-semibold shadow-xs" onClick={() => setActiveModal("pricing")}>
+            <button type="button" className="btn btn-secondary text-xs py-1.5 px-3 font-semibold shadow-xs" onClick={() => openModal("pricing")}>
               ✍️ Adjust Pricing / Fee
             </button>
             {detail.order.fulfillmentMethod === "DELIVERY" && (
-              <button type="button" className="btn btn-secondary text-xs py-1.5 px-3 font-semibold text-amber-800 shadow-xs" onClick={() => setActiveModal("exception")}>
+              <button type="button" className="btn btn-secondary text-xs py-1.5 px-3 font-semibold text-amber-800 shadow-xs" onClick={() => openModal("exception")}>
                 ⚠️ Delivery Exception
               </button>
             )}
@@ -561,8 +582,8 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
             <div className="flex flex-col gap-3">
               <form className="flex gap-2 text-xs" onSubmit={(event) => void submitAction(event, "note")}>
                 <input name="body" className="flex-1 min-h-[38px] px-3 py-1.5 text-xs rounded-lg border border-line bg-paper" placeholder="Add staff comment..." required />
-                <button className="btn btn-secondary text-xs py-1 px-3 min-h-[38px] font-bold" type="submit">
-                  Add
+                <button className="btn btn-secondary text-xs py-1 px-3 min-h-[38px] font-bold" type="submit" disabled={submittingAction}>
+                  {submittingAction ? "Adding…" : "Add"}
                 </button>
               </form>
 
@@ -606,10 +627,12 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
                 {activeModal === "pricing" && "✍️ Adjust Price & Fee"}
                 {activeModal === "exception" && "⚠️ Record Delivery Exception"}
               </h3>
-              <button type="button" className="text-lg font-bold text-muted hover:text-ink" onClick={() => setActiveModal(null)}>
+              <button type="button" className="text-lg font-bold text-muted hover:text-ink" onClick={() => openModal(null)}>
                 ✕
               </button>
             </div>
+
+            {modalError && <AdminNotice tone="error" live>{modalError}</AdminNotice>}
 
             {activeModal === "payment" && (
               <form className="space-y-3 text-sm" onSubmit={(event) => void submitAction(event, "payment")}>
