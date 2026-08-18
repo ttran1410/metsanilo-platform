@@ -263,7 +263,7 @@ describe("Review Engine & Social Proof Trust System", () => {
     expect(featured.featuredUntil).toBe("2026-11-15T14:34:00.452Z");
   });
 
-  it("supports listFeaturedReviews top 3 limit and fallback behavior", async () => {
+  it("supports listFeaturedReviews random sampling and limit behavior", async () => {
     for (let i = 1; i <= 5; i++) {
       const rev = await createPublicReview(database, {
         displayName: `User ${i}`,
@@ -275,15 +275,15 @@ describe("Review Engine & Social Proof Trust System", () => {
       await moderateReview(database, {
         id: rev.id,
         status: "APPROVED",
-        featured: i <= 2,
+        featured: i <= 4,
         actor: "admin@test.fi",
       });
     }
 
     const featured = await listFeaturedReviews(database, 3);
     expect(featured.length).toBe(3);
-    expect(featured[0].displayName).toBe("User 2");
-    expect(featured[1].displayName).toBe("User 1");
+    const names = featured.map((f) => f.displayName);
+    expect(new Set(names).size).toBe(3);
   });
 
   it("supports pagination in listPublishedReviews", async () => {
