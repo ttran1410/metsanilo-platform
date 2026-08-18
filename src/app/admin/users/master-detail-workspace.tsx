@@ -278,6 +278,17 @@ export function MasterDetailUserWorkspace({
   }, [usersList, searchQuery, roleFilter]);
 
   const [splitLimit, setSplitLimit] = useState(20);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (activeMenuId && !(event.target as HTMLElement).closest(".row-action-menu")) {
+        setActiveMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [activeMenuId]);
 
   const sidebarDisplayedUsers = useMemo(() => {
     return filteredUsers.slice(0, splitLimit);
@@ -633,17 +644,70 @@ export function MasterDetailUserWorkspace({
                       )}
                     </td>
                     <td className="py-3 px-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="relative inline-block text-left row-action-menu">
                         <button
                           type="button"
-                          className="btn btn-secondary text-xs py-1 px-2.5 font-bold"
-                          onClick={() => {
-                            void loadUserExtras(u.id);
-                            setViewMode("split");
+                          className="p-1.5 px-2.5 rounded-lg text-ink/80 hover:text-ink hover:bg-surface-muted border border-line/60 hover:border-line font-bold transition-all shadow-2xs"
+                          title="User Actions Menu"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(activeMenuId === u.id ? null : u.id);
                           }}
                         >
-                          View RBAC 🔍
+                          <span className="text-xs font-mono tracking-widest font-extrabold">•••</span>
                         </button>
+
+                        {activeMenuId === u.id && (
+                          <div className="absolute right-0 mt-1 w-48 bg-surface rounded-xl shadow-xl border border-line py-1 z-40 text-left text-xs divide-y divide-line/60 animate-in fade-in-50 zoom-in-95">
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(null);
+                                  void loadUserExtras(u.id);
+                                  setViewMode("split");
+                                }}
+                              >
+                                <span>👁️</span> View RBAC &amp; Audit
+                              </button>
+                            </div>
+
+                            {canManageUsers && (
+                              <div className="py-1">
+                                <button
+                                  type="button"
+                                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-surface-muted transition-colors font-semibold"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(null);
+                                    setEditingUser(u);
+                                  }}
+                                >
+                                  <span>✏️</span> Edit Profile
+                                </button>
+                              </div>
+                            )}
+
+                            {canResetPasswords && (
+                              <div className="py-1">
+                                <button
+                                  type="button"
+                                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-surface-muted transition-colors font-semibold"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(null);
+                                    void loadUserExtras(u.id);
+                                    void handleResetPassword();
+                                  }}
+                                >
+                                  <span>🔑</span> Reset Password
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

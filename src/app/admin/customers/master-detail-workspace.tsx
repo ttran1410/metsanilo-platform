@@ -210,6 +210,17 @@ export function MasterDetailCustomerWorkspace({
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [splitLimit, setSplitLimit] = useState(20);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (activeMenuId && !(event.target as HTMLElement).closest(".row-action-menu")) {
+        setActiveMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [activeMenuId]);
 
   const paginatedCustomers = useMemo(() => {
     const start = (page - 1) * limit;
@@ -481,18 +492,73 @@ export function MasterDetailCustomerWorkspace({
                       </div>
                     </td>
                     <td className="p-3 text-right">
-                      <button
-                        type="button"
-                        className="btn btn-secondary text-[11px] py-1 px-2.5"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void loadProfile(c.id);
-                          setWorkspaceView("split");
-                          setMobileView("detail");
-                        }}
-                      >
-                        View Profile →
-                      </button>
+                      <div className="relative inline-block text-left row-action-menu">
+                        <button
+                          type="button"
+                          className="p-1.5 px-2.5 rounded-lg text-ink/80 hover:text-ink hover:bg-surface-muted border border-line/60 hover:border-line font-bold transition-all shadow-2xs"
+                          title="Customer Actions Menu"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(activeMenuId === c.id ? null : c.id);
+                          }}
+                        >
+                          <span className="text-xs font-mono tracking-widest font-extrabold">•••</span>
+                        </button>
+
+                        {activeMenuId === c.id && (
+                          <div className="absolute right-0 mt-1 w-48 bg-surface rounded-xl shadow-xl border border-line py-1 z-40 text-left text-xs divide-y divide-line/60 animate-in fade-in-50 zoom-in-95">
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink hover:bg-primary-soft hover:text-primary transition-colors font-semibold"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(null);
+                                  void loadProfile(c.id);
+                                  setWorkspaceView("split");
+                                  setMobileView("detail");
+                                }}
+                              >
+                                <span>👁️</span> View Profile &amp; Orders
+                              </button>
+                            </div>
+
+                            {c.matchStatus === "CONFLICT_REVIEW" && (
+                              <div className="py-1">
+                                <button
+                                  type="button"
+                                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-amber-900 hover:bg-amber-50 transition-colors font-semibold"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(null);
+                                    void loadProfile(c.id);
+                                    setWorkspaceView("split");
+                                    setMobileView("detail");
+                                  }}
+                                >
+                                  <span>⚠️</span> Resolve Conflict
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                className="w-full text-left flex items-center gap-2 px-3 py-2 text-ink/80 hover:bg-surface-muted transition-colors font-semibold"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(null);
+                                  void loadProfile(c.id);
+                                  setWorkspaceView("split");
+                                  setMobileView("detail");
+                                }}
+                              >
+                                <span>📝</span> View Pinned Notes
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
