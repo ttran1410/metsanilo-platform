@@ -1,9 +1,17 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { confirmManualReview, createManualReview, linkReviewToCustomerOrOrder, listManagerReviews, moderateReview, replyToReview } from "@/domain/reviews";
+import {
+  confirmManualReview,
+  createManualReview,
+  deleteReview,
+  linkReviewToCustomerOrOrder,
+  listManagerReviews,
+  moderateReview,
+  replyToReview,
+  updateFullReview,
+} from "@/domain/reviews";
 import { requirePermission } from "@/domain/access";
 import { failure, success } from "../../response";
-
 import { fromZodError } from "@/domain/errors";
 
 export const runtime = "nodejs";
@@ -51,8 +59,56 @@ export async function POST(request: Request) {
 
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid manual review payload"));
 
+    if (parsed.data.verifiedBuyer && (!parsed.data.orderId || !parsed.data.orderId.trim())) {
+      return failure({
+        message: "Order Reference, Phone, Facebook Profile, or Email proof is required when marking as Verified Buyer.",
+        code: "VALIDATION_ERROR",
+        status: 422,
+      });
+    }
+
     const actorName = actor.email ?? actor.username ?? actor.id;
     return success(await createManualReview(db(), { ...parsed.data, actor: actorName }), 201);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const actor = await requirePermission(db(), request, "reviews.moderate");
+    const parsed = z
+      .object({
+        id: z.string().min(1),
+        displayName: z.string().min(2).max(80).optional(),
+        rating: z.number().int().min(1).max(5).optional(),
+        source: z.enum(["PUBLIC_FORM", "MANUAL_IMPORT"]).optional(),
+        acknowledgementSource: z.string().max(80).optional(),
+        originalText: z.string().min(10).max(2000).optional(),
+        displayText: z.string().max(2000).optional(),
+        orderId: z.string().optional(),
+        verifiedBuyer: z.boolean().optional(),
+      })
+      .safeParse(await request.json());
+
+    if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid edit review payload"));
+
+    const actorName = actor.email ?? actor.username ?? actor.id;
+    return success(await updateFullReview(db(), { ...parsed.data, actor: actorName }));
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const actor = await requirePermission(db(), request, "reviews.moderate");
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
+    if (!id) return failure({ message: "Review ID required", code: "VALIDATION_ERROR", status: 400 });
+
+    const actorName = actor.email ?? actor.username ?? actor.id;
+    return success(await deleteReview(db(), { id, actor: actorName }));
   } catch (error) {
     return failure(error);
   }
@@ -110,4 +166,3 @@ export async function PATCH(request: Request) {
     return failure(error);
   }
 }
-

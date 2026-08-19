@@ -11,6 +11,7 @@ import {
   confirmManualReview,
   createManualReview,
   createPublicReview,
+  deleteReview,
   getReviewRollup,
   linkReviewToCustomerOrOrder,
   listFeaturedReviews,
@@ -19,6 +20,7 @@ import {
   moderateReview,
   recalculateReviewRollup,
   replyToReview,
+  updateFullReview,
 } from "@/domain/reviews";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-review-test-"));
@@ -396,5 +398,42 @@ describe("Review Engine & Social Proof Trust System", () => {
     expect(profile?.reviews).toHaveLength(2);
     expect(profile?.metrics.reviewCount).toBe(2);
     expect(profile?.metrics.averageRating).toBe(4.5);
+  });
+
+  it("supports full review editing via updateFullReview and deletion via deleteReview", async () => {
+    const created = await createManualReview(database, {
+      displayName: "Matti Meikäläinen",
+      rating: 4,
+      originalText: "Hienot marjat mutta toimitus myöhästyi vartin.",
+      actor: "admin@test.fi",
+    });
+
+    // 1. Full Edit
+    const updated = await updateFullReview(database, {
+      id: created.id,
+      displayName: "Matti M.",
+      rating: 5,
+      displayText: "Hienot marjat!",
+      verifiedBuyer: true,
+      actor: "admin@test.fi",
+    });
+
+    expect(updated.displayName).toBe("Matti M.");
+    expect(updated.rating).toBe(5);
+    expect(updated.displayText).toBe("Hienot marjat!");
+    expect(updated.verifiedBuyer).toBe(true);
+
+    // 2. Delete Review
+    const deleteRes = await deleteReview(database, {
+      id: created.id,
+      actor: "admin@test.fi",
+    });
+
+    expect(deleteRes.deleted).toBe(true);
+
+    const check = await database.query.reviews.findFirst({
+      where: eq(reviews.id, created.id),
+    });
+    expect(check).toBeUndefined();
   });
 });
