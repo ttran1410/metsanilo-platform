@@ -64,3 +64,35 @@ export function AdminTimeline({ events, emptyLabel = "No activity recorded." }: 
 export function AdminFeedback({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "success" | "error" | "warning" }) {
   return <div className={`admin-feedback admin-feedback-${tone}`} role={tone === "error" ? "alert" : "status"} aria-live="polite">{children}</div>;
 }
+
+export function AdminNotFoundState({
+  title = "Resource not found",
+  description = "The requested item does not exist or may have been deleted.",
+  backHref = "/admin",
+  backLabel = "← Return to dashboard",
+}: {
+  title?: string;
+  description?: string;
+  backHref?: string;
+  backLabel?: string;
+}) {
+  return (
+    <main className="shell py-12">
+      <div className="card max-w-lg mx-auto p-8 text-center space-y-4 shadow-sm border border-slate-200">
+        <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xl mx-auto text-slate-500">
+          🔍
+        </div>
+        <div>
+          <span className="eyebrow">ADMIN OPERATIONS</span>
+          <h1 className="text-xl font-bold text-slate-900">{title}</h1>
+          <p className="text-xs text-slate-500 mt-1">{description}</p>
+        </div>
+        <div className="pt-2">
+          <a href={backHref} className="btn btn-secondary text-xs font-semibold px-4 py-2">
+            {backLabel}
+          </a>
+        </div>
+      </div>
+    </main>
+  );
+}
