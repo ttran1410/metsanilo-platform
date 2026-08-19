@@ -9,7 +9,7 @@ import {
 } from "@/lib/permissions";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
-import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
+import { AdminRowActionMenu, IconCopy, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { OnboardingModal } from "./onboarding-modal";
 
 type UserRow = {
@@ -1162,13 +1162,14 @@ export function MasterDetailUserWorkspace({
               <span>{createdInfo.tempPassword}</span>
               <button
                 type="button"
-                className="btn btn-secondary text-xs py-1 px-2.5"
+                className="btn btn-secondary text-xs py-1 px-2.5 inline-flex items-center gap-1 font-bold"
                 onClick={() => {
-                  navigator.clipboard.writeText(createdInfo.tempPassword);
-                  alert("Temporary password copied to clipboard!");
+                  void navigator.clipboard.writeText(createdInfo.tempPassword);
+                  setMessage("Temporary password copied to clipboard!");
                 }}
               >
-                📋 Copy
+                <IconCopy className="w-3.5 h-3.5" />
+                <span>Copy</span>
               </button>
             </div>
 

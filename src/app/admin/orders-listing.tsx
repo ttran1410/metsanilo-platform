@@ -1046,7 +1046,25 @@ export function OrdersListing({
 
                       <td className="p-3">
                         <strong className="text-ink block font-bold">{order.customerName}</strong>
-                        <span className="muted text-[11px]">📞 {order.mobile}</span>
+                        <div className="inline-flex items-center gap-1">
+                          <span className="muted text-[11px]">📞 {order.mobile}</span>
+                          {order.mobile && (
+                            <button
+                              type="button"
+                              title="Copy Customer Mobile Phone"
+                              className="p-0.5 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (order.mobile) {
+                                  void navigator.clipboard.writeText(order.mobile);
+                                  setNotice(`Copied ${order.mobile} to clipboard.`);
+                                }
+                              }}
+                            >
+                              <IconCopy className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                       </td>
 
                       <td className="p-3">
