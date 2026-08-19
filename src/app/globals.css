@@ -234,6 +234,7 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .package-selection-card .selection-price { margin-left: auto; color: var(--berry); font-family: var(--serif); font-size: 1.35rem; font-weight: 500; white-space: nowrap; }
 .field, .form-field, .review-form-field, .admin-login-field { display: grid; align-content: start; gap: var(--form-field-gap); }
 .field > span, .form-field > label { color: var(--ink); font-size: 1.05rem; font-weight: 800; letter-spacing: 0; }
+.admin-route-frame .field > span, .admin-dialog .field > span, .admin-app .field > span { color: var(--ink); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.01em; margin-bottom: 0.25rem; }
 .field:has(:required) > span::after, .field:has(:required) > .selection-label::after, .form-field:has(:required) > label::after, .form-field:has(:required) > .selection-label::after, .admin-login-field:has(:required) > span::after { content: " *"; color: var(--form-control-error-border); font-weight: 800; }
 .field > small, .form-field > small { color: var(--muted); font-size: .92rem; font-weight: 600; }
 .form-control,

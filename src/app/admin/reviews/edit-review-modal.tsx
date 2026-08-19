@@ -105,7 +105,7 @@ export function EditReviewModal({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <label className="field">
-            <span className="font-semibold text-ink">Customer Name *</span>
+            <span>Customer Name</span>
             <input
               type="text"
               value={displayName}
@@ -117,7 +117,7 @@ export function EditReviewModal({
           </label>
 
           <label className="field">
-            <span className="font-semibold text-ink">Star Rating (1–5) *</span>
+            <span>Star Rating (1–5)</span>
             <select
               value={rating}
               onChange={(e) => setRating(Number(e.target.value))}
@@ -134,7 +134,7 @@ export function EditReviewModal({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <label className="field">
-            <span className="font-semibold text-ink">Feedback Source Channel</span>
+            <span>Feedback Source Channel</span>
             <select
               value={source}
               onChange={(e) => setSource(e.target.value)}
@@ -150,7 +150,7 @@ export function EditReviewModal({
           </label>
 
           <label className="field">
-            <span className="font-semibold text-ink">
+            <span>
               Order Ref / Facebook / Phone {verifiedBuyer && <span className="text-rose-600 font-bold">*</span>}
             </span>
             <input
@@ -173,7 +173,7 @@ export function EditReviewModal({
         </label>
 
         <label className="field text-xs">
-          <span className="font-semibold text-ink">Original Feedback Text *</span>
+          <span>Original Feedback Text</span>
           <textarea
             rows={3}
             value={originalText}
@@ -184,7 +184,7 @@ export function EditReviewModal({
         </label>
 
         <label className="field text-xs">
-          <span className="font-semibold text-ink">Storefront Display Text (Optional Edited Copy)</span>
+          <span>Storefront Display Text (Optional Edited Copy)</span>
           <textarea
             rows={2}
             value={displayText}
