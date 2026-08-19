@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Edit3, Phone, MessageSquare, Share2, ExternalLink, PlusCircle, GitMerge, Trash2, UserPlus, Search } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
-import { AdminRowActionMenu, IconDocument, IconEye } from "../ui/admin-row-action-menu";
+import { AdminRowActionMenu, IconCopy, IconDocument, IconEye } from "../ui/admin-row-action-menu";
 import { CustomerModal } from "./customer-modal";
 import { MergeModal } from "./merge-modal";
 
@@ -35,6 +35,7 @@ type CustomerRow = {
     preferredMethod: "PICKUP" | "DELIVERY";
     reviewCount?: number;
     averageRating?: number | null;
+    primaryAddress?: string | null;
   };
 };
 
@@ -106,6 +107,18 @@ export function MasterDetailCustomerWorkspace({
   const [sortMode, setSortMode] = useState<"recent" | "spend_desc" | "litres_desc" | "name_asc">("recent");
   const [workspaceView, setWorkspaceView] = useState<"table" | "split">("table");
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+
+  const [tableSortField, setTableSortField] = useState<"name" | "volume" | "spend" | "status">("name");
+  const [tableSortDirection, setTableSortDirection] = useState<"asc" | "desc">("asc");
+
+  function handleHeaderSort(field: "name" | "volume" | "spend" | "status") {
+    if (tableSortField === field) {
+      setTableSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setTableSortField(field);
+      setTableSortDirection(field === "name" ? "asc" : "desc");
+    }
+  }
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -224,9 +237,23 @@ export function MasterDetailCustomerWorkspace({
   }, [activeMenuId]);
 
   const paginatedCustomers = useMemo(() => {
+    const list = [...filteredCustomers];
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (tableSortField === "name") {
+        cmp = a.name.localeCompare(b.name);
+      } else if (tableSortField === "volume") {
+        cmp = (a.metrics?.lifetimeLitres ?? 0) - (b.metrics?.lifetimeLitres ?? 0);
+      } else if (tableSortField === "spend") {
+        cmp = (a.metrics?.totalSpendCents ?? 0) - (b.metrics?.totalSpendCents ?? 0);
+      } else if (tableSortField === "status") {
+        cmp = (a.metrics?.isVip ? 1 : 0) - (b.metrics?.isVip ? 1 : 0);
+      }
+      return tableSortDirection === "asc" ? cmp : -cmp;
+    });
     const start = (page - 1) * limit;
-    return filteredCustomers.slice(start, start + limit);
-  }, [filteredCustomers, page, limit]);
+    return list.slice(start, start + limit);
+  }, [filteredCustomers, tableSortField, tableSortDirection, page, limit]);
 
   const sidebarDisplayedCustomers = useMemo(() => {
     return filteredCustomers.slice(0, splitLimit);
@@ -422,12 +449,34 @@ export function MasterDetailCustomerWorkspace({
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-surface-muted border-b border-line text-muted font-bold uppercase text-[10px] tracking-wider">
-                  <th className="p-3">Customer</th>
-                  <th className="p-3">Contact</th>
-                  <th className="p-3">Lifetime Volume</th>
-                  <th className="p-3">Total Spend</th>
-                  <th className="p-3">Orders</th>
-                  <th className="p-3">Status / Tags</th>
+                  {[
+                    { key: "name", label: "Customer" },
+                    { key: "contact", label: "Contact" },
+                    { key: "volume", label: "Lifetime Volume" },
+                    { key: "spend", label: "Total Spend" },
+                    { key: "orders", label: "Orders" },
+                    { key: "status", label: "Status / Tags" },
+                  ].map((col) => {
+                    const isSortable = ["name", "volume", "spend", "status"].includes(col.key);
+                    return (
+                      <th
+                        key={col.key}
+                        className={`p-3 ${isSortable ? "cursor-pointer select-none hover:bg-slate-200/60 transition-colors" : ""}`}
+                        onClick={() => {
+                          if (isSortable) handleHeaderSort(col.key as any);
+                        }}
+                      >
+                        <div className="inline-flex items-center gap-1">
+                          <span>{col.label}</span>
+                          {isSortable && (
+                            <span className={`text-[10px] font-bold ${tableSortField === col.key ? "text-primary opacity-100" : "text-slate-400 opacity-40"}`}>
+                              {tableSortField === col.key ? (tableSortDirection === "asc" ? "▲" : "▼") : "↕"}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    );
+                  })}
                   <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -450,13 +499,36 @@ export function MasterDetailCustomerWorkspace({
                           {c.name.slice(0, 1).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <strong className="block text-ink text-xs font-bold truncate">{c.name}</strong>
+                          <div className="flex items-center gap-1.5">
+                            <strong className="text-ink text-xs font-bold truncate">{c.name}</strong>
+                            {c.metrics?.isVip && (
+                              <span className="text-xs cursor-help select-none" title="VIP High-Volume Buyer (20L+)">
+                                👑
+                              </span>
+                            )}
+                          </div>
                           {c.facebookProfile && <span className="text-[10px] text-muted truncate block">{c.facebookProfile}</span>}
                         </div>
                       </div>
                     </td>
                     <td className="p-3 font-mono text-[11px]">
-                      <div>{c.mobile || "—"}</div>
+                      <div className="flex items-center gap-1">
+                        <span>{c.mobile || "—"}</span>
+                        {c.mobile && (
+                          <button
+                            type="button"
+                            className="p-0.5 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void navigator.clipboard.writeText(c.mobile!);
+                              setMessage(`Copied ${c.mobile} to clipboard.`);
+                            }}
+                            title="Copy Mobile Phone"
+                          >
+                            <IconCopy className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                       <div className="text-[10px] text-muted">{c.email || ""}</div>
                     </td>
                     <td className="p-3 font-bold text-forest">
@@ -470,11 +542,6 @@ export function MasterDetailCustomerWorkspace({
                     </td>
                     <td className="p-3">
                       <div className="flex flex-wrap gap-1">
-                        {c.metrics?.isVip && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                            ⭐ VIP
-                          </span>
-                        )}
                         {Boolean(c.metrics?.averageRating) && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300">
                             ⭐ {c.metrics?.averageRating} ({c.metrics?.reviewCount})
@@ -687,15 +754,45 @@ export function MasterDetailCustomerWorkspace({
                       <div className="flex flex-wrap items-center gap-2">
                         <h1 className="text-2xl font-bold tracking-tight text-ink">{profile.customer.name}</h1>
                         {profile.metrics.isVip && (
-                          <span className="text-xs uppercase font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                            ⭐ VIP High-Volume Buyer
+                          <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                            👑 VIP High-Volume Buyer (20L+)
                           </span>
                         )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs muted font-medium">
-                        <span className="font-mono text-ink font-semibold">📞 {profile.customer.mobile}</span>
-                        {profile.customer.email && <span>✉️ {profile.customer.email}</span>}
+                        <span className="font-mono text-ink font-semibold flex items-center gap-1">
+                          📞 {profile.customer.mobile}
+                          {profile.customer.mobile && (
+                            <button
+                              type="button"
+                              className="p-0.5 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(profile.customer.mobile!);
+                                setMessage(`Copied phone ${profile.customer.mobile} to clipboard.`);
+                              }}
+                              title="Copy Phone Number"
+                            >
+                              <IconCopy className="w-3 h-3" />
+                            </button>
+                          )}
+                        </span>
+                        {profile.customer.email && (
+                          <span className="flex items-center gap-1">
+                            ✉️ {profile.customer.email}
+                            <button
+                              type="button"
+                              className="p-0.5 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(profile.customer.email!);
+                                setMessage(`Copied email ${profile.customer.email} to clipboard.`);
+                              }}
+                              title="Copy Email"
+                            >
+                              <IconCopy className="w-3 h-3" />
+                            </button>
+                          </span>
+                        )}
                         {profile.customer.facebookProfile && (
                           <a
                             href={profile.customer.facebookProfile.startsWith("http") ? profile.customer.facebookProfile : `https://facebook.com/${profile.customer.facebookProfile.replace(/^@/, "")}`}
@@ -708,6 +805,26 @@ export function MasterDetailCustomerWorkspace({
                         )}
                         <span>📍 Preferred: <strong>{profile.metrics.preferredMethod === "DELIVERY" ? "Home Delivery" : "Pickup"}</strong></span>
                       </div>
+
+                      {/* CUSTOMER PRIMARY DELIVERY ADDRESS CARD */}
+                      {profile.metrics.primaryAddress && (
+                        <div className="flex items-center justify-between p-2.5 bg-surface-muted/80 rounded-xl border border-line text-xs mt-2">
+                          <span className="font-semibold text-ink flex items-center gap-1.5">
+                            <span>📍</span> Delivery Address: <strong className="text-ink">{profile.metrics.primaryAddress}</strong>
+                          </span>
+                          <button
+                            type="button"
+                            className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(profile.metrics.primaryAddress!);
+                              setMessage("Copied delivery address to clipboard.");
+                            }}
+                            title="Copy Delivery Address"
+                          >
+                            <IconCopy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -715,7 +832,7 @@ export function MasterDetailCustomerWorkspace({
                   {canEdit && (
                     <button
                       type="button"
-                      className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                      className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 font-bold"
                       onClick={() => setEditingCustomer(profile.customer)}
                     >
                       <Edit3 className="w-3.5 h-3.5" />
@@ -729,59 +846,61 @@ export function MasterDetailCustomerWorkspace({
                   <span className="text-xs font-bold uppercase tracking-wider text-muted">1-Tap Fast Contact:</span>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* WhatsApp Presets */}
-                    <button
-                      type="button"
-                      className="btn text-xs py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-on-primary font-bold flex items-center gap-1.5 shadow-sm"
-                      onClick={() => triggerWhatsApp("READY")}
-                      title="Open WhatsApp with pre-filled Ready for Pickup notification"
-                    >
-                      <Share2 className="w-3.5 h-3.5" />
-                      <span>WhatsApp: Ready</span>
-                    </button>
+                    {/* WhatsApp Action Pills */}
                     {profile.customer.mobile && (
                       <>
                         <button
                           type="button"
-                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                          className="btn text-xs py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-on-primary font-bold flex items-center gap-1.5 shadow-sm rounded-lg"
+                          onClick={() => triggerWhatsApp("READY")}
+                          title="Open WhatsApp with pre-filled Ready for Pickup notification"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>💬 Valmis (Ready)</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary text-xs py-1.5 px-3 font-semibold flex items-center gap-1.5 rounded-lg"
                           onClick={() => triggerWhatsApp("CONFIRMED")}
                           title="Open WhatsApp with pre-filled Order Confirmed notification"
                         >
                           <Share2 className="w-3.5 h-3.5" />
-                          <span>WhatsApp: Confirm</span>
+                          <span>💬 Vahvistus (Confirm)</span>
                         </button>
 
                         <a
-                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg"
                           href={`tel:${profile.customer.mobile}`}
+                          title={`Call ${profile.customer.mobile}`}
                         >
                           <Phone className="w-3.5 h-3.5" />
-                          <span>Call</span>
+                          <span>📞 Call</span>
                         </a>
                         <a
-                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg"
                           href={`sms:${profile.customer.mobile}`}
+                          title={`SMS ${profile.customer.mobile}`}
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
-                          <span>SMS</span>
+                          <span>✉️ SMS</span>
                         </a>
                       </>
                     )}
 
                     {profile.customer.facebookProfile && (
                       <a
-                        className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 text-blue-700 font-semibold"
+                        className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 text-blue-700 font-semibold rounded-lg"
                         href={profile.customer.facebookProfile.startsWith("http") ? profile.customer.facebookProfile : `https://facebook.com/${profile.customer.facebookProfile.replace(/^@/, "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Facebook</span>
+                        <span>📘 Facebook</span>
                       </a>
                     )}
 
                     {/* New Order shortcut */}
-                    <a className="btn text-xs py-1.5 px-3 font-semibold flex items-center gap-1.5" href="/admin/manual-orders">
+                    <a className="btn text-xs py-1.5 px-3 font-semibold flex items-center gap-1.5 rounded-lg" href="/admin/manual-orders">
                       <PlusCircle className="w-3.5 h-3.5" />
                       <span>New Order</span>
                     </a>

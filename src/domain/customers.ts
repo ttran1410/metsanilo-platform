@@ -81,7 +81,12 @@ export async function listCustomers(
 
     const pickupCount = completed.filter((o) => o.fulfillmentMethod === "PICKUP").length;
     const deliveryCount = completed.filter((o) => o.fulfillmentMethod === "DELIVERY").length;
-    const preferredMethod = deliveryCount > pickupCount ? "DELIVERY" : "PICKUP";
+    const preferredMethod =
+      deliveryCount > pickupCount
+        ? "DELIVERY"
+        : deliveryCount < pickupCount
+        ? "PICKUP"
+        : completed[0]?.fulfillmentMethod ?? "PICKUP";
 
     const lifetimeLitres = completed.reduce((sum, order) => sum + order.volumeMl, 0);
     const totalSpendCents = completed.reduce(
@@ -185,6 +190,9 @@ export async function getCustomerProfile(database: Database, customerId: string)
       status: orders.status,
       fulfillmentDate: orders.fulfillmentDate,
       fulfillmentMethod: orders.fulfillmentMethod,
+      streetAddress: orders.streetAddress,
+      postalCode: orders.postalCode,
+      city: orders.city,
       volumeMl: orders.volumeMl,
       finalTotalCents: orders.finalTotalCents,
       itemSubtotalCents: orders.itemSubtotalCents,
@@ -261,7 +269,12 @@ export async function getCustomerProfile(database: Database, customerId: string)
 
   const pickupCount = completed.filter((o) => o.fulfillmentMethod === "PICKUP").length;
   const deliveryCount = completed.filter((o) => o.fulfillmentMethod === "DELIVERY").length;
-  const preferredMethod = deliveryCount > pickupCount ? "DELIVERY" : "PICKUP";
+  const preferredMethod =
+    deliveryCount > pickupCount
+      ? "DELIVERY"
+      : deliveryCount < pickupCount
+      ? "PICKUP"
+      : completed[0]?.fulfillmentMethod ?? "PICKUP";
 
   const lifetimeLitres = completed.reduce((sum, order) => sum + order.volumeMl, 0);
   const totalSpendCents = completed.reduce(
@@ -305,6 +318,11 @@ export async function getCustomerProfile(database: Database, customerId: string)
     ? Number((customerReviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount).toFixed(1))
     : null;
 
+  const primaryAddressOrder = customerOrders.find((o) => Boolean(o.streetAddress && o.streetAddress.trim()));
+  const primaryAddress = primaryAddressOrder
+    ? `${primaryAddressOrder.streetAddress}${primaryAddressOrder.postalCode ? `, ${primaryAddressOrder.postalCode}` : ""}${primaryAddressOrder.city ? ` ${primaryAddressOrder.city}` : ""}`
+    : null;
+
   return {
     customer,
     orders: customerOrders,
@@ -323,6 +341,7 @@ export async function getCustomerProfile(database: Database, customerId: string)
       lastFulfillmentDate: completed[0]?.fulfillmentDate ?? null,
       reviewCount,
       averageRating,
+      primaryAddress,
     },
     identityConflicts,
   };
