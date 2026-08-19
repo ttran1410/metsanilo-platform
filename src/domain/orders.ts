@@ -235,6 +235,7 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
         idempotencyKey: input.idempotencyKey,
         productId: row.product.id,
         customerId: customer.id,
+        seasonId: null,
         packageId: row.package.id,
         productNameFi: row.product.nameFi,
         productNameEn: row.product.nameEn,

@@ -225,6 +225,13 @@
       "when": 1787000000000,
       "tag": "0031_reviews_fulfillment_date",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1787176054811,
+      "tag": "0032_outgoing_imperial_guard",
+      "breakpoints": true
     }
   ]
 }

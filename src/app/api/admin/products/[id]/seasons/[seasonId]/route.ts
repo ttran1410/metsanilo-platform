@@ -1,0 +1,74 @@
+import { z } from "zod";
+import { db } from "@/db/client";
+import { requirePermission } from "@/domain/access";
+import { DomainError } from "@/domain/errors";
+import { deleteHarvestSeason, extendHarvestSeason, updateHarvestSeason } from "@/domain/seasons";
+import { failure, success } from "../../../../../response";
+
+export const runtime = "nodejs";
+
+const updateSeasonSchema = z.object({
+  action: z.enum(["update", "extend"]).optional().default("update"),
+  nameFi: z.string().min(2).max(120).optional(),
+  nameEn: z.string().min(2).max(120).optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  status: z.enum(["UPCOMING", "ACTIVE", "PAUSED", "COMPLETED"]).optional(),
+  additionalDays: z.number().min(1).max(90).optional(),
+  targetVolumeMl: z.number().optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ id: string; seasonId: string }> }
+) {
+  try {
+    const actor = await requirePermission(db(), request, "catalog.product.write");
+    const actorName = actor.email ?? actor.username ?? actor.id;
+    const { seasonId } = await context.params;
+
+    const parsed = updateSeasonSchema.safeParse(await request.json());
+    if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season update payload", 422);
+
+    if (parsed.data.action === "extend") {
+      const extended = await extendHarvestSeason(db(), seasonId, parsed.data.additionalDays ?? 7, actorName);
+      return success(extended);
+    }
+
+    const updated = await updateHarvestSeason(
+      db(),
+      seasonId,
+      {
+        nameFi: parsed.data.nameFi,
+        nameEn: parsed.data.nameEn,
+        startDate: parsed.data.startDate,
+        endDate: parsed.data.endDate,
+        status: parsed.data.status,
+        targetVolumeMl: parsed.data.targetVolumeMl,
+        notes: parsed.data.notes,
+      },
+      actorName
+    );
+
+    return success(updated);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ id: string; seasonId: string }> }
+) {
+  try {
+    const actor = await requirePermission(db(), request, "catalog.product.write");
+    const actorName = actor.email ?? actor.username ?? actor.id;
+    const { seasonId } = await context.params;
+
+    await deleteHarvestSeason(db(), seasonId, actorName);
+    return success({ deleted: true });
+  } catch (error) {
+    return failure(error);
+  }
+}

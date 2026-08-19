@@ -234,6 +234,28 @@ export const products = sqliteTable(
   ],
 );
 
+export const harvestSeasons = sqliteTable(
+  "harvest_seasons",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    productId: text("product_id").notNull().references(() => products.id),
+    nameFi: text("name_fi").notNull(),
+    nameEn: text("name_en").notNull(),
+    startDate: text("start_date").notNull(),
+    endDate: text("end_date").notNull(),
+    status: text("status", { enum: ["UPCOMING", "ACTIVE", "PAUSED", "COMPLETED"] }).notNull().default("UPCOMING"),
+    targetVolumeMl: integer("target_volume_ml"),
+    notes: text("notes"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("harvest_seasons_shop_product_idx").on(table.shopId, table.productId, table.startDate),
+    check("harvest_seasons_valid_window", sql`${table.startDate} <= ${table.endDate}`),
+  ],
+);
+
 export const mediaAssets = sqliteTable(
   "media_assets",
   {
@@ -325,6 +347,7 @@ export const orders = sqliteTable(
     productId: text("product_id").notNull().references(() => products.id),
     packageId: text("package_id").notNull().references(() => packages.id),
     customerId: text("customer_id").references(() => customers.id),
+    seasonId: text("season_id").references(() => harvestSeasons.id),
     productNameFi: text("product_name_fi").notNull(),
     productNameEn: text("product_name_en").notNull(),
     packageLabelFi: text("package_label_fi").notNull(),
