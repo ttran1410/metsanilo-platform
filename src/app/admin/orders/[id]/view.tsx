@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminNotice, AdminStatusBadge } from "../../presentation";
 import { getLifecycleSteps } from "@/domain/order-transitions";
+import { IconCopy } from "../../ui/admin-row-action-menu";
 
 type Snapshot = { address?: string; nameEn?: string; instructionsEn?: string };
 
@@ -265,8 +266,13 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
               <span className="text-xs px-2.5 py-0.5 rounded-md bg-surface-muted border border-line font-semibold muted">
                 {formatSourceLabel(detail.order.orderSource)}
               </span>
-              <button type="button" className="btn btn-secondary text-xs py-0.5 px-2" onClick={() => copyText(detail.order.publicReference, "Ref")}>
-                {copied === "Ref" ? "✓ Copied" : "Copy Ref"}
+              <button
+                type="button"
+                className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                onClick={() => copyText(detail.order.publicReference, "Ref")}
+                title="Copy Order Reference"
+              >
+                <IconCopy className="w-4 h-4" />
               </button>
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted mt-1 font-medium">
@@ -445,8 +451,13 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <strong className="font-mono text-sm text-ink">{detail.order.mobile ?? "No phone"}</strong>
                   {detail.order.mobile && (
-                    <button type="button" className="btn btn-secondary text-[11px] py-0 px-1.5 min-h-0 h-6" onClick={() => copyText(detail.order.mobile!, "Phone")}>
-                      {copied === "Phone" ? "✓" : "Copy"}
+                    <button
+                      type="button"
+                      className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                      onClick={() => copyText(detail.order.mobile!, "Phone")}
+                      title="Copy Phone Number"
+                    >
+                      <IconCopy className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -455,7 +466,17 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
               {detail.order.email && (
                 <div>
                   <span className="muted block text-[11px] font-semibold">Email address:</span>
-                  <span className="text-ink font-medium truncate block mt-0.5">{detail.order.email}</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-ink font-medium truncate block">{detail.order.email}</span>
+                    <button
+                      type="button"
+                      className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                      onClick={() => copyText(detail.order.email!, "Email")}
+                      title="Copy Email Address"
+                    >
+                      <IconCopy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { FormattedAuditItem } from "@/domain/audit";
+import { IconCopy } from "../ui/admin-row-action-menu";
 
 export function DiffInspectorDrawer({
   item,
@@ -44,7 +45,20 @@ export function DiffInspectorDrawer({
             </div>
 
             <h2 className="text-xl font-bold text-ink mt-1.5 font-mono">{item.action}</h2>
-            <p className="text-xs muted font-mono mt-0.5">ID: {item.id}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-xs muted font-mono">ID: {item.id}</p>
+              <button
+                type="button"
+                className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                onClick={() => {
+                  void navigator.clipboard.writeText(item.id);
+                  alert(`Copied Audit Event ID: ${item.id}`);
+                }}
+                title="Copy Audit Event ID"
+              >
+                <IconCopy className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <button

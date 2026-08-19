@@ -5,6 +5,7 @@ import { Phone, MessageSquare, Share2, ExternalLink } from "lucide-react";
 import type { orders } from "@/db/schema";
 import { AdminLoadingState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "./presentation";
 import { OrderActionBar } from "./order-action-bar";
+import { IconCopy } from "./ui/admin-row-action-menu";
 
 type Order = typeof orders.$inferSelect & { paidCents?: number; outstandingCents?: number | null; paymentStatus?: string };
 type Detail = {
@@ -112,8 +113,13 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
           <p className="eyebrow">QUICK INSPECT</p>
           <div className="flex items-center gap-2">
             <h2 id="order-inspector-title" className="ops-tabular">{order.publicReference}</h2>
-            <button type="button" className="btn btn-secondary text-xs py-1 px-2" onClick={() => copyText(order.publicReference, "Ref")} title="Copy reference">
-              {copied === "Ref" ? "✓ Copied" : "Copy ref"}
+            <button
+              type="button"
+              className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+              onClick={() => copyText(order.publicReference, "Ref")}
+              title="Copy Order Reference"
+            >
+              <IconCopy className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -141,11 +147,16 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
             <dt>Customer</dt>
             <dd>
               <strong>{current.customerName}</strong>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 mt-0.5">
                 <span>{current.mobile ?? "No phone"}</span>
                 {current.mobile && (
-                  <button type="button" className="btn btn-secondary text-xs py-0.5 px-1.5" onClick={() => copyText(current.mobile!, "Phone")}>
-                    {copied === "Phone" ? "✓" : "Copy"}
+                  <button
+                    type="button"
+                    className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                    onClick={() => copyText(current.mobile!, "Phone")}
+                    title="Copy Phone Number"
+                  >
+                    <IconCopy className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
@@ -159,8 +170,13 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
               <div className="flex items-center justify-between">
                 <strong>{current.streetAddress || "Address missing"}</strong>
                 {current.streetAddress && (
-                  <button type="button" className="btn btn-secondary text-xs py-0.5 px-1.5" onClick={() => copyText(`${current.streetAddress}, ${current.postalCode ?? ""} ${current.city ?? ""}`.trim(), "Address")}>
-                    {copied === "Address" ? "✓" : "Copy address"}
+                  <button
+                    type="button"
+                    className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                    onClick={() => copyText(`${current.streetAddress}, ${current.postalCode ?? ""} ${current.city ?? ""}`.trim(), "Address")}
+                    title="Copy Full Address"
+                  >
+                    <IconCopy className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
