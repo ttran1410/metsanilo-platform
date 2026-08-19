@@ -143,12 +143,12 @@ export function LinkIdentityModal({
         <div className="relative">
           <input
             type="text"
-            placeholder="Search order ref, customer name, phone, FB profile..."
+            placeholder="Search order ref, customer name, phone, or Facebook profile…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full text-xs py-2 px-3 pl-8 rounded-xl border border-line bg-surface font-semibold"
+            className="w-full text-xs py-2 px-3 pl-9 rounded-xl border border-line bg-surface font-semibold"
           />
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted pointer-events-none" />
+          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
         </div>
 
         {loading && <p className="text-xs muted italic py-2 text-center">Searching matching orders &amp; CRM records...</p>}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { Search } from "lucide-react";
 import type { AuditCategory, AuditSeverity, FormattedAuditItem } from "@/domain/audit";
 import { AdminNotice } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
@@ -208,12 +209,15 @@ export function MasterAuditWorkspace({
         <span className="eyebrow text-[10px] muted">FORENSIC AUDIT FILTER ENGINE</span>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <input
-            placeholder="Search keywords, entity ID (e.g. R-9102), actor..."
-            value={searchQuery}
-            onChange={(e) => handleFilterChange({ search: e.target.value })}
-            className="flex-1 min-w-[220px] text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
-          />
+          <div className="relative flex-1 min-w-[220px]">
+            <input
+              placeholder="Search audit logs by keyword, entity ID, or staff actor…"
+              value={searchQuery}
+              onChange={(e) => handleFilterChange({ search: e.target.value })}
+              className="w-full text-xs py-1.5 px-3 pl-9 rounded-lg border border-line bg-surface"
+            />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
+          </div>
 
           <select
             aria-label="Risk Level"
