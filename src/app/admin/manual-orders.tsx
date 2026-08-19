@@ -436,7 +436,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
                 <div className="toggle-btn-group toggle-btn-group-2">
                   <button
                     type="button"
-                    className={`toggle-btn toggle-btn-danger${completedStatus === "PICKED_UP" ? " selected" : ""}`}
+                    className={`toggle-btn${completedStatus === "PICKED_UP" ? " selected" : ""}`}
                     onClick={() => {
                       setCompletedStatus("PICKED_UP");
                       setFulfillmentMethod("PICKUP");
@@ -446,7 +446,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
                   </button>
                   <button
                     type="button"
-                    className={`toggle-btn toggle-btn-danger${completedStatus === "DELIVERED" ? " selected" : ""}`}
+                    className={`toggle-btn${completedStatus === "DELIVERED" ? " selected" : ""}`}
                     onClick={() => {
                       setCompletedStatus("DELIVERED");
                       setFulfillmentMethod("DELIVERY");
