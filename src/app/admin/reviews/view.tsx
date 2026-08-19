@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { AdminNotice, AdminPageHeader } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
+import { AdminRowActionMenu, IconEye, IconLink, IconPencil, IconTrash } from "../ui/admin-row-action-menu";
 import { LinkIdentityModal } from "./link-identity-modal";
+import { EditReviewModal } from "./edit-review-modal";
 
 type Review = {
   id: string;
@@ -50,6 +52,9 @@ export function ReviewsManager({
   const [pageSize, setPageSize] = useState(20);
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
+  const [modalVerifiedChecked, setModalVerifiedChecked] = useState(true);
+
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [editingDisplayTextId, setEditingDisplayTextId] = useState<string | null>(null);
   const [draftDisplayText, setDraftDisplayText] = useState("");
   const [replyingId, setReplyingId] = useState<string | null>(null);
@@ -68,55 +73,20 @@ export function ReviewsManager({
   useEffect(() => {
     fetch("/api/admin/order-sources")
       .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        const rows: Array<{ key: string; labelEn: string; active: boolean }> = body?.data ?? body;
-        if (Array.isArray(rows) && rows.length > 0) {
-          setSources(rows.filter((s) => s.active).map((s) => ({ key: s.key, labelEn: s.labelEn })));
-        }
+      .then((d) => {
+        if (d?.data && Array.isArray(d.data)) setSources(d.data);
       })
-      .catch(() => {
-        /* keep defaults */
-      });
-  }, []);
+      .catch(() => {});
 
-  useEffect(() => {
     fetch("/api/admin/reviews/visibility")
-      .then((res) => res.json())
-      .then((body) => {
-        if (body.data?.visible !== undefined) setMasterVisible(body.data.visible);
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (typeof d?.data === "boolean") setMasterVisible(d.data);
       })
       .catch(() => {});
   }, []);
 
-  async function toggleMasterVisibility() {
-    const next = !masterVisible;
-    const res = await fetch("/api/admin/reviews/visibility", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ visible: next }),
-    });
-    const body = await res.json();
-    if (res.ok) {
-      setMasterVisible(body.data.visible);
-      setMessage(`Storefront reviews are now ${body.data.visible ? "PUBLIC (ON)" : "HIDDEN (OFF)"}`);
-    } else {
-      setErrorMsg(body.message || "Could not toggle reviews visibility");
-    }
-  }
-
-  async function updateReview(
-    reviewId: string,
-    patch: {
-      status?: "APPROVED" | "REJECTED" | "HIDDEN" | "ARCHIVED";
-      displayText?: string;
-      reason?: string;
-      rejectionReason?: "SPAM" | "PROFANITY" | "UNRELATED" | "COMPETITOR" | "OTHER";
-      featured?: boolean;
-      featuredUntil?: string;
-      verifiedBuyer?: boolean;
-      sellerReplyText?: string;
-    },
-  ) {
+  async function updateReview(reviewId: string, patch: Record<string, unknown>) {
     setMessage("");
     setErrorMsg("");
     const res = await fetch("/api/admin/reviews", {
@@ -134,6 +104,22 @@ export function ReviewsManager({
     setEditingDisplayTextId(null);
     setReplyingId(null);
     setRejectingId(null);
+  }
+
+  async function handleDeleteReview(reviewId: string) {
+    if (!confirm("Are you sure you want to permanently delete this review? This action cannot be undone.")) return;
+    setMessage("");
+    setErrorMsg("");
+    const res = await fetch(`/api/admin/reviews?id=${encodeURIComponent(reviewId)}`, {
+      method: "DELETE",
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      setErrorMsg(body.message || body.code || "Failed to delete review");
+      return;
+    }
+    setRows((current) => current.filter((r) => r.id !== reviewId));
+    setMessage("Review deleted permanently.");
   }
 
   async function confirmManual(reviewId: string, source: string) {
@@ -165,6 +151,11 @@ export function ReviewsManager({
     const verifiedBuyer = form.get("verifiedBuyer") === "on";
     const source = (form.get("acknowledgementSource") as string)?.trim() || undefined;
 
+    if (verifiedBuyer && (!orderId || !orderId.trim())) {
+      setErrorMsg("Order Reference, Phone, Facebook Profile, or Email proof is required when marking as Verified Buyer.");
+      return;
+    }
+
     const res = await fetch("/api/admin/reviews", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -183,6 +174,9 @@ export function ReviewsManager({
       return;
     }
     setRows((current) => [body.data, ...current]);
+    setActiveTab("pending");
+    setCurrentPage(1);
+    setSearchQuery("");
     setShowManualModal(false);
     setMessage("Manual review imported successfully.");
     event.currentTarget.reset();
@@ -237,16 +231,15 @@ export function ReviewsManager({
           description="High-velocity review triage, dual-text auditing, and storefront highlights."
         />
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            className={`btn text-xs font-semibold px-4 py-2 flex items-center gap-2 ${
-              masterVisible ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-rose-600 text-white hover:bg-rose-700"
-            }`}
-            onClick={() => void toggleMasterVisibility()}
-          >
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
-            Master Storefront Switch: {masterVisible ? "PUBLIC REVIEWS ON" : "STOREFRONT REVIEWS OFF"}
-          </button>
+          {/* Read-Only Storefront Status Pill */}
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
+            <span className={`inline-block w-2.5 h-2.5 rounded-full ${masterVisible ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+            <span>{masterVisible ? "🟢 Public on Storefront" : "⚪ Hidden in Settings"}</span>
+            <a href="/admin/settings" className="text-primary hover:underline font-normal text-[11px] ml-1">
+              (Settings)
+            </a>
+          </div>
+
           {canCreate && (
             <button
               type="button"
@@ -259,441 +252,373 @@ export function ReviewsManager({
         </div>
       </div>
 
-      {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
-      {errorMsg && <AdminNotice tone="error" live>{errorMsg}</AdminNotice>}
+      {message && <AdminNotice tone="success">{message}</AdminNotice>}
+      {errorMsg && <AdminNotice tone="error">{errorMsg}</AdminNotice>}
 
-      {/* Summary Metrics Banner */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="card bg-amber-50/50 border-amber-200/60 p-5 flex flex-col justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-900/70">Published Trust Metric</p>
-            <p className="mt-1 text-3xl font-extrabold text-amber-900 flex items-center gap-2">
-              ⭐️ {avgRating} <span className="text-lg font-normal text-amber-700">/ 5.0</span>
-            </p>
+      {/* Analytics KPI Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="card p-4 flex flex-col justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Public Rating Rollup</span>
+          <div className="flex items-baseline gap-2 mt-2">
+            <span className="text-3xl font-black text-slate-900">{avgRating}</span>
+            <span className="text-amber-500 text-lg">★</span>
+            <span className="text-xs text-slate-500 font-medium">({totalCount} reviews)</span>
           </div>
-          <p className="mt-3 text-xs text-amber-800 font-medium">
-            Based on {totalCount} approved reviews ({fiveStarPercent}% 5-Star)
-          </p>
+          <span className="text-[11px] text-slate-400 mt-2">{fiveStarPercent}% 5-star rating score</span>
         </div>
 
-        <div className="card bg-blue-50/50 border-blue-200/60 p-5 flex flex-col justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-blue-900/70">Pending Moderation</p>
-            <p className="mt-1 text-3xl font-extrabold text-blue-950 flex items-center gap-2">
-              📬 {pendingTriage.length} <span className="text-lg font-normal text-blue-700">Inbox</span>
-            </p>
+        <div className="card p-4 flex flex-col justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Pending Moderation</span>
+          <div className="flex items-baseline gap-2 mt-2">
+            <span className={`text-3xl font-black ${pendingTriage.length > 0 ? "text-amber-600" : "text-slate-700"}`}>
+              {pendingTriage.length}
+            </span>
+            <span className="text-xs text-slate-500 font-medium">awaiting triage</span>
           </div>
-          <p className="mt-3 text-xs text-blue-800 font-medium">
-            {pendingTriage.length > 0 ? "Requires staff triage action" : "All customer submissions are moderated!"}
-          </p>
+          <span className="text-[11px] text-slate-400 mt-2">Requires staff consent check</span>
         </div>
 
-        <div className="card p-5 space-y-1.5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Star Distribution</p>
-          {([5, 4, 3, 2, 1] as const).map((star) => {
-            const cnt = starCounts[star];
-            const pct = totalCount > 0 ? (cnt / totalCount) * 100 : 0;
-            return (
-              <div key={star} className="flex items-center text-xs gap-2">
-                <span className="w-6 font-semibold text-slate-700">{star}★</span>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-400 rounded-full" style={{ width: `${pct}%` }} />
+        <div className="card p-4 flex flex-col justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Homepage Featured</span>
+          <div className="flex items-baseline gap-2 mt-2">
+            <span className="text-3xl font-black text-emerald-700">{featuredReviews.length}</span>
+            <span className="text-xs text-slate-500 font-medium">highlighted cards</span>
+          </div>
+          <span className="text-[11px] text-slate-400 mt-2">Selected for Storefront homepage</span>
+        </div>
+
+        <div className="card p-4 flex flex-col justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Rating Breakdown</span>
+          <div className="space-y-1 mt-1 text-[11px]">
+            {[5, 4, 3, 2, 1].map((star) => (
+              <div key={star} className="flex items-center gap-2">
+                <span className="w-8 font-semibold text-slate-600">{star} ★</span>
+                <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-amber-400 h-full rounded-full"
+                    style={{ width: `${totalCount > 0 ? ((starCounts[star as 1|2|3|4|5] || 0) / totalCount) * 100 : 0}%` }}
+                  />
                 </div>
-                <span className="w-8 text-right font-mono text-slate-500">{cnt}</span>
+                <span className="w-5 text-right font-medium text-slate-500">{starCounts[star as 1|2|3|4|5] || 0}</span>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Search Bar & Active Featured Badge Toolbar */}
-      <div className="card p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder="Search reviews by customer name, order ref, rating, text..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full text-xs py-2 px-3 pl-8 rounded-lg border border-slate-300 bg-white"
-          />
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400 pointer-events-none" />
-        </div>
-
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 shrink-0">
-          <span className="px-3 py-1.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-bold">
-            ⭐ {featuredReviews.length} Featured Active (Top 3 displayed on Homepage)
-          </span>
-        </div>
-      </div>
-
-      {/* Tabs Navigation */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
-        <button
-          type="button"
-          className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
-            activeTab === "pending" ? "bg-blue-600 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-          }`}
-          onClick={() => {
-            setActiveTab("pending");
-            setCurrentPage(1);
-          }}
-        >
-          📬 Inbox / Pending ({pendingTriage.length})
-        </button>
-        <button
-          type="button"
-          className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
-            activeTab === "approved" ? "bg-emerald-600 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-          }`}
-          onClick={() => {
-            setActiveTab("approved");
-            setCurrentPage(1);
-          }}
-        >
-          🟢 Approved ({totalApproved.length})
-        </button>
-        <button
-          type="button"
-          className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
-            activeTab === "featured" ? "bg-amber-500 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-          }`}
-          onClick={() => {
-            setActiveTab("featured");
-            setCurrentPage(1);
-          }}
-        >
-          ⭐ Featured ({featuredReviews.length})
-        </button>
-        <button
-          type="button"
-          className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
-            activeTab === "rejected" ? "bg-rose-600 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-          }`}
-          onClick={() => {
-            setActiveTab("rejected");
-            setCurrentPage(1);
-          }}
-        >
-          🚫 Rejected ({rejectedReviews.length})
-        </button>
-        <button
-          type="button"
-          className={`px-4 py-2 rounded-md text-sm font-semibold transition ${
-            activeTab === "all" ? "bg-slate-800 text-white shadow-sm" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-          }`}
-          onClick={() => {
-            setActiveTab("all");
-            setCurrentPage(1);
-          }}
-        >
-          All Reviews ({rows.length})
-        </button>
-      </div>
-
-      {/* Moderation Queue */}
-      <div className="space-y-4">
-        {filteredRows.length === 0 && (
-          <div className="card p-8 text-center text-slate-500">
-            No reviews found in this view.
+            ))}
           </div>
-        )}
+        </div>
+      </div>
 
-        {paginatedRows.map((review) => (
-          <article key={review.id} className="card p-6 space-y-4 border border-slate-200/80 shadow-sm relative">
-            {/* Header / Badges */}
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-amber-500 text-lg">
-                    {"★".repeat(review.rating)}
-                    {"☆".repeat(5 - review.rating)}
-                  </span>
-                  <span className="font-bold text-slate-900 text-base">{review.displayName}</span>
+      {/* Tabs & Search Filter */}
+      <div className="card p-4 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+          <div className="flex flex-wrap items-center gap-1">
+            {[
+              { id: "pending", label: `Pending Triage (${pendingTriage.length})` },
+              { id: "approved", label: `Approved (${totalApproved.length})` },
+              { id: "featured", label: `Featured (${featuredReviews.length})` },
+              { id: "rejected", label: `Rejected (${rejectedReviews.length})` },
+              { id: "all", label: `All Reviews (${rows.length})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  activeTab === tab.id
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+                onClick={() => {
+                  setActiveTab(tab.id as any);
+                  setCurrentPage(1);
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-                  {/* Verification Badges */}
-                  {review.verifiedBuyer ? (
-                    <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                      ✓ Vahvistettu tilaus {review.orderId ? `#${review.orderId.substring(0, 8)}` : ""}
-                    </span>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <span className="bg-slate-100 text-slate-600 text-xs font-medium px-2 py-0.5 rounded">
-                        Julkinen arvostelu
+          {/* Search Box */}
+          <div className="relative min-w-[240px]">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search reviewer, contact, quote..."
+              className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Reviews List Grid */}
+        {filteredRows.length === 0 ? (
+          <div className="py-12 text-center text-slate-500 text-sm italic">
+            No reviews found matching the current tab and filter.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {paginatedRows.map((review) => (
+              <article
+                key={review.id}
+                className={`p-4 rounded-xl border transition-all space-y-3 bg-white ${
+                  review.featured ? "border-amber-300 ring-1 ring-amber-200" : "border-slate-200"
+                }`}
+              >
+                {/* Review Header Card */}
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-sm text-slate-900">{review.displayName}</span>
+
+                      {/* Verified Buyer Badge */}
+                      {review.verifiedBuyer ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          ✓ Verified Buyer
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                          Unverified Guest
+                        </span>
+                      )}
+
+                      {/* Source Badge */}
+                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                        {review.acknowledgementSource || review.source}
                       </span>
-                      {canModerate && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary text-[11px] py-0.5 px-2 font-bold text-primary border-primary/30 hover:bg-primary/5 cursor-pointer"
-                          onClick={() => setLinkingReview(review)}
-                        >
-                          🔍 Link Order / Customer
-                        </button>
+
+                      {/* Status Badge */}
+                      <span
+                        className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase ${
+                          review.status === "APPROVED"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : review.status === "REJECTED"
+                            ? "bg-rose-100 text-rose-800"
+                            : "bg-amber-100 text-amber-900"
+                        }`}
+                      >
+                        {review.status}
+                      </span>
+
+                      {review.featured && (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500 text-white">
+                          ⭐ Featured
+                        </span>
                       )}
                     </div>
-                  )}
 
-                  {review.publicationAcknowledgement ? (
-                    <span className="bg-blue-50 text-blue-700 text-xs font-medium px-2 py-0.5 rounded border border-blue-200">
-                      ✓ GDPR Consent Verified ({review.acknowledgementSource || "Web"})
-                    </span>
-                  ) : (
-                    <span className="bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5 rounded">
-                      ⚠️ Consent Confirmation Missing
-                    </span>
-                  )}
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                      <span>Submitted: {new Date(review.createdAt).toLocaleDateString("fi-FI")}</span>
+                      {review.contact && <span>Contact: {review.contact}</span>}
+                      {review.orderId && <span>Order: #{review.orderId.substring(0, 8)}</span>}
+                    </div>
+                  </div>
+
+                  {/* Rating Stars & Action Menu */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center text-amber-500 font-bold text-sm">
+                      {"★".repeat(review.rating)}
+                      <span className="text-slate-300">{"★".repeat(5 - review.rating)}</span>
+                    </div>
+
+                    {/* AdminRowActionMenu with Kebab ⋮ Icon */}
+                    <AdminRowActionMenu
+                      items={[
+                        {
+                          id: "edit",
+                          label: "Edit Review",
+                          icon: <IconPencil className="w-4 h-4 text-blue-600" />,
+                          onClick: () => setEditingReview(review),
+                        },
+                        {
+                          id: "link",
+                          label: "Link Order / Identity",
+                          icon: <IconLink className="w-4 h-4 text-emerald-600" />,
+                          onClick: () => setLinkingReview(review),
+                        },
+                        ...(review.status !== "APPROVED"
+                          ? [
+                              {
+                                id: "approve",
+                                label: "Approve Review",
+                                icon: <span className="text-xs">🟢</span>,
+                                onClick: () => void updateReview(review.id, { status: "APPROVED" }),
+                              },
+                            ]
+                          : []),
+                        ...(review.status === "APPROVED" && canFeature
+                          ? [
+                              {
+                                id: "feature",
+                                label: review.featured ? "Unfeature from Homepage" : "Feature on Homepage",
+                                icon: <span className="text-xs">⭐</span>,
+                                onClick: () =>
+                                  void updateReview(review.id, {
+                                    featured: !review.featured,
+                                    featuredUntil: !review.featured ? new Date(Date.now() + 90 * 86400000).toISOString() : undefined,
+                                  }),
+                              },
+                            ]
+                          : []),
+                        {
+                          id: "reply",
+                          label: review.sellerReplyText ? "Edit Seller Reply" : "Reply to Customer",
+                          icon: <span className="text-xs">💬</span>,
+                          onClick: () => {
+                            setReplyingId(replyingId === review.id ? null : review.id);
+                            setDraftReplyText(review.sellerReplyText || "");
+                          },
+                        },
+                        ...(review.status !== "REJECTED"
+                          ? [
+                              {
+                                id: "reject",
+                                label: "Reject Review",
+                                icon: <span className="text-xs">🚫</span>,
+                                onClick: () => setRejectingId(review.id),
+                              },
+                            ]
+                          : []),
+                        {
+                          id: "delete",
+                          label: "Delete Review Permanently",
+                          icon: <IconTrash className="w-4 h-4 text-rose-600" />,
+                          danger: true,
+                          onClick: () => void handleDeleteReview(review.id),
+                        },
+                      ]}
+                    />
+                  </div>
                 </div>
 
-                <p className="text-xs text-slate-500 mt-1">
-                  Submitted {new Date(review.createdAt).toLocaleString("fi-FI")} • Source:{" "}
-                  <span className="font-medium">{review.source}</span>
-                  {review.contact && ` • Contact: ${review.contact}`}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {review.featured && (
-                  <span className="bg-amber-100 text-amber-800 font-semibold text-xs px-2.5 py-1 rounded-full border border-amber-300 flex items-center gap-1">
-                    ⭐ Featured on Homepage
-                  </span>
-                )}
-                <span
-                  className={`text-xs font-bold px-2.5 py-1 rounded uppercase tracking-wider ${
-                    review.status === "APPROVED"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : review.status === "REJECTED"
-                      ? "bg-rose-100 text-rose-800"
-                      : review.status === "HIDDEN"
-                      ? "bg-slate-200 text-slate-700"
-                      : "bg-blue-100 text-blue-800"
-                  }`}
-                >
-                  {review.status}
-                </span>
-              </div>
-            </div>
-
-            {/* Review Content & Dual-Text Audit */}
-            <div className="grid gap-4 md:grid-cols-2 bg-slate-50/70 p-4 rounded-lg border border-slate-100">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Original Review (Immutable Audit)</p>
-                <p className="text-sm text-slate-800 mt-1 italic">"{review.originalText}"</p>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Storefront Display Text (Sanitized)</p>
-                  {canModerate && editingDisplayTextId !== review.id && (
+                {/* Review Text Display */}
+                <div className="bg-slate-50 p-3 rounded border border-slate-200 text-xs space-y-1">
+                  <div className="flex items-center justify-between text-slate-500 font-medium">
+                    <span>Original Customer Quote:</span>
                     <button
                       type="button"
-                      className="text-xs text-blue-600 hover:underline font-semibold"
+                      className="text-primary hover:underline font-semibold"
                       onClick={() => {
                         setEditingDisplayTextId(review.id);
                         setDraftDisplayText(review.displayText || review.originalText);
                       }}
                     >
-                      ✏️ Edit Display Text
+                      {review.displayText ? "Edit Storefront Text" : "+ Custom Storefront Copy"}
                     </button>
+                  </div>
+                  <p className="text-slate-800 italic font-medium">"{review.originalText}"</p>
+
+                  {editingDisplayTextId === review.id ? (
+                    <div className="mt-2 space-y-2">
+                      <textarea
+                        className="w-full text-sm border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                        value={draftDisplayText}
+                        onChange={(e) => setDraftDisplayText(e.target.value)}
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-secondary text-xs px-3 py-1"
+                          onClick={() => void updateReview(review.id, { displayText: draftDisplayText })}
+                        >
+                          Save Display Text
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs text-slate-500 hover:underline"
+                          onClick={() => setEditingDisplayTextId(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-900 font-medium mt-1">
+                      {review.displayText ? `"${review.displayText}"` : <span className="text-slate-400 italic">(Using original text)</span>}
+                    </p>
                   )}
                 </div>
 
-                {editingDisplayTextId === review.id ? (
-                  <div className="mt-2 space-y-2">
+                {/* Seller Reply Section */}
+                {review.sellerReplyText && (
+                  <div className="bg-emerald-50/60 p-3.5 rounded border border-emerald-200 text-sm space-y-1">
+                    <p className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                      🌲 Seller Reply (Metsänilo):
+                      {review.sellerRepliedAt && (
+                        <span className="text-slate-500 font-normal text-xs">
+                          ({new Date(review.sellerRepliedAt).toLocaleDateString("fi-FI")})
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-emerald-950 font-medium italic">"{review.sellerReplyText}"</p>
+                  </div>
+                )}
+
+                {replyingId === review.id && (
+                  <div className="bg-slate-100 p-3.5 rounded border border-slate-300 space-y-2">
+                    <label className="block text-xs font-bold text-slate-700">Write Public Seller Reply</label>
                     <textarea
-                      className="w-full text-sm border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500"
-                      rows={3}
-                      value={draftDisplayText}
-                      onChange={(e) => setDraftDisplayText(e.target.value)}
+                      className="w-full text-sm border border-slate-300 rounded p-2"
+                      rows={2}
+                      placeholder="Lämmin kiitos palautteesta..."
+                      value={draftReplyText}
+                      onChange={(e) => setDraftReplyText(e.target.value)}
                     />
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        className="btn btn-secondary text-xs px-3 py-1"
-                        onClick={() =>
-                          void updateReview(review.id, { displayText: draftDisplayText })
-                        }
+                        className="btn text-xs px-3 py-1 bg-emerald-600 text-white"
+                        onClick={() => void updateReview(review.id, { sellerReplyText: draftReplyText })}
                       >
-                        Save Display Text
+                        Post Seller Reply
                       </button>
                       <button
                         type="button"
                         className="text-xs text-slate-500 hover:underline"
-                        onClick={() => setEditingDisplayTextId(null)}
+                        onClick={() => setReplyingId(null)}
                       >
                         Cancel
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <p className="text-sm text-slate-900 font-medium mt-1">
-                    {review.displayText ? `"${review.displayText}"` : <span className="text-slate-400 italic">(Using original text)</span>}
-                  </p>
                 )}
-              </div>
-            </div>
 
-            {/* Seller Reply Section */}
-            {review.sellerReplyText && (
-              <div className="bg-emerald-50/60 p-3.5 rounded border border-emerald-200 text-sm space-y-1">
-                <p className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                  🌲 Seller Reply (Metsänilo):
-                  {review.sellerRepliedAt && (
-                    <span className="text-slate-500 font-normal text-xs">
-                      ({new Date(review.sellerRepliedAt).toLocaleDateString("fi-FI")})
-                    </span>
-                  )}
-                </p>
-                <p className="text-emerald-950 font-medium italic">"{review.sellerReplyText}"</p>
-              </div>
-            )}
-
-            {replyingId === review.id && (
-              <div className="bg-slate-100 p-3.5 rounded border border-slate-300 space-y-2">
-                <label className="block text-xs font-bold text-slate-700">Write Public Seller Reply</label>
-                <textarea
-                  className="w-full text-sm border border-slate-300 rounded p-2"
-                  rows={2}
-                  placeholder="Lämmin kiitos palautteesta..."
-                  value={draftReplyText}
-                  onChange={(e) => setDraftReplyText(e.target.value)}
-                />
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="btn text-xs px-3 py-1 bg-emerald-600 text-white"
-                    onClick={() => void updateReview(review.id, { sellerReplyText: draftReplyText })}
-                  >
-                    Post Seller Reply
-                  </button>
-                  <button
-                    type="button"
-                    className="text-xs text-slate-500 hover:underline"
-                    onClick={() => setReplyingId(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Action Bar */}
-            {canModerate && (
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
-                <div className="flex flex-wrap items-center gap-2">
-                  {!review.publicationAcknowledgement && review.source === "MANUAL_IMPORT" && (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs font-medium text-slate-600">Confirm consent:</span>
-                      {sources.map((src) => (
-                        <button
-                          key={src.key}
-                          type="button"
-                          className="btn btn-secondary text-xs px-2.5 py-1"
-                          onClick={() => void confirmManual(review.id, src.key)}
-                        >
-                          {src.labelEn || src.key}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {review.status !== "APPROVED" && (
+                {/* Rejection Prompt */}
+                {rejectingId === review.id && (
+                  <div className="flex items-center gap-2 bg-rose-50 p-2 rounded border border-rose-200">
+                    <span className="text-xs font-bold text-rose-900">Reason for rejection:</span>
+                    <select
+                      className="text-xs border border-rose-300 rounded p-1"
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value as any)}
+                    >
+                      <option value="SPAM">Spam / Bot</option>
+                      <option value="PROFANITY">Profanity / Abuse</option>
+                      <option value="UNRELATED">Unrelated Content</option>
+                      <option value="COMPETITOR">Competitor Malice</option>
+                      <option value="OTHER">Other Reason</option>
+                    </select>
                     <button
                       type="button"
-                      className="btn text-xs px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 font-semibold"
-                      onClick={() => void updateReview(review.id, { status: "APPROVED" })}
+                      className="btn bg-rose-600 text-white text-xs px-2.5 py-1 font-bold"
+                      onClick={() => void updateReview(review.id, { status: "REJECTED", rejectionReason })}
                     >
-                      🟢 APPROVE
+                      Confirm Reject
                     </button>
-                  )}
-
-                  {review.status === "APPROVED" && canFeature && (
                     <button
                       type="button"
-                      className={`btn text-xs px-3 py-1.5 font-semibold ${
-                        review.featured ? "bg-amber-100 text-amber-900 border border-amber-300" : "bg-amber-500 text-white hover:bg-amber-600"
-                      }`}
-                      onClick={() =>
-                        void updateReview(review.id, {
-                          featured: !review.featured,
-                          featuredUntil: !review.featured ? new Date(Date.now() + 90 * 86400000).toISOString() : undefined,
-                        })
-                      }
+                      className="text-xs text-slate-500 hover:underline"
+                      onClick={() => setRejectingId(null)}
                     >
-                      {review.featured ? "⭐ Remove Feature" : "⭐ FEATURE ON HOMEPAGE"}
+                      Cancel
                     </button>
-                  )}
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary text-xs px-3 py-1.5"
-                    onClick={() => {
-                      setReplyingId(replyingId === review.id ? null : review.id);
-                      setDraftReplyText(review.sellerReplyText || "");
-                    }}
-                  >
-                    💬 {review.sellerReplyText ? "Edit Seller Reply" : "Reply"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary text-xs px-3 py-1.5"
-                    onClick={() =>
-                      void updateReview(review.id, { verifiedBuyer: !review.verifiedBuyer })
-                    }
-                  >
-                    {review.verifiedBuyer ? "Unmark Verified" : "✓ Mark Verified Buyer"}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {rejectingId === review.id ? (
-                    <div className="flex items-center gap-2 bg-rose-50 p-1.5 rounded border border-rose-200">
-                      <select
-                        className="text-xs border border-rose-300 rounded p-1"
-                        value={rejectionReason}
-                        onChange={(e) => setRejectionReason(e.target.value as any)}
-                      >
-                        <option value="SPAM">Spam / Bot</option>
-                        <option value="PROFANITY">Profanity / Abuse</option>
-                        <option value="UNRELATED">Unrelated Content</option>
-                        <option value="COMPETITOR">Competitor Malice</option>
-                        <option value="OTHER">Other Reason</option>
-                      </select>
-                      <button
-                        type="button"
-                        className="btn bg-rose-600 text-white text-xs px-2 py-1"
-                        onClick={() =>
-                          void updateReview(review.id, { status: "REJECTED", rejectionReason })
-                        }
-                      >
-                        Confirm Reject
-                      </button>
-                      <button
-                        type="button"
-                        className="text-xs text-slate-500 hover:underline"
-                        onClick={() => setRejectingId(null)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    review.status !== "REJECTED" && (
-                      <button
-                        type="button"
-                        className="btn btn-danger text-xs px-3 py-1.5"
-                        onClick={() => setRejectingId(review.id)}
-                      >
-                        🚫 REJECT
-                      </button>
-                    )
-                  )}
-                </div>
-              </div>
-            )}
-          </article>
-        ))}
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Pagination Controls */}
@@ -708,35 +633,44 @@ export function ReviewsManager({
 
       {/* Manual Import Modal */}
       {showManualModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h2 className="text-lg font-bold text-slate-900">➕ Manual Feedback Import (WhatsApp / SMS)</h2>
+        <div className="admin-dialog-backdrop">
+          <div className="admin-dialog card space-y-4 max-w-lg w-full p-6 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div>
+                <span className="eyebrow">OFFLINE FEEDBACK INGESTION</span>
+                <h2 className="text-base font-bold text-ink">➕ Manual Feedback Import</h2>
+              </div>
               <button
                 type="button"
-                className="text-slate-400 hover:text-slate-600 font-bold"
+                className="text-ink/60 hover:text-ink font-bold text-lg p-1"
                 onClick={() => setShowManualModal(false)}
               >
                 ✕
               </button>
             </div>
 
+            {errorMsg && (
+              <div className="p-3 text-xs font-bold rounded-xl bg-rose-100 text-rose-900 border border-rose-300">
+                ⚠️ {errorMsg}
+              </div>
+            )}
+
             <form onSubmit={(e) => void submitManualImport(e)} className="space-y-4">
-              <label className="block text-sm font-medium text-slate-700">
-                Reviewer Display Name *
+              <label className="field text-xs">
+                <span className="font-semibold text-ink">Reviewer Display Name *</span>
                 <input
                   name="displayName"
                   required
                   minLength={2}
-                  className="mt-1 block w-full rounded border-slate-300 p-2 text-sm"
-                  placeholder="Maija Virtanen"
+                  className="text-xs"
+                  placeholder="e.g. Maija Virtanen"
                 />
               </label>
 
-              <div className="grid grid-cols-2 gap-4">
-                <label className="block text-sm font-medium text-slate-700">
-                  Rating *
-                  <select name="rating" defaultValue="5" className="mt-1 block w-full rounded border-slate-300 p-2 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="field text-xs">
+                  <span className="font-semibold text-ink">Rating *</span>
+                  <select name="rating" defaultValue="5" className="text-xs font-bold">
                     <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
                     <option value="4">⭐⭐⭐⭐ (4/5)</option>
                     <option value="3">⭐⭐⭐ (3/5)</option>
@@ -745,9 +679,9 @@ export function ReviewsManager({
                   </select>
                 </label>
 
-                <label className="block text-sm font-medium text-slate-700">
-                  Consent Source *
-                  <select name="acknowledgementSource" defaultValue={sources[0]?.key ?? "WHATSAPP"} className="mt-1 block w-full rounded border-slate-300 p-2 text-sm">
+                <label className="field text-xs">
+                  <span className="font-semibold text-ink">Consent Source *</span>
+                  <select name="acknowledgementSource" defaultValue={sources[0]?.key ?? "WHATSAPP"} className="text-xs font-bold">
                     {sources.map((src) => (
                       <option key={src.key} value={src.key}>
                         {src.labelEn || src.key}
@@ -757,42 +691,49 @@ export function ReviewsManager({
                 </label>
               </div>
 
-              <label className="block text-sm font-medium text-slate-700">
-                Order Ref / Facebook / Phone (Optional)
+              <label className="field text-xs">
+                <span className="font-semibold text-ink">
+                  Order Ref / Facebook / Phone {modalVerifiedChecked && <span className="text-rose-600 font-bold">*</span>}
+                </span>
                 <input
                   name="orderId"
-                  className="mt-1 block w-full rounded border-slate-300 p-2 text-sm"
-                  placeholder="e.g. H-A1B2C, Facebook profile, phone, or leave blank"
+                  className="text-xs"
+                  placeholder="e.g. H-A1B2C, 0401234567, fb/username"
                 />
               </label>
 
-              <label className="block text-sm font-medium text-slate-700">
-                Customer Feedback Quote *
+              <label className="field text-xs">
+                <span className="font-semibold text-ink">Customer Feedback Quote *</span>
                 <textarea
                   name="originalText"
                   required
                   minLength={10}
                   maxLength={2000}
                   rows={3}
-                  className="mt-1 block w-full rounded border-slate-300 p-2 text-sm"
+                  className="text-xs"
                   placeholder="Kiitos mahtavista marjoista! Toriparkin nouto sujui loistavasti..."
                 />
               </label>
 
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <input name="verifiedBuyer" type="checkbox" defaultChecked className="rounded text-emerald-600" />
-                Mark as Verified Buyer (Historical match / verified customer)
+              <label className="field-checkbox text-xs">
+                <input
+                  name="verifiedBuyer"
+                  type="checkbox"
+                  checked={modalVerifiedChecked}
+                  onChange={(e) => setModalVerifiedChecked(e.target.checked)}
+                />
+                <span className="font-semibold">Mark as Verified Buyer (Requires Order Ref or Contact Proof)</span>
               </label>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-line">
                 <button
                   type="button"
-                  className="btn btn-secondary text-sm px-4 py-2"
+                  className="btn btn-secondary text-xs font-semibold py-2 px-4"
                   onClick={() => setShowManualModal(false)}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn bg-emerald-600 text-white text-sm px-4 py-2 font-semibold">
+                <button type="submit" className="btn text-xs font-bold py-2 px-4 shadow-xs">
                   Import Review & Log Consent
                 </button>
               </div>
@@ -801,6 +742,20 @@ export function ReviewsManager({
         </div>
       )}
 
+      {/* Edit Review Modal */}
+      {editingReview && (
+        <EditReviewModal
+          review={editingReview}
+          onClose={() => setEditingReview(null)}
+          onSaved={(updated) => {
+            setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+            setEditingReview(null);
+            setMessage("Review updated successfully.");
+          }}
+        />
+      )}
+
+      {/* Link Identity Modal */}
       {linkingReview && (
         <LinkIdentityModal
           review={linkingReview}

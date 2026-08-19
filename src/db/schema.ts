@@ -107,6 +107,7 @@ export const reviews = sqliteTable(
     sellerReplyText: text("seller_reply_text"),
     sellerRepliedAt: text("seller_replied_at"),
     sellerRepliedBy: text("seller_replied_by"),
+    fulfillmentDate: text("fulfillment_date"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

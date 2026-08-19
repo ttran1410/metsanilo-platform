@@ -63,7 +63,7 @@ export async function listPublishedReviews(
     .select()
     .from(reviews)
     .where(and(eq(reviews.shopId, SHOP_ID), eq(reviews.status, "APPROVED")))
-    .orderBy(desc(reviews.featured), desc(reviews.createdAt));
+    .orderBy(desc(reviews.featured), sql`COALESCE(${reviews.fulfillmentDate}, ${reviews.createdAt}) DESC`);
 
   if (!options?.page || !options?.limit) {
     return all;
@@ -272,7 +272,11 @@ export async function createPublicReview(
 
 export async function listManagerReviews(database: Database) {
   const { SHOP_ID } = env();
-  return database.select().from(reviews).where(eq(reviews.shopId, SHOP_ID)).orderBy(desc(reviews.createdAt));
+  return database
+    .select()
+    .from(reviews)
+    .where(eq(reviews.shopId, SHOP_ID))
+    .orderBy(sql`COALESCE(${reviews.fulfillmentDate}, ${reviews.createdAt}) DESC`);
 }
 
 export async function createManualReview(
@@ -672,5 +676,125 @@ export async function linkReviewToCustomerOrOrder(
   });
 
   return (await database.query.reviews.findFirst({ where: eq(reviews.id, input.reviewId) }))!;
+}
+
+export async function updateFullReview(
+  database: Database,
+  input: {
+    id: string;
+    displayName?: string;
+    rating?: number;
+    source?: "PUBLIC_FORM" | "MANUAL_IMPORT";
+    acknowledgementSource?: string;
+    originalText?: string;
+    displayText?: string;
+    orderId?: string;
+    verifiedBuyer?: boolean;
+    actor: string;
+  },
+) {
+  const { SHOP_ID } = env();
+  const current = await database.query.reviews.findFirst({
+    where: and(eq(reviews.id, input.id), eq(reviews.shopId, SHOP_ID)),
+  });
+
+  if (!current) throw new DomainError("NOT_FOUND", "Review not found", 404);
+
+  const timestamp = now();
+  const payload: Record<string, unknown> = { updatedAt: timestamp };
+
+  if (input.displayName && input.displayName.trim().length >= 2) {
+    payload.displayName = input.displayName.trim();
+  }
+
+  if (input.rating && Number.isInteger(input.rating) && input.rating >= 1 && input.rating <= 5) {
+    payload.rating = input.rating;
+  }
+
+  if (input.source) payload.source = input.source;
+  if (input.acknowledgementSource !== undefined) payload.acknowledgementSource = input.acknowledgementSource?.trim() || null;
+  if (input.originalText && input.originalText.trim().length >= 10) payload.originalText = input.originalText.trim();
+  if (input.displayText !== undefined) payload.displayText = input.displayText ? input.displayText.trim() : null;
+  if (input.verifiedBuyer !== undefined) payload.verifiedBuyer = input.verifiedBuyer;
+
+  if (input.orderId !== undefined) {
+    const queryTerm = input.orderId?.trim();
+    if (!queryTerm) {
+      payload.orderId = null;
+      payload.fulfillmentDate = null;
+    } else {
+      const cleanRef = queryTerm.replace(/^#/, "");
+      const orderMatch = await database.query.orders.findFirst({
+        where: and(
+          eq(orders.shopId, SHOP_ID),
+          or(
+            eq(orders.id, queryTerm),
+            eq(orders.publicReference, queryTerm),
+            eq(orders.publicReference, cleanRef),
+            eq(orders.mobile, queryTerm),
+            eq(orders.email, queryTerm),
+          ),
+        ),
+      });
+      if (orderMatch) {
+        payload.orderId = orderMatch.id;
+        payload.fulfillmentDate = orderMatch.fulfillmentDate;
+        if (!current.customerId && orderMatch.customerId) {
+          payload.customerId = orderMatch.customerId;
+        }
+      }
+    }
+  }
+
+  await database.update(reviews).set(payload).where(eq(reviews.id, input.id));
+
+  await database.insert(auditEntries).values({
+    id: randomUUID(),
+    shopId: SHOP_ID,
+    actor: input.actor,
+    action: "review.updated",
+    entityType: "review",
+    entityId: input.id,
+    detailsJson: JSON.stringify(payload),
+    createdAt: timestamp,
+  });
+
+  await recalculateReviewRollup(database);
+
+  return (await database.query.reviews.findFirst({ where: eq(reviews.id, input.id) }))!;
+}
+
+export async function deleteReview(
+  database: Database,
+  input: {
+    id: string;
+    actor: string;
+  },
+) {
+  const { SHOP_ID } = env();
+  const current = await database.query.reviews.findFirst({
+    where: and(eq(reviews.id, input.id), eq(reviews.shopId, SHOP_ID)),
+  });
+
+  if (!current) throw new DomainError("NOT_FOUND", "Review not found", 404);
+
+  const timestamp = now();
+
+  await database.delete(reviews).where(eq(reviews.id, input.id));
+
+  await database.insert(auditEntries).values({
+    id: randomUUID(),
+    shopId: SHOP_ID,
+    actor: input.actor,
+    action: "review.deleted",
+    entityType: "review",
+    entityId: input.id,
+    detailsJson: JSON.stringify({ displayName: current.displayName, rating: current.rating }),
+    createdAt: timestamp,
+  });
+
+  await recalculateReviewRollup(database);
+
+  return { id: input.id, deleted: true };
 }
 
