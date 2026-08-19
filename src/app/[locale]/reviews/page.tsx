@@ -11,8 +11,8 @@ import { ReviewsHub } from "./reviews-hub";
 export const dynamic = "force-dynamic";
 
 const navCopy = {
-  fi: { how: "Miten varaus toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjat", contact: "Yhteys" },
-  en: { how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve products", contact: "Contact" },
+  fi: { home: "Etusivu", how: "Miten varaus toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjat", contact: "Yhteys" },
+  en: { home: "Home", how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve products", contact: "Contact" },
 };
 
 export default async function ReviewsPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -45,7 +45,8 @@ export default async function ReviewsPage({ params }: { params: Promise<{ locale
               <strong>METSÄNILO</strong>
             </span>
           </Link>
-          <nav className="storefront-nav-links" aria-label="Navigation">
+          <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
+            <Link href={`/${locale}`}>{nav.home}</Link>
             <Link href={`/${locale}/reserve`}>{nav.reserve}</Link>
             <Link href={`/${locale}/how-it-works`}>{nav.how}</Link>
             <Link href={`/${locale}/reviews`} className="nav-link-active">
