@@ -337,10 +337,10 @@ export function ReviewsManager({
 
           {/* Search Box */}
           <div className="relative min-w-[240px]">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search reviewer, contact, quote..."
+              placeholder="Search reviews by reviewer, contact, or feedback quote…"
               className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
               value={searchQuery}
               onChange={(e) => {

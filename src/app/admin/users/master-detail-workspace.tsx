@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Search } from "lucide-react";
 import {
   defaultPermissionsForRole,
   isHighRiskPermission,
@@ -537,15 +538,18 @@ export function MasterDetailUserWorkspace({
         <div className="card p-4 overflow-x-auto border border-line">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3 mb-3">
             <div className="flex items-center gap-2 flex-1 max-w-md">
-              <input
-                placeholder="Search user, email, or role…"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
-              />
+              <div className="relative flex-1">
+                <input
+                  placeholder="Search staff users by name, email, or role…"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full text-xs py-1.5 px-3 pl-9 rounded-lg border border-line bg-surface"
+                />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
+              </div>
 
               <select
                 aria-label="Filter role"
@@ -721,15 +725,18 @@ export function MasterDetailUserWorkspace({
             </div>
 
             <div className="flex items-center gap-2">
-              <input
-                placeholder="Search user, email, or role…"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
-              />
+              <div className="relative flex-1">
+                <input
+                  placeholder="Search staff users by name, email, or role…"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full text-xs py-1.5 px-3 pl-9 rounded-lg border border-line bg-surface"
+                />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
+              </div>
 
               <select
                 aria-label="Filter role"

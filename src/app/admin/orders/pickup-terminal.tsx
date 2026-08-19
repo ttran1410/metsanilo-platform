@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import type { AdminOrder } from "../orders-listing";
 import { AdminStatusBadge, formatAdminMoney } from "../presentation";
 
@@ -120,14 +121,15 @@ export function PickupTerminal({
       {error && <p className="text-xs font-bold text-danger bg-rose-50 p-3 rounded-xl border border-rose-200">{error}</p>}
 
       {/* SEARCH BAR (High-Contrast Large Input) */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 relative">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="🔍 Type Customer Name or Last 4 Digits of Phone (e.g. 4567)…"
-          className="w-full text-base font-medium py-3 px-4 rounded-xl border-2 border-primary bg-surface shadow-sm focus:ring-2 focus:ring-primary/40"
+          placeholder="Search by customer name or last 4 phone digits (e.g. 4567)…"
+          className="w-full text-base font-medium py-3 px-4 pl-10 rounded-xl border-2 border-primary bg-surface shadow-sm focus:ring-2 focus:ring-primary/40"
         />
+        <Search className="w-5 h-5 absolute left-3.5 top-3.5 text-muted pointer-events-none" />
 
         {/* Quick Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">

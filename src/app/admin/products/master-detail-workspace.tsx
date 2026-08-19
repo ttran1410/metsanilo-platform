@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { packages, products } from "@/db/schema";
+import { Search } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLink } from "../ui/admin-row-action-menu";
@@ -382,15 +383,18 @@ export function MasterDetailWorkspace({
         <div className="card p-4 overflow-x-auto border border-line flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
             <div className="flex flex-wrap items-center gap-2 flex-1 max-w-lg">
-              <input
-                placeholder="Search products by name or code…"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="flex-1 text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface"
-              />
+              <div className="relative flex-1">
+                <input
+                  placeholder="Search products by title, SKU, or package size…"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full text-xs py-1.5 px-3 pl-9 rounded-lg border border-line bg-surface"
+                />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
+              </div>
 
               <div className="flex items-center gap-1 text-[11px]">
                 {[
@@ -581,15 +585,18 @@ export function MasterDetailWorkspace({
 
             {/* Search & Filter Controls */}
             <div className="flex flex-col gap-2">
-              <input
-                placeholder="Search products by name or code…"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
-              />
+              <div className="relative w-full">
+                <input
+                  placeholder="Search products by title, SKU, or package size…"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full text-xs py-1.5 px-3 pl-9 rounded-lg border border-line bg-surface"
+                />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
+              </div>
 
               <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
                 {[
