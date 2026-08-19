@@ -821,6 +821,7 @@ export function MasterDetailWorkspace({
                 <div className="flex flex-col gap-4">
                   {/* HARVEST SEASON TIMELINE TRACKER */}
                   <SeasonTracker
+                    productId={selectedRow.product.id}
                     availableFrom={availableFrom}
                     availableThrough={availableThrough}
                     active={active}
