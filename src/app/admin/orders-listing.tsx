@@ -12,7 +12,7 @@ import { PickupTerminal } from "./orders/pickup-terminal";
 import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
 import { AdminPagination } from "./ui/admin-pagination";
-import { AdminRowActionMenu, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
+import { AdminRowActionMenu, IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
 
 export type AdminOrder = typeof orders.$inferSelect & {
   paidCents?: number;
@@ -47,9 +47,9 @@ function formatOrderSourceBadge(order: AdminOrder) {
     WHATSAPP: { label: "WhatsApp", icon: "💬" },
     FACEBOOK_MESSAGE: { label: "Facebook", icon: "📘" },
     FACEBOOK: { label: "Facebook", icon: "📘" },
-    MANUAL: { label: "Phone / Manual", icon: "📞" },
-    PHONE: { label: "Phone / Manual", icon: "📞" },
-    HISTORICAL: { label: "Phone / Manual", icon: "📞" },
+    MANUAL: { label: "Phone", icon: "📞" },
+    PHONE: { label: "Phone", icon: "📞" },
+    HISTORICAL: { label: "Phone", icon: "📞" },
   };
 
   const info = srcMap[order.orderSource?.toUpperCase() ?? "WEBSITE"] ?? {
@@ -58,14 +58,17 @@ function formatOrderSourceBadge(order: AdminOrder) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1">
-      <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-muted border border-line flex items-center gap-1 text-ink">
+    <div className="inline-flex items-center gap-1">
+      <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-muted border border-line inline-flex items-center gap-1 text-ink">
         <span>{info.icon}</span>
         <span>{info.label}</span>
       </span>
       {order.historicalEntry && (
-        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-200">
-          📜 Historical
+        <span
+          className="text-xs cursor-help select-none"
+          title="Imported from Historical CSV record"
+        >
+          📜
         </span>
       )}
     </div>
@@ -186,6 +189,18 @@ export function OrdersListing({
     { key: "FACEBOOK_MESSAGE", labelEn: "📘 Facebook Message" },
     { key: "MANUAL", labelEn: "📞 Manual / Phone" },
   ]);
+
+  const [sortField, setSortField] = useState<"fulfillment" | "ref" | "customer" | "source" | "payment" | "status">("fulfillment");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  function handleHeaderSort(field: "fulfillment" | "ref" | "customer" | "source" | "payment" | "status") {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection(field === "ref" || field === "customer" ? "asc" : "desc");
+    }
+  }
 
   const [selected, setSelected] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
@@ -481,8 +496,29 @@ export function OrdersListing({
     if (view === "TRIAGE") {
       return [...filtered].sort((a, b) => orderTriageScore(b) - orderTriageScore(a));
     }
-    return [...filtered].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [filtered, view]);
+    const list = [...filtered];
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortField === "ref") {
+        cmp = a.publicReference.localeCompare(b.publicReference);
+      } else if (sortField === "customer") {
+        cmp = a.customerName.localeCompare(b.customerName);
+      } else if (sortField === "fulfillment") {
+        cmp = (a.fulfillmentDate || "").localeCompare(b.fulfillmentDate || "");
+      } else if (sortField === "source") {
+        cmp = (a.orderSource || "").localeCompare(b.orderSource || "");
+      } else if (sortField === "payment") {
+        cmp = (a.paymentStatus || "").localeCompare(b.paymentStatus || "");
+      } else if (sortField === "status") {
+        cmp = a.status.localeCompare(b.status);
+      }
+      if (cmp === 0) {
+        cmp = b.createdAt.localeCompare(a.createdAt);
+      }
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
+    return list;
+  }, [filtered, view, sortField, sortDirection]);
 
   const visibleRows = useMemo(() => {
     const start = (page - 1) * limit;
@@ -922,13 +958,43 @@ export function OrdersListing({
                       onChange={(e) => setSelected(e.target.checked ? visibleRows.map((r) => r.id) : [])}
                     />
                   </th>
-                  <th className="p-3">Order Ref</th>
-                  <th className="p-3">Customer</th>
-                  <th className="p-3">Fulfillment</th>
-                  <th className="p-3">Source</th>
+                  {[
+                    { key: "ref", label: "Order Ref" },
+                    { key: "customer", label: "Customer" },
+                    { key: "fulfillment", label: "Fulfillment" },
+                    { key: "source", label: "Source" },
+                  ].map((col) => (
+                    <th
+                      key={col.key}
+                      className="p-3 cursor-pointer select-none hover:bg-slate-200/60 transition-colors"
+                      onClick={() => handleHeaderSort(col.key as any)}
+                    >
+                      <div className="inline-flex items-center gap-1">
+                        <span>{col.label}</span>
+                        <span className={`text-[10px] font-bold ${sortField === col.key ? "text-primary opacity-100" : "text-slate-400 opacity-40"}`}>
+                          {sortField === col.key ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                        </span>
+                      </div>
+                    </th>
+                  ))}
                   <th className="p-3">Items &amp; Vol</th>
-                  <th className="p-3">Payment</th>
-                  <th className="p-3">Status</th>
+                  {[
+                    { key: "payment", label: "Payment" },
+                    { key: "status", label: "Status" },
+                  ].map((col) => (
+                    <th
+                      key={col.key}
+                      className="p-3 cursor-pointer select-none hover:bg-slate-200/60 transition-colors"
+                      onClick={() => handleHeaderSort(col.key as any)}
+                    >
+                      <div className="inline-flex items-center gap-1">
+                        <span>{col.label}</span>
+                        <span className={`text-[10px] font-bold ${sortField === col.key ? "text-primary opacity-100" : "text-slate-400 opacity-40"}`}>
+                          {sortField === col.key ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                        </span>
+                      </div>
+                    </th>
+                  ))}
                   <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -958,9 +1024,23 @@ export function OrdersListing({
                       </td>
 
                       <td className="p-3 font-bold">
-                        <Link className="text-primary hover:underline font-mono" href={`/admin/orders/${order.id}`}>
-                          {order.publicReference}
-                        </Link>
+                        <div className="inline-flex items-center gap-1.5">
+                          <Link className="text-primary hover:underline font-mono" href={`/admin/orders/${order.id}`}>
+                            {order.publicReference}
+                          </Link>
+                          <button
+                            type="button"
+                            title="Copy Order Reference"
+                            className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void navigator.clipboard.writeText(order.publicReference);
+                              setNotice(`Copied ${order.publicReference} to clipboard.`);
+                            }}
+                          >
+                            <IconCopy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                         <span className="muted block text-[11px] font-normal">{order.createdAt.slice(0, 10)}</span>
                       </td>
 
