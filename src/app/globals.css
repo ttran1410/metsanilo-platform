@@ -1618,3 +1618,25 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   .admin-orders-header > div:last-child > a { flex: 1 1 100%; justify-content: center; }
   .admin-orders-workspace .admin-orders-table-wrap { overflow: visible; }
 }
+
+/* Customers workspace: make relationship signals visible before profile detail. */
+.admin-customers-workspace { gap: 1.25rem; }
+.admin-customers-workspace > .grid > .card { min-height: 6.5rem; border-color: #d4e0d8; box-shadow: 0 7px 20px rgb(23 55 43 / 5%); }
+.admin-customers-workspace > .grid > .card strong { font-variant-numeric: tabular-nums; }
+.admin-customers-workspace > .card { border-color: #d4e0d8; box-shadow: 0 8px 24px rgb(23 55 43 / 5%); }
+.admin-customers-workspace > .card > div:last-child { border-color: #cbd9d0; background: #e9f0eb; padding: .2rem; border-radius: .7rem; }
+.admin-customers-workspace > .card > div:last-child button { min-height: 2.35rem; border-radius: .55rem; }
+.admin-customers-workspace > .flex.items-center.gap-1\.5 { gap: .45rem; }
+.admin-customers-workspace > .flex.items-center.gap-1\.5 button { min-height: 2.4rem; border: 1px solid transparent; }
+.admin-customers-workspace table thead { background: #eef4ef; }
+.admin-customers-workspace table th { color: #557062; }
+.admin-customers-workspace table tbody tr:hover { background: #f0f7f2; }
+.admin-customers-workspace .admin-user-row.selected { border-color: var(--moss); background: #edf5ef; box-shadow: inset 3px 0 var(--ops-info); }
+@media (max-width: 760px) {
+  .admin-customers-workspace { padding-inline: .85rem; }
+  .admin-customers-workspace > .grid > .card { min-height: 5.75rem; }
+  .admin-customers-workspace > .card { padding: .8rem; }
+  .admin-customers-workspace > .card > div:first-child { align-items: stretch; }
+  .admin-customers-workspace > .card > div:first-child > div { width: 100%; }
+  .admin-customers-workspace > .card > div:last-child { width: 100%; justify-content: center; }
+}
