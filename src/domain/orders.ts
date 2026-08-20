@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, desc, eq, gte, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, availability, customers, fulfillmentLocations, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -372,6 +372,42 @@ export async function getManagerOrder(database: Database, orderId: string) {
   return { order, notes, payments, audit, paymentSummary: { paidCents, refundedCents, outstandingCents: Math.max(0, totalCents - paidCents + refundedCents), status: refundedCents >= totalCents && totalCents > 0 ? "REFUNDED" : refundedCents > 0 ? "PARTIALLY_REFUNDED" : paidCents >= totalCents && totalCents > 0 ? "PAID" : "PENDING" } };
 }
 
+export async function getOrderQueue(database: Database, options?: { productId?: string; seasonId?: string; from?: string; to?: string }) {
+  const shopId = env().SHOP_ID;
+  const rows = await database.select().from(orders).where(and(
+    eq(orders.shopId, shopId),
+    inArray(orders.status, ["CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY"]),
+    options?.productId ? eq(orders.productId, options.productId) : undefined,
+    options?.seasonId ? eq(orders.seasonId, options.seasonId) : undefined,
+    options?.from ? gte(orders.fulfillmentDate, options.from) : undefined,
+    options?.to ? lte(orders.fulfillmentDate, options.to) : undefined,
+  )).orderBy(asc(orders.fulfillmentDate), asc(orders.createdAt));
+
+  const item = (order: typeof rows[number]) => ({
+    id: order.id,
+    publicReference: order.publicReference,
+    customerName: order.customerName,
+    productId: order.productId,
+    productNameFi: order.productNameFi,
+    packageLabelFi: order.packageLabelFi,
+    fulfillmentDate: order.fulfillmentDate,
+    fulfillmentMethod: order.fulfillmentMethod,
+    status: order.status,
+    quantity: order.quantity,
+    volumeMl: order.volumeMl,
+    seasonId: order.seasonId,
+    version: order.version,
+  });
+
+  return {
+    asOf: nowIso(),
+    total: rows.length,
+    picking: rows.filter((order) => order.status === "CONFIRMED" || order.status === "PICKING").map(item),
+    pickup: rows.filter((order) => order.status === "READY" && order.fulfillmentMethod === "PICKUP").map(item),
+    delivery: rows.filter((order) => (order.status === "READY" || order.status === "OUT_FOR_DELIVERY") && order.fulfillmentMethod === "DELIVERY").map(item),
+  };
+}
+
 const completedOrderStatuses = ["PICKED_UP", "DELIVERED", "CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "CUSTOMER_DECLINED", "REFUNDED"] as const;
 
 export type ManagerOrderUpdate = {
@@ -394,6 +430,33 @@ export type ManagerOrderUpdate = {
   agreedItemSubtotalCents?: number;
   adjustmentReason?: string;
 };
+
+export async function previewManagerOrderUpdate(database: Database, input: ManagerOrderUpdate) {
+  const shopId = env().SHOP_ID;
+  const current = await database.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, shopId)) });
+  if (!current) throw new DomainError("NOT_FOUND", "Order not found", 404);
+  if (current.version !== input.expectedVersion) throw new DomainError("STALE_VERSION", "Order changed", 409);
+
+  const productId = input.productId ?? current.productId;
+  const packageId = input.packageId ?? current.packageId;
+  const quantity = input.quantity ?? current.quantity;
+  const fulfillmentDate = input.fulfillmentDate ?? current.fulfillmentDate;
+  const packageRow = await database.query.packages.findFirst({ where: and(eq(packages.id, packageId), eq(packages.productId, productId), eq(packages.shopId, shopId)) });
+  if (!packageRow) throw new DomainError("NOT_FOUND", "Product package not found", 404);
+  const nextVolumeMl = packageRow.volumeMl * quantity;
+  const nextSeasonId = (await getHarvestSeasonForDate(database, productId, fulfillmentDate))?.id ?? null;
+  const currentSeasonId = current.seasonId ?? (await getHarvestSeasonForDate(database, current.productId, current.fulfillmentDate))?.id ?? null;
+  const capacityChanged = current.productId !== productId || current.fulfillmentDate !== fulfillmentDate || current.volumeMl !== nextVolumeMl;
+  const target = capacityChanged ? await database.query.availability.findFirst({ where: and(eq(availability.shopId, shopId), eq(availability.productId, productId), nextSeasonId ? eq(availability.seasonId, nextSeasonId) : isNull(availability.seasonId), eq(availability.businessDate, fulfillmentDate)) }) : null;
+
+  return {
+    orderId: current.id,
+    expectedVersion: current.version,
+    current: { productId: current.productId, fulfillmentDate: current.fulfillmentDate, volumeMl: current.volumeMl, seasonId: currentSeasonId, itemSubtotalCents: current.itemSubtotalCents },
+    next: { productId, fulfillmentDate, volumeMl: nextVolumeMl, seasonId: nextSeasonId, itemSubtotalCents: packageRow.priceCents * quantity },
+    capacity: { changed: capacityChanged, releaseMl: capacityChanged ? current.volumeMl : 0, reserveMl: capacityChanged ? nextVolumeMl : 0, targetAvailableMl: target ? Math.max(0, target.capacityMl - target.reservedMl) : null, canReserve: !capacityChanged || Boolean(target && target.acceptsOrders && !target.manualSoldOut && target.capacityMl - target.reservedMl >= nextVolumeMl) },
+  };
+}
 
 /** Update an open order while keeping catalog snapshots and capacity consistent. */
 export async function updateManagerOrder(database: Database, input: ManagerOrderUpdate) {
