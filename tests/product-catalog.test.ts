@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { createDatabaseConnection, type Database } from "@/db/client";
-import { shops } from "@/db/schema";
-import { createProduct, listManagerProducts, reorderProducts, setProductActive } from "@/domain/products";
+import { availability, harvestSeasons, shops } from "@/db/schema";
+import { createProduct, getProductReadiness, listManagerProducts, reorderProducts, setProductActive } from "@/domain/products";
 import { getPublicCatalog } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
 
@@ -141,5 +141,33 @@ describe("Product Catalog Reordering & Archiving", () => {
     expect(item).toBeDefined();
     expect(item!.product.availableFrom).toBe("2099-08-24");
     expect(item!.product.availableThrough).toBe("2099-10-16");
+  });
+
+  it("reports product readiness blockers and becomes ready with season capacity", async () => {
+    const product = await createProduct(database, {
+      code: "READINESS",
+      slug: "readiness",
+      nameFi: "Valmius",
+      nameEn: "Readiness",
+      descriptionFi: "",
+      descriptionEn: "",
+      availableFrom: "2099-06-01",
+      availableThrough: "2099-08-31",
+      active: true,
+      packages: [{ labelFi: "5L", labelEn: "5L", volumeMl: 5000, priceCents: 4000, active: true }],
+    });
+
+    const before = await getProductReadiness(database, product.product.id);
+    expect(before.ready).toBe(false);
+    expect(before.blockers).toContain("harvestSeason");
+    expect(before.pricing.seasonAware).toBe(false);
+
+    const seasonId = "readiness-season";
+    await database.insert(harvestSeasons).values({ id: seasonId, shopId: "shop-default", productId: product.product.id, nameFi: "Kesä", nameEn: "Summer", startDate: "2099-06-01", endDate: "2099-08-31", status: "UPCOMING", targetVolumeMl: 10000, notes: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    await database.insert(availability).values({ id: "readiness-availability", shopId: "shop-default", productId: product.product.id, seasonId, businessDate: "2099-06-01", capacityMl: 10000, reservedMl: 0, acceptsOrders: true, manualSoldOut: false, version: 1, updatedAt: new Date().toISOString() });
+
+    const after = await getProductReadiness(database, product.product.id);
+    expect(after.ready).toBe(true);
+    expect(after.blockers).toEqual([]);
   });
 });

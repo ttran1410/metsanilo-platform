@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, gt, inArray, lt, or } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, mediaAttachments, mediaAssets, orders, packages, products } from "@/db/schema";
+import { auditEntries, availability, harvestSeasons, mediaAttachments, mediaAssets, orders, packages, products } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 
@@ -85,6 +85,40 @@ export async function listManagerProducts(database: Database, productIds?: strin
     .innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId))
     .where(and(eq(mediaAttachments.shopId, shopId), productIds?.length ? inArray(mediaAttachments.productId, productIds) : undefined)).orderBy(asc(mediaAttachments.sortOrder));
   return [...grouped.values()].map((item) => ({ ...item, packages: [...item.packages].sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.sortOrder - b.sortOrder || b.volumeMl - a.volumeMl), media: media.filter((row) => row.attachment.productId === item.product.id).map((row) => ({ ...row.asset, attachmentId: row.attachment.id, sortOrder: row.attachment.sortOrder, isPrimary: row.attachment.isPrimary })) }));
+}
+
+export async function getProductReadiness(database: Database, productId: string) {
+  const shopId = env().SHOP_ID;
+  const product = await database.query.products.findFirst({ where: and(eq(products.id, productId), eq(products.shopId, shopId)) });
+  if (!product) throw new DomainError("NOT_FOUND", "Product not found", 404);
+
+  const [packageRows, seasonRows, availabilityRows] = await Promise.all([
+    database.select().from(packages).where(and(eq(packages.productId, productId), eq(packages.shopId, shopId))),
+    database.select({ id: harvestSeasons.id }).from(harvestSeasons).where(and(eq(harvestSeasons.productId, productId), eq(harvestSeasons.shopId, shopId))),
+    database.select({ id: availability.id }).from(availability).where(and(eq(availability.productId, productId), eq(availability.shopId, shopId))),
+  ]);
+
+  const checks = {
+    active: product.active,
+    bilingualName: Boolean(product.nameFi.trim() && product.nameEn.trim()),
+    activePackage: packageRows.some((item) => item.active),
+    defaultPackage: packageRows.some((item) => item.active && item.isDefault),
+    harvestSeason: seasonRows.length > 0,
+    availability: availabilityRows.length > 0,
+  };
+  const blockers = Object.entries(checks).filter(([, passed]) => !passed).map(([key]) => key);
+
+  return {
+    productId,
+    ready: blockers.length === 0,
+    checks,
+    blockers,
+    pricing: {
+      model: "PACKAGE_CATALOG" as const,
+      seasonAware: false,
+      decision: "Package prices are global; season-specific pricing requires an explicit future pricing model.",
+    },
+  };
 }
 
 export async function createProduct(database: Database, input: ProductInput & { packages: PackageInput[] }) {
