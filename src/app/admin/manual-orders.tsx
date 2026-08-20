@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminNotice, AdminPageHeader } from "./presentation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
@@ -173,9 +174,9 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
         title={historical ? "Record historical order" : "Create manual order"}
         description="Create a manual customer order or record a completed historical order."
         actions={
-          <a className="btn btn-secondary" href="/admin/orders">
+          <Link className="btn btn-secondary" href="/admin/orders">
             ← Back to orders
-          </a>
+          </Link>
         }
       />
 
