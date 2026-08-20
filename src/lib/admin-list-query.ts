@@ -31,3 +31,7 @@ export function hasListQuery(request: Request) {
   const params = new URL(request.url).searchParams;
   return ["q", "page", "pageSize"].some((key) => params.has(key));
 }
+
+export function adminQueryParam(request: Request, name: string) {
+  return new URL(request.url).searchParams.get(name) ?? undefined;
+}

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, like, or, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNotNull, like, lte, or, inArray } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, orderPayments, orders, products, reviews, users, userPermissions } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -11,10 +11,17 @@ function contains(value: string) {
   return `%${value.replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
 }
 
-export async function searchManagerReviews(database: Database, query: AdminListQuery) {
+export async function searchManagerReviews(database: Database, query: AdminListQuery, filters?: { status?: string; rating?: number; verification?: string; productId?: string; source?: string; featured?: boolean; hasReply?: boolean }) {
   const shopId = env().SHOP_ID;
   const filter = and(
     eq(reviews.shopId, shopId),
+    filters?.status ? eq(reviews.status, filters.status as typeof reviews.status.enumValues[number]) : undefined,
+    filters?.rating ? eq(reviews.rating, filters.rating) : undefined,
+    filters?.verification ? eq(reviews.verificationType, filters.verification as typeof reviews.verificationType.enumValues[number]) : undefined,
+    filters?.productId ? eq(reviews.productId, filters.productId) : undefined,
+    filters?.source ? eq(reviews.source, filters.source as typeof reviews.source.enumValues[number]) : undefined,
+    filters?.featured === undefined ? undefined : eq(reviews.featured, filters.featured),
+    filters?.hasReply === true ? isNotNull(reviews.sellerReplyText) : undefined,
     query.q
       ? or(
           like(reviews.displayName, contains(query.q)),
@@ -30,10 +37,12 @@ export async function searchManagerReviews(database: Database, query: AdminListQ
   return paged(items, total, query);
 }
 
-export async function searchUsers(database: Database, query: AdminListQuery) {
+export async function searchUsers(database: Database, query: AdminListQuery, filters?: { role?: string; active?: boolean }) {
   const shopId = env().SHOP_ID;
   const filter = and(
     eq(users.shopId, shopId),
+    filters?.role ? eq(users.role, filters.role as typeof users.role.enumValues[number]) : undefined,
+    filters?.active === undefined ? undefined : eq(users.active, filters.active),
     query.q ? or(like(users.displayName, contains(query.q)), like(users.email, contains(query.q)), like(users.username, contains(query.q))) : undefined,
   );
   const [{ total }] = await database.select({ total: count() }).from(users).where(filter);
@@ -51,10 +60,17 @@ export async function searchUsers(database: Database, query: AdminListQuery) {
   return paged(items, total, query);
 }
 
-export async function searchManagerOrders(database: Database, query: AdminListQuery) {
+export async function searchManagerOrders(database: Database, query: AdminListQuery, filters?: { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; from?: string; to?: string }) {
   const shopId = env().SHOP_ID;
   const filter = and(
     eq(orders.shopId, shopId),
+    filters?.status ? eq(orders.status, filters.status as typeof orders.status.enumValues[number]) : undefined,
+    filters?.fulfillmentMethod ? eq(orders.fulfillmentMethod, filters.fulfillmentMethod as typeof orders.fulfillmentMethod.enumValues[number]) : undefined,
+    filters?.productId ? eq(orders.productId, filters.productId) : undefined,
+    filters?.seasonId ? eq(orders.seasonId, filters.seasonId) : undefined,
+    filters?.archived === undefined ? undefined : eq(orders.archived, filters.archived),
+    filters?.from ? gte(orders.fulfillmentDate, filters.from) : undefined,
+    filters?.to ? lte(orders.fulfillmentDate, filters.to) : undefined,
     query.q
       ? or(
           like(orders.publicReference, contains(query.q)),

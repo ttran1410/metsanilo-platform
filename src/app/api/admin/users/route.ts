@@ -3,7 +3,7 @@ import { db } from "@/db/client";
 import { createUser, listUsers } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../response";
-import { hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
+import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
 import { searchUsers } from "@/domain/admin-search";
 
 export const runtime = "nodejs";
@@ -11,7 +11,10 @@ const command = z.object({ email: z.string().email(), displayName: z.string(), r
 
 export async function GET(request: Request) {
   try {
-    if (hasListQuery(request)) return success(await searchUsers(db(), parseAdminListQuery(request)));
+    if (hasListQuery(request)) return success(await searchUsers(db(), parseAdminListQuery(request), {
+      role: adminQueryParam(request, "role"),
+      active: adminQueryParam(request, "status") === undefined ? undefined : adminQueryParam(request, "status") === "active",
+    }));
     return success(await listUsers(db(), request));
   } catch (error) { return failure(error); }
 }
