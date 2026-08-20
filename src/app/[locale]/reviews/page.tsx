@@ -24,6 +24,7 @@ export default async function ReviewsPage({ params }: { params: Promise<{ locale
 
   const data = await getPublicCatalog(db());
   const published = await listPublishedReviews(db());
+  const publishedRows = Array.isArray(published) ? published : published.items;
   const rollup = await getReviewRollup(db());
   const nav = navCopy[locale];
   const other = locale === "fi" ? "en" : "fi";
@@ -64,7 +65,7 @@ export default async function ReviewsPage({ params }: { params: Promise<{ locale
 
       {/* Main Social Proof Hub */}
       <div className="shell py-8">
-        <ReviewsHub locale={locale} initialReviews={published as any} rollup={rollup} />
+          <ReviewsHub locale={locale} initialReviews={publishedRows} rollup={rollup} />
       </div>
 
       {/* Footer */}
