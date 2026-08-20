@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import {
   defaultPermissionsForRole,
@@ -203,10 +204,15 @@ export function MasterDetailUserWorkspace({
   canAssignPermissions: boolean;
   canResetPasswords: boolean;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [usersList, setUsersList] = useState(initialUsers);
-  const [selectedId, setSelectedId] = useState<string>(initialUsers[0]?.id ?? "");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"ALL" | Role>("ALL");
+  const [selectedId, setSelectedId] = useState<string>(searchParams.get("user") ?? initialUsers[0]?.id ?? "");
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
+  const [roleFilter, setRoleFilter] = useState<"ALL" | Role>(() => {
+    const role = searchParams.get("role");
+    return role === "ADMIN" || role === "MANAGER" || role === "STAFF" || role === "CONTENT_CREATOR" ? role : "ALL";
+  });
   const [viewMode, setViewMode] = useState<"split" | "table">("split");
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
 
@@ -267,6 +273,15 @@ export function MasterDetailUserWorkspace({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [splitLimit, setSplitLimit] = useState(20);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (searchQuery) next.set("q", searchQuery); else next.delete("q");
+    if (roleFilter !== "ALL") next.set("role", roleFilter); else next.delete("role");
+    if (selectedId) next.set("user", selectedId); else next.delete("user");
+    if (currentPage > 1) next.set("page", String(currentPage)); else next.delete("page");
+    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+  }, [currentPage, roleFilter, router, searchParams, searchQuery, selectedId]);
 
   useEffect(() => {
     // Return to the first page when roster filters change.
