@@ -1568,6 +1568,28 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .admin-overview-error { display: grid; max-width: 34rem; gap: .6rem; margin: 4rem auto; border: 1px solid #e3aeba; background: var(--error-surface); color: var(--error-surface-text); padding: 1.25rem; }.admin-overview-error strong { font-size: .9rem; }.admin-overview-error span { font-size: .8rem; }.admin-overview-error .btn { width: fit-content; }
 @media (max-width: 760px) { .admin-overview { width: min(100% - 1.5rem, 78rem); padding-top: 1.5rem; }.admin-overview-intro { align-items: start; flex-direction: column; }.admin-overview-clock { width: 100%; border-top: 1px solid var(--admin-border); border-left: 0; padding: .8rem 0 0; }.admin-overview-spine { grid-template-columns: repeat(5, minmax(7.5rem, 1fr)); overflow-x: auto; }.admin-overview-stage { min-width: 7.5rem; }.admin-overview-grid, .admin-overview-lookahead { grid-template-columns: 1fr; }.admin-overview-queue article { align-items: start; flex-direction: column; }.admin-overview-queue article > div:last-child { width: 100%; justify-content: space-between; }.admin-overview-heading { align-items: start; flex-direction: column; }.admin-overview-heading > a { margin-top: .2rem; } }
 
+/* Catalog workspace: make product state scannable before opening the editor. */
+.admin-catalog-workspace { gap: 1.25rem; }
+.admin-catalog-workspace > .grid > .card { min-height: 7.5rem; border-color: #d4e0d8; box-shadow: 0 7px 20px rgb(23 55 43 / 5%); }
+.admin-catalog-workspace > .grid > .card .eyebrow { color: #557062; }
+.admin-catalog-workspace > .grid > .card p { font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.admin-catalog-workspace > .flex-wrap { border-color: #cbd9d0; background: #f7faf7; padding: .65rem; }
+.admin-catalog-workspace > .flex-wrap > div:first-child { background: #e9f0eb; border-color: #cbd9d0; padding: .2rem; border-radius: .7rem; }
+.admin-catalog-workspace > .flex-wrap > div:first-child .btn { min-height: 2.45rem; border-radius: .55rem; }
+.admin-catalog-workspace .card { border-color: #d4e0d8; }
+.admin-catalog-workspace table thead { background: #eef4ef; }
+.admin-catalog-workspace table th { color: #557062; }
+.admin-catalog-workspace table tbody tr:hover { background: #f0f7f2; }
+.admin-catalog-workspace .admin-product-summary { border-color: #cbd9d0; }
+@media (max-width: 760px) {
+  .admin-catalog-workspace { padding-inline: .85rem; }
+  .admin-catalog-workspace > .flex-wrap { align-items: stretch; }
+  .admin-catalog-workspace > .flex-wrap > div:first-child,
+  .admin-catalog-workspace > .flex-wrap > .btn,
+  .admin-catalog-workspace > .flex-wrap > a { width: 100%; justify-content: center; }
+  .admin-catalog-workspace > .grid > .card { min-height: 6.5rem; }
+}
+
 /* Orders workspace: keep the queue legible when the operator is moving quickly. */
 .admin-orders-workspace { gap: 1.25rem; }
 .admin-orders-header { border-bottom-color: #cbd9d0; padding-bottom: 1rem; }

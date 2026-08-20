@@ -1,0 +1,17 @@
+import type { Meta, StoryObj } from "@storybook/react";
+
+const products = [
+  { name: "Metsamustikka", code: "BERRY-01", season: "15 Jul – 30 Sep", packages: 4, status: "In season", featured: true },
+  { name: "Kantarelli", code: "MUSH-02", season: "01 Aug – 15 Oct", packages: 3, status: "Upcoming", featured: false },
+  { name: "Kuusenkerkkä", code: "SPRUCE-03", season: "01 May – 30 Jun", packages: 2, status: "Archived", featured: true },
+];
+
+function CatalogPreview({ selected = false }: { selected?: boolean }) {
+  return <main className="admin-catalog-workspace shell pb-10"><div className="grid gap-3 grid-cols-2 md:grid-cols-4"><div className="card p-3.5"><span className="eyebrow">Total varieties</span><p className="text-2xl font-black">12</p><span className="text-xs">Catalog products</span></div><div className="card p-3.5"><span className="eyebrow">In season now</span><p className="text-2xl font-black">4</p><span className="text-xs">Harvest window open</span></div><div className="card p-3.5"><span className="eyebrow">Active packages</span><p className="text-2xl font-black">18</p><span className="text-xs">Available SKUs</span></div><div className="card p-3.5"><span className="eyebrow">Storefront highlights</span><p className="text-2xl font-black">6</p><span className="text-xs">Homepage display</span></div></div><div className="flex flex-wrap items-center justify-between gap-3 bg-surface-muted rounded-xl border border-line"><div className="flex items-center gap-2"><button className="btn" type="button">Split view</button><button className="btn btn-secondary" type="button">Table matrix</button></div><button className="btn" type="button">New product</button></div><div className="admin-catalog-layout grid gap-4"><section className="card p-4"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3"><input aria-label="Search products" placeholder="Search title, SKU or package" /><span className="text-xs">3 products</span></div><div className="grid gap-2 mt-3">{products.map((product) => <button className={`admin-user-row ${selected && product.name === "Metsamustikka" ? "selected" : ""}`} key={product.code} type="button"><span className="admin-user-row-copy"><strong>{product.name}</strong><small>{product.code} · {product.season}</small></span><span className="status-pill status-active">{product.status}</span><span className="text-xs">{product.packages} SKUs</span></button>)}</div></section><section className="card p-5"><p className="eyebrow">Selected product</p><h2>Metsamustikka</h2><p className="text-sm muted">Bilingual content, package ladder, media, and channel visibility stay together.</p><div className="grid grid-cols-2 gap-2 mt-5"><div className="card p-3"><span className="text-xs muted">Finnish title</span><strong>Metsamustikka</strong></div><div className="card p-3"><span className="text-xs muted">Active packages</span><strong>4 SKUs</strong></div></div><div className="profile-actions mt-5"><button className="btn btn-secondary" type="button">Preview storefront</button><button className="btn" type="button">Save changes</button></div></section></div></main>;
+}
+
+const meta = { title: "Admin / Catalog", component: CatalogPreview, parameters: { layout: "fullscreen" }, argTypes: { selected: { control: "boolean" } } } satisfies Meta<typeof CatalogPreview>;
+export default meta;
+type Story = StoryObj<typeof meta>;
+export const MasterDetail: Story = { args: { selected: true } };
+export const EmptySelection: Story = { args: { selected: false } };
