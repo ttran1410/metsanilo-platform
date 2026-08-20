@@ -149,6 +149,31 @@ export async function createHarvestSeason(
   return newSeason;
 }
 
+export async function cloneHarvestSeason(
+  database: Database,
+  sourceSeasonId: string,
+  overrides: Partial<Pick<typeof harvestSeasons.$inferInsert, "nameFi" | "nameEn" | "startDate" | "endDate" | "status" | "targetVolumeMl" | "notes">>,
+  actorEmail?: string,
+  expectedProductId?: string,
+) {
+  const source = await database.query.harvestSeasons.findFirst({
+    where: and(eq(harvestSeasons.id, sourceSeasonId), eq(harvestSeasons.shopId, env().SHOP_ID)),
+  });
+  if (!source) throw new DomainError("NOT_FOUND", "Harvest season not found", 404);
+  if (expectedProductId && source.productId !== expectedProductId) throw new DomainError("NOT_FOUND", "Harvest season not found", 404);
+
+  return createHarvestSeason(database, {
+    productId: source.productId,
+    nameFi: overrides.nameFi ?? `${source.nameFi} copy`,
+    nameEn: overrides.nameEn ?? `${source.nameEn} copy`,
+    startDate: overrides.startDate ?? source.startDate,
+    endDate: overrides.endDate ?? source.endDate,
+    status: overrides.status,
+    targetVolumeMl: overrides.targetVolumeMl !== undefined ? overrides.targetVolumeMl : source.targetVolumeMl,
+    notes: overrides.notes !== undefined ? overrides.notes : source.notes,
+  }, actorEmail);
+}
+
 export async function updateHarvestSeason(
   database: Database,
   seasonId: string,

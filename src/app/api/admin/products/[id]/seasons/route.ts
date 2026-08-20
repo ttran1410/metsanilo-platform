@@ -2,7 +2,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { requirePermission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
-import { createHarvestSeason, listHarvestSeasons } from "@/domain/seasons";
+import { cloneHarvestSeason, createHarvestSeason, listHarvestSeasons } from "@/domain/seasons";
 import { failure, success } from "../../../../response";
 
 export const runtime = "nodejs";
@@ -12,6 +12,18 @@ const createSeasonSchema = z.object({
   nameEn: z.string().min(2).max(120),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  status: z.enum(["UPCOMING", "ACTIVE", "PAUSED", "COMPLETED"]).optional(),
+  targetVolumeMl: z.number().optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+
+const cloneSeasonSchema = z.object({
+  action: z.literal("clone"),
+  sourceSeasonId: z.string().min(1),
+  nameFi: z.string().min(2).max(120).optional(),
+  nameEn: z.string().min(2).max(120).optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   status: z.enum(["UPCOMING", "ACTIVE", "PAUSED", "COMPLETED"]).optional(),
   targetVolumeMl: z.number().optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
@@ -34,7 +46,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const actorName = actor.email ?? actor.username ?? actor.id;
     const { id } = await context.params;
 
-    const parsed = createSeasonSchema.safeParse(await request.json());
+    const payload = await request.json();
+    const clone = cloneSeasonSchema.safeParse(payload);
+    if (clone.success) {
+      const season = await cloneHarvestSeason(db(), clone.data.sourceSeasonId, clone.data, actorName, id);
+      return success(season, 201);
+    }
+
+    const parsed = createSeasonSchema.safeParse(payload);
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season inputs", 422);
 
     const season = await createHarvestSeason(
