@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { useState } from "react";
 import { AdminOverview } from "./overview";
 import type { DashboardData } from "./dashboard";
+import { AdminEmptyState, AdminLoadingState, AdminNotice, AdminPageHeader } from "./presentation";
 
 const fixture: DashboardData = {
   businessDate: "Thursday, 20 August",
@@ -29,8 +31,25 @@ const fixture: DashboardData = {
   activity: [],
 };
 
-const meta = { title: "Admin / Overview", component: AdminOverview, parameters: { layout: "fullscreen" } } satisfies Meta<typeof AdminOverview>;
+const meta = { title: "Admin / Overview", component: AdminOverview, parameters: { layout: "fullscreen" }, tags: ["autodocs"] } satisfies Meta<typeof AdminOverview>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const HarvestDay: Story = { args: { initialData: fixture } };
 export const QuietDay: Story = { args: { initialData: { ...fixture, attentionCount: 0, unreadNotifications: 0, overdueNew: [], unconfirmedDeliveryCount: 0 } } };
+
+function OverviewStateDemo({ state }: { state: "loading" | "error" | "permission" | "mutation" | "mobile" }) {
+  const [notice, setNotice] = useState(state === "mutation" ? "Order MN-1042 confirmed." : "");
+  if (state === "loading") return <main className="admin-overview"><AdminLoadingState label="Loading today's operations..." /></main>;
+  if (state === "error") return <main className="admin-overview"><div className="admin-overview-error" role="alert"><strong>Overview unavailable</strong><span>Dashboard data could not be loaded.</span><button className="btn btn-secondary" type="button">Try again</button></div></main>;
+  if (state === "permission") return <main className="shell py-10"><AdminNotice tone="error" live>You do not have access to the dashboard.</AdminNotice></main>;
+  if (state === "mobile") return <div className="max-w-sm"><AdminOverview initialData={fixture} /></div>;
+  return <main className="admin-page-shell p-6"><AdminPageHeader eyebrow="LIVE OPERATIONS" title="Overview feedback" description="Mutation feedback remains visible while the dashboard refreshes." />{notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}<AdminEmptyState title="No overdue orders" description="The queue is clear for now." /><button type="button" className="btn" onClick={() => setNotice("Dashboard refreshed from the authoritative response.")}>Refresh overview</button></main>;
+}
+
+export const Loading: Story = { render: () => <OverviewStateDemo state="loading" /> };
+export const ErrorRecovery: Story = { render: () => <OverviewStateDemo state="error" /> };
+export const PermissionLimited: Story = { render: () => <OverviewStateDemo state="permission" /> };
+export const MutationFeedback: Story = { render: () => <OverviewStateDemo state="mutation" /> };
+export const Mobile: Story = { render: () => <OverviewStateDemo state="mobile" />, parameters: { viewport: { defaultViewport: "mobile1" } } };
+export const KeyboardFocus: Story = { args: { initialData: fixture }, parameters: { a11y: { element: ".admin-overview" } } };
+export const ReducedMotion: Story = { args: { initialData: fixture }, parameters: { reducedMotion: "reduce" } };
