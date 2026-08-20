@@ -29,7 +29,7 @@ export function ReviewsHub({
 }) {
   const [reviewsList] = useState<PublishedReview[]>(initialReviews);
   const [starFilter, setStarFilter] = useState<number | "all">("all");
-  const [productFilter, setProductFilter] = useState<string | "all">("all");
+  const [productFilter] = useState<string | "all">("all");
   const [sortBy, setSortBy] = useState<"newest" | "highest">("newest");
   const [visibleCount, setVisibleCount] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -174,7 +174,7 @@ export function ReviewsHub({
           <select
             className="bg-white border border-[#DCD6C9] rounded-lg px-3 py-1.5 text-xs text-[#2C261E]"
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value === "highest" ? "highest" : "newest")}
           >
             <option value="newest">{copy.sortNewest}</option>
             <option value="highest">{copy.sortHighest}</option>
@@ -220,14 +220,14 @@ export function ReviewsHub({
             </div>
 
             <p className="text-sm text-[#383228] leading-relaxed">
-              "{review.displayText || review.originalText}"
+              &quot;{review.displayText || review.originalText}&quot;
             </p>
 
             {/* Seller Reply */}
             {review.sellerReplyText && (
               <div className="mt-3 p-4 rounded-xl bg-[#F4F9F5] border border-[#D1EADB] text-xs space-y-1">
                 <p className="font-extrabold text-[#1E6B34]">{copy.sellerReplyTitle}</p>
-                <p className="text-[#24452C] font-medium italic">"{review.sellerReplyText}"</p>
+                <p className="text-[#24452C] font-medium italic">&quot;{review.sellerReplyText}&quot;</p>
               </div>
             )}
           </article>

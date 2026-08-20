@@ -105,8 +105,8 @@ export function ReviewModal({
 
       setSubmittedSuccess(true);
       if (onSuccess) onSuccess();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Error submitting review");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Error submitting review");
     } finally {
       setIsSubmitting(false);
     }
