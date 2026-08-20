@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { OrderReceipt } from "@/domain/orders";
 import { formatEuros, formatLitres, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
@@ -76,10 +76,7 @@ export function OrderForm({
     const nextAvailableDate = visibleOrderableDates.find((item) => item.date >= tomorrowIso);
     return nextAvailableDate?.date ?? visibleOrderableDates.find((item) => item.date === todayIso)?.date ?? visibleOrderableDates[0].date;
   }, [visibleOrderableDates]);
-
-  useEffect(() => {
-    if (!date || !orderableDates.some((item) => item.date === date)) setDate(defaultDate);
-  }, [date, defaultDate, orderableDates]);
+  const selectedDate = date && orderableDates.some((item) => item.date === date) ? date : defaultDate;
 
   function changeProduct(nextId: string) {
     const next = products.find((item) => item.id === nextId);
@@ -118,7 +115,7 @@ export function OrderForm({
     const validationErrors = validateReservationFields({
       productId,
       packageId: selectedPackage?.id ?? "",
-      fulfillmentDate: date,
+      fulfillmentDate: selectedDate,
       fulfillmentMethod: method,
       customerName: String(values.get("customerName") ?? ""),
       mobile: String(values.get("mobile") ?? ""),
@@ -142,7 +139,7 @@ export function OrderForm({
       productId,
       packageId: selectedPackage?.id,
       quantity,
-      fulfillmentDate: date,
+      fulfillmentDate: selectedDate,
       fulfillmentMethod: method,
       customerName: values.get("customerName"),
       mobile: values.get("mobile"),
@@ -245,7 +242,7 @@ export function OrderForm({
 
       <fieldset className="form-step">
         <legend><span>02</span> {t.method}</legend>
-        <div className={`field fulfillment-date-field${fieldErrors.fulfillmentDate ? " field-invalid" : ""}`} data-field="fulfillmentDate" aria-invalid={Boolean(fieldErrors.fulfillmentDate)} aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined}><span>{t.date}</span><div className="date-chip-grid" role="radiogroup" aria-label={t.date}>{visibleOrderableDates.map((item) => { const chipDate = new Date(`${item.date}T12:00:00`); const label = new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { weekday: "short", day: "numeric", month: "numeric" }).format(chipDate); return <label className={`date-chip${date === item.date ? " selected" : ""}`} key={item.date}><input type="radio" name="fulfillmentDate" value={item.date} checked={date === item.date} onChange={() => setDate(item.date)} required aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined} /><span>{label}</span></label>; })}</div>{orderableDates.length === 0 && <small className="availability-hint" aria-live="polite">{t.closed}</small>}<CustomerFieldError field="fulfillmentDate" error={fieldErrors.fulfillmentDate} /></div>
+        <div className={`field fulfillment-date-field${fieldErrors.fulfillmentDate ? " field-invalid" : ""}`} data-field="fulfillmentDate" aria-invalid={Boolean(fieldErrors.fulfillmentDate)} aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined}><span>{t.date}</span><div className="date-chip-grid" role="radiogroup" aria-label={t.date}>{visibleOrderableDates.map((item) => { const chipDate = new Date(`${item.date}T12:00:00`); const label = new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { weekday: "short", day: "numeric", month: "numeric" }).format(chipDate); return <label className={`date-chip${selectedDate === item.date ? " selected" : ""}`} key={item.date}><input type="radio" name="fulfillmentDate" value={item.date} checked={selectedDate === item.date} onChange={() => setDate(item.date)} required aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined} /><span>{label}</span></label>; })}</div>{orderableDates.length === 0 && <small className="availability-hint" aria-live="polite">{t.closed}</small>}<CustomerFieldError field="fulfillmentDate" error={fieldErrors.fulfillmentDate} /></div>
         <div className="choice-grid">
           <label className={`choice-card${method === "PICKUP" ? " selected" : ""}`}><input type="radio" checked={method === "PICKUP"} onChange={() => setMethod("PICKUP")} /> <span><strong>{t.pickup}</strong><small>{locale === "fi" ? "Nouda sovittuna päivänä Porista" : "Collect on the agreed date in Pori"}</small></span></label>
           <label className={`choice-card${method === "DELIVERY" ? " selected" : ""}`}><input type="radio" checked={method === "DELIVERY"} onChange={() => setMethod("DELIVERY")} /> <span><strong>{t.delivery}</strong><small>{locale === "fi" ? "Sovitaan toimituksesta" : "Delivery to be agreed"}</small></span></label>
@@ -278,7 +275,7 @@ export function OrderForm({
       <label className="marketing-consent-field"><input type="checkbox" name="marketingConsent" value="true" /> <span>{locale === "fi" ? "Haluan saada METSÄNILO-kausitarjouksia tekstiviestillä tai WhatsAppilla." : "I would like to receive METSÄNILO seasonal offers by SMS or WhatsApp."}</span></label>
       </div>
       <div className="reservation-summary-bar">
-        <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {quantity} {locale === "fi" ? "kpl" : quantity === 1 ? "item" : "items"} · {date || (locale === "fi" ? "päivä valitsematta" : "date not selected")}</small></div>
+        <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {quantity} {locale === "fi" ? "kpl" : quantity === 1 ? "item" : "items"} · {selectedDate || (locale === "fi" ? "päivä valitsematta" : "date not selected")}</small></div>
         <div className="summary-meta"><span>{method === "PICKUP" ? t.pickup : t.delivery}</span><span>{formatLitres(totalLitres * 1000, locale)} l</span></div>
         <div className={`summary-total${method === "DELIVERY" ? " summary-total-delivery" : ""}`}><span>{method === "DELIVERY" ? t.productTotal : (locale === "fi" ? "Yhteensä" : "Total")}</span><strong>{formatEuros(subtotalCents, locale)}</strong>{method === "DELIVERY" && <small>{t.deliveryFeePending}<br />{t.excludesDeliveryFee}</small>}</div>
         <button className="btn btn-accent submit-button" disabled={submitting} type="submit">{submitting ? "…" : t.submit}<span aria-hidden="true">→</span></button>
