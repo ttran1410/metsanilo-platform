@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 
 const command = z.object({
   productId: z.string().min(1),
+  seasonId: z.string().min(1).optional(),
   frequency: z.enum(["DAY", "WEEK", "MONTH", "CUSTOM"]),
   startDate: z.string(),
   endDate: z.string(),

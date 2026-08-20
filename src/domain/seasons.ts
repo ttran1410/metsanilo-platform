@@ -5,6 +5,8 @@ import { auditEntries, harvestSeasons, products } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 
+type SeasonDatabase = Pick<Database, "select" | "query">;
+
 export type SeasonStatus = "UPCOMING" | "ACTIVE" | "PAUSED" | "COMPLETED";
 
 export function todayDateStr() {
@@ -34,6 +36,16 @@ export async function getActiveHarvestSeason(database: Database, productId: stri
   // Find explicit ACTIVE season or date-matched season
   const active = seasons.find((s) => s.status === "ACTIVE") ?? seasons.find((s) => s.startDate <= today && today <= s.endDate);
   return active ?? seasons[0] ?? null;
+}
+
+export async function getHarvestSeasonForDate(database: SeasonDatabase, productId: string, date: string) {
+  const { SHOP_ID } = env();
+  const seasons = await database
+    .select()
+    .from(harvestSeasons)
+    .where(and(eq(harvestSeasons.shopId, SHOP_ID), eq(harvestSeasons.productId, productId), lte(harvestSeasons.startDate, date), gte(harvestSeasons.endDate, date)))
+    .orderBy(desc(harvestSeasons.status), desc(harvestSeasons.startDate));
+  return seasons.find((season) => season.status === "ACTIVE") ?? seasons[0] ?? null;
 }
 
 export async function createHarvestSeason(

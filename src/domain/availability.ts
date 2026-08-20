@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, gte, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, mediaAttachments, mediaAssets, orders, packages, products, shops } from "@/db/schema";
+import { auditEntries, availability, harvestSeasons, mediaAttachments, mediaAssets, orders, packages, products, shops } from "@/db/schema";
 import { DomainError } from "./errors";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
+import { getHarvestSeasonForDate } from "./seasons";
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -120,6 +121,7 @@ export async function getAvailabilityWorkspace(
     startDate?: string;
     days?: number;
     productId?: string;
+    seasonId?: string;
   }
 ) {
   const { SHOP_ID } = env();
@@ -135,7 +137,7 @@ export async function getAvailabilityWorkspace(
   const [productRows, packageRows, availabilityRows, orderRows] = await Promise.all([
     database.select().from(products).where(eq(products.shopId, SHOP_ID)),
     database.select().from(packages).where(eq(packages.shopId, SHOP_ID)),
-    database.select().from(availability).where(and(eq(availability.shopId, SHOP_ID), gte(availability.businessDate, start), lte(availability.businessDate, endDate))),
+    database.select().from(availability).where(and(eq(availability.shopId, SHOP_ID), gte(availability.businessDate, start), lte(availability.businessDate, endDate), options?.seasonId ? eq(availability.seasonId, options.seasonId) : undefined)),
     database.select().from(orders).where(and(eq(orders.shopId, SHOP_ID), gte(orders.fulfillmentDate, start), lte(orders.fulfillmentDate, endDate))),
   ]);
 
@@ -364,6 +366,7 @@ export async function planAvailability(
   database: Database,
   input: {
     productId: string;
+    seasonId?: string;
     frequency: PlanFrequency;
     startDate: string;
     endDate: string;
@@ -385,6 +388,10 @@ export async function planAvailability(
     const product = await tx.query.products.findFirst({ where: and(eq(products.id, input.productId), eq(products.shopId, SHOP_ID)) });
     const shop = await tx.query.shops.findFirst({ where: eq(shops.id, SHOP_ID) });
     if (!product || !shop) throw new DomainError("NOT_FOUND", "Product not found", 404);
+    if (input.seasonId) {
+      const season = await tx.query.harvestSeasons.findFirst({ where: and(eq(harvestSeasons.id, input.seasonId), eq(harvestSeasons.productId, input.productId), eq(harvestSeasons.shopId, SHOP_ID)) });
+      if (!season) throw new DomainError("NOT_FOUND", "Harvest season not found for product", 404);
+    }
     const today = todayInTimezone(shop.timezone);
     if (dates.some((date) => date < today)) throw new DomainError("HISTORICAL_DATE", "Historical availability cannot be edited", 409);
     if (dates.some((date) => date < product.availableFrom || date > product.availableThrough)) {
@@ -394,7 +401,8 @@ export async function planAvailability(
     const soldOutReason = input.manualSoldOut ? input.soldOutReason!.trim() : null;
     const touched: string[] = [];
     for (const businessDate of dates) {
-      const current = await tx.query.availability.findFirst({ where: and(eq(availability.shopId, SHOP_ID), eq(availability.productId, input.productId), eq(availability.businessDate, businessDate)) });
+      const season = input.seasonId ? await tx.query.harvestSeasons.findFirst({ where: eq(harvestSeasons.id, input.seasonId) }) : await getHarvestSeasonForDate(tx, input.productId, businessDate);
+      const current = await tx.query.availability.findFirst({ where: and(eq(availability.shopId, SHOP_ID), eq(availability.productId, input.productId), season ? eq(availability.seasonId, season.id) : isNull(availability.seasonId), eq(availability.businessDate, businessDate)) });
       if (current && input.capacityMl < current.reservedMl) {
         throw new DomainError("BELOW_RESERVED", `Capacity for ${businessDate} cannot be below reserved volume`, 409);
       }
@@ -403,13 +411,13 @@ export async function planAvailability(
         if (result.rowsAffected !== 1) throw new DomainError("STALE_VERSION", `Availability changed for ${businessDate}`, 409);
         touched.push(current.id);
       } else {
-        const id = `${SHOP_ID}:${input.productId}:${businessDate}`;
-        await tx.insert(availability).values({ id, shopId: SHOP_ID, productId: input.productId, businessDate, capacityMl: input.capacityMl, reservedMl: 0, acceptsOrders: true, manualSoldOut: input.manualSoldOut, manualSoldOutReason: soldOutReason, version: 1, updatedAt: now });
+        const id = `${SHOP_ID}:${input.productId}:${input.seasonId ?? "legacy"}:${businessDate}`;
+        await tx.insert(availability).values({ id, shopId: SHOP_ID, productId: input.productId, seasonId: season?.id ?? null, businessDate, capacityMl: input.capacityMl, reservedMl: 0, acceptsOrders: true, manualSoldOut: input.manualSoldOut, manualSoldOutReason: soldOutReason, version: 1, updatedAt: now });
         touched.push(id);
       }
     }
     await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "availability.planned", entityType: "product", entityId: input.productId, detailsJson: JSON.stringify({ frequency: input.frequency, dates, capacityMl: input.capacityMl, manualSoldOut: input.manualSoldOut }), createdAt: now });
-    const rows = await tx.select().from(availability).where(and(eq(availability.shopId, SHOP_ID), eq(availability.productId, input.productId)));
+    const rows = await tx.select().from(availability).where(and(eq(availability.shopId, SHOP_ID), eq(availability.productId, input.productId), input.seasonId ? eq(availability.seasonId, input.seasonId) : undefined));
     return rows.filter((row) => touched.includes(row.id));
   });
 }

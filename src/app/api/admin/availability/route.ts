@@ -15,11 +15,13 @@ export async function GET(request: Request) {
     const daysStr = searchParams.get("days");
     const days = daysStr ? Number(daysStr) : 7;
     const productId = searchParams.get("productId") ?? undefined;
+    const seasonId = searchParams.get("seasonId") ?? undefined;
 
     const workspace = await getAvailabilityWorkspace(db(), {
       startDate,
       days,
       productId,
+      seasonId,
     });
 
     return success(workspace);
