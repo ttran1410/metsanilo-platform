@@ -67,6 +67,12 @@ cd metsanilo-platform
 npm install
 ```
 
+For a guided local setup using a persistent Turso dev database, run:
+```bash
+./scripts/setup-local-turso-dev.sh
+```
+Keep the `turso dev` process it starts running while using the app. Its output is written to `.turso-dev.log`.
+
 ### 2. Environment Configuration
 Copy the sample environment file:
 ```bash
