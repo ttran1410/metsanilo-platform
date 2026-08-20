@@ -13,7 +13,7 @@ import {
 import { requirePermission } from "@/domain/access";
 import { failure, success } from "../../response";
 import { fromZodError } from "@/domain/errors";
-import { hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
+import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
 import { searchManagerReviews } from "@/domain/admin-search";
 
 export const runtime = "nodejs";
@@ -38,7 +38,18 @@ const commandSchema = z.object({
 export async function GET(request: Request) {
   try {
     await requirePermission(db(), request, "reviews.read");
-    if (hasListQuery(request)) return success(await searchManagerReviews(db(), parseAdminListQuery(request)));
+    if (hasListQuery(request)) {
+      const rating = adminQueryParam(request, "rating");
+      return success(await searchManagerReviews(db(), parseAdminListQuery(request), {
+        status: adminQueryParam(request, "status"),
+        rating: rating ? Number(rating) : undefined,
+        verification: adminQueryParam(request, "verification"),
+        productId: adminQueryParam(request, "productId"),
+        source: adminQueryParam(request, "source"),
+        featured: adminQueryParam(request, "featured") === undefined ? undefined : adminQueryParam(request, "featured") === "true",
+        hasReply: adminQueryParam(request, "hasReply") === "true" ? true : undefined,
+      }));
+    }
     return success(await listManagerReviews(db()));
   } catch (error) {
     return failure(error);
