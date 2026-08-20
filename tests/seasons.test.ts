@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/db/client";
-import { products, harvestSeasons, shops } from "@/db/schema";
+import { availability, products, harvestSeasons, shops } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
   createHarvestSeason,
@@ -9,7 +9,9 @@ import {
   getActiveHarvestSeason,
   listHarvestSeasons,
   updateHarvestSeason,
+  cloneHarvestSeason,
 } from "@/domain/seasons";
+import { getAvailabilityWorkspace } from "@/domain/availability";
 import { env } from "@/lib/env";
 
 describe("Multi-Harvest Seasons Domain Logic", () => {
@@ -40,6 +42,7 @@ describe("Multi-Harvest Seasons Domain Logic", () => {
 
     // Clean only this fixture. Other tables may legitimately reference products.
     await database.delete(harvestSeasons).where(eq(harvestSeasons.productId, testProductId));
+    await database.delete(availability).where(eq(availability.productId, testProductId));
     await database.delete(products).where(eq(products.id, testProductId));
 
     await database.insert(products).values({
@@ -109,5 +112,34 @@ describe("Multi-Harvest Seasons Domain Logic", () => {
     await deleteHarvestSeason(db(), season.id, "admin@metsanilo.fi");
     const remaining = await listHarvestSeasons(db(), testProductId);
     expect(remaining.length).toBe(0);
+  });
+
+  it("clones a season and keeps availability reads isolated by season", async () => {
+    const summer = await createHarvestSeason(db(), {
+      productId: testProductId,
+      nameFi: "Kesä 2026",
+      nameEn: "Summer 2026",
+      startDate: "2026-07-01",
+      endDate: "2026-07-31",
+    });
+    const autumn = await cloneHarvestSeason(db(), summer.id, {
+      nameFi: "Syksy 2026",
+      nameEn: "Autumn 2026",
+      startDate: "2026-09-01",
+      endDate: "2026-09-30",
+    });
+
+    expect(autumn.productId).toBe(testProductId);
+    expect(autumn.startDate).toBe("2026-09-01");
+
+    const { SHOP_ID } = env();
+    await db().insert(availability).values([
+      { id: `availability-summer-${testSuffix}`, shopId: SHOP_ID, productId: testProductId, seasonId: summer.id, businessDate: "2026-07-10", capacityMl: 10000, reservedMl: 2000, updatedAt: new Date().toISOString() },
+      { id: `availability-autumn-${testSuffix}`, shopId: SHOP_ID, productId: testProductId, seasonId: autumn.id, businessDate: "2026-09-10", capacityMl: 20000, reservedMl: 5000, updatedAt: new Date().toISOString() },
+    ]);
+
+    const workspace = await getAvailabilityWorkspace(db(), { startDate: "2026-07-01", days: 60, seasonId: summer.id });
+    expect(workspace.rows).toHaveLength(1);
+    expect(workspace.rows[0].availability.seasonId).toBe(summer.id);
   });
 });
