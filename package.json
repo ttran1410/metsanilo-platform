@@ -14,7 +14,9 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:preflight": "tsx scripts/preflight.ts",
-    "db:release": "tsx scripts/release.ts"
+    "db:release": "tsx scripts/release.ts",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.28",
@@ -33,6 +35,8 @@
     "@types/node": "26.2.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "@storybook/nextjs-vite": "^10.5.10",
+    "storybook": "^10.5.10",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.0",

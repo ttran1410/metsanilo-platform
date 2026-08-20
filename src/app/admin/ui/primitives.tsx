@@ -1,4 +1,5 @@
 import type { ElementType, ReactNode } from "react";
+import Link from "next/link";
 
 /** Small, domain-neutral building blocks shared by Operations workspaces. */
 export function AdminCard({ as: Component = "section", children, className = "" }: { as?: ElementType; children: ReactNode; className?: string }) {
@@ -19,7 +20,7 @@ export function AdminStatusBadge({ status, label }: { status: string; label?: st
 
 export function AdminFieldError({ id, message }: { id?: string; message?: string }) {
   if (!message) return null;
-  return <p className="admin-field-error" id={id} role="alert">{message}</p>;
+  return <p className="admin-field-error" id={id} role="alert" aria-live="polite">{message}</p>;
 }
 
 export function AdminPermissionGate({ allowed, children, fallback = null }: { allowed: boolean; children: ReactNode; fallback?: ReactNode }) {
@@ -78,20 +79,14 @@ export function AdminNotFoundState({
 }) {
   return (
     <main className="shell py-12">
-      <div className="card max-w-lg mx-auto p-8 text-center space-y-4 shadow-sm border border-slate-200">
-        <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xl mx-auto text-slate-500">
-          🔍
-        </div>
+      <div className="admin-state-panel admin-state-panel-centered">
+        <span className="admin-state-icon" aria-hidden="true">?</span>
         <div>
-          <span className="eyebrow">ADMIN OPERATIONS</span>
-          <h1 className="text-xl font-bold text-slate-900">{title}</h1>
-          <p className="text-xs text-slate-500 mt-1">{description}</p>
+          <p className="eyebrow">ADMIN OPERATIONS</p>
+          <h1>{title}</h1>
+          <p>{description}</p>
         </div>
-        <div className="pt-2">
-          <a href={backHref} className="btn btn-secondary text-xs font-semibold px-4 py-2">
-            {backLabel}
-          </a>
-        </div>
+        <Link href={backHref} className="btn btn-secondary">{backLabel}</Link>
       </div>
     </main>
   );
