@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import type { AuditCategory, AuditSeverity, FormattedAuditItem } from "@/domain/audit";
 import { AdminNotice } from "../presentation";
@@ -30,10 +31,12 @@ export function MasterAuditWorkspace({
   };
   canExportAudit?: boolean;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedItem, setSelectedItem] = useState<FormattedAuditItem | null>(null);
+  const [selectedAuditId, setSelectedAuditId] = useState<string | null>(searchParams.get("audit") ?? null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,13 +49,15 @@ export function MasterAuditWorkspace({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [activeMenuId]);
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [severityFilter, setSeverityFilter] = useState<AuditSeverity | "ALL">("ALL");
-  const [categoryFilter, setCategoryFilter] = useState<AuditCategory | "ALL">("ALL");
-  const [actorFilter, setActorFilter] = useState<string>("ALL");
-  const [dateRange, setDateRange] = useState<"24h" | "7d" | "30d" | "all">("7d");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? searchParams.get("search") ?? "");
+  const [severityFilter, setSeverityFilter] = useState<AuditSeverity | "ALL">(() => searchParams.get("severity") as AuditSeverity | "ALL" || "ALL");
+  const [categoryFilter, setCategoryFilter] = useState<AuditCategory | "ALL">(() => searchParams.get("category") as AuditCategory | "ALL" || "ALL");
+  const [actorFilter, setActorFilter] = useState<string>(() => searchParams.get("actor") ?? "ALL");
+  const [dateRange, setDateRange] = useState<"24h" | "7d" | "30d" | "all">(() => searchParams.get("dateRange") as "24h" | "7d" | "30d" | "all" || "7d");
+  const [currentPage, setCurrentPage] = useState(() => Number(searchParams.get("page") ?? "1") || 1);
   const [limitState, setLimitState] = useState(initialData.limit || 20);
+
+  const selectedItem = useMemo(() => data.items.find((item) => item.id === selectedAuditId) ?? null, [data.items, selectedAuditId]);
 
   async function fetchFilteredAudit(
     page = currentPage,
@@ -123,6 +128,18 @@ export function MasterAuditWorkspace({
     setCurrentPage(newPage);
     void fetchFilteredAudit(newPage);
   }
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (searchQuery) next.set("q", searchQuery); else next.delete("q");
+    if (severityFilter !== "ALL") next.set("severity", severityFilter); else next.delete("severity");
+    if (categoryFilter !== "ALL") next.set("category", categoryFilter); else next.delete("category");
+    if (actorFilter !== "ALL") next.set("actor", actorFilter); else next.delete("actor");
+    if (dateRange !== "7d") next.set("dateRange", dateRange); else next.delete("dateRange");
+    if (currentPage > 1) next.set("page", String(currentPage)); else next.delete("page");
+    if (selectedAuditId) next.set("audit", selectedAuditId); else next.delete("audit");
+    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+  }, [actorFilter, categoryFilter, currentPage, dateRange, router, searchParams, searchQuery, selectedAuditId, severityFilter]);
 
   const exportUrl = useMemo(() => {
     const params = new URLSearchParams({
@@ -305,7 +322,7 @@ export function MasterAuditWorkspace({
                 <tr
                   key={item.id}
                   className="hover:bg-surface-muted/60 transition-colors cursor-pointer"
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => setSelectedAuditId(item.id)}
                 >
                   <td className="py-3 px-3 font-mono text-[11px] muted whitespace-nowrap">
                     {item.createdAt?.slice(0, 16).replace("T", " ")}
@@ -386,7 +403,7 @@ export function MasterAuditWorkspace({
                           label: "View Detailed Diff",
                           icon: <IconEye />,
                           onClick: () => {
-                            setSelectedItem(item);
+                            setSelectedAuditId(item.id);
                           },
                         },
                         {
@@ -442,7 +459,7 @@ export function MasterAuditWorkspace({
       {selectedItem && (
         <DiffInspectorDrawer
           item={selectedItem}
-          onClose={() => setSelectedItem(null)}
+          onClose={() => setSelectedAuditId(null)}
         />
       )}
     </section>
