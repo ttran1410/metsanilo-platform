@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
+import type { ReviewItem } from "./edit-review-modal";
 
 type OrderItem = {
   id: string;
@@ -32,7 +33,7 @@ export function LinkIdentityModal({
     orderId: string | null;
   };
   onClose: () => void;
-  onLinked: (updated: any) => void;
+  onLinked: (updated: ReviewItem) => void;
 }) {
   const [query, setQuery] = useState(review.contact || review.displayName || "");
   const [ordersList, setOrdersList] = useState<OrderItem[]>([]);

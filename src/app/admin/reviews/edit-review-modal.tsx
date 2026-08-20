@@ -13,6 +13,17 @@ export type ReviewItem = {
   acknowledgementSource: string | null;
   verifiedBuyer: boolean;
   orderId: string | null;
+  status: "PENDING" | "PENDING_CONFIRMATION" | "APPROVED" | "REJECTED" | "HIDDEN" | "ARCHIVED";
+  publicationAcknowledgement: boolean;
+  acknowledgedAt: string | null;
+  verificationType: "DIGITAL_ORDER" | "HISTORICAL_MATCH" | "STAFF_MANUAL" | "UNVERIFIED";
+  featured: boolean;
+  featuredUntil: string | null;
+  moderationReason: string | null;
+  rejectionReason: string | null;
+  sellerReplyText: string | null;
+  sellerRepliedAt: string | null;
+  createdAt: string;
 };
 
 export function EditReviewModal({
@@ -22,7 +33,7 @@ export function EditReviewModal({
 }: {
   review: ReviewItem;
   onClose: () => void;
-  onSaved: (updated: any) => void;
+  onSaved: (updated: ReviewItem) => void;
 }) {
   const [displayName, setDisplayName] = useState(review.displayName);
   const [rating, setRating] = useState(review.rating);
