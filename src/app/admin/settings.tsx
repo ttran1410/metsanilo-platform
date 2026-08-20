@@ -244,7 +244,10 @@ export function OperationsSettings({ canManageSettings }: { canManageSettings: b
   }
 
   useEffect(() => {
+    // Load all settings once after the client workspace mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Save Shop Identity & Contact
@@ -457,7 +460,7 @@ export function OperationsSettings({ canManageSettings }: { canManageSettings: b
   ];
 
   return (
-    <section className="shell pb-20 flex flex-col gap-5">
+    <section className="admin-settings-workspace shell pb-20 flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
         <AdminPageHeader
           eyebrow="ADMINISTRATION"
@@ -469,7 +472,7 @@ export function OperationsSettings({ canManageSettings }: { canManageSettings: b
           target="_blank"
           className="btn btn-secondary text-xs font-bold flex items-center gap-1.5 shadow-2xs"
         >
-          <span>👁️ View Live Storefront</span>
+           <span>View live storefront</span>
           <span aria-hidden="true">↗</span>
         </Link>
       </div>

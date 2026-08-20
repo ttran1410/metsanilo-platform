@@ -905,6 +905,26 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   .order-lifecycle-steps .order-lifecycle-dot { top: .75rem; left: -.55rem; }
 }
 
+/* Settings workspace: a calm configuration desk with explicit section boundaries. */
+.admin-settings-workspace { gap: 1.25rem; }
+.admin-settings-workspace > .flex.flex-wrap { border-bottom-color: #cbd9d0; padding-bottom: 1rem; }
+.admin-settings-workspace > nav { border-color: #cbd9d0; background: #f7faf7; }
+.admin-settings-workspace > nav button { min-height: 2.75rem; border-radius: .7rem; }
+.admin-settings-workspace > main > div > form,
+.admin-settings-workspace > main > div > .card { border-color: #d4e0d8; box-shadow: 0 8px 24px rgb(23 55 43 / 5%); }
+.admin-settings-workspace > main h3 { letter-spacing: -.015em; }
+.admin-settings-workspace > main h4 { color: var(--forest); }
+.admin-settings-workspace .field input:disabled,
+.admin-settings-workspace .field textarea:disabled,
+.admin-settings-workspace .field select:disabled { background: #f1f5f2; color: #718078; }
+@media (max-width: 760px) {
+  .admin-settings-workspace { padding-inline: .85rem; }
+  .admin-settings-workspace > .flex.flex-wrap { align-items: stretch; }
+  .admin-settings-workspace > .flex.flex-wrap > .btn { width: 100%; justify-content: center; }
+  .admin-settings-workspace > nav { align-items: stretch; }
+  .admin-settings-workspace > nav button { flex: 1 0 11rem; justify-content: flex-start; }
+}
+
 /* Audit workspace: prioritize risk signals, then the immutable event stream. */
 .admin-audit-workspace { gap: 1.25rem; }
 .admin-audit-workspace > .flex.flex-wrap { border-bottom-color: #cbd9d0; padding-bottom: 1rem; }
