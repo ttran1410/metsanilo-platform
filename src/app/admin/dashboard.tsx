@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AdminLoadingState, AdminStatusBadge, formatAdminMoney } from "./presentation";
+import { AdminLoadingState, formatAdminMoney } from "./presentation";
 
-type DashboardData = {
+export type DashboardData = {
   businessDate: string;
   asOf: string;
   unreadNotifications: number;
