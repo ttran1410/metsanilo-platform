@@ -45,7 +45,7 @@ export function InfoPage({
   aboutUsVisible?: boolean;
   logoUrl?: string | null;
 }) {
-  const t = content[locale][kind] as any;
+  const t = content[locale][kind];
   const nav = navCopy[locale];
   const other = locale === "fi" ? "en" : "fi";
   const whatsappNumber = contactPhone?.replace(/\D/g, "").replace(/^0/, "358");
@@ -88,7 +88,7 @@ export function InfoPage({
           <section className="shell info-hero" aria-labelledby="info-title">
             <p className="eyebrow">{t.eyebrow}</p>
             <h1 id="info-title">{t.title}</h1>
-            <p>{t.intro}</p>
+            <p>{content[locale]["how-it-works"].intro}</p>
           </section>
           <section className="shell info-trust-banner" aria-label={locale === "fi" ? "Maksutiedot" : "Payment information"}>
             <span className="trust-badge-icon" aria-hidden="true">🛡️</span>
@@ -98,7 +98,7 @@ export function InfoPage({
             </div>
           </section>
           <section className="shell info-grid" aria-label={t.title}>
-            {t.steps.map(([number, title, text]: [string, string, string]) => (
+            {content[locale]["how-it-works"].steps.map(([number, title, text]) => (
               <article className="info-step-card" key={number}>
                 <span className="info-number">{number}</span>
                 <h2>{title}</h2>
@@ -123,7 +123,7 @@ export function InfoPage({
               <p>{locale === "fi" ? "Ilmoitamme mahdollisesta päivämäärän muutoksesta viestillä." : "We will message you if the fulfillment date needs to change."}</p>
             </details>
           </section>
-          <InfoCta locale={locale} title={t.ctaTitle} label={t.cta} />
+          <InfoCta locale={locale} title={content[locale]["how-it-works"].ctaTitle} label={content[locale]["how-it-works"].cta} />
         </>
       )}
       {kind === "reviews" && (
@@ -131,7 +131,7 @@ export function InfoPage({
           <section className="shell info-hero" aria-labelledby="info-title">
             <p className="eyebrow">{t.eyebrow}</p>
             <h1 id="info-title">{t.title}</h1>
-            <p>{t.intro}</p>
+            <p>{content[locale].reviews.intro}</p>
           </section>
           <section className="shell review-trust-summary" aria-label={locale === "fi" ? "Luottamustiedot" : "Trust information"}>
             <strong>
@@ -164,8 +164,8 @@ export function InfoPage({
           </section>
           <section className="shell review-invite">
             <p className="eyebrow">{locale === "fi" ? "Palaute" : "Your voice"}</p>
-            <h2>{t.formTitle}</h2>
-            <p>{t.formText}</p>
+            <h2>{content[locale].reviews.formTitle}</h2>
+            <p>{content[locale].reviews.formText}</p>
             <ReviewForm locale={locale} />
           </section>
         </>
@@ -177,10 +177,10 @@ export function InfoPage({
             <h1 id="info-title">{t.title}</h1>
           </section>
           <section className="shell story-card">
-            <p className="story-quote">“{t.quote}”</p>
-            <p className="story-body">{t.body}</p>
+            <p className="story-quote">“{content[locale].about.quote}”</p>
+            <p className="story-body">{content[locale].about.body}</p>
             <div className="value-grid">
-              {t.values.map(([title, text]: [string, string], index: number) => (
+              {content[locale].about.values.map(([title, text], index) => (
                 <article className={index === 0 ? "value-card value-card-green" : "value-card value-card-gold"} key={title}>
                   <h2>{title}</h2>
                   <p>{text}</p>
