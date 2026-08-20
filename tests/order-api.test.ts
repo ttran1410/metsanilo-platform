@@ -10,7 +10,7 @@ import { createUser, requirePermission, setUserPermission } from "@/domain/acces
 import { createExternalOrder, createHistoricalOrder, runAutomation } from "@/domain/operations";
 import { addOrderNote, archiveManagerOrder, confirmPickup, deleteManagerOrder, getManagerOrder, getOrderQueue, previewManagerOrderUpdate, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder, unarchiveManagerOrder, updateManagerOrder } from "@/domain/orders";
 import { createProduct, deleteProduct } from "@/domain/products";
-import { planAvailability } from "@/domain/availability";
+import { planAvailability, previewAvailabilityUpdate } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
 import { listPaymentMethods, setPaymentMethod } from "@/domain/payment-methods";
 
@@ -186,6 +186,16 @@ describe("product module", () => {
 });
 
 describe("availability planning", () => {
+  it("previews capacity and close/reopen impact without mutating the row", async () => {
+    const preview = await previewAvailabilityUpdate(database, { id: "availability-main", expectedVersion: 1, capacityMl: 4000, manualSoldOut: false, acceptsOrders: false });
+    expect(preview.impact.capacityDeltaMl).toBe(-1000);
+    expect(preview.impact.closesOrders).toBe(true);
+    expect(preview.impact.canApply).toBe(true);
+    const unchanged = await database.query.availability.findFirst({ where: eq(availability.id, "availability-main") });
+    expect(unchanged?.capacityMl).toBe(5000);
+    expect(unchanged?.acceptsOrders).toBe(true);
+  });
+
   it("plans daily dates, creates missing rows, and protects reservations", async () => {
     await submitOrder(database, pickupInput("planner-reservation"));
     const planned = await planAvailability(database, {
