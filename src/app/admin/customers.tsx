@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminLoadingState } from "./presentation";
-import { MasterDetailCustomerWorkspace } from "./customers/master-detail-workspace";
+import { MasterDetailCustomerWorkspace, type CustomerRow } from "./customers/master-detail-workspace";
 
 export function CustomersModule({
   canEdit,
@@ -11,7 +11,7 @@ export function CustomersModule({
   canEdit: boolean;
   canAnonymize: boolean;
 }) {
-  const [initialCustomers, setInitialCustomers] = useState<any[] | null>(null);
+  const [initialCustomers, setInitialCustomers] = useState<CustomerRow[] | { items: CustomerRow[]; summary?: { totalCustomers: number; vipCount: number; totalLitres: number; consentCount: number } } | null>(null);
 
   useEffect(() => {
     async function load() {
