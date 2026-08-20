@@ -1,6 +1,6 @@
 import { db } from "@/db/client";
 import { listManagerOrdersWithPaymentSummary } from "@/domain/orders";
-import { OrdersListing } from "../orders-listing";
+import { OrdersListing, type OrdersView } from "../orders-listing";
 import { adminContext, hasAdminPermission } from "../portal-auth";
 import { AdminRouteFrame } from "../route-frame";
 
@@ -13,13 +13,14 @@ export default async function OrdersPage({ searchParams }: { searchParams?: Prom
   if (!allowed) return <AdminRouteFrame><main className="shell py-10"><p className="card" role="alert">You do not have access to orders.</p></main></AdminRouteFrame>;
   const query = await searchParams;
   const requestedView = query?.view?.toUpperCase();
-  const validViews = new Set(["TRIAGE", "ALL", "TODAY", "NEEDS_CONFIRMATION", "PICKUP_TODAY", "DELIVERY_TODAY", "UNPAID", "ARCHIVED"]);
+  const validViews = new Set<OrdersView>(["TRIAGE", "ALL", "TODAY", "NEEDS_CONFIRMATION", "PICKUP_TODAY", "DELIVERY_TODAY", "UNPAID", "ARCHIVED"]);
+  const initialView = validViews.has(requestedView as OrdersView) ? requestedView as OrdersView : undefined;
   return (
     <AdminRouteFrame>
       <OrdersListing
         actorRole={actor.role}
         initialOrders={await listManagerOrdersWithPaymentSummary(db())}
-        initialView={validViews.has(requestedView ?? "") ? requestedView as any : undefined}
+        initialView={initialView}
         initialStatus={query?.status?.toUpperCase() ?? "ALL"}
         canExport={await hasAdminPermission(request, "orders.export")}
         canCreate={await hasAdminPermission(request, "orders.create")}
