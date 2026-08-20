@@ -464,6 +464,36 @@ export async function getUserAuditTrail(database: Database, userId: string) {
     .limit(30);
 }
 
+export async function getUserAccessDetail(database: Database, userId: string) {
+  const shopId = env().SHOP_ID;
+  const user = await database.query.users.findFirst({ where: and(eq(users.id, userId), eq(users.shopId, shopId)) });
+  if (!user) throw new DomainError("NOT_FOUND", "User not found", 404);
+
+  const grants = await database.select().from(userPermissions).where(and(eq(userPermissions.userId, userId), eq(userPermissions.shopId, shopId)));
+  const defaults = defaultPermissionsForRole(user.role);
+  const revoked = grants
+    .filter((grant) => !grant.granted)
+    .map((grant) => normalizePermission(grant.permission))
+    .filter((permission): permission is Permission => Boolean(permission));
+  const added = grants
+    .filter((grant) => grant.granted)
+    .map((grant) => normalizePermission(grant.permission))
+    .filter((permission): permission is Permission => Boolean(permission));
+  const effectivePermissions = [...new Set([...defaults.filter((permission) => !revoked.includes(permission)), ...added])];
+
+  const [sessions, audit] = await Promise.all([getUserSessions(database, userId), getUserAuditTrail(database, userId)]);
+  return {
+    user,
+    permissions: effectivePermissions,
+    customOverrides: {
+      granted: added.filter((permission) => !defaults.includes(permission)),
+      revoked: [...new Set(revoked)],
+    },
+    sessions,
+    audit,
+  };
+}
+
 function zodEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
