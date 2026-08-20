@@ -117,9 +117,9 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
     try { window.localStorage.setItem("metsanilo-admin-rail", next ? "collapsed" : "expanded"); } catch { /* Preference is optional. */ }
   }
 
-  return <header className={`admin-shell-header${collapsed ? " rail-collapsed" : ""}`}>
+  return <header className={`admin-shell-header${collapsed ? " rail-collapsed" : ""}`} data-collapsed={collapsed || undefined}>
     <div className="admin-shell-brand">
-      <Link className="admin-brand" href="/admin" aria-label="Metsänilo operations home"><span className="admin-brand-mark" aria-hidden="true"><i /><i /><i /></span><span><strong>METSÄNILO</strong><small>Operations</small></span></Link>
+      <Link className="admin-brand" href="/admin" aria-label="Metsänilo operations home"><span className="admin-brand-mark" aria-hidden="true"><i /><i /><i /></span><span><strong>METSÄNILO</strong><small>Operations desk</small></span></Link>
       <div className="admin-header-actions">
         <div className="admin-quick-tools" aria-label="Operations shortcuts">
           <button className="admin-quick-tool" type="button" onClick={() => setPaletteOpen(true)} aria-label="Open command search">
@@ -140,9 +140,9 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
         <span className="admin-user-state"><i aria-hidden="true" />{role}</span>
         <AdminUserMenu displayName={displayName} email={email} role={role} />
       </div>
-      <button className="admin-menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="admin-navigation" onClick={() => setMenuOpen((open) => !open)}><span className="admin-menu-icon" aria-hidden="true"><i /><i /><i /></span><span>{menuOpen ? "Close" : "Menu"}</span></button>
+      <button className="admin-menu-toggle" type="button" aria-label={menuOpen ? "Close navigation" : "Open navigation"} aria-expanded={menuOpen} aria-controls="admin-navigation" onClick={() => setMenuOpen((open) => !open)}><span className="admin-menu-icon" aria-hidden="true"><i /><i /><i /></span><span>{menuOpen ? "Close" : "Menu"}</span></button>
     </div>
-    <aside id="admin-navigation" className={`admin-sidebar${menuOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`}>
+    <aside id="admin-navigation" className={`admin-sidebar${menuOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`} data-open={menuOpen || undefined} data-collapsed={collapsed || undefined}>
       {/* SLEEK EDGE ARROW COLLAPSE TOGGLE ALIGNED WITH OVERVIEW */}
       <button
         className="admin-rail-edge-toggle"
@@ -154,7 +154,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
         {collapsed ? <ChevronRight className="w-3.5 h-3.5 stroke-[2]" /> : <ChevronLeft className="w-3.5 h-3.5 stroke-[2]" />}
       </button>
 
-      <nav aria-label="Admin modules" className="admin-nav">
+      <nav aria-label="Operations modules" className="admin-nav">
         {Array.from(new Set(items.filter((item) => item.enabled).map((item) => item.group))).map((group) => (
           <div className="admin-nav-group" key={group}>
             <span className="admin-nav-group-label">{group}</span>
@@ -163,7 +163,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
               const active = item.id === "triage" ? triageActive : item.id === "dashboard" ? pathname === "/admin" : item.id === "orders" ? pathname === "/admin/orders" && !triageActive : pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <Link
-                  className={active ? "active" : ""}
+                  className={`admin-nav-link${active ? " active" : ""}`}
                   aria-current={active ? "page" : undefined}
                   href={href}
                   onClick={() => {
