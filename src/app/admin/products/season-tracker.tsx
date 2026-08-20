@@ -63,6 +63,7 @@ export function SeasonTracker({
   const [startDate, setStartDate] = useState(`${currentYear}-07-01`);
   const [endDate, setEndDate] = useState(`${currentYear}-08-31`);
   const [notes, setNotes] = useState("");
+  const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!productId) return;
@@ -112,7 +113,9 @@ export function SeasonTracker({
       const response = await fetch(`/api/admin/products/${productId}/seasons`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ nameFi, nameEn, startDate, endDate, notes }),
+        body: JSON.stringify(cloneSourceId
+          ? { action: "clone", sourceSeasonId: cloneSourceId, nameFi, nameEn, startDate, endDate, notes }
+          : { nameFi, nameEn, startDate, endDate, notes }),
       });
       const body = await response.json();
       setBusy(false);
@@ -120,6 +123,7 @@ export function SeasonTracker({
       if (response.ok && body.data) {
         setSeasons((prev) => [body.data, ...prev]);
         setShowAddForm(false);
+        setCloneSourceId(null);
         if (onUpdateDates && body.data.status === "ACTIVE") {
           onUpdateDates(body.data.startDate, body.data.endDate);
         }
@@ -127,6 +131,16 @@ export function SeasonTracker({
     } catch {
       setBusy(false);
     }
+  }
+
+  function prepareClone(season: SeasonItem) {
+    setCloneSourceId(season.id);
+    setNameEn(`${season.nameEn} copy`);
+    setNameFi(`${season.nameFi} kopio`);
+    setStartDate(season.startDate);
+    setEndDate(season.endDate);
+    setNotes(season.notes ?? "");
+    setShowAddForm(true);
   }
 
   async function handleExtendSeason(season: SeasonItem) {
@@ -241,7 +255,10 @@ export function SeasonTracker({
             <button
               type="button"
               className="btn text-xs py-1 px-2.5 font-bold flex items-center gap-1"
-              onClick={() => setShowAddForm((prev) => !prev)}
+              onClick={() => {
+                setShowAddForm((prev) => !prev);
+                setCloneSourceId(null);
+              }}
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{showAddForm ? "Cancel" : "New Season"}</span>
@@ -275,7 +292,7 @@ export function SeasonTracker({
       {/* CREATE NEW SEASON FORM MODAL/DRAWER */}
       {showAddForm && (
         <form onSubmit={handleAddSeason} className="p-3 bg-surface rounded-xl border border-line flex flex-col gap-3 text-xs">
-          <span className="eyebrow text-primary">CREATE NEW HARVEST SEASON</span>
+               <span className="eyebrow text-primary">{cloneSourceId ? "CLONE HARVEST SEASON" : "CREATE NEW HARVEST SEASON"}</span>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="field">
@@ -332,12 +349,15 @@ export function SeasonTracker({
             <button
               type="button"
               className="btn btn-secondary text-xs"
-              onClick={() => setShowAddForm(false)}
+              onClick={() => {
+                setShowAddForm(false);
+                setCloneSourceId(null);
+              }}
             >
               Cancel
             </button>
             <button type="submit" className="btn text-xs font-bold py-1.5 px-3" disabled={busy}>
-              {busy ? "Creating…" : "Save Season"}
+              {busy ? "Saving…" : cloneSourceId ? "Clone Season" : "Save Season"}
             </button>
           </div>
         </form>
@@ -407,6 +427,18 @@ export function SeasonTracker({
                       title="Extend this season by +1 week"
                     >
                       +1 Week
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-secondary text-[11px] py-1 px-2 font-bold"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        prepareClone(s);
+                      }}
+                      disabled={busy}
+                    >
+                      Clone
                     </button>
 
                     <button
