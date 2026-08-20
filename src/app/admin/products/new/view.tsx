@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminNotice } from "../../presentation";
 
@@ -191,9 +192,9 @@ export function ProductCreateView() {
       </section>
 
       <div className="profile-actions border-t border-line pt-4 justify-end gap-3">
-        <a className="btn btn-secondary" href="/admin/products">
+        <Link className="btn btn-secondary" href="/admin/products">
           Cancel
-        </a>
+        </Link>
         <button className="btn" type="submit" disabled={saving}>
           {saving ? "Creating product…" : "Create product ↗"}
         </button>
