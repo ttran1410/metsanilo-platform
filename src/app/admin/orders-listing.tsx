@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { orders } from "@/db/schema";
 import type { Role } from "@/lib/permissions";
 import { getOrderTriageReasons, orderTriageScore } from "@/domain/order-triage";
@@ -166,23 +167,27 @@ export function OrdersListing({
   canDelete?: boolean;
   canArchive?: boolean;
 }) {
-  const initialDates = getInitialPresetDatesForView(initialView);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlView = searchParams.get("view");
+  const resolvedView = QUICK_VIEWS.some((item) => item.key === urlView) ? urlView as OrdersView : initialView;
+  const initialDates = getInitialPresetDatesForView(resolvedView);
 
   const [rows, setRows] = useState(initialOrders);
-  const [view, setView] = useState<OrdersView>(initialView);
-  const [archiveScope, setArchiveScope] = useState<ArchiveScope>(initialView === "ARCHIVED" ? "ARCHIVED_ONLY" : "ACTIVE_ONLY");
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("TABLE");
+  const [view, setView] = useState<OrdersView>(resolvedView);
+  const [archiveScope, setArchiveScope] = useState<ArchiveScope>(resolvedView === "ARCHIVED" ? "ARCHIVED_ONLY" : "ACTIVE_ONLY");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => searchParams.get("mode") === "KANBAN" || searchParams.get("mode") === "TERMINAL" ? searchParams.get("mode") as WorkspaceMode : "TABLE");
   const [showPackingSlip, setShowPackingSlip] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  const [datePreset, setDatePreset] = useState<DatePreset>(initialDates.datePreset);
-  const [search, setSearch] = useState("");
-  const [from, setFrom] = useState(initialDates.from);
-  const [to, setTo] = useState(initialDates.to);
-  const [method, setMethod] = useState("ALL");
-  const [status, setStatus] = useState(initialStatus);
-  const [source, setSource] = useState("ALL");
-  const [entryType, setEntryType] = useState<EntryTypeFilter>("ALL");
+  const [datePreset, setDatePreset] = useState<DatePreset>(() => searchParams.get("preset") as DatePreset || initialDates.datePreset);
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
+  const [from, setFrom] = useState(() => searchParams.get("from") ?? initialDates.from);
+  const [to, setTo] = useState(() => searchParams.get("to") ?? initialDates.to);
+  const [method, setMethod] = useState(() => searchParams.get("method") ?? "ALL");
+  const [status, setStatus] = useState(() => searchParams.get("status") ?? initialStatus);
+  const [source, setSource] = useState(() => searchParams.get("source") ?? "ALL");
+  const [entryType, setEntryType] = useState<EntryTypeFilter>(() => searchParams.get("entry") as EntryTypeFilter || "ALL");
   const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([
     { key: "WEBSITE", labelEn: "🌐 Website" },
     { key: "SMS", labelEn: "✉️ SMS" },
@@ -215,6 +220,21 @@ export function OrdersListing({
   const [limit, setLimit] = useState(20);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("view", view);
+    next.set("mode", workspaceMode);
+    if (search) next.set("q", search); else next.delete("q");
+    if (from) next.set("from", from); else next.delete("from");
+    if (to) next.set("to", to); else next.delete("to");
+    if (datePreset !== "ALL") next.set("preset", datePreset); else next.delete("preset");
+    if (method !== "ALL") next.set("method", method); else next.delete("method");
+    if (status !== "ALL") next.set("status", status); else next.delete("status");
+    if (source !== "ALL") next.set("source", source); else next.delete("source");
+    if (entryType !== "ALL") next.set("entry", entryType); else next.delete("entry");
+    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+  }, [datePreset, entryType, from, method, router, search, searchParams, source, status, to, view, workspaceMode]);
 
   useEffect(() => {
     function handleDocClick(e: MouseEvent) {
