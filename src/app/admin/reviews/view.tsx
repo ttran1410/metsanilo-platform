@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import { AdminNotice, AdminPageHeader } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
@@ -32,6 +33,9 @@ type Review = {
   createdAt: string;
 };
 
+type ReviewTab = "pending" | "approved" | "featured" | "rejected" | "all";
+type RejectionReason = "SPAM" | "PROFANITY" | "UNRELATED" | "COMPETITOR" | "OTHER";
+
 export function ReviewsManager({
   initial,
   canCreate,
@@ -46,7 +50,7 @@ export function ReviewsManager({
   const [rows, setRows] = useState<Review[]>(initial);
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const [activeTab, setActiveTab] = useState<"pending" | "approved" | "featured" | "rejected" | "all">("pending");
+  const [activeTab, setActiveTab] = useState<ReviewTab>("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -60,7 +64,7 @@ export function ReviewsManager({
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [draftReplyText, setDraftReplyText] = useState("");
   const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [rejectionReason, setRejectionReason] = useState<"SPAM" | "PROFANITY" | "UNRELATED" | "COMPETITOR" | "OTHER">("SPAM");
+  const [rejectionReason, setRejectionReason] = useState<RejectionReason>("SPAM");
   const [linkingReview, setLinkingReview] = useState<Review | null>(null);
   const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([
     { key: "WHATSAPP", labelEn: "WhatsApp" },
@@ -222,7 +226,7 @@ export function ReviewsManager({
   const paginatedRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <main className="shell py-8 space-y-6">
+    <main className="admin-reviews-workspace shell py-8 space-y-6">
       {/* Header & Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <AdminPageHeader
@@ -235,9 +239,9 @@ export function ReviewsManager({
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
             <span className={`inline-block w-2.5 h-2.5 rounded-full ${masterVisible ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
             <span>{masterVisible ? "🟢 Public on Storefront" : "⚪ Hidden in Settings"}</span>
-            <a href="/admin/settings" className="text-primary hover:underline font-normal text-[11px] ml-1">
+            <Link href="/admin/settings" className="text-primary hover:underline font-normal text-[11px] ml-1">
               (Settings)
-            </a>
+            </Link>
           </div>
 
           {canCreate && (
@@ -246,7 +250,7 @@ export function ReviewsManager({
               className="btn btn-secondary text-xs font-semibold px-4 py-2"
               onClick={() => setShowManualModal(true)}
             >
-              ➕ Manual Feedback Import
+              Manual feedback import
             </button>
           )}
         </div>
@@ -326,7 +330,7 @@ export function ReviewsManager({
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`}
                 onClick={() => {
-                  setActiveTab(tab.id as any);
+                  setActiveTab(tab.id as ReviewTab);
                   setCurrentPage(1);
                 }}
               >
@@ -506,7 +510,7 @@ export function ReviewsManager({
                       {review.displayText ? "Edit Storefront Text" : "+ Custom Storefront Copy"}
                     </button>
                   </div>
-                  <p className="text-slate-800 italic font-medium">"{review.originalText}"</p>
+                  <p className="text-slate-800 italic font-medium">&quot;{review.originalText}&quot;</p>
 
                   {editingDisplayTextId === review.id ? (
                     <div className="mt-2 space-y-2">
@@ -551,7 +555,7 @@ export function ReviewsManager({
                         </span>
                       )}
                     </p>
-                    <p className="text-emerald-950 font-medium italic">"{review.sellerReplyText}"</p>
+                    <p className="text-emerald-950 font-medium italic">&quot;{review.sellerReplyText}&quot;</p>
                   </div>
                 )}
 
@@ -591,7 +595,7 @@ export function ReviewsManager({
                     <select
                       className="text-xs border border-rose-300 rounded p-1"
                       value={rejectionReason}
-                      onChange={(e) => setRejectionReason(e.target.value as any)}
+                       onChange={(e) => setRejectionReason(e.target.value as RejectionReason)}
                     >
                       <option value="SPAM">Spam / Bot</option>
                       <option value="PROFANITY">Profanity / Abuse</option>

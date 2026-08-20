@@ -312,7 +312,7 @@ export function MasterDetailWorkspace({
   const missingEn = !nameEn.trim() || !descEn.trim();
 
   return (
-    <section className="shell pb-10 flex flex-col gap-3">
+    <section className="admin-catalog-workspace shell pb-10 flex flex-col gap-3">
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
@@ -353,7 +353,7 @@ export function MasterDetailWorkspace({
             }`}
             onClick={() => setViewMode("split")}
           >
-            🔍 Split View
+            Split view
           </button>
 
           <button
@@ -363,7 +363,7 @@ export function MasterDetailWorkspace({
             }`}
             onClick={() => setViewMode("table")}
           >
-            📋 Table Matrix View
+            Table matrix
           </button>
         </div>
 
@@ -372,7 +372,7 @@ export function MasterDetailWorkspace({
             className="btn bg-emerald-700 hover:bg-emerald-800 text-white text-xs py-1.5 px-3 font-bold shadow-xs"
             href="/admin/products/new"
           >
-            ＋ New Product
+            New product
           </Link>
         )}
       </div>
@@ -577,9 +577,9 @@ export function MasterDetailWorkspace({
               </div>
 
               {canManageProducts && (
-                <a className="btn text-xs py-1 px-2.5" href="/admin/products/new">
-                  ＋ New Product
-                </a>
+                <Link className="btn text-xs py-1 px-2.5" href="/admin/products/new">
+                  New product
+                </Link>
               )}
             </div>
 

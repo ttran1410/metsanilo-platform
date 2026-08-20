@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/db/client";
 import { products, harvestSeasons, shops } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import {
   createHarvestSeason,
   deleteHarvestSeason,
@@ -12,7 +13,8 @@ import {
 import { env } from "@/lib/env";
 
 describe("Multi-Harvest Seasons Domain Logic", () => {
-  const testProductId = "test-product-blueberry-101";
+  const testSuffix = Date.now();
+  const testProductId = `test-product-blueberry-${testSuffix}`;
 
   beforeEach(async () => {
     const { SHOP_ID } = env();
@@ -36,15 +38,15 @@ describe("Multi-Harvest Seasons Domain Logic", () => {
       contactHours: "09-17",
     }).onConflictDoNothing();
 
-    // Clean test products and harvest seasons
-    await database.delete(harvestSeasons);
-    await database.delete(products);
+    // Clean only this fixture. Other tables may legitimately reference products.
+    await database.delete(harvestSeasons).where(eq(harvestSeasons.productId, testProductId));
+    await database.delete(products).where(eq(products.id, testProductId));
 
     await database.insert(products).values({
       id: testProductId,
       shopId: SHOP_ID,
-      code: "MUSTIKKA",
-      slug: "mustikka",
+      code: `MUSTIKKA-${testSuffix}`,
+      slug: `mustikka-${testSuffix}`,
       nameFi: "Metsämustikka",
       nameEn: "Wild Blueberry",
       availableFrom: "2026-07-01",

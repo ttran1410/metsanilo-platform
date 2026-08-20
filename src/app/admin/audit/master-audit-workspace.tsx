@@ -139,14 +139,14 @@ export function MasterAuditWorkspace({
   }, [searchQuery, severityFilter, categoryFilter, actorFilter, dateRange]);
 
   return (
-    <section className="shell pb-10 flex flex-col gap-4">
+    <section className="admin-audit-workspace shell pb-10 flex flex-col gap-4">
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
       {/* HEADER & EXPORT TOOLBAR */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
         <div>
           <span className="eyebrow text-primary">IMMUTABLE APPEND LEDGER</span>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">🛡️ Security &amp; Audit Trail</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Security &amp; audit trail</h1>
         </div>
 
         {canExportAudit && (
@@ -156,14 +156,14 @@ export function MasterAuditWorkspace({
               download
               className="btn btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5"
             >
-              📥 Export CSV
+              Export CSV
             </a>
             <a
               href={exportUrl.json}
               download
               className="btn btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5"
             >
-              📜 Export JSON
+              Export JSON
             </a>
           </div>
         )}
@@ -222,7 +222,7 @@ export function MasterAuditWorkspace({
           <select
             aria-label="Risk Level"
             value={severityFilter}
-            onChange={(e) => handleFilterChange({ severity: e.target.value as any })}
+            onChange={(e) => handleFilterChange({ severity: e.target.value as AuditSeverity | "ALL" })}
             className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface font-semibold"
           >
             <option value="ALL">All Risk Levels</option>
@@ -234,7 +234,7 @@ export function MasterAuditWorkspace({
           <select
             aria-label="Category"
             value={categoryFilter}
-            onChange={(e) => handleFilterChange({ category: e.target.value as any })}
+            onChange={(e) => handleFilterChange({ category: e.target.value as AuditCategory | "ALL" })}
             className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface font-semibold"
           >
             <option value="ALL">All Categories</option>
@@ -262,7 +262,7 @@ export function MasterAuditWorkspace({
           <select
             aria-label="Date Range"
             value={dateRange}
-            onChange={(e) => handleFilterChange({ dateRange: e.target.value as any })}
+            onChange={(e) => handleFilterChange({ dateRange: e.target.value as "24h" | "7d" | "30d" | "all" })}
             className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface font-semibold"
           >
             <option value="24h">Last 24 Hours</option>

@@ -68,6 +68,8 @@ type ReviewItem = {
   createdAt: string;
 };
 
+type CustomerTableSortField = "name" | "volume" | "spend" | "status";
+
 type ProfileData = {
   customer: CustomerRow;
   orders: OrderItem[];
@@ -174,11 +176,15 @@ export function MasterDetailCustomerWorkspace({
     }
   }
 
-  // Load first profile on mount
-  useMemo(() => {
+  // Load the first profile once the client workspace mounts.
+  useEffect(() => {
     if (rawList[0]?.id && !profile) {
+      // This initial fetch hydrates profile state from the server-provided list.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void loadProfile(rawList[0].id);
     }
+    // The initial profile is intentionally loaded once from the server-provided list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Calculate Summary KPI Metrics
@@ -260,6 +266,8 @@ export function MasterDetailCustomerWorkspace({
   }, [filteredCustomers, splitLimit]);
 
   useEffect(() => {
+    // Return to the first page when the visible customer set changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
     setSplitLimit(20);
   }, [searchQuery, filterChip, sortMode]);
@@ -315,7 +323,7 @@ export function MasterDetailCustomerWorkspace({
   }
 
   return (
-    <section className="shell pb-10 flex flex-col gap-4">
+    <section className="admin-customers-workspace shell pb-10 flex flex-col gap-4">
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
@@ -384,7 +392,7 @@ export function MasterDetailCustomerWorkspace({
               }`}
               onClick={() => setWorkspaceView("table")}
             >
-              📋 Table View
+               Table view
             </button>
             <button
               type="button"
@@ -393,13 +401,13 @@ export function MasterDetailCustomerWorkspace({
               }`}
               onClick={() => setWorkspaceView("split")}
             >
-              🔍 Split View
+               Split view
             </button>
           </div>
 
           {canEdit && (
             <button type="button" className="btn text-xs py-1.5 px-3 flex items-center gap-1 shrink-0" onClick={() => setShowCreateModal(true)}>
-              <PlusCircle className="w-3.5 h-3.5" /> New Customer
+               <PlusCircle className="w-3.5 h-3.5" /> New customer
             </button>
           )}
         </div>
@@ -463,7 +471,7 @@ export function MasterDetailCustomerWorkspace({
                         key={col.key}
                         className={`p-3 ${isSortable ? "cursor-pointer select-none hover:bg-slate-200/60 transition-colors" : ""}`}
                         onClick={() => {
-                          if (isSortable) handleHeaderSort(col.key as any);
+                          if (isSortable) handleHeaderSort(col.key as CustomerTableSortField);
                         }}
                       >
                         <div className="inline-flex items-center gap-1">
@@ -900,10 +908,10 @@ export function MasterDetailCustomerWorkspace({
                     )}
 
                     {/* New Order shortcut */}
-                    <a className="btn text-xs py-1.5 px-3 font-semibold flex items-center gap-1.5 rounded-lg" href="/admin/manual-orders">
+                    <Link className="btn text-xs py-1.5 px-3 font-semibold flex items-center gap-1.5 rounded-lg" href="/admin/manual-orders">
                       <PlusCircle className="w-3.5 h-3.5" />
                       <span>New Order</span>
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -1077,7 +1085,7 @@ export function MasterDetailCustomerWorkspace({
                       </div>
 
                       <p className="text-ink font-medium text-xs whitespace-pre-wrap leading-relaxed">
-                        "{rev.displayText || rev.originalText}"
+                         &quot;{rev.displayText || rev.originalText}&quot;
                       </p>
 
                       {rev.orderId && (
