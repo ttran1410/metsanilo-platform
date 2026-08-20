@@ -30,8 +30,8 @@ export async function POST(request: Request) {
           await archiveManagerOrder(db(), id, actor.email ?? undefined);
         }
         processedIds.push(id);
-      } catch (err: any) {
-        if (err?.code === "INVALID_TRANSITION" || err?.status === 400) {
+      } catch (err: unknown) {
+        if (err instanceof DomainError && (err.code === "INVALID_TRANSITION" || err.status === 400)) {
           skippedActiveIds.push(id);
         } else {
           throw err;

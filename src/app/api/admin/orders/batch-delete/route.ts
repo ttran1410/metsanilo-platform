@@ -24,8 +24,8 @@ export async function POST(request: Request) {
       try {
         await deleteManagerOrder(db(), id, actor.email ?? undefined);
         deletedIds.push(id);
-      } catch (err: any) {
-        if (err?.code === "PAYMENT_EXISTS" || err?.status === 400) {
+      } catch (err: unknown) {
+        if (err instanceof DomainError && (err.code === "PAYMENT_EXISTS" || err.status === 400)) {
           skippedPaidIds.push(id);
         } else {
           throw err;

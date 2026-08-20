@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, customers, orders, products, users } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -9,10 +9,10 @@ export type AuditCategory = "ORDERS" | "USERS" | "CUSTOMERS" | "AVAILABILITY" | 
 export interface AuditDiff {
   summary: string;
   reason?: string;
-  before?: Record<string, any>;
-  after?: Record<string, any>;
-  changes?: Array<{ field: string; oldVal: any; newVal: any }>;
-  rawPayload?: Record<string, any>;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  changes?: Array<{ field: string; oldVal: unknown; newVal: unknown }>;
+  rawPayload?: Record<string, unknown>;
 }
 
 export interface FormattedAuditItem {
@@ -168,7 +168,7 @@ export function parseAuditDiff(detailsJson: string): AuditDiff {
       result.before = parsed.before;
       result.after = parsed.after;
       const keys = new Set([...Object.keys(parsed.before ?? {}), ...Object.keys(parsed.after ?? {})]);
-      const changes: Array<{ field: string; oldVal: any; newVal: any }> = [];
+      const changes: Array<{ field: string; oldVal: unknown; newVal: unknown }> = [];
 
       for (const key of keys) {
         const oldV = parsed.before?.[key];
@@ -180,7 +180,7 @@ export function parseAuditDiff(detailsJson: string): AuditDiff {
       result.changes = changes;
     } else {
       // Look for standard before/after patterns in flat payloads
-      const changes: Array<{ field: string; oldVal: any; newVal: any }> = [];
+      const changes: Array<{ field: string; oldVal: unknown; newVal: unknown }> = [];
       for (const [key, val] of Object.entries(parsed)) {
         if (key === "summary" || key === "reason") continue;
         if (key.endsWith("Before") || key.endsWith("Old")) {
@@ -256,7 +256,7 @@ export async function listAuditEntries(
   const limit = filters?.limit ?? 15;
   const offset = (page - 1) * limit;
 
-  let query = database
+  const query = database
     .select()
     .from(auditEntries)
     .where(eq(auditEntries.shopId, shopId))
