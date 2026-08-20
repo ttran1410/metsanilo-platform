@@ -17,7 +17,7 @@ type OrderItem = {
   fulfillmentMethod: "PICKUP" | "DELIVERY";
 };
 
-type DateOrdersEntry = {
+export type DateOrdersEntry = {
   pickupVolumeMl: number;
   pickupCount: number;
   deliveryVolumeMl: number;

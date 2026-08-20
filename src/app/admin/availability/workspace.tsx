@@ -3,16 +3,17 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import type { AvailabilityWorkspace } from "@/domain/availability";
-import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
+import { AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { BatchPlannerPanel } from "./batch-planner-panel";
-import { DateInspectorDrawer } from "./date-inspector-drawer";
+import { DateInspectorDrawer, type DateOrdersEntry } from "./date-inspector-drawer";
 import { FreezeModal } from "./freeze-modal";
 
 type Workspace = AvailabilityWorkspace;
 type AvailabilityRow = Workspace["rows"][number];
 type QueueItem = Workspace["queues"]["picking"][number];
+type OrdersByDate = Record<string, DateOrdersEntry>;
 type ViewMode = "WEEK" | "MONTH" | "TABLE";
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -87,6 +88,8 @@ export function AvailabilityWorkspace({
   useEffect(() => {
     const viewParam = searchParams.get("view")?.toUpperCase();
     if (viewParam === "WEEK" || viewParam === "MONTH" || viewParam === "TABLE") {
+      // URL navigation owns the initial view; apply it after the client mounts.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setViewMode(viewParam as ViewMode);
     }
   }, [searchParams]);
@@ -303,7 +306,7 @@ export function AvailabilityWorkspace({
 
   const inspectedDayRow = inspectingDate ? rows.find((r) => r.availability.businessDate === inspectingDate) : null;
   const inspectedOrdersData = inspectingDate && workspace.ordersByDate
-    ? (workspace.ordersByDate as Record<string, any>)[inspectingDate]
+    ? (workspace.ordersByDate as OrdersByDate)[inspectingDate]
     : undefined;
   const inspectedProductName = inspectedDayRow?.product.nameFi ?? "All Products";
 
@@ -316,7 +319,7 @@ export function AvailabilityWorkspace({
         actions={
           canManage ? (
             <button className="btn font-bold text-xs shadow-2xs" type="button" onClick={() => setBatchPanelOpen((prev) => !prev)}>
-              {batchPanelOpen ? "✕ Close Batch Panel" : "⚡ In-Page Batch Planner"}
+              {batchPanelOpen ? "Close batch planner" : "Open batch planner"}
             </button>
           ) : undefined
         }
@@ -346,9 +349,9 @@ export function AvailabilityWorkspace({
           {/* View Mode Tabs */}
           <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-line">
             {[
-              { key: "WEEK", label: "📅 Calendar Week" },
-              { key: "MONTH", label: "📆 Month Heatmap" },
-              { key: "TABLE", label: "📋 Dense Table" },
+              { key: "WEEK", label: "Week" },
+              { key: "MONTH", label: "Month" },
+              { key: "TABLE", label: "Table" },
             ].map((mode) => (
               <button
                 key={mode.key}
@@ -428,7 +431,7 @@ export function AvailabilityWorkspace({
             const tone = fillTone(day.utilization, day.soldOut);
             const remainingLitres = Math.max(0, day.capacity - day.reserved);
             const dayOrders = workspace.ordersByDate
-              ? (workspace.ordersByDate as Record<string, any>)[day.date]
+              ? (workspace.ordersByDate as OrdersByDate)[day.date]
               : undefined;
 
             return (
