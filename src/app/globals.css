@@ -50,6 +50,23 @@
   --ops-control-height: 2.75rem;
   --ops-control-height-mobile: 3rem;
   --ops-radius: .85rem;
+  /* Shared admin foundation aliases. Modules should consume these semantic names. */
+  --admin-canvas: var(--cream);
+  --admin-surface: var(--paper);
+  --admin-surface-muted: var(--oat);
+  --admin-ink: var(--ink);
+  --admin-ink-muted: var(--muted);
+  --admin-primary: var(--forest);
+  --admin-accent: var(--berry);
+  --admin-success: var(--success);
+  --admin-warning: #b45309;
+  --admin-danger: var(--error);
+  --admin-info: #2d5f80;
+  --admin-border: var(--line);
+  --admin-focus: var(--focus);
+  --admin-control-height: 2.75rem;
+  --admin-control-height-mobile: 3rem;
+  --admin-radius: .7rem;
 }
 
 * { box-sizing: border-box; }
@@ -516,6 +533,11 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .admin-state-card { display: flex; min-height: 5rem; align-items: center; justify-content: center; gap: .65rem; border: 1px dashed #bdcabe; border-radius: 1rem; background: rgb(255 252 246 / 60%); padding: 1.25rem; color: var(--muted); text-align: center; }
 .admin-state-card strong { color: var(--forest); }
 .admin-state-card span { display: block; }
+.admin-state-panel { display: grid; gap: 1rem; border: 1px solid var(--admin-border); border-radius: 1rem; background: var(--admin-surface); padding: 2rem; color: var(--admin-ink-muted); }
+.admin-state-panel-centered { width: min(100% - 2rem, 34rem); margin-inline: auto; place-items: center; text-align: center; }
+.admin-state-panel h1 { margin: .35rem 0 0; color: var(--admin-primary); font-family: var(--serif); font-size: 2rem; font-weight: 500; letter-spacing: -.04em; }
+.admin-state-panel p:not(.eyebrow) { margin: .45rem 0 0; font-size: .85rem; line-height: 1.55; }
+.admin-state-icon { display: grid; width: 2.75rem; height: 2.75rem; place-items: center; border: 1px solid var(--admin-border); border-radius: 50%; color: var(--admin-accent); font-family: var(--serif); font-size: 1.4rem; }
 .admin-state-spinner { width: 1rem; height: 1rem; border: 2px solid #c7d5ca; border-top-color: var(--forest); border-radius: 50%; animation: admin-spin .8s linear infinite; }
 @keyframes admin-spin { to { transform: rotate(360deg); } }
 .profile-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(18rem, .75fr); gap: 1rem; padding: 2rem 0 4rem; }
@@ -1452,5 +1474,30 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   }
 }
 
-
+/* Shared admin foundation review surface. */
+.admin-foundation-story { min-height: 100vh; background: var(--admin-canvas); color: var(--admin-ink); padding: clamp(1rem, 3vw, 3rem); }
+.admin-foundation-story .admin-page-header { width: min(100%, 78rem); margin: 0 auto; }
+.admin-foundation-story .admin-page-header h1 { font-family: var(--serif); font-size: clamp(2.4rem, 5vw, 4.5rem); font-weight: 500; letter-spacing: -.06em; }
+.admin-foundation-story .admin-page-lede { max-width: 38rem; }
+.admin-story-meta { border: 1px solid var(--admin-border); border-radius: 999px; background: var(--admin-surface); color: var(--admin-ink-muted); padding: .45rem .7rem; font-size: .68rem; font-weight: 750; }
+.admin-story-grid { display: grid; width: min(100%, 78rem); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem auto 0; }
+.admin-story-card { display: grid; align-content: start; gap: 1rem; min-width: 0; border: 1px solid var(--admin-border); border-radius: var(--admin-radius); background: var(--admin-surface); padding: 1.25rem; box-shadow: none; }
+.admin-story-card-wide { grid-column: span 2; }
+.admin-story-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--admin-border); padding-bottom: .8rem; }
+.admin-story-card h2 { margin: .3rem 0 0; color: var(--admin-primary); font-family: var(--serif); font-size: 1.55rem; font-weight: 500; letter-spacing: -.04em; }
+.admin-story-stack { display: grid; gap: .6rem; }
+.admin-story-statuses { display: flex; flex-wrap: wrap; gap: .6rem; }
+.admin-story-field { display: grid; gap: .35rem; min-width: 0; }
+.admin-story-field > span { color: var(--admin-ink-muted); font-size: .68rem; font-weight: 750; }
+.admin-story-field input, .admin-story-field select { width: 100%; min-height: var(--admin-control-height); border: 1px solid var(--admin-border); border-radius: var(--admin-radius); background: var(--admin-surface); color: var(--admin-ink); padding: .55rem .7rem; }
+.admin-story-card .admin-filter-bar-shared { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; border: 0; background: transparent; padding: 0; }
+.admin-story-card .admin-filter-fields { display: contents; }
+.admin-story-card .admin-selection-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0; border: 1px solid var(--admin-border); border-radius: var(--admin-radius); background: var(--admin-surface-muted); box-shadow: none; padding: .65rem; }
+.admin-story-card .admin-selection-toolbar strong { margin-right: auto; font-size: .75rem; }
+.admin-story-card .admin-data-table-wrap { overflow-x: auto; }
+.admin-story-card .admin-data-table { width: 100%; }
+.admin-story-records { display: none; gap: .6rem; }
+.admin-story-records .admin-record-card { display: grid; grid-template-columns: 1fr auto; gap: .25rem .75rem; border: 1px solid var(--admin-border); border-radius: var(--admin-radius); background: var(--admin-surface); padding: .85rem; }
+.admin-story-records .admin-record-card span { color: var(--admin-ink-muted); font-size: .72rem; }.admin-story-records .status-pill { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+@media (max-width: 700px) { .admin-foundation-story { padding: 1rem; }.admin-story-grid { grid-template-columns: 1fr; }.admin-story-card-wide { grid-column: auto; }.admin-foundation-story .admin-page-header { padding-top: 0; }.admin-story-card .admin-filter-bar-shared { grid-template-columns: 1fr; }.admin-story-card .admin-data-table-wrap { display: none; }.admin-story-records { display: grid; } }
 
