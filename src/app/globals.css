@@ -1542,3 +1542,32 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .admin-overview-queue { display: grid; gap: .6rem; margin-top: 1.25rem; }.admin-overview-queue article { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid var(--admin-border); background: var(--admin-surface); padding: .85rem 1rem; }.admin-overview-queue article > div:first-child { display: grid; gap: .2rem; }.admin-overview-queue article > div:first-child strong { color: var(--admin-primary); font-family: monospace; font-size: .75rem; }.admin-overview-queue article > div:first-child span { color: var(--admin-ink-muted); font-size: .7rem; }.admin-overview-queue article > div:last-child { display: flex; align-items: center; gap: .6rem; }.admin-overview-queue .btn { min-height: 2.5rem; }
 .admin-overview-error { display: grid; max-width: 34rem; gap: .6rem; margin: 4rem auto; border: 1px solid #e3aeba; background: var(--error-surface); color: var(--error-surface-text); padding: 1.25rem; }.admin-overview-error strong { font-size: .9rem; }.admin-overview-error span { font-size: .8rem; }.admin-overview-error .btn { width: fit-content; }
 @media (max-width: 760px) { .admin-overview { width: min(100% - 1.5rem, 78rem); padding-top: 1.5rem; }.admin-overview-intro { align-items: start; flex-direction: column; }.admin-overview-clock { width: 100%; border-top: 1px solid var(--admin-border); border-left: 0; padding: .8rem 0 0; }.admin-overview-spine { grid-template-columns: repeat(5, minmax(7.5rem, 1fr)); overflow-x: auto; }.admin-overview-stage { min-width: 7.5rem; }.admin-overview-grid, .admin-overview-lookahead { grid-template-columns: 1fr; }.admin-overview-queue article { align-items: start; flex-direction: column; }.admin-overview-queue article > div:last-child { width: 100%; justify-content: space-between; }.admin-overview-heading { align-items: start; flex-direction: column; }.admin-overview-heading > a { margin-top: .2rem; } }
+
+/* Orders workspace: keep the queue legible when the operator is moving quickly. */
+.admin-orders-workspace { gap: 1.25rem; }
+.admin-orders-header { border-bottom-color: #cbd9d0; padding-bottom: 1rem; }
+.admin-orders-header .admin-page-header { flex: 1 1 18rem; }
+.admin-orders-header .admin-page-header h1 { letter-spacing: -.035em; }
+.admin-orders-header > div:last-child { justify-content: flex-end; }
+.admin-orders-header > div:last-child > div { background: #e9f0eb; border-color: #cbd9d0; }
+.admin-orders-workspace .card { border-color: #d4e0d8; box-shadow: 0 8px 24px rgb(23 55 43 / 5%); }
+.admin-orders-workspace .admin-orders-table-wrap { border-radius: 1rem; }
+.admin-orders-workspace .admin-orders-table thead { background: #eef4ef; }
+.admin-orders-workspace .admin-orders-table th { color: #557062; font-size: .65rem; }
+.admin-orders-workspace .admin-orders-table td { padding-block: 1rem; }
+.admin-orders-workspace .admin-orders-table td:first-child strong { color: var(--forest); letter-spacing: .01em; }
+.admin-orders-workspace .admin-orders-table tbody tr:focus-within { background: #f0f7f2; box-shadow: inset 3px 0 var(--ops-info); }
+.admin-orders-workspace .admin-orders-table .pill { border: 1px solid #cbd9d0; background: #f4f8f5; }
+.admin-orders-workspace .admin-filter-bar-shared,
+.admin-orders-workspace .admin-selection-toolbar { border-color: #d4e0d8; }
+.admin-orders-workspace .admin-quick-views { gap: .45rem; }
+.admin-orders-workspace .admin-quick-views .btn { min-height: 2.45rem; border-radius: .7rem; }
+@media (max-width: 760px) {
+  .admin-orders-workspace { padding-inline: .85rem; }
+  .admin-orders-header { align-items: stretch; }
+  .admin-orders-header > div:last-child { justify-content: stretch; }
+  .admin-orders-header > div:last-child > div,
+  .admin-orders-header > div:last-child > .btn,
+  .admin-orders-header > div:last-child > a { flex: 1 1 100%; justify-content: center; }
+  .admin-orders-workspace .admin-orders-table-wrap { overflow: visible; }
+}

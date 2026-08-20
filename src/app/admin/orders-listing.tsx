@@ -36,6 +36,7 @@ export type OrdersView =
 type WorkspaceMode = "TABLE" | "KANBAN" | "TERMINAL";
 type DatePreset = "TODAY" | "TOMORROW" | "YESTERDAY" | "THIS_WEEK" | "LAST_WEEK" | "LAST_7_DAYS" | "ALL" | "CUSTOM";
 type Column = "fulfillment" | "source" | "status" | "payment" | "updated";
+type SortField = "fulfillment" | "ref" | "customer" | "source" | "payment" | "status";
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
 type ArchiveScope = "ACTIVE_ONLY" | "ARCHIVED_ONLY" | "ALL";
 type EntryTypeFilter = "ALL" | "LIVE_ONLY" | "HISTORICAL_ONLY";
@@ -190,10 +191,10 @@ export function OrdersListing({
     { key: "MANUAL", labelEn: "📞 Manual / Phone" },
   ]);
 
-  const [sortField, setSortField] = useState<"fulfillment" | "ref" | "customer" | "source" | "payment" | "status">("fulfillment");
+  const [sortField, setSortField] = useState<SortField>("fulfillment");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  function handleHeaderSort(field: "fulfillment" | "ref" | "customer" | "source" | "payment" | "status") {
+  function handleHeaderSort(field: SortField) {
     if (sortField === field) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -248,6 +249,8 @@ export function OrdersListing({
   }
 
   useEffect(() => {
+    // Reset pagination after a filter changes; this state sync is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [search, from, to, method, status, source, entryType, view, archiveScope]);
 
@@ -315,6 +318,8 @@ export function OrdersListing({
   // Sync state whenever initialView or initialStatus prop changes from URL navigation
   useEffect(() => {
     if (initialView || (initialStatus && initialStatus !== "ALL")) {
+      // URL navigation owns these initial filters; apply them after mount.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       selectQuickView(initialView ?? "ALL", initialStatus !== "ALL" ? initialStatus : undefined);
     }
   }, [initialView, initialStatus, selectQuickView]);
@@ -647,9 +652,9 @@ export function OrdersListing({
   }
 
   return (
-    <section className="shell pb-10 flex flex-col gap-3">
+    <section className="admin-orders-workspace shell pb-10 flex flex-col gap-3">
       {/* HEADER & SUB-VIEW WORKSPACE MODE SWITCHER */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+      <div className="admin-orders-header flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
         <AdminPageHeader
           eyebrow="OPERATIONS WORKSPACE"
           title="Orders &amp; Fulfillment Queue"
@@ -666,7 +671,7 @@ export function OrdersListing({
               }`}
               onClick={() => setWorkspaceMode("TABLE")}
             >
-              📋 Table View
+              Queue
             </button>
 
             <button
@@ -676,7 +681,7 @@ export function OrdersListing({
               }`}
               onClick={() => setWorkspaceMode("KANBAN")}
             >
-              📊 Packing Board
+              Packing board
             </button>
 
             <button
@@ -686,7 +691,7 @@ export function OrdersListing({
               }`}
               onClick={() => setWorkspaceMode("TERMINAL")}
             >
-              📱 Pickup Mode
+              Pickup desk
             </button>
           </div>
 
@@ -695,12 +700,12 @@ export function OrdersListing({
             className="btn btn-secondary text-xs py-1.5 px-3 font-semibold"
             onClick={() => setShowPackingSlip(true)}
           >
-            🖨️ Batch Packing Slip
+            Batch packing slip
           </button>
 
           {canCreate && (
             <Link className="btn text-xs py-1.5 px-3 font-bold" href="/admin/manual-orders">
-              ＋ New Order
+              New order
             </Link>
           )}
         </div>
@@ -958,16 +963,16 @@ export function OrdersListing({
                       onChange={(e) => setSelected(e.target.checked ? visibleRows.map((r) => r.id) : [])}
                     />
                   </th>
-                  {[
+                  {([
                     { key: "ref", label: "Order Ref" },
                     { key: "customer", label: "Customer" },
                     { key: "fulfillment", label: "Fulfillment" },
                     { key: "source", label: "Source" },
-                  ].map((col) => (
+                  ] satisfies Array<{ key: SortField; label: string }>).map((col) => (
                     <th
                       key={col.key}
                       className="p-3 cursor-pointer select-none hover:bg-slate-200/60 transition-colors"
-                      onClick={() => handleHeaderSort(col.key as any)}
+                      onClick={() => handleHeaderSort(col.key)}
                     >
                       <div className="inline-flex items-center gap-1">
                         <span>{col.label}</span>
@@ -978,14 +983,14 @@ export function OrdersListing({
                     </th>
                   ))}
                   <th className="p-3">Items &amp; Vol</th>
-                  {[
+                  {([
                     { key: "payment", label: "Payment" },
                     { key: "status", label: "Status" },
-                  ].map((col) => (
+                  ] satisfies Array<{ key: SortField; label: string }>).map((col) => (
                     <th
                       key={col.key}
                       className="p-3 cursor-pointer select-none hover:bg-slate-200/60 transition-colors"
-                      onClick={() => handleHeaderSort(col.key as any)}
+                      onClick={() => handleHeaderSort(col.key)}
                     >
                       <div className="inline-flex items-center gap-1">
                         <span>{col.label}</span>
@@ -1001,7 +1006,6 @@ export function OrdersListing({
               <tbody className="divide-y divide-line">
                 {visibleRows.map((order) => {
                   const isPaid = (order.outstandingCents ?? 0) <= 0;
-                  const isClosed = ["CANCELLED", "REJECTED", "NO_SHOW", "DELIVERED", "PICKED_UP"].includes(order.status);
                   const isDelivery = order.fulfillmentMethod === "DELIVERY";
                   const mapsUrl = isDelivery
                     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
