@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { packages, products } from "@/db/schema";
 import { Search } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
@@ -44,12 +44,13 @@ export function MasterDetailWorkspace({
   canManageProducts: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [productsList, setProductsList] = useState(initialProducts);
-  const [selectedId, setSelectedId] = useState<string>(initialProducts[0]?.product.id ?? "");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
-  const [activeTab, setActiveTab] = useState<ActiveTab>("general");
-  const [viewMode, setViewMode] = useState<"split" | "table">("split");
+  const [selectedId, setSelectedId] = useState<string>(searchParams.get("product") ?? initialProducts[0]?.product.id ?? "");
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(() => searchParams.get("status") as FilterStatus || "all");
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => searchParams.get("tab") as ActiveTab || "general");
+  const [viewMode, setViewMode] = useState<"split" | "table">(() => searchParams.get("view") === "table" ? "table" : "split");
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -62,6 +63,17 @@ export function MasterDetailWorkspace({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (selectedId) next.set("product", selectedId); else next.delete("product");
+    if (searchQuery) next.set("q", searchQuery); else next.delete("q");
+    if (filterStatus !== "all") next.set("status", filterStatus); else next.delete("status");
+    if (activeTab !== "general") next.set("tab", activeTab); else next.delete("tab");
+    if (viewMode !== "split") next.set("view", viewMode); else next.delete("view");
+    if (currentPage > 1) next.set("page", String(currentPage)); else next.delete("page");
+    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+  }, [activeTab, currentPage, filterStatus, router, searchParams, searchQuery, selectedId, viewMode]);
 
   const today = todayStr();
 
