@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, lte, gte } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, harvestSeasons, products } from "@/db/schema";
+import { and, desc, eq, gte, lte, ne } from "drizzle-orm";
+import { auditEntries, availability, harvestSeasons, orders, products } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 
@@ -27,6 +27,39 @@ export async function listHarvestSeasons(database: Database, productId: string) 
     .from(harvestSeasons)
     .where(and(eq(harvestSeasons.shopId, SHOP_ID), eq(harvestSeasons.productId, productId)))
     .orderBy(desc(harvestSeasons.startDate));
+}
+
+export async function getHarvestSeasonSummary(database: Database, seasonId: string) {
+  const { SHOP_ID } = env();
+  const season = await database.query.harvestSeasons.findFirst({
+    where: and(eq(harvestSeasons.id, seasonId), eq(harvestSeasons.shopId, SHOP_ID)),
+  });
+  if (!season) throw new DomainError("NOT_FOUND", "Harvest season not found", 404);
+
+  const [days, seasonOrders] = await Promise.all([
+    database
+      .select({ capacityMl: availability.capacityMl, reservedMl: availability.reservedMl })
+      .from(availability)
+      .where(and(eq(availability.shopId, SHOP_ID), eq(availability.seasonId, seasonId), gte(availability.businessDate, season.startDate), lte(availability.businessDate, season.endDate))),
+    database
+      .select({ volumeMl: orders.volumeMl })
+      .from(orders)
+      .where(and(eq(orders.shopId, SHOP_ID), eq(orders.seasonId, seasonId), ne(orders.status, "CANCELLED"))),
+  ]);
+
+  const plannedVolumeMl = days.reduce((total, day) => total + day.capacityMl, 0);
+  const reservedVolumeMl = days.reduce((total, day) => total + day.reservedMl, 0);
+  const orderedVolumeMl = seasonOrders.reduce((total, order) => total + order.volumeMl, 0);
+
+  return {
+    season,
+    availabilityDays: days.length,
+    plannedVolumeMl,
+    reservedVolumeMl,
+    remainingVolumeMl: Math.max(0, plannedVolumeMl - reservedVolumeMl),
+    orderCount: seasonOrders.length,
+    orderedVolumeMl,
+  };
 }
 
 export async function getActiveHarvestSeason(database: Database, productId: string) {

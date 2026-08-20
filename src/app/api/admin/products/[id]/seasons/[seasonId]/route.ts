@@ -2,10 +2,25 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { requirePermission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
-import { deleteHarvestSeason, extendHarvestSeason, updateHarvestSeason } from "@/domain/seasons";
+import { deleteHarvestSeason, extendHarvestSeason, getHarvestSeasonSummary, updateHarvestSeason } from "@/domain/seasons";
 import { failure, success } from "../../../../../response";
 
 export const runtime = "nodejs";
+
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ id: string; seasonId: string }> }
+) {
+  try {
+    await requirePermission(db(), request, "catalog.product.read");
+    const { id, seasonId } = await context.params;
+    const summary = await getHarvestSeasonSummary(db(), seasonId);
+    if (summary.season.productId !== id) throw new DomainError("NOT_FOUND", "Harvest season not found", 404);
+    return success(summary);
+  } catch (error) {
+    return failure(error);
+  }
+}
 
 const updateSeasonSchema = z.object({
   action: z.enum(["update", "extend"]).optional().default("update"),
