@@ -331,12 +331,16 @@ describe("Review Engine & Social Proof Trust System", () => {
       });
     }
 
-    const page1 = (await listPublishedReviews(database, { page: 1, limit: 10 })) as any;
+    const page1Result = await listPublishedReviews(database, { page: 1, limit: 10 });
+    if (Array.isArray(page1Result)) throw new Error("Expected paginated review result");
+    const page1 = page1Result;
     expect(page1.items.length).toBe(10);
     expect(page1.total).toBe(15);
     expect(page1.totalPages).toBe(2);
 
-    const page2 = (await listPublishedReviews(database, { page: 2, limit: 10 })) as any;
+    const page2Result = await listPublishedReviews(database, { page: 2, limit: 10 });
+    if (Array.isArray(page2Result)) throw new Error("Expected paginated review result");
+    const page2 = page2Result;
     expect(page2.items.length).toBe(5);
   });
 
