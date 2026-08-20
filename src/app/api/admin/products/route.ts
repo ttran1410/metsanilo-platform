@@ -4,6 +4,8 @@ import { createProduct, listManagerProducts, reorderProducts } from "@/domain/pr
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../response";
 import { requirePermission } from "@/domain/access";
+import { hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
+import { searchManagerProducts } from "@/domain/admin-search";
 
 export const runtime = "nodejs";
 const product = z.object({
@@ -12,7 +14,7 @@ const product = z.object({
   packages: z.array(z.object({ labelFi: z.string(), labelEn: z.string(), volumeMl: z.number().int(), priceCents: z.number().int(), active: z.boolean().default(true), sortOrder: z.number().int().optional(), isDefault: z.boolean().optional() })).min(1),
 });
 
-export async function GET(request: Request) { try { await requirePermission(db(), request, "catalog.product.read"); return success(await listManagerProducts(db())); } catch (error) { return failure(error); } }
+export async function GET(request: Request) { try { await requirePermission(db(), request, "catalog.product.read"); if (hasListQuery(request)) return success(await searchManagerProducts(db(), parseAdminListQuery(request))); return success(await listManagerProducts(db())); } catch (error) { return failure(error); } }
 export async function POST(request: Request) {
   try {
     await requirePermission(db(), request, "catalog.product.write");

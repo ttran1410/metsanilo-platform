@@ -13,6 +13,8 @@ import {
 import { requirePermission } from "@/domain/access";
 import { failure, success } from "../../response";
 import { fromZodError } from "@/domain/errors";
+import { hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
+import { searchManagerReviews } from "@/domain/admin-search";
 
 export const runtime = "nodejs";
 
@@ -36,6 +38,7 @@ const commandSchema = z.object({
 export async function GET(request: Request) {
   try {
     await requirePermission(db(), request, "reviews.read");
+    if (hasListQuery(request)) return success(await searchManagerReviews(db(), parseAdminListQuery(request)));
     return success(await listManagerReviews(db()));
   } catch (error) {
     return failure(error);
