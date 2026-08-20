@@ -76,7 +76,7 @@ export function HighlightReviews({
                 <span className="text-2xl text-[#a8d6b8] leading-none select-none font-serif font-bold">“</span>
               </div>
               <p className="text-[1.025rem] text-[#24362b] leading-relaxed">
-                "{review.displayText || review.originalText}"
+                &quot;{review.displayText || review.originalText}&quot;
               </p>
             </div>
 
