@@ -1,20 +1,33 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { OrdersListing, type AdminOrder, type OrdersView } from "../orders-listing";
 
-type OrderState = "New" | "Picking" | "Ready" | "Delivered";
-const orders: Array<{ reference: string; customer: string; fulfilment: string; method: string; state: OrderState; total: string }> = [
-  { reference: "M-1048", customer: "Aino Korhonen", fulfilment: "Today, 14:30", method: "Pickup", state: "New", total: "48.00 EUR" },
-  { reference: "M-1047", customer: "Mika Salonen", fulfilment: "Today, 15:00", method: "Delivery", state: "Picking", total: "72.50 EUR" },
-  { reference: "M-1046", customer: "Laura Niemi", fulfilment: "Tomorrow, 09:00", method: "Pickup", state: "Ready", total: "31.00 EUR" },
-  { reference: "M-1045", customer: "Oskari Laine", fulfilment: "Yesterday", method: "Delivery", state: "Delivered", total: "96.00 EUR" },
+const baseOrder: AdminOrder = {
+  id: "story-order-1048", shopId: "story-shop", publicReference: "M-1048", idempotencyKey: "story-key-1048",
+  productId: "story-product", packageId: "story-package", customerId: null, seasonId: null,
+  productNameFi: "Metsamustikka", productNameEn: "Wild blueberry", packageLabelFi: "1 litra", packageLabelEn: "1 litre",
+  quantity: 1, volumeMl: 1000, itemSubtotalCents: 4800, deliveryFeeCents: 0, finalTotalCents: 4800,
+  fulfillmentDate: "2026-08-20", fulfillmentMethod: "PICKUP", customerName: "Aino Korhonen", mobile: "+358 40 123 4567", email: "aino@example.com",
+  streetAddress: null, postalCode: null, city: "Pori", pickupName: "Toriparkki", pickupAddress: "Pori", pickupInstructions: "Entrance B", pickupTime: "14:30",
+  pickupLocationSnapshotJson: null, deliveryOriginSnapshotJson: null, notes: null, facebookProfile: null, orderSource: "WEBSITE", historicalEntry: false,
+  statusReason: null, contactedAt: null, contactedBy: null, contactChannel: null, fulfillmentStartedAt: null, readyAt: null, dispatchedAt: null,
+  completedAt: null, pickupConfirmedAt: null, pickupConfirmedBy: null, locale: "fi", status: "NEW", archived: false, archivedAt: null, archivedBy: null,
+  version: 1, createdAt: "2026-08-20T10:00:00.000Z", updatedAt: "2026-08-20T10:00:00.000Z",
+};
+
+const orders: AdminOrder[] = [
+  baseOrder,
+  { ...baseOrder, id: "story-order-1047", publicReference: "M-1047", idempotencyKey: "story-key-1047", customerName: "Mika Salonen", fulfillmentMethod: "DELIVERY", status: "PICKING", orderSource: "PHONE", finalTotalCents: 7250, itemSubtotalCents: 7250, version: 2 },
+  { ...baseOrder, id: "story-order-1046", publicReference: "M-1046", idempotencyKey: "story-key-1046", customerName: "Laura Niemi", fulfillmentDate: "2026-08-21", status: "READY", finalTotalCents: 3100, itemSubtotalCents: 3100 },
+  { ...baseOrder, id: "story-order-1045", publicReference: "M-1045", idempotencyKey: "story-key-1045", customerName: "Oskari Laine", fulfillmentDate: "2026-08-19", fulfillmentMethod: "DELIVERY", status: "DELIVERED", finalTotalCents: 9600, itemSubtotalCents: 9600 },
 ];
 
-function OrdersPreview({ empty = false, selected = false }: { empty?: boolean; selected?: boolean }) {
-  return <main className="admin-orders-workspace shell pb-10"><div className="admin-orders-header flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3"><div><p className="eyebrow">Operations workspace</p><h1>Orders &amp; fulfilment</h1><p className="admin-section-description">One queue for the next operational decision.</p></div><div className="profile-actions"><button className="btn btn-secondary" type="button">Export CSV</button><button className="btn" type="button">New order</button></div></div><div className="admin-quick-views flex flex-wrap gap-2"><button className="btn" type="button">All <span className="quick-view-count">24</span></button><button className="btn btn-secondary" type="button">Needs attention <span className="quick-view-count">3</span></button><button className="btn btn-secondary" type="button">Today <span className="quick-view-count">8</span></button></div>{selected && <div className="admin-selection-toolbar card p-3 flex items-center justify-between"><strong>2 orders selected</strong><button className="btn btn-secondary" type="button">Batch confirm</button></div>}<div className="card p-3 flex flex-wrap gap-3"><input className="flex-1 min-w-[16rem]" aria-label="Search orders" placeholder="Reference, customer or phone" /><select aria-label="Filter status"><option>All statuses</option><option>New</option></select><select aria-label="Filter fulfilment"><option>Pickup &amp; delivery</option><option>Pickup</option></select></div>{empty ? <div className="admin-empty-state card p-8"><strong>No orders match these filters</strong><p>Try a wider date range or clear one of the filters.</p></div> : <div className="admin-orders-table-wrap card"><table className="admin-orders-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfilment</th><th>Status</th><th>Total</th><th /></tr></thead><tbody>{orders.map((order) => <tr key={order.reference}><td><strong>{order.reference}</strong><small>Placed 10 min ago</small></td><td><strong>{order.customer}</strong><small>+358 40 123 4567</small></td><td><strong>{order.fulfilment}</strong><small>{order.method}</small></td><td><span className="pill">{order.state}</span></td><td><strong>{order.total}</strong></td><td><button className="btn btn-secondary" type="button">View</button></td></tr>)}</tbody></table></div>}</main>;
+function OrdersStory({ empty = false, view = "TODAY" as OrdersView }: { empty?: boolean; view?: OrdersView }) {
+  return <OrdersListing initialOrders={empty ? [] : orders} initialView={view} initialStatus="ALL" canExport={false} canCreate={false} canTransition={false} canUpdate={false} canDelete={false} canArchive={false} />;
 }
 
-const meta = { title: "Admin / Orders", component: OrdersPreview, parameters: { layout: "fullscreen" }, argTypes: { empty: { control: "boolean" }, selected: { control: "boolean" } } } satisfies Meta<typeof OrdersPreview>;
+const meta = { title: "Admin / Orders", component: OrdersStory, parameters: { layout: "fullscreen" }, argTypes: { empty: { control: "boolean" }, view: { control: "select", options: ["TODAY", "TRIAGE", "ALL", "ARCHIVED"] } } } satisfies Meta<typeof OrdersStory>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Queue: Story = { args: { empty: false, selected: false } };
-export const BatchSelection: Story = { args: { empty: false, selected: true } };
-export const Empty: Story = { args: { empty: true, selected: false } };
+export const Queue: Story = { args: { empty: false, view: "TODAY" } };
+export const Triage: Story = { args: { empty: false, view: "TRIAGE" } };
+export const Empty: Story = { args: { empty: true, view: "TODAY" } };
