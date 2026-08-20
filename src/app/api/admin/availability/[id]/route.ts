@@ -12,6 +12,7 @@ const command = z.object({
   capacityMl: z.number().int().nonnegative(),
   manualSoldOut: z.boolean(),
   soldOutReason: z.string().max(500).optional(),
+  acceptsOrders: z.boolean().optional(),
 });
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {

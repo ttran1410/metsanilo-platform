@@ -276,6 +276,7 @@ export async function updateAvailability(
     capacityMl: number;
     manualSoldOut: boolean;
     soldOutReason?: string;
+    acceptsOrders?: boolean;
   },
 ) {
   const { SHOP_ID } = env();
@@ -320,6 +321,7 @@ export async function updateAvailability(
       .update(availability)
       .set({
         capacityMl: input.capacityMl,
+        acceptsOrders: input.acceptsOrders ?? current.availability.acceptsOrders,
         manualSoldOut: input.manualSoldOut,
         manualSoldOutReason: input.manualSoldOut ? input.soldOutReason!.trim() : null,
         version: sql`${availability.version} + 1`,
@@ -352,16 +354,40 @@ export async function updateAvailability(
         createdAt: updatedAt,
       });
     }
+    if (input.acceptsOrders !== undefined && current.availability.acceptsOrders !== input.acceptsOrders) {
+      audits.push({
+        id: randomUUID(), shopId: SHOP_ID, actor: "manager",
+        action: input.acceptsOrders ? "availability.reopened" : "availability.closed",
+        entityType: "availability", entityId: input.id,
+        detailsJson: JSON.stringify({ acceptsOrders: input.acceptsOrders }),
+        createdAt: updatedAt,
+      });
+    }
     await tx.insert(auditEntries).values(audits);
     return {
       ...current.availability,
       capacityMl: input.capacityMl,
       manualSoldOut: input.manualSoldOut,
       manualSoldOutReason: input.manualSoldOut ? input.soldOutReason!.trim() : null,
+      acceptsOrders: input.acceptsOrders ?? current.availability.acceptsOrders,
       version: current.availability.version + 1,
       updatedAt,
     };
   });
+}
+
+export async function previewAvailabilityUpdate(database: Database, input: { id: string; expectedVersion: number; capacityMl: number; manualSoldOut: boolean; acceptsOrders?: boolean }) {
+  const row = await database.query.availability.findFirst({ where: and(eq(availability.id, input.id), eq(availability.shopId, env().SHOP_ID)) });
+  if (!row) throw new DomainError("NOT_FOUND", "Availability not found", 404);
+  if (row.version !== input.expectedVersion) throw new DomainError("STALE_VERSION", "Availability changed", 409);
+  if (!Number.isInteger(input.capacityMl) || input.capacityMl < 0) throw new DomainError("VALIDATION_ERROR", "Capacity must be non-negative millilitres", 422);
+  return {
+    id: row.id,
+    expectedVersion: row.version,
+    current: { capacityMl: row.capacityMl, reservedMl: row.reservedMl, acceptsOrders: row.acceptsOrders, manualSoldOut: row.manualSoldOut },
+    next: { capacityMl: input.capacityMl, acceptsOrders: input.acceptsOrders ?? row.acceptsOrders, manualSoldOut: input.manualSoldOut },
+    impact: { capacityDeltaMl: input.capacityMl - row.capacityMl, reservedMl: row.reservedMl, closesOrders: input.acceptsOrders === false || input.manualSoldOut, reopensOrders: input.acceptsOrders === true && !input.manualSoldOut, canApply: input.capacityMl >= row.reservedMl },
+  };
 }
 
 export async function planAvailability(
