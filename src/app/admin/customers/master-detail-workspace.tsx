@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Edit3, Phone, MessageSquare, Share2, ExternalLink, PlusCircle, GitMerge, Trash2, UserPlus, Search } from "lucide-react";
+import { Edit3, Phone, MessageSquare, Share2, ExternalLink, PlusCircle, Search } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconDocument, IconEye } from "../ui/admin-row-action-menu";
 import { CustomerModal } from "./customer-modal";
 import { MergeModal } from "./merge-modal";
 
-type CustomerRow = {
+export type CustomerRow = {
   id: string;
   name: string;
   mobile: string | null;
@@ -137,10 +137,6 @@ export function MasterDetailCustomerWorkspace({
 
   const [editingNoteText, setEditingNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
-
-  const selectedRow = useMemo(() => {
-    return customersList.find((c) => c.id === selectedId) ?? customersList[0];
-  }, [customersList, selectedId]);
 
   async function loadProfile(id: string) {
     setSelectedId(id);
