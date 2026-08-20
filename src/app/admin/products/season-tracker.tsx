@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Plus, Calendar, Trash2, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Calendar, Trash2 } from "lucide-react";
 
 export type SeasonItem = {
   id: string;
@@ -13,6 +13,15 @@ export type SeasonItem = {
   status: "UPCOMING" | "ACTIVE" | "PAUSED" | "COMPLETED";
   targetVolumeMl?: number | null;
   notes?: string | null;
+};
+
+type SeasonSummary = {
+  availabilityDays: number;
+  plannedVolumeMl: number;
+  reservedVolumeMl: number;
+  remainingVolumeMl: number;
+  orderCount: number;
+  orderedVolumeMl: number;
 };
 
 function todayStr() {
@@ -41,9 +50,11 @@ export function SeasonTracker({
 }) {
   const today = todayStr();
   const [seasons, setSeasons] = useState<SeasonItem[]>([]);
-  const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [summary, setSummary] = useState<SeasonSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   // New Season Form State
   const currentYear = new Date().getFullYear();
@@ -55,15 +66,42 @@ export function SeasonTracker({
 
   useEffect(() => {
     if (!productId) return;
-    setLoading(true);
     fetch(`/api/admin/products/${productId}/seasons`)
       .then((res) => res.json())
       .then((body) => {
-        setLoading(false);
         if (body.data) setSeasons(body.data);
       })
-      .catch(() => setLoading(false));
+      .catch(() => undefined);
   }, [productId]);
+
+  useEffect(() => {
+    if (!productId || !selectedSeasonId) {
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/admin/products/${productId}/seasons/${selectedSeasonId}`)
+      .then((res) => res.json())
+      .then((body) => {
+        if (!cancelled) setSummary(body.data ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setSummary(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSummaryLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, selectedSeasonId]);
+
+  function selectSeason(seasonId: string) {
+    setSelectedSeasonId((current) => (current === seasonId ? null : seasonId));
+    setSummary(null);
+    setSummaryLoading(selectedSeasonId === seasonId ? false : true);
+  }
 
   async function handleAddSeason(e: FormEvent) {
     e.preventDefault();
@@ -316,6 +354,15 @@ export function SeasonTracker({
               return (
                 <div
                   key={s.id}
+                  onClick={() => selectSeason(s.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectSeason(s.id);
+                    }
+                  }}
                   className={`p-2.5 rounded-lg border text-xs flex flex-wrap items-center justify-between gap-2 transition-all ${
                     sActive
                       ? "bg-emerald-50/50 border-emerald-300"
@@ -352,7 +399,10 @@ export function SeasonTracker({
                     <button
                       type="button"
                       className="btn btn-secondary text-[11px] py-1 px-2 font-bold"
-                      onClick={() => handleExtendSeason(s)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleExtendSeason(s);
+                      }}
                       disabled={busy}
                       title="Extend this season by +1 week"
                     >
@@ -362,13 +412,28 @@ export function SeasonTracker({
                     <button
                       type="button"
                       className="p-1 rounded text-rose-600 hover:bg-rose-100 transition-colors"
-                      onClick={() => handleDeleteSeason(s.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleDeleteSeason(s.id);
+                      }}
                       disabled={busy}
                       title="Delete Season"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
+
+                  {selectedSeasonId === s.id && (
+                    <div className="basis-full grid grid-cols-2 sm:grid-cols-5 gap-2 border-t border-line/60 pt-2 text-[11px]" aria-live="polite">
+                      {summaryLoading ? <span className="text-muted col-span-full">Loading season metrics…</span> : summary ? <>
+                        <span><strong className="block text-ink ops-tabular">{summary.availabilityDays}</strong>planned days</span>
+                        <span><strong className="block text-ink ops-tabular">{(summary.plannedVolumeMl / 1000).toFixed(1)} L</strong>planned</span>
+                        <span><strong className="block text-ink ops-tabular">{(summary.reservedVolumeMl / 1000).toFixed(1)} L</strong>reserved</span>
+                        <span><strong className="block text-ink ops-tabular">{(summary.remainingVolumeMl / 1000).toFixed(1)} L</strong>remaining</span>
+                        <span><strong className="block text-ink ops-tabular">{summary.orderCount}</strong>orders</span>
+                      </> : <span className="text-muted col-span-full">No season metrics available.</span>}
+                    </div>
+                  )}
                 </div>
               );
             })}
