@@ -10,7 +10,7 @@ import { ProductGallery } from "./product-gallery";
 import { LocaleDocument } from "./locale-document";
 import { MobileNav } from "./mobile-nav";
 import { getReviewRollup, listFeaturedReviews } from "@/domain/reviews";
-import { HighlightReviews } from "./reviews/highlight-reviews";
+import { HighlightReviews, type FeaturedReviewItem } from "./reviews/highlight-reviews";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -214,7 +214,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
       {data.shop.reviewsVisible && publishedReviews.length > 0 && (
         <HighlightReviews
           locale={locale}
-          reviews={publishedReviews as any}
+          reviews={publishedReviews satisfies FeaturedReviewItem[]}
           ratingAvg={rollup.ratingAvg}
           reviewCount={rollup.reviewCount}
         />
@@ -258,4 +258,3 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
     </main>
   );
 }
-
