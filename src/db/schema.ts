@@ -316,6 +316,7 @@ export const availability = sqliteTable(
     id: text("id").primaryKey(),
     shopId: text("shop_id").notNull().references(() => shops.id),
     productId: text("product_id").notNull().references(() => products.id),
+    seasonId: text("season_id").references(() => harvestSeasons.id),
     businessDate: text("business_date").notNull(),
     capacityMl: integer("capacity_ml").notNull(),
     reservedMl: integer("reserved_ml").notNull().default(0),
@@ -326,9 +327,10 @@ export const availability = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    uniqueIndex("availability_shop_product_date_unique").on(
+    uniqueIndex("availability_shop_product_season_date_unique").on(
       table.shopId,
       table.productId,
+      table.seasonId,
       table.businessDate,
     ),
     index("availability_shop_date_idx").on(table.shopId, table.businessDate),

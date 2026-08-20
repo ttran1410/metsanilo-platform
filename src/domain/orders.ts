@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, availability, customers, fulfillmentLocations, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -8,6 +8,7 @@ import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
 import { normalizeEmail, normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
 import { assertPaymentMethodEnabled, type PaymentMethod } from "./payment-methods";
+import { getHarvestSeasonForDate } from "./seasons";
 
 const nowIso = () => new Date().toISOString();
 const publicReference = () => `R-${randomBytes(5).toString("hex").toUpperCase()}`;
@@ -119,10 +120,13 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
       const row = catalog[0];
       if (!row) throw new DomainError("NOT_AVAILABLE", "Product is unavailable", 404);
 
+      const season = await getHarvestSeasonForDate(tx, row.product.id, input.fulfillmentDate);
+
       let current = await tx.query.availability.findFirst({
         where: and(
           eq(availability.shopId, SHOP_ID),
           eq(availability.productId, input.productId),
+          season ? eq(availability.seasonId, season.id) : isNull(availability.seasonId),
           eq(availability.businessDate, input.fulfillmentDate),
         ),
       });
@@ -151,6 +155,7 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
             id: availId,
             shopId: SHOP_ID,
             productId: input.productId,
+            seasonId: season?.id ?? null,
             businessDate: input.fulfillmentDate,
             capacityMl: 100000,
             reservedMl: 0,
@@ -235,7 +240,7 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
         idempotencyKey: input.idempotencyKey,
         productId: row.product.id,
         customerId: customer.id,
-        seasonId: null,
+        seasonId: season?.id ?? null,
         packageId: row.package.id,
         productNameFi: row.product.nameFi,
         productNameEn: row.product.nameEn,
@@ -445,11 +450,13 @@ export async function updateManagerOrder(database: Database, input: ManagerOrder
     const finalTotalCents = deliveryFeeCents === null ? null : finalItemSubtotal + deliveryFeeCents;
     const totalVolumeMl = row.package.volumeMl * quantity;
     const capacityChanged = !current.historicalEntry && (current.productId !== productId || current.fulfillmentDate !== fulfillmentDate || current.volumeMl !== totalVolumeMl);
+    const currentSeasonId = current.seasonId ?? (await getHarvestSeasonForDate(tx, current.productId, current.fulfillmentDate))?.id ?? null;
+    const targetSeasonId = (await getHarvestSeasonForDate(tx, productId, fulfillmentDate))?.id ?? null;
     const now = nowIso();
     if (capacityChanged) {
-      const released = await tx.update(availability).set({ reservedMl: sql`${availability.reservedMl} - ${current.volumeMl}`, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.shopId, SHOP_ID), eq(availability.productId, current.productId), eq(availability.businessDate, current.fulfillmentDate), gte(availability.reservedMl, current.volumeMl))).run();
+      const released = await tx.update(availability).set({ reservedMl: sql`${availability.reservedMl} - ${current.volumeMl}`, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.shopId, SHOP_ID), eq(availability.productId, current.productId), currentSeasonId ? eq(availability.seasonId, currentSeasonId) : isNull(availability.seasonId), eq(availability.businessDate, current.fulfillmentDate), gte(availability.reservedMl, current.volumeMl))).run();
       if (released.rowsAffected !== 1) throw new DomainError("CAPACITY_CHANGED", "The original capacity reservation is no longer available", 409);
-      const target = await tx.query.availability.findFirst({ where: and(eq(availability.shopId, SHOP_ID), eq(availability.productId, productId), eq(availability.businessDate, fulfillmentDate)) });
+      const target = await tx.query.availability.findFirst({ where: and(eq(availability.shopId, SHOP_ID), eq(availability.productId, productId), targetSeasonId ? eq(availability.seasonId, targetSeasonId) : isNull(availability.seasonId), eq(availability.businessDate, fulfillmentDate)) });
       if (!target || !target.acceptsOrders || target.manualSoldOut || target.capacityMl - target.reservedMl < totalVolumeMl) throw new DomainError("CAPACITY_CHANGED", "Not enough capacity for the selected date", 409);
       const reserved = await tx.update(availability).set({ reservedMl: sql`${availability.reservedMl} + ${totalVolumeMl}`, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.id, target.id), gte(sql`${availability.capacityMl} - ${availability.reservedMl}`, totalVolumeMl))).run();
       if (reserved.rowsAffected !== 1) throw new DomainError("CAPACITY_CHANGED", "Capacity changed while saving", 409);
@@ -462,10 +469,10 @@ export async function updateManagerOrder(database: Database, input: ManagerOrder
     }
     const email = input.email === undefined ? current.email : normalizeEmail(input.email);
     const customerName = input.customerName?.trim() || current.customerName;
-    const changed = await tx.update(orders).set({ productId, packageId, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity, volumeMl: totalVolumeMl, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents, finalTotalCents, fulfillmentDate, fulfillmentMethod, orderSource, facebookProfile, customerName, mobile, email, streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress?.trim() || null, postalCode: input.postalCode === undefined ? current.postalCode : input.postalCode?.trim() || null, city: input.city === undefined ? current.city : input.city?.trim() || null, pickupLocationSnapshotJson: fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, version: sql`${orders.version} + 1`, updatedAt: now }).where(and(eq(orders.id, current.id), eq(orders.version, input.expectedVersion))).run();
+    const changed = await tx.update(orders).set({ productId, seasonId: targetSeasonId, packageId, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity, volumeMl: totalVolumeMl, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents, finalTotalCents, fulfillmentDate, fulfillmentMethod, orderSource, facebookProfile, customerName, mobile, email, streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress?.trim() || null, postalCode: input.postalCode === undefined ? current.postalCode : input.postalCode?.trim() || null, city: input.city === undefined ? current.city : input.city?.trim() || null, pickupLocationSnapshotJson: fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, version: sql`${orders.version} + 1`, updatedAt: now }).where(and(eq(orders.id, current.id), eq(orders.version, input.expectedVersion))).run();
     if (changed.rowsAffected !== 1) throw new DomainError("STALE_VERSION", "Order changed", 409);
     await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "order.updated", entityType: "order", entityId: current.id, detailsJson: JSON.stringify({ before: { productId: current.productId, packageId: current.packageId, quantity: current.quantity, fulfillmentDate: current.fulfillmentDate, fulfillmentMethod: current.fulfillmentMethod, itemSubtotalCents: current.itemSubtotalCents, deliveryFeeCents: current.deliveryFeeCents }, after: { productId, packageId, quantity, fulfillmentDate, fulfillmentMethod, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents }, adjustmentReason: input.adjustmentReason?.trim() || null, capacityChanged }), createdAt: now });
-    return { ...current, productId, packageId, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity, volumeMl: totalVolumeMl, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents, finalTotalCents, fulfillmentDate, fulfillmentMethod, orderSource, facebookProfile, customerName, mobile, email, streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress?.trim() || null, postalCode: input.postalCode === undefined ? current.postalCode : input.postalCode?.trim() || null, city: input.city === undefined ? current.city : input.city?.trim() || null, pickupLocationSnapshotJson: fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, version: current.version + 1, updatedAt: now };
+    return { ...current, productId, seasonId: targetSeasonId, packageId, productNameFi: row.product.nameFi, productNameEn: row.product.nameEn, packageLabelFi: row.package.labelFi, packageLabelEn: row.package.labelEn, quantity, volumeMl: totalVolumeMl, itemSubtotalCents: finalItemSubtotal, deliveryFeeCents, finalTotalCents, fulfillmentDate, fulfillmentMethod, orderSource, facebookProfile, customerName, mobile, email, streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress?.trim() || null, postalCode: input.postalCode === undefined ? current.postalCode : input.postalCode?.trim() || null, city: input.city === undefined ? current.city : input.city?.trim() || null, pickupLocationSnapshotJson: fulfillmentMethod === "PICKUP" ? locationSnapshot : null, deliveryOriginSnapshotJson: fulfillmentMethod === "DELIVERY" ? locationSnapshot : null, version: current.version + 1, updatedAt: now };
   });
 }
 
@@ -612,6 +619,7 @@ export async function transitionOrder(
 
     const now = nowIso();
     const releaseCapacity = ["CUSTOMER_DECLINED", "CANCELLED", "CANCELLED_BY_CUSTOMER"].includes(input.status) && ["NEW", "CONFIRMED"].includes(current.status);
+    const currentSeasonId = current.seasonId ?? (await getHarvestSeasonForDate(tx, current.productId, current.fulfillmentDate))?.id ?? null;
     const completedAt = ["PICKED_UP", "DELIVERED"].includes(input.status) ? now : current.completedAt;
     const changed = await tx
       .update(orders)
@@ -652,6 +660,7 @@ export async function transitionOrder(
           and(
             eq(availability.shopId, SHOP_ID),
             eq(availability.productId, current.productId),
+            currentSeasonId ? eq(availability.seasonId, currentSeasonId) : isNull(availability.seasonId),
             eq(availability.businessDate, current.fulfillmentDate),
             gte(availability.reservedMl, current.volumeMl),
           ),
@@ -688,6 +697,7 @@ export async function deleteManagerOrder(database: Database, orderId: string, ac
     }
 
     if (["NEW", "CONFIRMED", "PICKING", "READY"].includes(current.status)) {
+      const currentSeasonId = current.seasonId ?? (await getHarvestSeasonForDate(tx, current.productId, current.fulfillmentDate))?.id ?? null;
       await tx
         .update(availability)
         .set({
@@ -699,6 +709,7 @@ export async function deleteManagerOrder(database: Database, orderId: string, ac
           and(
             eq(availability.shopId, SHOP_ID),
             eq(availability.productId, current.productId),
+            currentSeasonId ? eq(availability.seasonId, currentSeasonId) : isNull(availability.seasonId),
             eq(availability.businessDate, current.fulfillmentDate),
             gte(availability.reservedMl, current.volumeMl),
           ),
@@ -812,4 +823,3 @@ export async function unarchiveManagerOrder(database: Database, orderId: string,
     return { success: true, id: orderId, publicReference: current.publicReference, archived: false };
   });
 }
-
