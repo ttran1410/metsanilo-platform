@@ -83,6 +83,7 @@ export function AvailabilityWorkspace({
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>("WEEK");
   const [productFilter, setProductFilter] = useState("ALL");
+  const [seasonFilter, setSeasonFilter] = useState("ALL");
   const [viewFilter, setViewFilter] = useState("ALL");
 
   useEffect(() => {
@@ -110,6 +111,8 @@ export function AvailabilityWorkspace({
   const [error, setError] = useState("");
 
   const today = todayStr();
+  const selectedProduct = workspace.products.find((product) => product.id === productFilter);
+  const selectedSeasons = selectedProduct?.seasons ?? [];
 
   async function fetchWorkspaceForDates(start: string, days = 7) {
     try {
@@ -117,6 +120,7 @@ export function AvailabilityWorkspace({
         startDate: start,
         days: days.toString(),
         productId: productFilter,
+        ...(seasonFilter !== "ALL" ? { seasonId: seasonFilter } : {}),
       });
       const response = await fetch(`/api/admin/availability?${query}`);
       const body = await response.json();
@@ -145,6 +149,16 @@ export function AvailabilityWorkspace({
     }
   }
 
+  function handleProductFilterChange(productId: string) {
+    setProductFilter(productId);
+    setSeasonFilter("ALL");
+  }
+
+  function handleSeasonFilterChange(seasonId: string) {
+    setSeasonFilter(seasonId);
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30);
+  }
+
   function handleViewModeChange(mode: ViewMode) {
     setViewMode(mode);
     if (mode === "WEEK") {
@@ -168,12 +182,13 @@ export function AvailabilityWorkspace({
   const rows = useMemo(() => {
     return workspace.rows.filter((row) => {
       if (productFilter !== "ALL" && row.product.id !== productFilter) return false;
+      if (seasonFilter !== "ALL" && row.availability.seasonId !== seasonFilter) return false;
       if (viewFilter === "SOLD_OUT") return row.soldOut;
       if (viewFilter === "NEAR") return row.nearCapacity && !row.soldOut;
       if (viewFilter === "ATTENTION") return row.soldOut || row.nearCapacity;
       return true;
     });
-  }, [workspace.rows, productFilter, viewFilter]);
+  }, [workspace.rows, productFilter, seasonFilter, viewFilter]);
 
   const paginatedRows = useMemo(() => {
     return rows.slice((tablePage - 1) * tableLimit, tablePage * tableLimit);
@@ -379,7 +394,7 @@ export function AvailabilityWorkspace({
                     ? "bg-slate-900 text-white border-slate-900 ring-2 ring-slate-400/40"
                     : "bg-surface text-ink border-line hover:border-slate-400"
                 }`}
-                onClick={() => setProductFilter("ALL")}
+                onClick={() => handleProductFilterChange("ALL")}
               >
                 {productFilter === "ALL" && "✓ "}All Products
               </button>
@@ -393,13 +408,29 @@ export function AvailabilityWorkspace({
                       ? "bg-slate-900 text-white border-slate-900 ring-2 ring-slate-400/40"
                       : "bg-surface text-ink border-line hover:border-slate-400"
                   }`}
-                  onClick={() => setProductFilter(prod.id)}
+                   onClick={() => handleProductFilterChange(prod.id)}
                 >
                   {productFilter === prod.id && "✓ "}{prod.nameFi}
                 </button>
               ))}
             </div>
           </div>
+
+          {productFilter !== "ALL" && selectedSeasons.length > 0 && (
+            <label className="flex items-center gap-2 text-xs font-bold">
+              <span className="uppercase tracking-wider muted">Season:</span>
+              <select
+                className="rounded-lg border border-line bg-surface px-2 py-1.5 font-semibold"
+                value={seasonFilter}
+                onChange={(event) => handleSeasonFilterChange(event.target.value)}
+              >
+                <option value="ALL">All seasons</option>
+                {selectedSeasons.map((season) => (
+                  <option key={season.id} value={season.id}>{season.nameFi}</option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
 
         {/* Dynamic Navigation & Summary Line */}

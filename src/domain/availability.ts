@@ -134,11 +134,12 @@ export async function getAvailabilityWorkspace(
   const dates = Array.from({ length: numDays }, (_, index) => addDays(start, index));
   const endDate = dates[dates.length - 1];
 
-  const [productRows, packageRows, availabilityRows, orderRows] = await Promise.all([
+  const [productRows, packageRows, seasonRows, availabilityRows, orderRows] = await Promise.all([
     database.select().from(products).where(eq(products.shopId, SHOP_ID)),
     database.select().from(packages).where(eq(packages.shopId, SHOP_ID)),
+    database.select().from(harvestSeasons).where(eq(harvestSeasons.shopId, SHOP_ID)),
     database.select().from(availability).where(and(eq(availability.shopId, SHOP_ID), gte(availability.businessDate, start), lte(availability.businessDate, endDate), options?.seasonId ? eq(availability.seasonId, options.seasonId) : undefined)),
-    database.select().from(orders).where(and(eq(orders.shopId, SHOP_ID), gte(orders.fulfillmentDate, start), lte(orders.fulfillmentDate, endDate))),
+    database.select().from(orders).where(and(eq(orders.shopId, SHOP_ID), gte(orders.fulfillmentDate, start), lte(orders.fulfillmentDate, endDate), options?.seasonId ? eq(orders.seasonId, options.seasonId) : undefined)),
   ]);
 
   const packageByProduct = new Map<string, typeof packageRows>();
@@ -253,6 +254,7 @@ export async function getAvailabilityWorkspace(
         availableThrough: product.availableThrough,
         showOnHomepage: product.showOnHomepage,
         showOnReserve: product.showOnReserve,
+        seasons: seasonRows.filter((season) => season.productId === product.id),
       })),
     ordersByDate,
     queues: {
