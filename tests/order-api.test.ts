@@ -8,7 +8,7 @@ import { createDatabaseConnection, type Database } from "@/db/client";
 import { availability, customers, notifications, orderPayments, orders, outboxJobs, packages, products, shops, userPermissions } from "@/db/schema";
 import { createUser, requirePermission, setUserPermission } from "@/domain/access";
 import { createExternalOrder, createHistoricalOrder, runAutomation } from "@/domain/operations";
-import { addOrderNote, archiveManagerOrder, confirmPickup, deleteManagerOrder, getManagerOrder, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder, unarchiveManagerOrder, updateManagerOrder } from "@/domain/orders";
+import { addOrderNote, archiveManagerOrder, confirmPickup, deleteManagerOrder, getManagerOrder, getOrderQueue, previewManagerOrderUpdate, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder, unarchiveManagerOrder, updateManagerOrder } from "@/domain/orders";
 import { createProduct, deleteProduct } from "@/domain/products";
 import { planAvailability } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
@@ -203,6 +203,20 @@ describe("availability planning", () => {
 });
 
 describe("order operations", () => {
+  it("returns filtered queue read models and non-mutating capacity previews", async () => {
+    const created = await createExternalOrder(database, { ...pickupInput("queue-preview"), source: "PHONE", status: "CONFIRMED" });
+    const confirmed = created;
+    const queue = await getOrderQueue(database, { productId: "product-berries", from: "2099-08-13", to: "2099-08-13" });
+    expect(queue.total).toBe(1);
+    expect(queue.picking[0]?.id).toBe(created.id);
+
+    const preview = await previewManagerOrderUpdate(database, { orderId: created.id, expectedVersion: confirmed.version, fulfillmentDate: "2099-08-14" });
+    expect(preview.capacity.changed).toBe(true);
+    expect(preview.capacity.releaseMl).toBe(5000);
+    expect(preview.capacity.canReserve).toBe(true);
+    expect((await database.query.orders.findFirst({ where: eq(orders.id, created.id) }))?.fulfillmentDate).toBe("2099-08-13");
+  });
+
   it("creates external and historical orders without customer email automation", async () => {
     const external = await createExternalOrder(database, { ...pickupInput("external-placeholder"), source: "PHONE", status: "NEW" });
     expect(external.orderSource).toBe("PHONE");
