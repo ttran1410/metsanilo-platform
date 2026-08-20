@@ -905,6 +905,23 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   .order-lifecycle-steps .order-lifecycle-dot { top: .75rem; left: -.55rem; }
 }
 
+/* Audit workspace: prioritize risk signals, then the immutable event stream. */
+.admin-audit-workspace { gap: 1.25rem; }
+.admin-audit-workspace > .flex.flex-wrap { border-bottom-color: #cbd9d0; padding-bottom: 1rem; }
+.admin-audit-workspace > .grid > .card { min-height: 7rem; border-color: #d4e0d8; box-shadow: 0 7px 20px rgb(23 55 43 / 5%); }
+.admin-audit-workspace > .card { border-color: #d4e0d8; box-shadow: 0 8px 24px rgb(23 55 43 / 5%); }
+.admin-audit-workspace > .card table thead { background: #eef4ef; }
+.admin-audit-workspace > .card table th { color: #557062; }
+.admin-audit-workspace > .card table tbody tr:hover { background: #f0f7f2; }
+.admin-audit-workspace .audit-risk-high { border-left: 3px solid var(--error); }
+@media (max-width: 760px) {
+  .admin-audit-workspace { padding-inline: .85rem; }
+  .admin-audit-workspace > .flex.flex-wrap { align-items: stretch; }
+  .admin-audit-workspace > .flex.flex-wrap > div:last-child { width: 100%; }
+  .admin-audit-workspace > .flex.flex-wrap > div:last-child > * { flex: 1 1 100%; justify-content: center; }
+  .admin-audit-workspace > .grid > .card { min-height: 6rem; }
+}
+
 /* Availability workspace: planning first, exceptions visible at a glance. */
 .availability-workspace { gap: 1.25rem; }
 .availability-workspace > .admin-page-header { padding-bottom: .25rem; }
