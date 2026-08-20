@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { Role } from "@/lib/permissions";
+import type { CreatedUser } from "./master-detail-workspace";
 
 const ROLE_PRESETS: Array<{ key: Role; label: string; icon: string; description: string }> = [
   {
@@ -44,7 +45,7 @@ export function OnboardingModal({
 }: {
   actorRole?: Role;
   onClose: () => void;
-  onCreated: (createdUser: any, tempPassword: string) => void;
+  onCreated: (createdUser: CreatedUser, tempPassword: string) => void;
 }) {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
