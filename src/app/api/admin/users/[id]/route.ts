@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { db } from "@/db/client";
 import {
-  getUserAuditTrail,
-  getUserSessions,
+  getUserAccessDetail,
   requirePermission,
   resetUserPermissionsToRole,
   revokeUserSessions,
@@ -33,13 +32,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     await requirePermission(db(), request, "shop_users.read");
     const { id } = await context.params;
 
-    const sessions = await getUserSessions(db(), id);
-    const audit = await getUserAuditTrail(db(), id);
-
-    return success({
-      sessions,
-      audit,
-    });
+    return success(await getUserAccessDetail(db(), id));
   } catch (error) {
     return failure(error);
   }

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, customers, orders, reviews, shops } from "@/db/schema";
+import { auditEntries, customers, harvestSeasons, orders, products, reviews, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { normalizeEmail, normalizeMobile } from "./order-input";
@@ -277,6 +277,36 @@ export async function listManagerReviews(database: Database) {
     .from(reviews)
     .where(eq(reviews.shopId, SHOP_ID))
     .orderBy(sql`COALESCE(${reviews.fulfillmentDate}, ${reviews.createdAt}) DESC`);
+}
+
+export async function getManagerReviewDetail(database: Database, reviewId: string) {
+  const { SHOP_ID } = env();
+  const review = await database.query.reviews.findFirst({
+    where: and(eq(reviews.id, reviewId), eq(reviews.shopId, SHOP_ID)),
+  });
+  if (!review) throw new DomainError("NOT_FOUND", "Review not found", 404);
+
+  const [customer, order, product, season] = await Promise.all([
+    review.customerId
+      ? database.query.customers.findFirst({ where: and(eq(customers.id, review.customerId), eq(customers.shopId, SHOP_ID)) })
+      : Promise.resolve(null),
+    review.orderId
+      ? database.query.orders.findFirst({ where: and(eq(orders.id, review.orderId), eq(orders.shopId, SHOP_ID)) })
+      : Promise.resolve(null),
+    review.productId
+      ? database.query.products.findFirst({ where: and(eq(products.id, review.productId), eq(products.shopId, SHOP_ID)) })
+      : Promise.resolve(null),
+    review.orderId
+      ? database
+          .select({ season: harvestSeasons })
+          .from(orders)
+          .leftJoin(harvestSeasons, eq(harvestSeasons.id, orders.seasonId))
+          .where(and(eq(orders.id, review.orderId), eq(orders.shopId, SHOP_ID)))
+          .then((rows) => rows[0]?.season ?? null)
+      : Promise.resolve(null),
+  ]);
+
+  return { review, customer, order, product, season };
 }
 
 export async function createManualReview(
@@ -797,4 +827,3 @@ export async function deleteReview(
 
   return { id: input.id, deleted: true };
 }
-

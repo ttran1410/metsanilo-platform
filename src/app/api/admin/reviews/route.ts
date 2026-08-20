@@ -6,6 +6,7 @@ import {
   deleteReview,
   linkReviewToCustomerOrOrder,
   listManagerReviews,
+  getManagerReviewDetail,
   moderateReview,
   replyToReview,
   updateFullReview,
@@ -50,7 +51,8 @@ export async function GET(request: Request) {
         hasReply: adminQueryParam(request, "hasReply") === "true" ? true : undefined,
       }));
     }
-    return success(await listManagerReviews(db()));
+    const id = new URL(request.url).searchParams.get("id");
+    return success(id ? await getManagerReviewDetail(db(), id) : await listManagerReviews(db()));
   } catch (error) {
     return failure(error);
   }
