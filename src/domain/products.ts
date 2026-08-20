@@ -70,11 +70,11 @@ async function audit(database: Database, action: string, entityType: string, ent
   await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor: "manager", action, entityType, entityId, detailsJson: JSON.stringify(details), createdAt: new Date().toISOString() });
 }
 
-export async function listManagerProducts(database: Database) {
+export async function listManagerProducts(database: Database, productIds?: string[]) {
   const shopId = env().SHOP_ID;
   const rows = await database.select({ product: products, package: packages }).from(products)
     .leftJoin(packages, and(eq(packages.productId, products.id), eq(packages.shopId, products.shopId)))
-    .where(eq(products.shopId, shopId)).orderBy(asc(products.sortOrder), asc(products.nameFi), asc(packages.sortOrder), asc(packages.volumeMl));
+    .where(and(eq(products.shopId, shopId), productIds?.length ? inArray(products.id, productIds) : undefined)).orderBy(asc(products.sortOrder), asc(products.nameFi), asc(packages.sortOrder), asc(packages.volumeMl));
   const grouped = new Map<string, { product: typeof products.$inferSelect; packages: Array<typeof packages.$inferSelect> }>();
   for (const row of rows) {
     let group = grouped.get(row.product.id);
@@ -83,7 +83,7 @@ export async function listManagerProducts(database: Database) {
   }
   const media = await database.select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments)
     .innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId))
-    .where(eq(mediaAttachments.shopId, shopId)).orderBy(asc(mediaAttachments.sortOrder));
+    .where(and(eq(mediaAttachments.shopId, shopId), productIds?.length ? inArray(mediaAttachments.productId, productIds) : undefined)).orderBy(asc(mediaAttachments.sortOrder));
   return [...grouped.values()].map((item) => ({ ...item, packages: [...item.packages].sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.sortOrder - b.sortOrder || b.volumeMl - a.volumeMl), media: media.filter((row) => row.attachment.productId === item.product.id).map((row) => ({ ...row.asset, attachmentId: row.attachment.id, sortOrder: row.attachment.sortOrder, isPrimary: row.attachment.isPrimary })) }));
 }
 
