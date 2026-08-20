@@ -1616,7 +1616,25 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   .admin-orders-header > div:last-child > div,
   .admin-orders-header > div:last-child > .btn,
   .admin-orders-header > div:last-child > a { flex: 1 1 100%; justify-content: center; }
-  .admin-orders-workspace .admin-orders-table-wrap { overflow: visible; }
+.admin-orders-workspace .admin-orders-table-wrap { overflow: visible; }
+}
+
+/* Reviews workspace: separate trust signals from the moderation queue. */
+.admin-reviews-workspace { gap: 1.25rem; }
+.admin-reviews-workspace > .flex.flex-wrap { align-items: flex-end; }
+.admin-reviews-workspace > .flex.flex-wrap .admin-page-header { flex: 1 1 20rem; }
+.admin-reviews-workspace > .grid > .card { min-height: 8rem; border-color: #d4e0d8; box-shadow: 0 7px 20px rgb(23 55 43 / 5%); }
+.admin-reviews-workspace > .card { border-color: #d4e0d8; box-shadow: 0 8px 24px rgb(23 55 43 / 5%); }
+.admin-reviews-workspace > .card > div:first-child { border-bottom-color: #cbd9d0; }
+.admin-reviews-workspace > .card > div:first-child button { min-height: 2.45rem; border-radius: .65rem; }
+.admin-reviews-workspace article { border-color: #d4e0d8; box-shadow: 0 5px 16px rgb(23 55 43 / 4%); }
+.admin-reviews-workspace article:hover { border-color: #a7c5b0; background: #f8fbf8; }
+@media (max-width: 760px) {
+  .admin-reviews-workspace { padding-inline: .85rem; }
+  .admin-reviews-workspace > .flex.flex-wrap { align-items: stretch; }
+  .admin-reviews-workspace > .flex.flex-wrap > div:last-child { width: 100%; }
+  .admin-reviews-workspace > .flex.flex-wrap > div:last-child > * { flex: 1 1 100%; justify-content: center; }
+  .admin-reviews-workspace > .grid > .card { min-height: 7rem; }
 }
 
 /* Customers workspace: make relationship signals visible before profile detail. */
