@@ -7,7 +7,7 @@ import { DomainError } from "./errors";
 import { readSession, SESSION_COOKIE } from "./session";
 import { assertPassword, hashPassword, verifyPassword } from "./passwords";
 import { betterAuthInstance } from "@/lib/better-auth";
-import { COMING_SOON_PERMISSIONS, defaultPermissionsForRole, PERMISSIONS, type Permission, type Role } from "@/lib/permissions";
+import { defaultPermissionsForRole, PERMISSIONS, type Permission, type Role } from "@/lib/permissions";
 
 export { COMING_SOON_PERMISSIONS, PERMISSIONS, defaultPermissionsForRole } from "@/lib/permissions";
 export type { Permission, Role } from "@/lib/permissions";
@@ -267,7 +267,7 @@ export async function updateUserProfile(
     throw new DomainError("FORBIDDEN", "Cannot change your own role", 403);
   }
 
-  const updates: Record<string, any> = {};
+  const updates: Partial<Pick<typeof users.$inferInsert, "displayName" | "email" | "role">> = {};
   if (input.displayName && input.displayName.trim()) {
     updates.displayName = input.displayName.trim();
   }
