@@ -31,8 +31,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
     const today = new Date().toISOString().slice(0, 10);
     return fulfillmentDateInput < today;
   }, [fulfillmentDateInput]);
-  const [paymentEurosStr, setPaymentEurosStr] = useState("");
-  const [userEditedPayment, setUserEditedPayment] = useState(false);
+  const [paymentEurosStr, setPaymentEurosStr] = useState<string | null>(null);
   const [mobileInput, setMobileInput] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [cityInput, setCityInput] = useState("Pori");
@@ -65,17 +64,10 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
 
   const selectedProduct = products.find((row) => row.product.id === productId);
   const selectedPackage = selectedProduct?.packages.find((item) => item.id === packageId);
-  const calculatedSubtotal = useMemo(() => (selectedPackage?.priceCents ?? 0) * quantity, [selectedPackage, quantity]);
+  const calculatedSubtotal = (selectedPackage?.priceCents ?? 0) * quantity;
 
   const deliveryFeeCents = fulfillmentMethod === "PICKUP" ? 0 : deliveryFeeStr ? Math.round(Number(deliveryFeeStr) * 100) : 0;
   const calculatedTotalCents = calculatedSubtotal + deliveryFeeCents;
-
-  // Sync Payment Received default value dynamically unless user edited manually
-  useEffect(() => {
-    if (!userEditedPayment) {
-      setPaymentEurosStr((calculatedTotalCents / 100).toFixed(2));
-    }
-  }, [calculatedTotalCents, userEditedPayment]);
 
   function selectProduct(value: string) {
     setProductId(value);
@@ -103,7 +95,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
     setMobileError("");
     const values = new FormData(event.currentTarget);
     const formPaymentStatus = String(values.get("paymentStatus") ?? paymentStatus);
-    const paymentEuros = Number(paymentEurosStr);
+    const paymentEuros = Number(paymentEurosStr ?? (calculatedTotalCents / 100).toFixed(2));
 
     let normalizedMobile: string | undefined = undefined;
     if (mobileInput.trim()) {
@@ -487,11 +479,10 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
                       type="number"
                       min="0"
                       step="0.01"
-                      value={paymentEurosStr}
-                      onChange={(e) => {
-                        setPaymentEurosStr(e.target.value);
-                        setUserEditedPayment(true);
-                      }}
+                       value={paymentEurosStr ?? (calculatedTotalCents / 100).toFixed(2)}
+                       onChange={(e) => {
+                         setPaymentEurosStr(e.target.value);
+                       }}
                       placeholder={(calculatedTotalCents / 100).toFixed(2)}
                     />
                     <small className="muted">Calculated total: {(calculatedTotalCents / 100).toFixed(2)} €</small>
