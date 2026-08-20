@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, orderPayments, orders, shopPaymentMethods } from "@/db/schema";
+import { auditEntries, orderPayments, shopPaymentMethods } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 
@@ -82,20 +82,24 @@ export async function setPaymentMethod(
 }
 
 export async function deletePaymentMethod(database: Database, method: string, actor: string) {
+  if (!PAYMENT_METHODS.includes(method as PaymentMethod)) {
+    throw new DomainError("VALIDATION_ERROR", "Unknown payment method", 422);
+  }
+  const paymentMethod = method as PaymentMethod;
   if (["CASH", "BANK_TRANSFER", "MOBILEPAY"].includes(method)) {
     throw new DomainError("FORBIDDEN", "System default payment methods cannot be deleted. Disable them instead.", 409);
   }
 
   // Check if any orders or payments use this method
   const row = await database.query.shopPaymentMethods.findFirst({
-    where: and(eq(shopPaymentMethods.shopId, env().SHOP_ID), eq(shopPaymentMethods.method, method as any)),
+    where: and(eq(shopPaymentMethods.shopId, env().SHOP_ID), eq(shopPaymentMethods.method, paymentMethod)),
   });
   if (!row) throw new DomainError("NOT_FOUND", "Payment method not found", 404);
 
   const [{ count }] = await database
     .select({ count: sql<number>`count(*)` })
     .from(orderPayments)
-    .where(and(eq(orderPayments.shopId, env().SHOP_ID), eq(orderPayments.method, method as any)));
+    .where(and(eq(orderPayments.shopId, env().SHOP_ID), eq(orderPayments.method, paymentMethod)));
 
   if (Number(count) > 0) {
     throw new DomainError("CONFLICT", `Cannot delete payment method: used in ${count} historical orders. Disable it instead.`, 409);
@@ -103,7 +107,7 @@ export async function deletePaymentMethod(database: Database, method: string, ac
 
   await database
     .delete(shopPaymentMethods)
-    .where(and(eq(shopPaymentMethods.shopId, env().SHOP_ID), eq(shopPaymentMethods.method, method as any)));
+    .where(and(eq(shopPaymentMethods.shopId, env().SHOP_ID), eq(shopPaymentMethods.method, paymentMethod)));
 
   await database.insert(auditEntries).values({
     id: randomUUID(),
@@ -118,4 +122,3 @@ export async function deletePaymentMethod(database: Database, method: string, ac
 
   return { deleted: true, method };
 }
-
