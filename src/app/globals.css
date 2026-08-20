@@ -904,6 +904,31 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   .order-lifecycle-steps li.is-complete { border-color: var(--ops-success); }
   .order-lifecycle-steps .order-lifecycle-dot { top: .75rem; left: -.55rem; }
 }
+
+/* Availability workspace: planning first, exceptions visible at a glance. */
+.availability-workspace { gap: 1.25rem; }
+.availability-workspace > .admin-page-header { padding-bottom: .25rem; }
+.availability-workspace > .admin-page-header h1 { letter-spacing: -.035em; }
+.availability-workspace > .card { border-color: #d4e0d8; box-shadow: 0 8px 24px rgb(23 55 43 / 5%); }
+.availability-workspace > section:first-of-type { background: #f7faf7; }
+.availability-workspace > section:first-of-type > div:first-child { align-items: center; }
+.availability-workspace > section:first-of-type > div:first-child > div:first-child { background: #e9f0eb; border-color: #cbd9d0; }
+.availability-workspace > section:first-of-type > div:first-child > div:first-child button { min-height: 2.45rem; border-radius: .7rem; }
+.availability-workspace > section:first-of-type > div:first-child > div:first-child button.bg-primary { box-shadow: 0 5px 12px rgb(23 55 43 / 14%); }
+.availability-workspace > section:first-of-type > div:last-child { color: #557062; }
+.availability-workspace > section:first-of-type > div:last-child strong { color: var(--forest); }
+.availability-workspace > section:nth-of-type(2) article { min-height: 14rem; border-color: #d4e0d8; box-shadow: 0 6px 18px rgb(23 55 43 / 4%); }
+.availability-workspace > section:nth-of-type(2) article:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgb(23 55 43 / 8%); }
+.availability-workspace .ops-tabular { font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) {
+  .availability-workspace { padding-inline: .85rem; }
+  .availability-workspace > .card { padding: .8rem; }
+  .availability-workspace > section:first-of-type > div:first-child,
+  .availability-workspace > section:first-of-type > div:last-child { align-items: stretch; flex-direction: column; }
+  .availability-workspace > section:first-of-type > div:first-child > div:first-child { width: 100%; overflow-x: auto; }
+  .availability-workspace > section:first-of-type > div:last-child { gap: .45rem; }
+  .availability-workspace > section:nth-of-type(2) article { min-height: 12rem; }
+}
 .product-gallery { position: relative; width: 100%; height: 100%; min-height: 22rem; overflow: hidden; border-radius: 1.2rem; background: #dce8df; }
 .product-gallery img { width: 100%; height: 100%; object-fit: cover; }
 .gallery-control { position: absolute; top: 50%; display: grid; width: 2.75rem; height: 2.75rem; min-height: 2.75rem; transform: translateY(-50%); place-items: center; border: 1px solid rgb(255 255 255 / 70%); border-radius: 999px; background: rgb(23 55 43 / 78%); color: white; font-size: 1.55rem; line-height: 1; cursor: pointer; backdrop-filter: blur(6px); }
