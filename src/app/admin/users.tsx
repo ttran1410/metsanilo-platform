@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Role } from "@/lib/permissions";
 import { AdminLoadingState } from "./presentation";
-import { MasterDetailUserWorkspace } from "./users/master-detail-workspace";
+import { MasterDetailUserWorkspace, type UserRow } from "./users/master-detail-workspace";
 
 export function UserModule({
   actorRole = "MANAGER",
@@ -16,7 +16,7 @@ export function UserModule({
   canAssignPermissions: boolean;
   canResetPasswords: boolean;
 }) {
-  const [initialUsers, setInitialUsers] = useState<any[] | null>(null);
+  const [initialUsers, setInitialUsers] = useState<UserRow[] | null>(null);
 
   useEffect(() => {
     async function load() {
