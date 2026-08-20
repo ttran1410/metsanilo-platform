@@ -18,12 +18,14 @@ export function BatchPlannerPanel({
   initialStartDate,
   initialEndDate,
   products,
+  seasonId,
   onClose,
   onApplied,
 }: {
   initialStartDate: string;
   initialEndDate: string;
   products: Array<{ id: string; nameFi: string }>;
+  seasonId?: string;
   onClose: () => void;
   onApplied: () => void;
 }) {
@@ -32,7 +34,7 @@ export function BatchPlannerPanel({
   const [selectedProductId, setSelectedProductId] = useState<string>("ALL");
   const [capacityLitres, setCapacityLitres] = useState<number>(50);
   const [preset, setPreset] = useState<"ALL" | "WEEKDAYS" | "WEEKENDS" | "CUSTOM">("WEEKDAYS");
-  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [selectedWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -79,7 +81,8 @@ export function BatchPlannerPanel({
             endDate,
             frequency: preset === "ALL" ? "DAY" : "CUSTOM",
             dates: targetDates,
-            capacityLitres,
+             capacityLitres,
+             seasonId,
           }),
         });
         const body = await response.json();
@@ -134,7 +137,7 @@ export function BatchPlannerPanel({
                   ? "bg-slate-900 text-white border-slate-900 shadow-xs"
                   : "bg-surface text-ink/80 border-line hover:border-slate-400"
               }`}
-              onClick={() => setPreset(item.key as any)}
+               onClick={() => setPreset(item.key as "ALL" | "WEEKDAYS" | "WEEKENDS" | "CUSTOM")}
             >
               {item.label}
             </button>

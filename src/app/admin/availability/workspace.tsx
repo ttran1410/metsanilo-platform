@@ -349,6 +349,7 @@ export function AvailabilityWorkspace({
           initialStartDate={workspace.startDate ?? todayStr()}
           initialEndDate={workspace.endDate ?? todayStr()}
           products={workspace.products}
+          seasonId={productFilter !== "ALL" && seasonFilter !== "ALL" ? seasonFilter : undefined}
           onClose={() => setBatchPanelOpen(false)}
           onApplied={() => {
             setBatchPanelOpen(false);
