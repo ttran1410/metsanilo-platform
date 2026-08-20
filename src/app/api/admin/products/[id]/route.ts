@@ -2,7 +2,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { availability, orders } from "@/db/schema";
-import { deleteProduct, listManagerProducts, setProductActive, updateProduct } from "@/domain/products";
+import { deleteProduct, getProductReadiness, listManagerProducts, setProductActive, updateProduct } from "@/domain/products";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
@@ -31,8 +31,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .from(availability)
       .where(and(eq(availability.productId, id), eq(availability.shopId, env().SHOP_ID)));
 
+    const readiness = await getProductReadiness(db(), id);
     return success({
       ...found,
+      readiness,
       impact: {
         activeOrders: activeOrders.length,
         availabilityRows: availabilityCount.length,
@@ -57,4 +59,3 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try { await requirePermission(db(), request, "catalog.product.delete"); return success(await deleteProduct(db(), (await params).id)); } catch (error) { return failure(error); }
 }
-
