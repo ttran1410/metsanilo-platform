@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import {
   confirmManualReview,
+  bulkModerateReviews,
   createManualReview,
   deleteReview,
   linkReviewToCustomerOrOrder,
@@ -133,7 +134,20 @@ export async function DELETE(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const actor = await requirePermission(db(), request, "reviews.moderate");
-    const parsed = commandSchema.safeParse(await request.json());
+    const payload = await request.json();
+    const bulk = z.object({
+      action: z.literal("bulk_moderate"),
+      ids: z.array(z.string().min(1)).min(1).max(100),
+      status: z.enum(["APPROVED", "REJECTED", "HIDDEN", "ARCHIVED"]),
+      reason: z.string().max(500).optional(),
+      rejectionReason: z.enum(["SPAM", "PROFANITY", "UNRELATED", "COMPETITOR", "OTHER"]).optional(),
+    }).safeParse(payload);
+    if (bulk.success) {
+      const actorName = actor.email ?? actor.username ?? actor.id;
+      return success(await bulkModerateReviews(db(), { ...bulk.data, actor: actorName }));
+    }
+
+    const parsed = commandSchema.safeParse(payload);
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid review moderation payload"));
 
     const actorName = actor.email ?? actor.username ?? actor.id;

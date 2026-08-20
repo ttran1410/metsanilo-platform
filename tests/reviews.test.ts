@@ -18,6 +18,7 @@ import {
   listManagerReviews,
   listPublishedReviews,
   moderateReview,
+  bulkModerateReviews,
   recalculateReviewRollup,
   replyToReview,
   updateFullReview,
@@ -190,6 +191,32 @@ describe("Review Engine & Social Proof Trust System", () => {
 
     expect(updated.sellerReplyText).toBe("Lämmin kiitos palautteesta Liisa!");
     expect(updated.sellerRepliedBy).toBe("admin@test.fi");
+  });
+
+  it("moderates review batches atomically and returns refreshed items", async () => {
+    const first = await createPublicReview(database, {
+      displayName: "Batch One",
+      rating: 5,
+      originalText: "Erinomainen satokausi ja hyvä palvelu.",
+      publicationAcknowledgement: true,
+      locale: "fi",
+    });
+    const second = await createPublicReview(database, {
+      displayName: "Batch Two",
+      rating: 4,
+      originalText: "Hyvä tuote ja nopea nouto.",
+      publicationAcknowledgement: true,
+      locale: "fi",
+    });
+
+    const result = await bulkModerateReviews(database, {
+      ids: [first.id, second.id, first.id],
+      status: "APPROVED",
+      actor: "admin@test.fi",
+    });
+
+    expect(result.count).toBe(2);
+    expect(result.items.every((review) => review.status === "APPROVED")).toBe(true);
   });
 
   it("supports offline manual review import with consent tracking", async () => {

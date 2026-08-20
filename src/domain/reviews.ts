@@ -502,6 +502,36 @@ export async function moderateReview(
   return (await database.query.reviews.findFirst({ where: eq(reviews.id, input.id) }))!;
 }
 
+export async function bulkModerateReviews(
+  database: Database,
+  input: {
+    ids: string[];
+    status: "APPROVED" | "REJECTED" | "HIDDEN" | "ARCHIVED";
+    reason?: string;
+    rejectionReason?: "SPAM" | "PROFANITY" | "UNRELATED" | "COMPETITOR" | "OTHER";
+    actor: string;
+  },
+) {
+  const ids = [...new Set(input.ids)];
+  if (!ids.length || ids.length > 100) throw new DomainError("VALIDATION_ERROR", "Select between 1 and 100 reviews", 422);
+
+  const updated = await database.transaction(async (transaction) => {
+    const results = [];
+    for (const id of ids) {
+      results.push(await moderateReview(transaction as unknown as Database, {
+        id,
+        status: input.status,
+        reason: input.reason,
+        rejectionReason: input.rejectionReason,
+        actor: input.actor,
+      }));
+    }
+    return results;
+  });
+
+  return { items: updated, count: updated.length };
+}
+
 export async function replyToReview(
   database: Database,
   input: {
