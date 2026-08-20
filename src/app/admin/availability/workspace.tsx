@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
@@ -81,9 +82,13 @@ export function AvailabilityWorkspace({
 }) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useState<ViewMode>("WEEK");
-  const [productFilter, setProductFilter] = useState("ALL");
-  const [seasonFilter, setSeasonFilter] = useState("ALL");
+  const router = useRouter();
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const value = searchParams.get("view")?.toUpperCase();
+    return value === "MONTH" || value === "TABLE" ? value : "WEEK";
+  });
+  const [productFilter, setProductFilter] = useState(() => searchParams.get("productId") ?? "ALL");
+  const [seasonFilter, setSeasonFilter] = useState(() => searchParams.get("seasonId") ?? "ALL");
   const [viewFilter, setViewFilter] = useState("ALL");
 
   useEffect(() => {
@@ -96,7 +101,10 @@ export function AvailabilityWorkspace({
   }, [searchParams]);
 
   // Always align initial week start to Monday
-  const [currentStartDate, setCurrentStartDate] = useState(getStartOfWeek(todayStr()));
+  const [currentStartDate, setCurrentStartDate] = useState(() => {
+    const value = searchParams.get("startDate");
+    return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : getStartOfWeek(todayStr());
+  });
   const [inspectingDate, setInspectingDate] = useState<string | null>(null);
   const [freezingRow, setFreezingRow] = useState<AvailabilityRow | null>(null);
 
@@ -109,6 +117,15 @@ export function AvailabilityWorkspace({
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("view", viewMode);
+    if (productFilter !== "ALL") next.set("productId", productFilter); else next.delete("productId");
+    if (seasonFilter !== "ALL") next.set("seasonId", seasonFilter); else next.delete("seasonId");
+    next.set("startDate", currentStartDate);
+    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+  }, [currentStartDate, productFilter, router, searchParams, seasonFilter, viewMode]);
 
   const today = todayStr();
   const selectedProduct = workspace.products.find((product) => product.id === productFilter);
