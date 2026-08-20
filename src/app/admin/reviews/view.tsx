@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { AdminNotice, AdminPageHeader } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
@@ -47,12 +48,17 @@ export function ReviewsManager({
   canModerate: boolean;
   canFeature: boolean;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<Review[]>(initial);
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const [activeTab, setActiveTab] = useState<ReviewTab>("pending");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<ReviewTab>(() => {
+    const tab = searchParams.get("status");
+    return tab === "approved" || tab === "featured" || tab === "rejected" || tab === "all" ? tab : "pending";
+  });
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
+  const [currentPage, setCurrentPage] = useState(() => Number(searchParams.get("page") ?? "1") || 1);
   const [pageSize, setPageSize] = useState(20);
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
@@ -73,6 +79,14 @@ export function ReviewsManager({
     { key: "PHONE", labelEn: "Phone Call" },
     { key: "OTHER", labelEn: "Other Direct Consent" },
   ]);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (searchQuery) next.set("q", searchQuery); else next.delete("q");
+    if (activeTab !== "pending") next.set("status", activeTab); else next.delete("status");
+    if (currentPage > 1) next.set("page", String(currentPage)); else next.delete("page");
+    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+  }, [activeTab, currentPage, router, searchParams, searchQuery]);
 
   useEffect(() => {
     fetch("/api/admin/order-sources")
