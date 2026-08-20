@@ -58,3 +58,17 @@ METSÄNILO Operations is an order and fulfillment workspace with supporting cust
 - Use semantic headings, landmarks, labels, and live regions for async feedback.
 - Do not rely on color alone for status, permission, sold-out, or validation states.
 - Keep text and controls readable at the senior-friendly contrast and touch-target standards used by the storefront.
+
+## Whole-portal redesign contract
+
+The admin redesign is delivered incrementally through Storybook-reviewed module PRs merged into the `feature/admin-portal-redesign` integration branch. Module PRs must not target `main` directly. The integration branch is the reviewable whole-portal candidate; it is merged to `main` only after every authenticated module has passed the shared acceptance checklist.
+
+The production shell is single-source: `AdminRouteFrame` owns the authenticated frame, `AdminNavigation` owns permission-filtered navigation, and modules provide workspace content. A design prototype may use fixture data in Storybook, but no fixture-based workbench may replace a live route. The Overview route must consume the dashboard API/domain view model before it is considered migrated.
+
+The canonical module order is: Overview, Orders, Availability, Products, Customers, Manual Orders, Reviews, Users, Settings, Audit, and Auth/Profile. Each module preserves its current route, permission, API, domain transaction, audit, localization, and shop-scoping contracts while its presentation changes.
+
+Every redesigned module must provide Storybook coverage for its default, loading, empty, error, permission-limited, mutation-failure, mobile, keyboard-focus, and reduced-motion states where those states apply. Stories use typed fixtures that mirror the route view model; they must not fetch a database or encode production customer data.
+
+The migration sequence is: design contract, shared tokens and primitives, production shell, Overview, Orders, Availability, Products and Customers, Manual Orders and Reviews, Users/Settings/Audit/Auth, then hardening and cutover. A later phase may consume shared components from an earlier phase, but it must not bypass the earlier phase's acceptance criteria.
+
+The final integration review must verify every admin route at desktop, tablet, and mobile widths; keyboard-only navigation; visible focus; reduced motion; permission variants; error recovery; mutation feedback; and real data in Overview. The final PR from `feature/admin-portal-redesign` to `main` must include the Storybook build, typecheck, tests, production build result, and a list of any unresolved lint or accessibility issues.
