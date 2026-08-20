@@ -1637,6 +1637,25 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   .admin-reviews-workspace > .grid > .card { min-height: 7rem; }
 }
 
+/* Users workspace: make access posture visible before opening the permissions matrix. */
+.admin-users-workspace { gap: 1.25rem; }
+.admin-users-workspace > .grid > .card { min-height: 7.5rem; border-color: #d4e0d8; box-shadow: 0 7px 20px rgb(23 55 43 / 5%); }
+.admin-users-workspace > .flex-wrap { border-color: #cbd9d0; background: #f7faf7; padding: .65rem; }
+.admin-users-workspace > .flex-wrap > div:first-child { background: #e9f0eb; border-color: #cbd9d0; padding: .2rem; border-radius: .7rem; }
+.admin-users-workspace > .flex-wrap > div:first-child .btn { min-height: 2.45rem; border-radius: .55rem; }
+.admin-users-workspace > .card { border-color: #d4e0d8; box-shadow: 0 8px 24px rgb(23 55 43 / 5%); }
+.admin-users-workspace table thead { background: #eef4ef; }
+.admin-users-workspace table th { color: #557062; }
+.admin-users-workspace table tbody tr:hover { background: #f0f7f2; }
+.admin-users-workspace .admin-user-row.selected { border-color: var(--moss); background: #edf5ef; box-shadow: inset 3px 0 var(--ops-info); }
+@media (max-width: 760px) {
+  .admin-users-workspace { padding-inline: .85rem; }
+  .admin-users-workspace > .flex-wrap { align-items: stretch; }
+  .admin-users-workspace > .flex-wrap > div:first-child,
+  .admin-users-workspace > .flex-wrap > .btn { width: 100%; justify-content: center; }
+  .admin-users-workspace > .grid > .card { min-height: 6.5rem; }
+}
+
 /* Customers workspace: make relationship signals visible before profile detail. */
 .admin-customers-workspace { gap: 1.25rem; }
 .admin-customers-workspace > .grid > .card { min-height: 6.5rem; border-color: #d4e0d8; box-shadow: 0 7px 20px rgb(23 55 43 / 5%); }

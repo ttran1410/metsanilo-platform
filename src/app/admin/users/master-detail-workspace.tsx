@@ -13,7 +13,7 @@ import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-paginat
 import { AdminRowActionMenu, IconCopy, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { OnboardingModal } from "./onboarding-modal";
 
-type UserRow = {
+export type UserRow = {
   id: string;
   email: string | null;
   displayName: string;
@@ -28,6 +28,8 @@ type UserRow = {
     revoked: string[];
   };
 };
+
+export type CreatedUser = Pick<UserRow, "id" | "email" | "displayName" | "role">;
 
 type SessionItem = {
   id: string;
@@ -214,7 +216,7 @@ export function MasterDetailUserWorkspace({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [showWizard, setShowWizard] = useState(false);
-  const [createdInfo, setCreatedInfo] = useState<{ user: any; tempPassword: string } | null>(null);
+  const [createdInfo, setCreatedInfo] = useState<{ user: CreatedUser; tempPassword: string } | null>(null);
 
   const metrics = useMemo(() => {
     const total = usersList.length;
@@ -264,8 +266,11 @@ export function MasterDetailUserWorkspace({
   // Filter Master Roster
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [splitLimit, setSplitLimit] = useState(20);
 
   useEffect(() => {
+    // Return to the first page when roster filters change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
     setSplitLimit(20);
   }, [searchQuery, roleFilter]);
@@ -279,7 +284,6 @@ export function MasterDetailUserWorkspace({
     });
   }, [usersList, searchQuery, roleFilter]);
 
-  const [splitLimit, setSplitLimit] = useState(20);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -466,7 +470,7 @@ export function MasterDetailUserWorkspace({
     (actorRole === "ADMIN" || selectedUser.role !== "ADMIN");
 
   return (
-    <section className="shell pb-10 flex flex-col gap-4">
+    <section className="admin-users-workspace shell pb-10 flex flex-col gap-4">
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
@@ -507,7 +511,7 @@ export function MasterDetailUserWorkspace({
             }`}
             onClick={() => setViewMode("split")}
           >
-            🔍 Split View
+             Split view
           </button>
 
           <button
@@ -517,7 +521,7 @@ export function MasterDetailUserWorkspace({
             }`}
             onClick={() => setViewMode("table")}
           >
-            📋 Table Matrix View
+             Table matrix
           </button>
         </div>
 
@@ -527,7 +531,7 @@ export function MasterDetailUserWorkspace({
             className="btn bg-emerald-700 hover:bg-emerald-800 text-white text-xs py-1.5 px-3 font-bold shadow-xs"
             onClick={() => setShowWizard(true)}
           >
-            ＋ Onboard User
+             Onboard user
           </button>
         )}
       </div>
@@ -555,7 +559,7 @@ export function MasterDetailUserWorkspace({
                 aria-label="Filter role"
                 value={roleFilter}
                 onChange={(e) => {
-                  setRoleFilter(e.target.value as any);
+                   setRoleFilter(e.target.value as "ALL" | Role);
                   setCurrentPage(1);
                 }}
                 className="text-xs py-1.5 px-2 rounded-lg border border-line bg-surface font-semibold"
@@ -742,7 +746,7 @@ export function MasterDetailUserWorkspace({
                 aria-label="Filter role"
                 value={roleFilter}
                 onChange={(e) => {
-                  setRoleFilter(e.target.value as any);
+                   setRoleFilter(e.target.value as "ALL" | Role);
                   setCurrentPage(1);
                 }}
                 className="text-xs py-1.5 px-2 rounded-lg border border-line bg-surface font-semibold"
