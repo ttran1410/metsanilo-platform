@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Edit3, Phone, MessageSquare, Share2, ExternalLink, PlusCircle, GitMerge, Trash2, UserPlus, Search } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
@@ -101,13 +102,15 @@ export function MasterDetailCustomerWorkspace({
   canEdit: boolean;
   canAnonymize: boolean;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const rawList = Array.isArray(initialCustomers) ? initialCustomers : (initialCustomers?.items ?? []);
   const [customersList, setCustomersList] = useState<CustomerRow[]>(rawList);
-  const [selectedId, setSelectedId] = useState<string>(rawList[0]?.id ?? "");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterChip, setFilterChip] = useState<"all" | "vip" | "conflicts" | "consent">("all");
-  const [sortMode, setSortMode] = useState<"recent" | "spend_desc" | "litres_desc" | "name_asc">("recent");
-  const [workspaceView, setWorkspaceView] = useState<"table" | "split">("table");
+  const [selectedId, setSelectedId] = useState<string>(searchParams.get("customer") ?? rawList[0]?.id ?? "");
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
+  const [filterChip, setFilterChip] = useState<"all" | "vip" | "conflicts" | "consent">(() => searchParams.get("filter") as "all" | "vip" | "conflicts" | "consent" || "all");
+  const [sortMode, setSortMode] = useState<"recent" | "spend_desc" | "litres_desc" | "name_asc">(() => searchParams.get("sort") as "recent" | "spend_desc" | "litres_desc" | "name_asc" || "recent");
+  const [workspaceView, setWorkspaceView] = useState<"table" | "split">(() => searchParams.get("view") === "split" ? "split" : "table");
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
 
   const [tableSortField, setTableSortField] = useState<"name" | "volume" | "spend" | "status">("name");
@@ -231,6 +234,17 @@ export function MasterDetailCustomerWorkspace({
   const [limit, setLimit] = useState(20);
   const [splitLimit, setSplitLimit] = useState(20);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (selectedId) next.set("customer", selectedId); else next.delete("customer");
+    if (searchQuery) next.set("q", searchQuery); else next.delete("q");
+    if (filterChip !== "all") next.set("filter", filterChip); else next.delete("filter");
+    if (sortMode !== "recent") next.set("sort", sortMode); else next.delete("sort");
+    if (workspaceView !== "table") next.set("view", workspaceView); else next.delete("view");
+    if (page > 1) next.set("page", String(page)); else next.delete("page");
+    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+  }, [filterChip, page, router, searchParams, searchQuery, selectedId, sortMode, workspaceView]);
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
