@@ -10,9 +10,9 @@ Step-by-step guide to set up, build, run, and deploy the Metsänilo platform —
 | --- | --- | --- |
 | Node.js | v20.9+ | Running the app, scripts, tests |
 | npm | Bundled with Node | Package management |
-| Turso CLI | Latest | Optional local dev DB wizard; required for production database operations |
+| Turso CLI | Latest | Remote dev/prod database management; also used by the local dev-database wizard |
 
-Install the Turso CLI if you plan to use the guided dev-database wizard or manage production databases:
+Install the Turso CLI if you plan to use a remote Turso dev database, the guided local wizard, or production database operations:
 
 ```bash
 curl -sSfL https://get.tur.so/install.sh | bash
@@ -44,8 +44,8 @@ cp .env.example .env.local
 
 | Variable | Purpose | Local default |
 | --- | --- | --- |
-| `TURSO_DATABASE_URL` | Database connection (`file:` for local SQLite, `http(s)://` for Turso) | `file:local.db` |
-| `TURSO_AUTH_TOKEN` | Auth token for remote Turso (empty for local) | *(empty)* |
+| `TURSO_DATABASE_URL` | Database connection (`file:` for a local SQLite file, `libsql://…` for a remote Turso database) | `file:local.db` |
+| `TURSO_AUTH_TOKEN` | Auth token for a remote Turso database (leave empty for `file:` databases) | *(empty)* |
 | `SHOP_ID` / `SHOP_SLUG` | Shop identity used for data isolation | `shop-main` / `metsanilo` |
 | `SHOP_NAME_FI` / `SHOP_NAME_EN` | Shop display names | — |
 | `SHOP_TIMEZONE` | Business timezone | `Europe/Helsinki` |
@@ -62,6 +62,13 @@ Generate secrets locally:
 openssl rand -hex 32
 ```
 
+> **Important — `db:*` scripts do not read `.env.local`.**
+> Next.js (`npm run dev` / `npm run build`) loads `.env.local` automatically, but the tsx-based scripts (`db:migrate`, `db:seed`, `db:preflight`, `db:release`) read only your shell environment. Export the file before running them:
+>
+> ```bash
+> set -a; source .env.local; set +a
+> ```
+
 Run an environment validation check at any time:
 
 ```bash
@@ -72,13 +79,39 @@ npm run db:preflight
 
 ## 4. Set Up the Database
 
-Choose **one** of the two local options.
+Choose **one** of the three options.
 
 ### Option A — Plain local SQLite file (simplest)
 
 Keep `TURSO_DATABASE_URL=file:local.db` in `.env.local`. No extra process needed; libSQL writes directly to the file.
 
-### Option B — Guided wizard with a persistent Turso dev server
+### Option B — Remote Turso dev database (shared, persistent)
+
+Use a real Turso cloud database for development. It survives restarts, needs no background process, and behaves exactly like production (same driver, same preflight rules).
+
+1. Log in and create a dedicated dev database (do **not** reuse the production one):
+
+   ```bash
+   turso auth login
+   turso db create metsanilo-dev
+   turso db show metsanilo-dev --url      # → TURSO_DATABASE_URL (libsql://…)
+   turso db tokens create metsanilo-dev   # → TURSO_AUTH_TOKEN
+   ```
+
+2. Put both values into `.env.local`:
+
+   ```env
+   TURSO_DATABASE_URL=libsql://metsanilo-dev-<your-org>.turso.io
+   TURSO_AUTH_TOKEN=<token from the command above>
+   ```
+
+Notes:
+
+- Non-production preflight accepts remote URLs as-is; no extra flags needed.
+- The database is persistent and possibly shared — the seed safety gates (existing-shop refusal) still apply.
+- Destroy and recreate freely while iterating: `turso db destroy metsanilo-dev`.
+
+### Option C — Guided wizard with a persistent local Turso dev server
 
 ```bash
 ./scripts/setup-local-turso-dev.sh
@@ -94,8 +127,9 @@ The wizard starts `turso dev` (backed by a persistent SQLite file), writes all v
 Generate migration SQL **only after schema changes** in `src/db/schema.ts` (never rewrite an applied migration):
 
 ```bash
-npm run db:generate   # only after editing src/db/schema.ts
-npm run db:migrate    # applies drizzle/*.sql to the configured database
+set -a; source .env.local; set +a   # db:* scripts read shell env, not .env.local
+npm run db:generate                 # only after editing src/db/schema.ts
+npm run db:migrate                  # applies drizzle/*.sql to the configured database
 ```
 
 ### Seed initial data
@@ -111,6 +145,7 @@ Seed behavior:
 - **Refuses to run if the shop already exists** unless you explicitly set `SEED_ALLOW_EXISTING=true`.
 - Refuses if the database contains a *different* shop (single-shop invariant).
 - Dry-run without writing: `SEED_DRY_RUN=true npm run db:seed`.
+- Does **not** provision Better Auth (`auth_users`/`auth_accounts`) — on a fresh database, admin sign-in needs the one-time provisioning step from [Troubleshooting](#8-troubleshooting).
 
 ---
 
@@ -202,10 +237,67 @@ Deployments are pinned to the `dub1` region via `vercel.json`.
 | Symptom | Fix |
 | --- | --- |
 | `Seed refused: existing shop detected` | Intentional safety gate. Review your `.env.local` values, then re-run with `SEED_ALLOW_EXISTING=true`. |
+| `Missing required seed variable: …` | The `db:*` scripts don't auto-load `.env.local`. Export it first: `set -a; source .env.local; set +a`, then re-run. |
+| Connection/auth errors against remote Turso (`TURSO_AUTH_TOKEN` rejected, timeouts) | Confirm `TURSO_DATABASE_URL` starts with `libsql://` and matches `turso db show <name> --url`; regenerate the token with `turso db tokens create <name>`; check `turso auth whoami`. |
 | `Environment preflight failed: … must be a remote Turso URL` | You are running with production checks enabled but a `file:` database URL. Point `TURSO_DATABASE_URL` at your Turso instance. |
-| Admin login fails after seeding | Confirm `BOOTSTRAP_ADMIN_EMAIL` matches the seeded account; the seed sets `mustChangePassword=true`, so expect a forced password change on first sign-in. |
+| Admin login fails on a **freshly seeded** database (`Invalid email or password` with correct credentials) | Known gap: `db:seed` does not provision Better Auth. Run the one-off provisioning script in [Fresh database: admin sign-in fails](#fresh-database-admin-sign-in-fails-better-auth-provisioning). |
+| Admin login fails after seeding (wrong email) | Confirm `BOOTSTRAP_ADMIN_EMAIL` matches the seeded account; the seed sets `mustChangePassword=true`, so expect a forced password change on first sign-in. |
+| `INVALID_ORIGIN` at admin sign-in | Better Auth rejects browsers whose origin differs from `BETTER_AUTH_URL`. Make sure the URL in `.env.local` matches the port you actually browse (e.g. `http://localhost:3000/api/auth/better`). Beware stale exported shell variables overriding `.env.local` — check with `echo $BETTER_AUTH_URL`. |
 | Storefront shows no products | Check seed availability dates (`SEED_AVAILABLE_FROM` ≤ today ≤ `SEED_AVAILABLE_THROUGH`) and daily capacity values. |
 | Wizard's `turso dev` died | Inspect `.turso-dev.log`; ensure port `8080` is free, then restart the wizard or run `turso dev --db-file local.db --port 8080` manually. |
+
+### Fresh database: admin sign-in fails (Better Auth provisioning)
+
+**Why:** `/admin` sign-in authenticates through **Better Auth**, which uses its own `auth_users` + `auth_accounts` tables. `npm run db:seed` only writes the legacy `users` table, so a freshly migrated + seeded database has no Better Auth identity and every sign-in fails — even with the correct email and password.
+
+**Fix:** provision the matching Better Auth rows once per fresh database (run from the repo root):
+
+```bash
+set -a; source <(sed -E 's/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/\1="\2"/' .env.local); set +a
+
+cat > provision-admin.mts <<'EOF'
+import { randomUUID } from "node:crypto";
+import { createClient } from "@libsql/client";
+import { hashPassword } from "./src/domain/passwords";
+
+const client = createClient({ url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN || undefined });
+const id = `user-${process.env.SHOP_ID?.trim() || "shop-main"}-admin`;
+const email = process.env.BOOTSTRAP_ADMIN_EMAIL!.trim().toLowerCase();
+const now = Date.now();
+
+await client.execute({
+  sql: `insert into auth_users (id, name, email, email_verified, image, created_at, updated_at)
+        values (?, ?, ?, 1, null, ?, ?)
+        on conflict(id) do update set name = excluded.name, email = excluded.email, updated_at = excluded.updated_at`,
+  args: [id, process.env.ADMIN_DISPLAY_NAME?.trim() || "Shop Admin", email, now, now],
+});
+
+const account = await client.execute({
+  sql: "select id from auth_accounts where user_id = ? and provider_id = 'credential' limit 1",
+  args: [id],
+});
+const passwordHash = hashPassword(process.env.BOOTSTRAP_ADMIN_PASSWORD!);
+if (account.rows.length === 0) {
+  await client.execute({
+    sql: `insert into auth_accounts (id, account_id, provider_id, user_id, password, created_at, updated_at)
+          values (?, ?, 'credential', ?, ?, ?, ?)`,
+    args: [randomUUID(), id, id, passwordHash, now, now],
+  });
+} else {
+  await client.execute({
+    sql: "update auth_accounts set password = ?, updated_at = ? where user_id = ? and provider_id = 'credential'",
+    args: [passwordHash, now, id],
+  });
+}
+
+console.log("Better Auth admin provisioned:", email);
+client.close();
+EOF
+
+npx tsx provision-admin.mts && rm provision-admin.mts
+```
+
+This mirrors exactly what the app's own `createUser` does (`src/domain/access.ts`) and is idempotent — safe to re-run after changing `BOOTSTRAP_ADMIN_EMAIL`/`BOOTSTRAP_ADMIN_PASSWORD`.
 
 ---
 
