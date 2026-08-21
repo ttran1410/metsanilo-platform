@@ -126,9 +126,8 @@ export async function getAvailabilityWorkspace(
 ) {
   const { SHOP_ID } = env();
   const shop = await database.query.shops.findFirst({ where: eq(shops.id, SHOP_ID) });
-  if (!shop) return { dates: [], rows: [], products: [], queues: { picking: [], pickup: [], delivery: [] }, ordersByDate: {} };
-
-  const today = todayInTimezone(shop.timezone);
+  const today = todayInTimezone(shop?.timezone ?? env().SHOP_TIMEZONE);
+  if (!shop) return { startDate: today, endDate: today, dates: [], rows: [], products: [], ordersByDate: {}, queues: { picking: [], pickup: [], delivery: [] }, today };
   const start = options?.startDate && datePattern.test(options.startDate) ? options.startDate : today;
   const numDays = Math.max(1, Math.min(60, options?.days ?? 7));
   const dates = Array.from({ length: numDays }, (_, index) => addDays(start, index));
@@ -241,6 +240,7 @@ export async function getAvailabilityWorkspace(
   return {
     startDate: start,
     endDate,
+    today,
     dates,
     rows,
     products: productRows
