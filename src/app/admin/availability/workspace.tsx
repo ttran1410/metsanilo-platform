@@ -100,10 +100,10 @@ export function AvailabilityWorkspace({
     }
   }, [searchParams]);
 
-  // Always align initial week start to Monday
+  // Always align initial week start to Monday (including deep-linked dates)
   const [currentStartDate, setCurrentStartDate] = useState(() => {
     const value = searchParams.get("startDate");
-    return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : getStartOfWeek(todayStr());
+    return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? getStartOfWeek(value) : getStartOfWeek(todayStr());
   });
   const [inspectingDate, setInspectingDate] = useState<string | null>(null);
   const [freezingRow, setFreezingRow] = useState<AvailabilityRow | null>(null);
