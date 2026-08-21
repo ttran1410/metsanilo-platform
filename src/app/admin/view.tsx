@@ -1837,6 +1837,12 @@ export function ManagerView({
                           </button>
                         </form>
                       )}
+                    {detail.paymentSummary.outstandingCents <= 0 && (
+                      <p className="text-xs muted">
+                        Order fully paid — no balance due. Use a refund to
+                        correct an existing payment.
+                      </p>
+                    )}
                     <form
                       className="flex flex-wrap items-end gap-2"
                       onSubmit={(event) => void detailAction(event, "payment")}
@@ -1847,13 +1853,25 @@ export function ManagerView({
                           name="paymentEuros"
                           type="number"
                           min="0.01"
+                          max={(
+                            detail.paymentSummary.outstandingCents / 100
+                          ).toFixed(2)}
                           step="0.01"
+                          disabled={
+                            detail.paymentSummary.outstandingCents <= 0
+                          }
                           required
                         />
                       </label>
                       <label className="field">
                         <span>Method</span>
-                        <select name="method" defaultValue="CASH">
+                        <select
+                          name="method"
+                          defaultValue="CASH"
+                          disabled={
+                            detail.paymentSummary.outstandingCents <= 0
+                          }
+                        >
                           <option value="CASH">Cash</option>
                           <option value="BANK_TRANSFER">Bank transfer</option>
                           <option value="MOBILEPAY">MobilePay</option>
@@ -1863,9 +1881,21 @@ export function ManagerView({
                       </label>
                       <label className="field">
                         <span>Reference</span>
-                        <input name="reference" maxLength={200} />
+                        <input
+                          name="reference"
+                          maxLength={200}
+                          disabled={
+                            detail.paymentSummary.outstandingCents <= 0
+                          }
+                        />
                       </label>
-                      <button className="btn" type="submit">
+                      <button
+                        className="btn"
+                        type="submit"
+                        disabled={
+                          detail.paymentSummary.outstandingCents <= 0
+                        }
+                      >
                         Record payment
                       </button>
                     </form>
