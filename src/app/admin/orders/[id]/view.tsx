@@ -262,10 +262,6 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
             </Link>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="ops-tabular text-2xl font-bold tracking-tight">{detail.order.publicReference}</h1>
-              <AdminStatusBadge status={detail.order.status} />
-              <span className="text-xs px-2.5 py-0.5 rounded-md bg-surface-muted border border-line font-semibold muted">
-                {formatSourceLabel(detail.order.orderSource)}
-              </span>
               <button
                 type="button"
                 className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
@@ -274,6 +270,10 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
               >
                 <IconCopy className="w-4 h-4" />
               </button>
+              <AdminStatusBadge status={detail.order.status} />
+              <span className="text-xs px-2.5 py-0.5 rounded-md bg-surface-muted border border-line font-semibold muted">
+                {formatSourceLabel(detail.order.orderSource)}
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted mt-1 font-medium">
               <span>📅 Date: <strong className="text-ink font-bold">{detail.order.fulfillmentDate}</strong></span>
