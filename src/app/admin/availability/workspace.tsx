@@ -100,11 +100,9 @@ export function AvailabilityWorkspace({
     }
   }, [searchParams]);
 
-  // Always align initial week start to Monday
-  const [currentStartDate, setCurrentStartDate] = useState(() => {
-    const value = searchParams.get("startDate");
-    return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : getStartOfWeek(todayStr());
-  });
+  // The server anchors and snaps every view's start date (see page.tsx).
+  // Adopt its answer instead of recomputing from the browser clock.
+  const [currentStartDate, setCurrentStartDate] = useState(() => initialWorkspace.startDate ?? getStartOfWeek(todayStr()));
   const [inspectingDate, setInspectingDate] = useState<string | null>(null);
   const [freezingRow, setFreezingRow] = useState<AvailabilityRow | null>(null);
 
@@ -127,7 +125,7 @@ export function AvailabilityWorkspace({
     if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [currentStartDate, productFilter, router, searchParams, seasonFilter, viewMode]);
 
-  const today = todayStr();
+  const today = workspace.today;
   const selectedProduct = workspace.products.find((product) => product.id === productFilter);
   const selectedSeasons = selectedProduct?.seasons ?? [];
 
@@ -363,8 +361,8 @@ export function AvailabilityWorkspace({
       {/* EXPANDABLE IN-PAGE BATCH PLANNER PANEL */}
       {batchPanelOpen && canManage && (
         <BatchPlannerPanel
-          initialStartDate={workspace.startDate ?? todayStr()}
-          initialEndDate={workspace.endDate ?? todayStr()}
+          initialStartDate={workspace.startDate}
+          initialEndDate={workspace.endDate}
           products={workspace.products}
           seasonId={productFilter !== "ALL" && seasonFilter !== "ALL" ? seasonFilter : undefined}
           onClose={() => setBatchPanelOpen(false)}
