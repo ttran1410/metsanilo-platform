@@ -1075,7 +1075,7 @@ export function OrdersListing({
                       <td className="p-3">
                         {order.customerId ? (
                           <Link
-                            className="text-primary hover:underline font-bold"
+                            className="text-primary hover:underline font-bold block w-fit"
                             href={`/admin/customers/${order.customerId}`}
                             title="View customer detail"
                             onClick={(e) => e.stopPropagation()}
