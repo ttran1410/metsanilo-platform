@@ -447,7 +447,7 @@ export function OrderEditForm({
               onClick={(e) => {
                 if (!isClosedOrder) e.currentTarget.showPicker?.();
               }}
-              className="max-w-[220px]"
+              className="w-full"
               required
             />
             {!isHistorical && !isClosedOrder && (

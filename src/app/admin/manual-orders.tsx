@@ -302,7 +302,7 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
                 value={fulfillmentDateInput}
                 onChange={(e) => setFulfillmentDateInput(e.target.value)}
                 onClick={(e) => e.currentTarget.showPicker?.()}
-                className="max-w-[220px]"
+                className="w-full"
               />
             </div>
 
