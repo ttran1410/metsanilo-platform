@@ -433,8 +433,10 @@ export function OrderEditForm({
             </div>
           </div>
 
-          <label className="field">
-            <span>Fulfillment date</span>
+          <div>
+            <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">
+              Fulfillment date <span className="text-berry">*</span>
+            </span>
             <input
               type="date"
               value={form.fulfillmentDate}
@@ -445,6 +447,7 @@ export function OrderEditForm({
               onClick={(e) => {
                 if (!isClosedOrder) e.currentTarget.showPicker?.();
               }}
+              className="w-full"
               required
             />
             {!isHistorical && !isClosedOrder && (
@@ -452,7 +455,7 @@ export function OrderEditForm({
                 Allowed window: Today ({minAllowedDate}) to {maxAllowedDate} (next 7 days)
               </small>
             )}
-          </label>
+          </div>
 
           {form.fulfillmentMethod === "DELIVERY" && (
             <label className="field md:col-span-2">

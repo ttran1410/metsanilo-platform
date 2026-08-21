@@ -291,8 +291,10 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
               </div>
             </div>
 
-            <label className="field">
-              <span>Fulfillment date</span>
+            <div>
+              <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">
+                Fulfillment date <span className="text-berry">*</span>
+              </span>
               <input
                 name="fulfillmentDate"
                 type="date"
@@ -300,8 +302,9 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
                 value={fulfillmentDateInput}
                 onChange={(e) => setFulfillmentDateInput(e.target.value)}
                 onClick={(e) => e.currentTarget.showPicker?.()}
+                className="w-full"
               />
-            </label>
+            </div>
 
             {!historical && isPastDate && (
               <div className="md:col-span-2 rounded-xl border border-amber-300/80 bg-amber-50/90 p-3.5 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-2.5 shadow-xs">
