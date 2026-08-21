@@ -1073,7 +1073,18 @@ export function OrdersListing({
                       </td>
 
                       <td className="p-3">
-                        <strong className="text-ink block font-bold">{order.customerName}</strong>
+                        {order.customerId ? (
+                          <Link
+                            className="text-primary hover:underline font-bold"
+                            href={`/admin/customers/${order.customerId}`}
+                            title="View customer detail"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {order.customerName}
+                          </Link>
+                        ) : (
+                          <strong className="text-ink block font-bold">{order.customerName}</strong>
+                        )}
                         <div className="inline-flex items-center gap-1">
                           <span className="muted text-[11px]">📞 {order.mobile}</span>
                           {order.mobile && (
