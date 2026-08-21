@@ -81,8 +81,8 @@ export function BatchPlannerPanel({
             endDate,
             frequency: preset === "ALL" ? "DAY" : "CUSTOM",
             dates: targetDates,
-             capacityLitres,
-             seasonId,
+            capacityMl: Math.round(capacityLitres * 1000),
+            seasonId,
           }),
         });
         const body = await response.json();
