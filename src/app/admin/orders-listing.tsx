@@ -335,13 +335,17 @@ export function OrdersListing({
     }
   }, []);
 
-  // Sync state whenever initialView or initialStatus prop changes from URL navigation
+  // Sync state whenever initialView or initialStatus prop changes from URL navigation.
+  // Ignore echoes of this component's own router.replace writes, which would otherwise
+  // reset user-chosen filters right after applying them (e.g. a date preset change).
   useEffect(() => {
-    if (initialView || (initialStatus && initialStatus !== "ALL")) {
-      // URL navigation owns these initial filters; apply them after mount.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      selectQuickView(initialView ?? "ALL", initialStatus !== "ALL" ? initialStatus : undefined);
-    }
+    if (!initialView && !(initialStatus && initialStatus !== "ALL")) return;
+    const nextView = initialView ?? "ALL";
+    const nextStatus = initialStatus ?? "ALL";
+    if (view === nextView && (nextStatus === "ALL" || status === nextStatus)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- status/view are read as echo-guard only; adding them would re-run mid-URL-echo and revert the user's preset
+    selectQuickView(initialView ?? "ALL", initialStatus !== "ALL" ? initialStatus : undefined);
   }, [initialView, initialStatus, selectQuickView]);
 
   useEffect(() => {
