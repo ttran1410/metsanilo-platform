@@ -595,6 +595,24 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .btn-danger { background: var(--berry); }
 .admin-dialog-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgb(15 23 42 / 45%); padding: 1rem; }
 .admin-dialog { width: min(100%, 30rem); max-width: 30rem; }
+.field-checkbox { display: flex; min-height: auto !important; align-items: flex-start; gap: .65rem; line-height: 1.4; }
+.field-checkbox input[type="checkbox"], .field-checkbox input[type="radio"] { margin-top: .05rem; }
+.manual-review-dialog { width: min(100%, 42rem); max-width: 42rem; max-height: calc(100dvh - 2rem); overflow-y: auto; padding: 1.25rem; }
+.manual-review-dialog-header { position: sticky; top: -1.25rem; z-index: 2; margin: -1.25rem -1.25rem 0; background: var(--paper); padding: 1.25rem; }
+.manual-review-dialog .field > small { color: var(--muted); font-size: .72rem; font-weight: 600; line-height: 1.4; }
+.manual-review-choice { border: 1px solid var(--line); border-radius: .65rem; background: #f7faf7; padding: .7rem .75rem; }
+.manual-review-choice > span { display: grid; gap: .1rem; }
+.manual-review-choice small { color: var(--muted); font-size: .7rem; font-weight: 600; }
+.manual-review-dialog textarea { min-height: 5rem; }
+.manual-review-dialog .manual-review-quote { min-height: 6rem; }
+.manual-review-actions { position: sticky; bottom: -1.25rem; z-index: 2; display: flex; align-items: center; justify-content: flex-end; gap: .75rem; margin: 0 -1.25rem -1.25rem; border-top: 1px solid var(--line); background: var(--paper); padding: 1rem 1.25rem; }
+@media (max-width: 639px) {
+  .admin-dialog-backdrop { align-items: end; padding: .5rem; }
+  .manual-review-dialog { max-height: calc(100dvh - 1rem); border-radius: 1rem; padding: 1rem; }
+  .manual-review-dialog-header { top: -1rem; margin: -1rem -1rem 0; padding: 1rem; }
+  .manual-review-actions { bottom: -1rem; margin: 0 -1rem -1rem; padding: .85rem 1rem; }
+  .manual-review-actions .btn { flex: 1 1 0; padding-inline: .75rem; }
+}
 .dashboard-alert { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid #f59e0b; border-radius: 1rem; background: #fffbeb; padding: 1rem 1.25rem; color: #78350f; }
 .dashboard-alert p { margin: .25rem 0 0; font-size: .875rem; }
 .dashboard-alert-btn { background: #f59e0b; color: #152a1d; }

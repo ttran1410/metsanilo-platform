@@ -32,7 +32,7 @@ export default async function ReservePage({
   if (!data)
     return (
       <main className="shell py-12">
-        <div className="card">Shop is not configured.</div>
+        <div className="card">{locale === "fi" ? "Kauppaa ei ole määritetty." : "Shop is not configured."}</div>
       </main>
     );
   const productMap = new Map<string, PublicProduct>();
@@ -135,7 +135,7 @@ export default async function ReservePage({
           : "We couldn't find that selection. Please choose a product below."
         : "";
   const publishedReviews = data.shop.reviewsVisible
-    ? await listFeaturedReviews(db(), 3)
+     ? await listFeaturedReviews(db(), 3, locale)
     : [];
   const rollup = await getReviewRollup(db());
 

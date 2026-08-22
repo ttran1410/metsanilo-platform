@@ -56,7 +56,7 @@ export async function getReviewRollup(database: Database) {
 
 export async function listPublishedReviews(
   database: Database,
-  options?: { page?: number; limit?: number },
+  options?: { page?: number; limit?: number; locale?: "fi" | "en" },
 ) {
   const { SHOP_ID } = env();
   const all = await database
@@ -65,24 +65,42 @@ export async function listPublishedReviews(
     .where(and(eq(reviews.shopId, SHOP_ID), eq(reviews.status, "APPROVED")))
     .orderBy(desc(reviews.featured), sql`COALESCE(${reviews.fulfillmentDate}, ${reviews.createdAt}) DESC`);
 
-  if (!options?.page || !options?.limit) {
-    return all;
-  }
+  const locale = options?.locale ?? "en";
+  const publicRows = all.map((review) => toPublicReview(review, locale));
+
+  if (!options?.page || !options?.limit) return publicRows;
 
   const page = Math.max(1, options.page);
   const limit = Math.max(1, options.limit);
   const startIndex = (page - 1) * limit;
 
   return {
-    items: all.slice(startIndex, startIndex + limit),
-    total: all.length,
+    items: publicRows.slice(startIndex, startIndex + limit),
+    total: publicRows.length,
     page,
     limit,
-    totalPages: Math.ceil(all.length / limit) || 1,
+    totalPages: Math.ceil(publicRows.length / limit) || 1,
   };
 }
 
-export async function listFeaturedReviews(database: Database, limit = 3) {
+function toPublicReview(review: typeof reviews.$inferSelect, locale: "fi" | "en") {
+  const anonymousLabel = locale === "fi" ? "Anonyymi asiakas" : "Anonymous customer";
+  const publicText = review.displayText || review.originalText;
+  return {
+    id: review.id,
+    displayName: review.isAnonymous ? anonymousLabel : review.reviewerName || review.displayName,
+    rating: review.rating,
+    displayText: publicText,
+    verifiedBuyer: review.verifiedBuyer,
+    verificationType: review.verificationType,
+    sellerReplyText: review.sellerReplyText,
+    sellerRepliedAt: review.sellerRepliedAt,
+    productId: review.productId,
+    createdAt: review.createdAt,
+  };
+}
+
+export async function listFeaturedReviews(database: Database, limit = 3, locale: "fi" | "en" = "en") {
   const { SHOP_ID } = env();
   const allFeatured = await database
     .select()
@@ -97,7 +115,7 @@ export async function listFeaturedReviews(database: Database, limit = 3) {
     .orderBy(sql`RANDOM()`);
 
   if (allFeatured.length >= limit) {
-    return allFeatured.slice(0, limit);
+    return allFeatured.slice(0, limit).map((review) => toPublicReview(review, locale));
   }
 
   const featuredIds = new Set(allFeatured.map((r) => r.id));
@@ -115,13 +133,15 @@ export async function listFeaturedReviews(database: Database, limit = 3) {
     }
   }
 
-  return combined;
+  return combined.map((review) => toPublicReview(review, locale));
 }
 
 export async function createPublicReview(
   database: Database,
   input: {
-    displayName: string;
+    displayName?: string;
+    isAnonymous?: boolean;
+    crmConsent?: boolean;
     rating: number;
     originalText: string;
     publicationAcknowledgement: boolean;
@@ -139,9 +159,11 @@ export async function createPublicReview(
     throw new DomainError("VALIDATION_ERROR", "Rating must be 1–5", 422, { rating: "INVALID" });
   }
 
-  const displayName = input.displayName.trim();
+  const isAnonymous = Boolean(input.isAnonymous);
+  const displayName = (input.displayName ?? "").trim();
+  const reviewerName = displayName || null;
   const originalText = input.originalText.trim();
-  if (displayName.length < 2 || displayName.length > 80 || originalText.length < 10 || originalText.length > 2000) {
+  if ((!isAnonymous && displayName.length < 2) || displayName.length > 80 || originalText.length < 10 || originalText.length > 2000) {
     throw new DomainError("VALIDATION_ERROR", "Review fields are invalid", 422);
   }
 
@@ -213,12 +235,12 @@ export async function createPublicReview(
         const isPhone = Boolean(normalizedMobile);
         const isFb = queryTerm.includes("facebook.com/") || queryTerm.startsWith("@");
 
-        if (isEmail || isPhone || isFb) {
+        if ((isEmail || isPhone || isFb) && input.crmConsent) {
           const newCustomerId = randomUUID();
           await database.insert(customers).values({
             id: newCustomerId,
             shopId: SHOP_ID,
-            name: displayName,
+            name: displayName || "Anonymous customer",
             mobile: normalizedMobile,
             email: isEmail ? normalizedEmail : null,
             facebookProfile: isFb ? queryTerm : null,
@@ -239,7 +261,13 @@ export async function createPublicReview(
   await database.insert(reviews).values({
     id,
     shopId: SHOP_ID,
-    displayName,
+    displayName: displayName || "Anonymous customer",
+    reviewerName,
+    isAnonymous,
+    publicNameConsentAt: timestamp,
+    publicNameConsentSource: "PUBLIC_FORM",
+    publicNameConsentNote: isAnonymous ? "Anonymous publication selected." : "Named publication selected.",
+    publicNameConsentBy: null,
     contact: input.contact?.trim() || null,
     rating: input.rating,
     originalText,
@@ -267,7 +295,7 @@ export async function createPublicReview(
     updatedAt: timestamp,
   });
 
-  return { id, status: "PENDING" as const, verifiedBuyer, verificationType };
+  return { id, status: "PENDING" as const, verifiedBuyer, verificationType, isAnonymous };
 }
 
 export async function listManagerReviews(database: Database) {
@@ -313,12 +341,15 @@ export async function createManualReview(
   database: Database,
   input: {
     displayName: string;
+    isAnonymous?: boolean;
+    reviewerName?: string;
     rating: number;
     originalText: string;
     orderId?: string;
     productId?: string;
     verifiedBuyer?: boolean;
     acknowledgementSource?: string;
+    publicationConsentNote?: string;
     actor: string;
   },
 ) {
@@ -384,6 +415,8 @@ export async function createManualReview(
     ? (verificationType !== "UNVERIFIED" ? verificationType : "STAFF_MANUAL")
     : "UNVERIFIED";
 
+  const isAnonymous = Boolean(input.isAnonymous);
+  const reviewerName = input.reviewerName?.trim() || input.displayName.trim();
   await database.insert(reviews).values({
     id,
     shopId: SHOP_ID,
@@ -391,6 +424,12 @@ export async function createManualReview(
     orderId: matchedOrderId,
     productId: input.productId || null,
     displayName: input.displayName.trim(),
+    reviewerName: reviewerName || null,
+    isAnonymous,
+    publicNameConsentAt: hasAck ? timestamp : null,
+    publicNameConsentSource: input.acknowledgementSource || null,
+    publicNameConsentNote: hasAck ? input.publicationConsentNote?.trim() || "Recorded during manual import." : null,
+    publicNameConsentBy: input.actor,
     contact: null,
     rating: input.rating,
     originalText: input.originalText.trim(),
@@ -856,4 +895,55 @@ export async function deleteReview(
   await recalculateReviewRollup(database);
 
   return { id: input.id, deleted: true };
+}
+
+export async function updateReviewPublicationIdentity(
+  database: Database,
+  input: {
+    id: string;
+    isAnonymous: boolean;
+    reviewerName?: string;
+    consentSource: string;
+    consentNote: string;
+    actor: string;
+  },
+) {
+  const { SHOP_ID } = env();
+  const current = await database.query.reviews.findFirst({ where: and(eq(reviews.id, input.id), eq(reviews.shopId, SHOP_ID)) });
+  if (!current) throw new DomainError("NOT_FOUND", "Review not found", 404);
+
+  const reviewerName = input.reviewerName?.trim() || "";
+  if (!input.isAnonymous && reviewerName.length < 2) {
+    throw new DomainError("VALIDATION_ERROR", "A public reviewer name is required", 422, { reviewerName: "REQUIRED" });
+  }
+  if (!input.consentSource.trim() || input.consentNote.trim().length < 2) {
+    throw new DomainError("VALIDATION_ERROR", "Consent source and note are required", 422);
+  }
+
+  const timestamp = now();
+  const currentReviewerName = current.reviewerName || current.displayName;
+  const publicNameChanged = !input.isAnonymous && reviewerName !== currentReviewerName;
+  const requiresRemoderation = (current.isAnonymous && !input.isAnonymous) || publicNameChanged;
+  const nextStatus = requiresRemoderation ? "PENDING_CONFIRMATION" : current.status;
+  await database.update(reviews).set({
+    isAnonymous: input.isAnonymous,
+    reviewerName: reviewerName || current.reviewerName || current.displayName,
+    displayName: input.isAnonymous ? current.displayName : reviewerName,
+    publicNameConsentAt: timestamp,
+    publicNameConsentSource: input.consentSource.trim(),
+    publicNameConsentNote: input.consentNote.trim(),
+    publicNameConsentBy: input.actor,
+    status: nextStatus,
+    featured: nextStatus === "PENDING_CONFIRMATION" ? false : current.featured,
+    updatedAt: timestamp,
+  }).where(eq(reviews.id, input.id));
+
+  await database.insert(auditEntries).values({
+    id: randomUUID(), shopId: SHOP_ID, actor: input.actor, action: "review.publication_identity_changed",
+    entityType: "review", entityId: input.id,
+    detailsJson: JSON.stringify({ fromAnonymous: current.isAnonymous, toAnonymous: input.isAnonymous, status: nextStatus }),
+    createdAt: timestamp,
+  });
+  if (nextStatus !== current.status) await recalculateReviewRollup(database);
+  return (await database.query.reviews.findFirst({ where: eq(reviews.id, input.id) }))!;
 }

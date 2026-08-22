@@ -11,8 +11,9 @@ import {
   moderateReview,
   replyToReview,
   updateFullReview,
+  updateReviewPublicationIdentity,
 } from "@/domain/reviews";
-import { requirePermission } from "@/domain/access";
+import { currentUser, hasUserPermission, requirePermission } from "@/domain/access";
 import { failure, success } from "../../response";
 import { fromZodError } from "@/domain/errors";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
@@ -22,7 +23,7 @@ export const runtime = "nodejs";
 
 const commandSchema = z.object({
   id: z.string().min(1),
-  action: z.enum(["moderate", "link_identity"]).optional(),
+  action: z.enum(["moderate", "link_identity", "publication_identity"]).optional(),
   orderId: z.string().optional(),
   customerId: z.string().optional(),
   status: z.enum(["APPROVED", "REJECTED", "HIDDEN", "ARCHIVED"]).optional(),
@@ -35,6 +36,10 @@ const commandSchema = z.object({
   confirmSource: z.string().max(80).optional(),
   confirmNote: z.string().max(500).optional(),
   sellerReplyText: z.string().max(2000).optional(),
+  isAnonymous: z.boolean().optional(),
+  reviewerName: z.string().max(80).optional(),
+  consentSource: z.string().max(80).optional(),
+  consentNote: z.string().max(500).optional(),
 });
 
 export async function GET(request: Request) {
@@ -65,12 +70,15 @@ export async function POST(request: Request) {
     const parsed = z
       .object({
         displayName: z.string().min(2).max(80),
+        isAnonymous: z.boolean().optional(),
+        reviewerName: z.string().max(80).optional(),
         rating: z.number().int().min(1).max(5),
         originalText: z.string().min(10).max(2000),
         orderId: z.string().optional(),
         productId: z.string().optional(),
         verifiedBuyer: z.boolean().optional(),
         acknowledgementSource: z.string().max(80).optional(),
+        publicationConsentNote: z.string().max(500).optional(),
       })
       .safeParse(await request.json());
 
@@ -97,7 +105,12 @@ export async function PUT(request: Request) {
     const parsed = z
       .object({
         id: z.string().min(1),
+        action: z.literal("publication_identity").optional(),
         displayName: z.string().min(2).max(80).optional(),
+        isAnonymous: z.boolean().optional(),
+        reviewerName: z.string().max(80).optional(),
+        consentSource: z.string().max(80).optional(),
+        consentNote: z.string().max(500).optional(),
         rating: z.number().int().min(1).max(5).optional(),
         source: z.enum(["PUBLIC_FORM", "MANUAL_IMPORT"]).optional(),
         acknowledgementSource: z.string().max(80).optional(),
@@ -111,6 +124,30 @@ export async function PUT(request: Request) {
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid edit review payload"));
 
     const actorName = actor.email ?? actor.username ?? actor.id;
+    if (parsed.data.action === "publication_identity") {
+      const updatedIdentity = await updateReviewPublicationIdentity(db(), {
+        id: parsed.data.id,
+        isAnonymous: parsed.data.isAnonymous ?? false,
+        reviewerName: parsed.data.reviewerName,
+        consentSource: parsed.data.consentSource ?? "",
+        consentNote: parsed.data.consentNote ?? "",
+        actor: actorName,
+      });
+      const reviewFields = {
+        displayName: parsed.data.displayName,
+        rating: parsed.data.rating,
+        source: parsed.data.source,
+        acknowledgementSource: parsed.data.acknowledgementSource,
+        originalText: parsed.data.originalText,
+        displayText: parsed.data.displayText,
+        orderId: parsed.data.orderId,
+        verifiedBuyer: parsed.data.verifiedBuyer,
+      };
+      const hasReviewEdits = Object.values(reviewFields).some((value) => value !== undefined);
+      return success(hasReviewEdits
+        ? await updateFullReview(db(), { id: parsed.data.id, ...reviewFields, actor: actorName })
+        : updatedIdentity);
+    }
     return success(await updateFullReview(db(), { ...parsed.data, actor: actorName }));
   } catch (error) {
     return failure(error);
@@ -133,7 +170,8 @@ export async function DELETE(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const actor = await requirePermission(db(), request, "reviews.moderate");
+    const actor = await currentUser(db(), request);
+    const canModerate = await hasUserPermission(db(), actor, "reviews.moderate");
     const payload = await request.json();
     const bulk = z.object({
       action: z.literal("bulk_moderate"),
@@ -151,6 +189,21 @@ export async function PATCH(request: Request) {
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid review moderation payload"));
 
     const actorName = actor.email ?? actor.username ?? actor.id;
+
+    if (parsed.data.action === "publication_identity") {
+      const allowed = canModerate || (await hasUserPermission(db(), actor, "reviews.write"));
+      if (!allowed) return failure({ message: "Permission required: reviews.write", code: "FORBIDDEN", status: 403 });
+      return success(await updateReviewPublicationIdentity(db(), {
+        id: parsed.data.id,
+        isAnonymous: parsed.data.isAnonymous ?? false,
+        reviewerName: parsed.data.reviewerName,
+        consentSource: parsed.data.consentSource ?? "",
+        consentNote: parsed.data.consentNote ?? "",
+        actor: actorName,
+      }));
+    }
+
+    if (!canModerate) return failure({ message: "Permission required: reviews.moderate", code: "FORBIDDEN", status: 403 });
 
     if (parsed.data.action === "link_identity" || (parsed.data.orderId !== undefined || parsed.data.customerId !== undefined)) {
       return success(

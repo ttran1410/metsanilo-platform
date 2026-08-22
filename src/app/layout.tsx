@@ -39,9 +39,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const viewport = { themeColor: "#17372B", colorScheme: "light" };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const requestHeaders = await headers();
+  const locale = requestHeaders.get("x-storefront-locale") === "en" ? "en" : "fi";
   return (
-    <html lang="fi">
+    <html lang={locale}>
       <body>{children}</body>
     </html>
   );

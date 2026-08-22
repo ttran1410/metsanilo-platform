@@ -1,6 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { useParams } from "next/navigation";
 
 export default function StorefrontNotFound() {
+  const params = useParams<{ locale?: string }>();
+  const locale = params.locale === "en" ? "en" : "fi";
+  const copy = locale === "fi"
+    ? { eyebrow: "404 · SIVUA EI LÖYTYNYT", title: "Etsimääsi sivua ei löytynyt", text: "Sivu saattaa olla siirretty, poistettu tai tilapäisesti pois käytöstä.", home: "Palaa etusivulle" }
+    : { eyebrow: "404 · PAGE NOT FOUND", title: "We couldn't find that page", text: "The page may have moved, been removed, or be temporarily unavailable.", home: "Return to homepage" };
   return (
     <main className="storefront min-h-screen bg-[#FAF8F5] flex flex-col items-center justify-center p-6 text-center">
       <div className="max-w-md w-full card p-8 border border-line shadow-lg bg-surface rounded-3xl flex flex-col items-center gap-5 animate-in fade-in zoom-in-95">
@@ -20,22 +28,22 @@ export default function StorefrontNotFound() {
 
         <div className="space-y-2">
           <span className="text-xs font-bold uppercase tracking-widest text-primary block">
-            404 · SIVUA EI LÖYTYNYT / PAGE NOT FOUND
+            {copy.eyebrow}
           </span>
           <h1 className="text-2xl font-bold text-ink">
-            Etsimääsi sivua ei löytynyt
+            {copy.title}
           </h1>
           <p className="text-xs muted leading-relaxed">
-            Sivu saattaa olla siirretty, poistettu tai arvostelusivun näkyvyys on pois päältä tältä kaudelta.
+            {copy.text}
           </p>
         </div>
 
         <div className="pt-3 w-full border-t border-line">
           <Link
-            href="/fi"
+            href={`/${locale}`}
             className="btn w-full text-xs font-bold py-3 px-6 rounded-xl shadow-sm text-center flex items-center justify-center gap-2"
           >
-            <span>←</span> Palaa etusivulle / Return to Homepage
+            <span>←</span> {copy.home}
           </Link>
         </div>
       </div>

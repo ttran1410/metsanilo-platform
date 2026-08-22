@@ -16,6 +16,8 @@ export function ReviewModal({
 }) {
   const [rating, setRating] = useState(5);
   const [displayName, setDisplayName] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [crmConsent, setCrmConsent] = useState(false);
   const [contact, setContact] = useState("");
   const [reviewText, setReviewText] = useState("");
   const [consent, setConsent] = useState(true);
@@ -35,6 +37,8 @@ export function ReviewModal({
       step4: "4. Kokemuksesi",
       step5: "5. Julkaisulupa (GDPR)",
       consentText: "Annan luvan julkaista arvosteluni Metsänilon verkkosivustolla.",
+      anonymous: "Julkaise arvostelu anonyymisti",
+      crmConsent: "Saan käyttää yhteystietojani asiakasrekisterissä.",
       placeholderName: "Maija V. / Pori",
       placeholderContact: "040 123 4567 tai R-9102",
       placeholderReview: "Kerro marjojen laadusta, noudosta tai toimituksesta...",
@@ -44,6 +48,8 @@ export function ReviewModal({
       successTitle: "Kiitos arvostelustasi!",
       successBody: "Palautteesi on lähetetty ja julkaistaan henkilökunnan tarkistuksen jälkeen.",
       close: "Sulje",
+      ratingLabels: ["", "Heikko", "Välttävä", "Kohtalainen", "Hyvä!", "Erinomainen!"],
+      submitError: "Arvostelun lähettäminen epäonnistui. Yritä uudelleen.",
     },
     en: {
       title: "✍️ Share Your Experience",
@@ -54,6 +60,8 @@ export function ReviewModal({
       step4: "4. Your Review",
       step5: "5. Publication Consent (GDPR)",
       consentText: "I agree to have my review published on Metsänilo website.",
+      anonymous: "Publish this review anonymously",
+      crmConsent: "I consent to my contact details being used in the customer register.",
       placeholderName: "Maija V. / Pori",
       placeholderContact: "040 123 4567 or R-9102",
       placeholderReview: "Tell us about the quality of berries, pickup, or delivery...",
@@ -63,6 +71,8 @@ export function ReviewModal({
       successTitle: "Thank you for your review!",
       successBody: "Your feedback has been received and will be displayed after moderation.",
       close: "Close",
+      ratingLabels: ["", "Poor", "Fair", "Average", "Good!", "Excellent!"],
+      submitError: "Could not submit your review. Please try again.",
     },
   }[locale];
 
@@ -74,7 +84,7 @@ export function ReviewModal({
       setErrorMsg(locale === "fi" ? "Hyväksy julkaisulupa jatkaaksesi." : "Please check publication consent.");
       return;
     }
-    if (displayName.trim().length < 2) {
+    if (!isAnonymous && displayName.trim().length < 2) {
       setErrorMsg(locale === "fi" ? "Syötä vähintään 2 merkkiä nimeen." : "Name must be at least 2 characters.");
       return;
     }
@@ -90,6 +100,8 @@ export function ReviewModal({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           displayName: displayName.trim(),
+          isAnonymous,
+          crmConsent,
           rating,
           reviewText: reviewText.trim(),
           contact: contact.trim() || undefined,
@@ -98,15 +110,13 @@ export function ReviewModal({
         }),
       });
 
-      const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body.message || "Failed to submit review");
-      }
+      await res.json();
+      if (!res.ok) throw new Error(copy.submitError);
 
       setSubmittedSuccess(true);
       if (onSuccess) onSuccess();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Error submitting review");
+      setErrorMsg(err instanceof Error ? err.message : copy.submitError);
     } finally {
       setIsSubmitting(false);
     }
@@ -169,7 +179,7 @@ export function ReviewModal({
                     </button>
                   ))}
                   <span className="text-xs font-bold text-slate-700 ml-2">
-                    {rating}/5 ({rating === 5 ? "Erinomainen!" : rating === 4 ? "Hyvä!" : "Kohtalainen"})
+                     {rating}/5 ({copy.ratingLabels[rating]})
                   </span>
                 </div>
               </div>
@@ -181,14 +191,18 @@ export function ReviewModal({
                 </label>
                 <input
                   type="text"
-                  required
-                  minLength={2}
+                   required={!isAnonymous}
+                   minLength={isAnonymous ? undefined : 2}
                   maxLength={80}
                   className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500"
                   placeholder={copy.placeholderName}
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                 />
+                <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                  <input type="checkbox" checked={isAnonymous} onChange={(e) => setIsAnonymous(e.target.checked)} />
+                  {copy.anonymous}
+                </label>
               </div>
 
               {/* Phone / Reference */}
@@ -231,6 +245,15 @@ export function ReviewModal({
                   className="mt-0.5 rounded text-emerald-600"
                 />
                 <span>{copy.consentText}</span>
+              </label>
+              <label className="flex items-start gap-2 text-xs text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={crmConsent}
+                  onChange={(e) => setCrmConsent(e.target.checked)}
+                  className="mt-0.5 rounded text-emerald-600"
+                />
+                <span>{copy.crmConsent}</span>
               </label>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">

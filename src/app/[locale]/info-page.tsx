@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { isLocale, type Locale } from "@/lib/format";
+import { formatDecimal, isLocale, type Locale } from "@/lib/format";
 import { LocaleDocument } from "./locale-document";
 import { ReviewForm } from "./review-form";
 import { MobileNav } from "./mobile-nav";
@@ -58,7 +58,7 @@ export function InfoPage({
         <div className="shell storefront-nav">
           <Link className="brand-lockup" href={`/${locale}`}>
             {logoUrl ? (
-              <img src={logoUrl} alt="Metsänilo Logo" className="h-7 w-auto object-contain" />
+              <img src={logoUrl} alt="Metsänilo" className="h-7 w-auto object-contain" />
             ) : (
               <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
             )}
@@ -136,7 +136,7 @@ export function InfoPage({
           <section className="shell review-trust-summary" aria-label={locale === "fi" ? "Luottamustiedot" : "Trust information"}>
             <strong>
               {publishedReviews.length
-                ? `${(publishedReviews.reduce((sum, review) => sum + review.rating, 0) / publishedReviews.length).toFixed(1)} / 5`
+                ? `${formatDecimal(publishedReviews.reduce((sum, review) => sum + review.rating, 0) / publishedReviews.length, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / 5`
                 : locale === "fi" ? "Arvosteluja tulossa" : "Reviews coming soon"}
             </strong>
             <span>
@@ -153,7 +153,7 @@ export function InfoPage({
                 <article className="review-card" key={review.id}>
                   <div className="review-card-head">
                     <h2>{review.displayName}</h2>
-                    <span className="review-stars" aria-label={`${review.rating} stars`}>
+                    <span className="review-stars" aria-label={locale === "fi" ? `${review.rating} ${review.rating === 1 ? "tähti" : "tähteä"}` : `${review.rating} ${review.rating === 1 ? "star" : "stars"}`}>
                       {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
                     </span>
                   </div>

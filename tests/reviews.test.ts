@@ -15,13 +15,12 @@ import {
   getReviewRollup,
   linkReviewToCustomerOrOrder,
   listFeaturedReviews,
-  listManagerReviews,
   listPublishedReviews,
   moderateReview,
   bulkModerateReviews,
-  recalculateReviewRollup,
   replyToReview,
   updateFullReview,
+  updateReviewPublicationIdentity,
 } from "@/domain/reviews";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-review-test-"));
@@ -222,15 +221,20 @@ describe("Review Engine & Social Proof Trust System", () => {
   it("supports offline manual review import with consent tracking", async () => {
     const imported = await createManualReview(database, {
       displayName: "Matti V.",
+      isAnonymous: true,
       rating: 5,
       originalText: "Kiitos marjoista WhatsAppin kautta!",
       verifiedBuyer: true,
       acknowledgementSource: "WHATSAPP",
+      publicationConsentNote: "Reviewer requested anonymous publication in WhatsApp.",
       actor: "staff@test.fi",
     });
 
+    expect(imported.isAnonymous).toBe(true);
+    expect(imported.reviewerName).toBe("Matti V.");
     expect(imported.publicationAcknowledgement).toBe(true);
     expect(imported.acknowledgementSource).toBe("WHATSAPP");
+    expect(imported.publicNameConsentNote).toBe("Reviewer requested anonymous publication in WhatsApp.");
     expect(imported.verifiedBuyer).toBe(true);
     expect(imported.verificationType).toBe("STAFF_MANUAL");
   });
@@ -350,6 +354,7 @@ describe("Review Engine & Social Proof Trust System", () => {
       rating: 5,
       originalText: "Huippulaatuista mansikkaa! Suosittelen kaikille.",
       contact: "+358409998877",
+      crmConsent: true,
       publicationAcknowledgement: true,
       locale: "fi",
     });
@@ -363,6 +368,91 @@ describe("Review Engine & Social Proof Trust System", () => {
 
     expect(cust).toBeDefined();
     expect(cust?.name).toBe("Matti Meikäläinen");
+  });
+
+  it("keeps anonymous publication separate from verification and CRM consent", async () => {
+    const rev = await createPublicReview(database, {
+      isAnonymous: true,
+      displayName: "Private Reviewer",
+      rating: 5,
+      originalText: "Anonyymi palaute, jonka tekstin pitää näkyä julkisesti.",
+      contact: "+358409998876",
+      publicationAcknowledgement: true,
+      locale: "fi",
+    });
+
+    expect(rev.isAnonymous).toBe(true);
+    expect(rev.verifiedBuyer).toBe(false);
+    expect(await database.query.customers.findFirst({ where: eq(customers.mobile, "+358409998876") })).toBeUndefined();
+
+    await moderateReview(database, { id: rev.id, status: "APPROVED", actor: "admin@test.fi" });
+    const published = await listPublishedReviews(database, { locale: "fi" });
+    expect(Array.isArray(published)).toBe(true);
+    if (Array.isArray(published)) {
+      expect(published[0]?.displayName).toBe("Anonyymi asiakas");
+      expect(published[0]).not.toHaveProperty("contact");
+    }
+  });
+
+  it("requires consent evidence and re-moderation when restoring a public name", async () => {
+    const rev = await createPublicReview(database, {
+      isAnonymous: true,
+      rating: 5,
+      originalText: "Anonyymi palaute, jonka tekstin pitää näkyä julkisesti.",
+      publicationAcknowledgement: true,
+      locale: "fi",
+    });
+
+    await expect(updateReviewPublicationIdentity(database, {
+      id: rev.id,
+      isAnonymous: false,
+      reviewerName: "Matti Meikäläinen",
+      consentSource: "",
+      consentNote: "",
+      actor: "admin@test.fi",
+    })).rejects.toThrow();
+
+    await moderateReview(database, { id: rev.id, status: "APPROVED", actor: "admin@test.fi" });
+    const updated = await updateReviewPublicationIdentity(database, {
+      id: rev.id,
+      isAnonymous: false,
+      reviewerName: "Matti Meikäläinen",
+      consentSource: "EMAIL",
+      consentNote: "Reviewer explicitly requested public attribution.",
+      actor: "admin@test.fi",
+    });
+    expect(updated.status).toBe("PENDING_CONFIRMATION");
+    expect(updated.displayName).toBe("Matti Meikäläinen");
+  });
+
+  it("anonymizes an approved named review immediately and records a dedicated audit action", async () => {
+    const rev = await createPublicReview(database, {
+      displayName: "Named Reviewer",
+      rating: 5,
+      originalText: "Named review that will be switched to anonymous publication.",
+      publicationAcknowledgement: true,
+      locale: "en",
+    });
+    await moderateReview(database, { id: rev.id, status: "APPROVED", actor: "admin@test.fi" });
+
+    const updated = await updateReviewPublicationIdentity(database, {
+      id: rev.id,
+      isAnonymous: true,
+      reviewerName: "Named Reviewer",
+      consentSource: "PHONE",
+      consentNote: "Reviewer requested anonymous publication by phone.",
+      actor: "admin@test.fi",
+    });
+
+    expect(updated.isAnonymous).toBe(true);
+    expect(updated.status).toBe("APPROVED");
+    const audit = await database.query.auditEntries.findFirst({
+      where: (entries, { and, eq }) => and(
+        eq(entries.entityId, rev.id),
+        eq(entries.action, "review.publication_identity_changed"),
+      ),
+    });
+    expect(audit?.action).toBe("review.publication_identity_changed");
   });
 
   it("supports manual linking of review to customer/order via linkReviewToCustomerOrOrder", async () => {
@@ -386,7 +476,7 @@ describe("Review Engine & Social Proof Trust System", () => {
   });
 
   it("fetches review history and sentiment metrics inside getCustomerProfile", async () => {
-    const cust = await database
+    await database
       .insert(customers)
       .values({
         id: "cust-rev-1",

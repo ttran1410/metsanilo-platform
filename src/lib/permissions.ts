@@ -8,7 +8,7 @@ export const PERMISSIONS = [
   "cms.read", "cms.edit", "cms.publish",
   "media.read", "media.write",
   "customers.read", "customers.write", "customers.anonymize", "customers.identity.resolve", "customers.consent.read", "customers.consent.write",
-  "reviews.read", "reviews.create", "reviews.moderate", "reviews.feature", "reviews.visibility",
+  "reviews.read", "reviews.create", "reviews.write", "reviews.moderate", "reviews.feature", "reviews.visibility",
   "shop_users.read", "shop_users.manage", "shop_users.password_reset", "shop_permissions.read", "shop_permissions.assign",
   "settings.read", "settings.operational", "settings.sources.read", "settings.sources.manage", "settings.fulfillment.read", "settings.fulfillment.manage", "audit.read", "audit.export",
 ] as const;
@@ -51,8 +51,8 @@ export function defaultPermissionsForRole(role: Role): Permission[] {
     "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.read", "orders.payment.write",
     "catalog.product.read", "catalog.package.read", "availability.read", "availability.write",
     "delivery.read", "delivery.write", "customers.read", "customers.write", "customers.consent.read",
-    "reviews.read", "reviews.create", "reviews.moderate", "media.read", "media.write",
+    "reviews.read", "reviews.create", "reviews.write", "reviews.moderate", "media.read", "media.write",
   ];
-  if (role === "CONTENT_CREATOR") return ["cms.read", "cms.edit", "media.read", "media.write", "reviews.read", "reviews.create", "reviews.moderate"];
+  if (role === "CONTENT_CREATOR") return ["cms.read", "cms.edit", "media.read", "media.write", "reviews.read", "reviews.create", "reviews.write", "reviews.moderate"];
   return [];
 }

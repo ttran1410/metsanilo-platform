@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Locale } from "@/lib/format";
+import { formatDecimal, formatStorefrontDate, type Locale } from "@/lib/format";
 import { ReviewModal } from "./review-modal";
 
 export type PublishedReview = {
@@ -9,7 +9,6 @@ export type PublishedReview = {
   displayName: string;
   rating: number;
   displayText: string | null;
-  originalText: string;
   verifiedBuyer: boolean;
   verificationType: "DIGITAL_ORDER" | "HISTORICAL_MATCH" | "STAFF_MANUAL" | "UNVERIFIED";
   sellerReplyText: string | null;
@@ -46,6 +45,7 @@ export function ReviewsHub({
       lingonberry: "🔴 Puolukka",
       sortNewest: "Uusimmat ensin",
       sortHighest: "Korkein arvio",
+      sortLabel: "Järjestä:",
       verifiedOrder: "✓ Vahvistettu tilaus",
       verifiedCustomer: "✓ Vahvistettu asiakas",
       publicReview: "Julkinen arvostelu",
@@ -65,6 +65,7 @@ export function ReviewsHub({
       lingonberry: "🔴 Lingonberry",
       sortNewest: "Newest First",
       sortHighest: "Highest Rating",
+      sortLabel: "Sort:",
       verifiedOrder: "✓ Verified Order",
       verifiedCustomer: "✓ Verified Customer",
       publicReview: "Public Review",
@@ -103,8 +104,8 @@ export function ReviewsHub({
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-[#2C261E]">{copy.title}</h1>
           <div className="flex items-center justify-center md:justify-start gap-2">
-            <span className="text-3xl font-extrabold text-[#1E6B34]">{avgRating.toFixed(1)}</span>
-            <span className="text-[#8C8375] font-semibold text-lg">/ 5.0</span>
+            <span className="text-3xl font-extrabold text-[#1E6B34]">{formatDecimal(avgRating, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+            <span className="text-[#8C8375] font-semibold text-lg">/ {formatDecimal(5, locale, { minimumFractionDigits: 1 })}</span>
             <span className="text-amber-500 text-xl ml-1">⭐⭐⭐⭐⭐</span>
           </div>
           <p className="text-xs text-[#6E6658] font-medium">
@@ -170,7 +171,7 @@ export function ReviewsHub({
         </div>
 
         <div className="flex items-center gap-2 text-xs font-semibold">
-          <label className="text-[#6E6658]">Järjestä / Sort:</label>
+          <label className="text-[#6E6658]">{copy.sortLabel}</label>
           <select
             className="bg-white border border-[#DCD6C9] rounded-lg px-3 py-1.5 text-xs text-[#2C261E]"
             value={sortBy}
@@ -215,12 +216,12 @@ export function ReviewsHub({
               </div>
 
               <span className="text-xs text-[#8C8375] font-medium">
-                {new Date(review.createdAt).toLocaleDateString(locale === "fi" ? "fi-FI" : "en-US")}
+                 {formatStorefrontDate(review.createdAt, locale)}
               </span>
             </div>
 
             <p className="text-sm text-[#383228] leading-relaxed">
-              &quot;{review.displayText || review.originalText}&quot;
+              &quot;{review.displayText}&quot;
             </p>
 
             {/* Seller Reply */}
