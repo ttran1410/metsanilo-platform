@@ -79,8 +79,8 @@ function formatOrderSourceBadge(order: AdminOrder) {
 
 const QUICK_VIEWS: Array<{ key: OrdersView; label: string }> = [
   { key: "TODAY", label: "Today" },
-  { key: "TRIAGE", label: "Action required" },
-  { key: "NEEDS_CONFIRMATION", label: "Needs confirmation" },
+  { key: "TRIAGE", label: "Needs attention" },
+  { key: "NEEDS_CONFIRMATION", label: "New orders" },
   { key: "PICKUP_TODAY", label: "Pickup today" },
   { key: "DELIVERY_TODAY", label: "Delivery today" },
   { key: "UNPAID", label: "Unpaid" },
@@ -147,6 +147,7 @@ function getInitialPresetDatesForView(targetView: OrdersView): { from: string; t
 export function OrdersListing({
   actorRole = "MANAGER",
   initialOrders,
+  initialLoadedAt,
   initialView = "TODAY",
   initialStatus = "ALL",
   canExport,
@@ -158,6 +159,7 @@ export function OrdersListing({
 }: {
   actorRole?: Role;
   initialOrders: AdminOrder[];
+  initialLoadedAt?: string;
   initialView?: OrdersView;
   initialStatus?: string;
   canExport: boolean;
@@ -218,7 +220,7 @@ export function OrdersListing({
   const [reason, setReason] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [lastUpdated, setLastUpdated] = useState<string | null>(initialLoadedAt ?? null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -280,7 +282,7 @@ export function OrdersListing({
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? "Order refresh failed");
       setRows(body.data);
-      setLastUpdated(new Date());
+      setLastUpdated(new Date().toISOString());
       if (announce) setNotice("Order queue synced.");
     } catch (err) {
       if (announce) setError(err instanceof Error ? err.message : "Sync failed.");
@@ -492,6 +494,8 @@ export function OrdersListing({
           ? true
           : status === "FULFILLED"
           ? order.status === "PICKED_UP" || order.status === "DELIVERED"
+          : status === "READY_STAGE"
+          ? order.status === "READY" || order.status === "OUT_FOR_DELIVERY"
           : order.status === status;
       const matchesSource =
         source === "ALL"
@@ -682,7 +686,7 @@ export function OrdersListing({
         <AdminPageHeader
           eyebrow="OPERATIONS WORKSPACE"
           title="Orders &amp; Fulfillment Queue"
-          description={`Updated ${lastUpdated.toLocaleTimeString("fi-FI")}`}
+          description={lastUpdated ? `Last synced ${new Date(lastUpdated).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Helsinki" })}` : undefined}
         />
 
         <div className="flex flex-wrap items-center gap-2">
@@ -917,6 +921,7 @@ export function OrdersListing({
                     <option value="PICKING">PICKING</option>
                     <option value="READY">READY</option>
                     <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+                    <option value="READY_STAGE">READY &amp; OUT_FOR_DELIVERY</option>
                     <option value="PICKED_UP">PICKED_UP</option>
                     <option value="DELIVERED">DELIVERED</option>
                     <option value="FULFILLED">FULFILLED (Picked up &amp; Delivered)</option>

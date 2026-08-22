@@ -15,11 +15,14 @@ export default async function OrdersPage({ searchParams }: { searchParams?: Prom
   const requestedView = query?.view?.toUpperCase();
   const validViews = new Set<OrdersView>(["TRIAGE", "ALL", "TODAY", "NEEDS_CONFIRMATION", "PICKUP_TODAY", "DELIVERY_TODAY", "UNPAID", "ARCHIVED"]);
   const initialView = validViews.has(requestedView as OrdersView) ? requestedView as OrdersView : undefined;
+  const initialOrders = await listManagerOrdersWithPaymentSummary(db());
+  const loadedAt = new Date().toISOString();
   return (
     <AdminRouteFrame>
       <OrdersListing
         actorRole={actor.role}
-        initialOrders={await listManagerOrdersWithPaymentSummary(db())}
+        initialOrders={initialOrders}
+        initialLoadedAt={loadedAt}
         initialView={initialView}
         initialStatus={query?.status?.toUpperCase() ?? "ALL"}
         canExport={await hasAdminPermission(request, "orders.export")}

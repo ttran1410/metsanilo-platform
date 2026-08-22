@@ -204,7 +204,7 @@ export function DashboardModule() {
       </section>
     );
 
-  const totalExceptions = data.overdueNew.length + data.unconfirmedDeliveryCount + (data.unreadNotifications > 0 ? 1 : 0);
+  const totalExceptions = data.attentionCount;
 
   return (
     <section id="dashboard" className="shell pt-2 pb-10 flex flex-col gap-6">
@@ -246,7 +246,7 @@ export function DashboardModule() {
       )}
 
       {/* 2. 🚨 URGENT ACTION & TRIAGE RIBBON */}
-      {totalExceptions > 0 && (
+      {(totalExceptions > 0 || data.unreadNotifications > 0) && (
         <div className="card p-4 bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl flex flex-col gap-3">
           <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
             <strong className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-2">
