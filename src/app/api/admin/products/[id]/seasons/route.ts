@@ -13,7 +13,7 @@ const createSeasonSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: z.enum(["UPCOMING", "ACTIVE", "PAUSED", "COMPLETED"]).optional(),
-  targetVolumeMl: z.number().optional().nullable(),
+  targetVolumeMl: z.number().int().positive().optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
 });
 
@@ -25,7 +25,7 @@ const cloneSeasonSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   status: z.enum(["UPCOMING", "ACTIVE", "PAUSED", "COMPLETED"]).optional(),
-  targetVolumeMl: z.number().optional().nullable(),
+  targetVolumeMl: z.number().int().positive().optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
 });
 

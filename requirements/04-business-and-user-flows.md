@@ -1,6 +1,6 @@
 # 04 — Business and User Flows
 
-> **v0.0.1 flow override — ADR-0005 applies.** Use one shop, Admin/Manager/Staff/Content Creator permissions, manual phone/other order sources, delivery always “Delivery to be agreed” with an optional manual fee, fixed-page four-image CMS, record-only external pickers, and picking records in litres or kilograms with unit-specific buy prices. Google, Meta/WhatsApp, tenant provisioning, supplier/expense/reporting, and marketing flows below are deferred.
+> **Active flow override — ADR-0005 and ADR-0015 apply.** Use one shop, Admin/Manager/Staff/Content Creator permissions, manual phone/other order sources, delivery always “Delivery to be agreed” with an optional manual fee, fixed-page four-image CMS, and permission-scoped reporting v1. Google, Meta/WhatsApp, tenant provisioning, supplier/expense/advanced-finance, and marketing flows below remain deferred.
 
 ## 1. End-to-end business flow
 

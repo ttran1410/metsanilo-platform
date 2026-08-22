@@ -1,6 +1,6 @@
 # 02 — Functional Requirements
 
-> **v0.0.1 scope override — ADR-0005 applies.** Implement the single-shop pilot only. `ADMIN` is the owner; `MANAGER`, `STAFF`, and `CONTENT_CREATOR` are shop users with feature-level permissions. `PLATFORM_ADMIN`, multi-shop provisioning, Facebook/WhatsApp, Google route services, postal zones, public picker applications, supplier/expense/quality/reporting modules, video media, and marketing automation are deferred even where their future IDs remain below.
+> **Active scope override — ADR-0005 and ADR-0015 apply.** Implement one shop with `ADMIN`, `MANAGER`, `STAFF`, and `CONTENT_CREATOR`, feature-level permissions, and existing-data reporting v1. `PLATFORM_ADMIN`, multi-shop provisioning, Facebook/WhatsApp, Google route services, postal zones, public picker applications, supplier/expense/quality/advanced-finance modules, video media, and marketing automation remain deferred even where their future IDs appear below.
 
 All requirements in this document are MVP requirements unless marked otherwise.
 
@@ -25,7 +25,7 @@ All requirements in this document are MVP requirements unless marked otherwise.
 - **FR-ORD-006:** Authorized users shall view order details, customer snapshot, items, totals, fulfillment information, payment record, notes, status history, capacity effects, and audit history.
 - **FR-ORD-007:** Authorized users shall change status only through permitted transitions.
 - **FR-ORD-008:** Order edits that change product, package, quantity, or fulfillment date shall revalidate and atomically rebalance capacity.
-- **FR-ORD-009:** Cancellation shall require a reason. From `NEW`/`CONFIRMED` it releases reserved capacity exactly once; from `PICKING`, `READY`, or `OUT_FOR_DELIVERY` it records consumed/waste capacity and shall not automatically reopen availability.
+- **FR-ORD-009:** Cancellation shall require a reason. From `NEW`/`CONFIRMED` it releases reserved capacity exactly once; from `PICKING`, `READY`, or `OUT_FOR_DELIVERY` it records post-picking unfulfilled capacity and shall not automatically reopen availability.
 - **FR-ORD-010:** Staff shall be able to record contact attempts and notes without changing customer-visible data.
 - **FR-ORD-011:** The system shall prevent duplicate order creation caused by repeat submission/retry through an idempotency mechanism.
 - **FR-ORD-012:** Order records shall support payment methods `CASH`, `BANK_TRANSFER`, `MOBILEPAY`, and extensible future values, plus a separate payment status.
@@ -130,7 +130,7 @@ All requirements in this document are MVP requirements unless marked otherwise.
 
 ## 10. Suppliers, costs, staff earnings, reporting, and invoices
 
-> **Pilot boundary:** implement only basic order payment records, invoice PDF generation/download, record-only picker records, and picking records in litres or kilograms with unit-specific buy prices. `FR-SUP-*`, `FR-QLT-*`, broad `FR-FIN-*`, and `FR-RPT-*` workflows below are future roadmap requirements. Admin/Manager self-approval is allowed; Staff requires explicit permission.
+> **Active boundary:** reporting v1 implements the existing-data subset of `FR-RPT-*` defined by ADR-0015. `FR-SUP-*`, `FR-QLT-*`, broad `FR-FIN-*`, supplier/picking-cost reporting, VAT, PDF report export, and accounting workflows remain future roadmap requirements.
 
 - **FR-SUP-001:** Manager/permitted Staff shall create, view, update, archive, and search shop Supplier profiles independently of customers, users, and picker applicants.
 - **FR-SUP-002:** Manager and permitted Staff shall record external berry purchases by supplier, product, purchase/picking date, litres, price per litre or total, payment status, receipt/reference, and notes. Purchases follow `DRAFT → SUBMITTED → APPROVED → PAID` with rejection/correction controls. Manager or Platform Admin in selected-shop context may perform every workflow action, including approving a record they created/submitted.
@@ -147,10 +147,10 @@ All requirements in this document are MVP requirements unless marked otherwise.
 - **FR-FIN-006:** Picking Entries shall follow `DRAFT → SUBMITTED → APPROVED → PAID` with correction/rejection controls and audit history. Manager or Platform Admin in selected-shop context may perform every workflow action.
 - **FR-FIN-007:** Manager may create, submit, approve, reject, correct, and mark paid their own Picking Entry, expense, or external purchase. Platform Admin inherits the same authority in explicit selected-shop context. Every action and role/context is audited.
 - **FR-FIN-008:** Staff shall be able to view their own picking volume, earning entries, approval/payment states, and period totals, but not another staff member’s earnings unless granted a finance permission.
-- **FR-RPT-001:** Authorized users shall view weekly, custom date-range, monthly, product, staff, fulfillment-method, and order-source reports using the business timezone.
-- **FR-RPT-002:** Financial reporting shall show gross recognized revenue, refunds, net revenue, non-staff operating costs, operating result before staff picking cost, staff picking cost, and estimated operating profit after staff picking cost.
-- **FR-RPT-003:** Reports shall include order count/value, litres/revenue by product, pickup versus delivery, delivery fee and fuel cost, external purchase volume/cost, staff picking volume/earnings, capacity utilization, natural/manual sold-out periods as non-transactional operational facts, average order value, new/repeat customers, order outcomes, and confirmation time.
-- **FR-RPT-004:** Reports shall support CSV and PDF export with applied filters, generation timestamp, timezone, currency, formula definitions, and data-as-of information.
+- **FR-RPT-001:** Authorized users shall view Overview, Sales and fulfillment, Capacity and demand, Payments and refunds, and Customer health using today, ISO-week, month, season, or custom periods and relevant product, package, fulfillment, source, outcome, and payment filters in the business timezone.
+- **FR-RPT-002:** Future financial reporting shall show gross recognized revenue, refunds, net revenue, non-staff operating costs, operating result before staff picking cost, staff picking cost, and estimated operating profit after staff picking cost only after authoritative cost and VAT records exist.
+- **FR-RPT-003:** Reporting v1 shall include fulfilled order count, fulfilled litres and sales, average order value, refunds, retained cash, outstanding amount, product/package and pickup/delivery/source mix, final configured capacity, post-picking unfulfilled outcomes, confirmation time, new/repeat fulfilled customers, linkage coverage, privacy-protected delivery destinations, and optional season fulfilled-litre goal progress.
+- **FR-RPT-004:** The four detailed reporting-v1 views shall support CSV export with applied filters, generation timestamp, timezone, currency, formula version, and data-as-of information. Overview remains screen-only; PDF report export is phase two.
 - **FR-RPT-005:** Exported reports shall enforce the same permissions and staff-income privacy rules as on-screen reports.
 - **FR-RPT-006:** Report calculations shall be reproducible from immutable/snapshotted source transactions and display late adjustments/refunds in the period in which they are recognized.
 - **FR-INV-001:** An invoice record shall design for seller, customer/order, line items, delivery fee, totals, currency, future VAT/tax fields, payment terms/status, issue/due date, and invoice number/version; VAT/tax fields remain hidden from MVP UI/PDF until enabled by approved shop configuration.

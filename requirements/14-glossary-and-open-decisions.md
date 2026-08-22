@@ -32,8 +32,19 @@
 | Business timezone | `Europe/Helsinki`, used for operational schedules and business dates. |
 | Overdue `NEW` | Order unresolved for at least 15 minutes. |
 | Overdue `PICKING` | Today’s order still picking at configured ready-review time. |
+| Fulfilled-litre goal | Optional positive whole-litre goal for fulfilled volume in one product season, stored as `target_volume_ml`. It does not limit daily capacity. |
+| Fulfilled litres | Order volume first handed over through `PICKED_UP` or `DELIVERED`. A later refund does not reverse the physical handover fact. |
+| Fulfilled sales | Resolved order total recognized when the order first becomes `PICKED_UP` or `DELIVERED`, independent of payment timing. |
 | Recognized revenue | Completed-order amount recognized when the order first becomes `PICKED_UP` or `DELIVERED`. |
-| Net revenue | Gross recognized revenue minus refunds recognized in the period. |
+| Sales after refunds | Fulfilled sales recognized in the selected period minus refunds recorded in that period. This is not a VAT-exclusive value. |
+| Net revenue | Future financial-report term for recognized revenue minus refunds. Reporting v1 uses `Sales after refunds` to avoid confusion with VAT-exclusive sales. |
+| Cash recorded | Payment records minus refund records in the selected period. This is an application record, not bank reconciliation. |
+| Outstanding amount | Resolved order total minus recorded payments, floored at zero. Refunds do not recreate customer debt. |
+| Post-picking unfulfilled litres | Volume from an order that ends without fulfillment after reaching `PICKING`. Capacity remains consumed, but the term does not assert that berries were discarded. |
+| Delivery destination | Postal-code or city grouping derived from a delivery order snapshot. It does not represent a customer’s residence, and pickup orders normally have no destination data. |
+| New fulfilled customer | Identifiable customer whose first-ever fulfilled order occurs in the selected period. |
+| Repeat fulfilled customer | Identifiable customer with a fulfilled order in the selected period and at least one earlier fulfilled order. |
+| Average order value | Fulfilled sales divided by fulfilled orders. Refunds remain a separate measure. |
 | Non-staff operating costs | Approved external purchases, fuel, packaging, equipment/allocation, and other costs, excluding staff picking earnings. |
 | Result before staff picking cost | Net revenue minus non-staff operating costs. This shows performance before valuing staff picking labor. |
 | Staff picking cost/income | Approved earnings owed to staff for recorded picking activity; a business cost and staff income. |
@@ -49,7 +60,7 @@
 - Manual and historical terminal-outcome orders are supported and audited; a historical refund preserves completion followed by refund chronology.
 - Cash, bank transfer, and MobilePay are recorded without integration.
 - Capacity is litres; fixed packages × positive integer quantity. Public orders use one item line; staff-entered orders may use multiple lines with one fulfillment date/method.
-- `NEW`/`CONFIRMED` reserve capacity. Pre-picking cancellation releases it atomically; post-picking cancellation records consumed/waste capacity without reopening availability.
+- `NEW`/`CONFIRMED` reserve capacity. Pre-picking cancellation releases it atomically; a later non-fulfilled outcome remains post-picking unfulfilled capacity without asserting physical waste.
 - Pickup defaults to 20:00 but supports global, weekday, and date settings.
 - Local delivery uses configurable threshold/fee; outside area is manually agreed and fee/final total stay null/pending until agreement.
 - No customer account or automatic customer messages in MVP; authorized explicit transactional channel actions are allowed.
@@ -65,10 +76,13 @@
 - Shop-user notifications are in-app plus per-user configurable email.
 - 10:00 automation uses fulfillment date; 19:00 reminds but never auto-sets `READY`.
 - Finnish/English, EUR, Pori/Satakunta, and Europe/Helsinki are initial defaults.
-- Weekly reports show results before and after staff picking cost, using ISO Monday–Sunday periods.
+- Reporting v1 uses existing order, capacity, payment, refund, and customer records. It provides on-screen reports plus CSV for Sales and fulfillment, Capacity and demand, Payments and refunds, and Customer health; Overview remains screen-only.
+- The season `target_volume_ml` value is the optional fulfilled-litre goal. The season UI displays and edits it in litres, while storage remains integer millilitres.
+- Admin and Manager receive all reporting-v1 permissions. Staff receives Overview and Capacity and demand by default; other reports require explicit grants.
+- Weekly phase-two financial reports show results before and after staff picking cost, using ISO Monday–Sunday periods.
 - Staff compensation supports per-litre, per-hour, fixed, and approved manual adjustment methods.
 - Supplier profiles and external berry purchases are managed separately.
-- CSV and PDF report exports are MVP; invoice PDFs are downloadable but not automatically emailed.
+- PDF report export is phase two; invoice PDFs remain a separate future document workflow.
 
 ## 3. Implementation-time decisions still required
 

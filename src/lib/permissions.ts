@@ -1,6 +1,7 @@
 /** Shared permission catalogue used by both the server guard and the admin UI. */
 export const PERMISSIONS = [
   "dashboard.read", "notifications.read",
+  "reports.sales.read", "reports.capacity.read", "reports.payments.read", "reports.customers.read",
   "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.read", "orders.payment.write", "orders.export", "orders.delete", "orders.archive", "orders.override_closed_date",
   "catalog.product.read", "catalog.product.write", "catalog.product.delete", "catalog.package.read", "catalog.package.write",
   "availability.read", "availability.write", "availability.sold_out",
@@ -47,7 +48,7 @@ export function defaultPermissionsForRole(role: Role): Permission[] {
   if (role === "ADMIN") return [...PERMISSIONS];
   if (role === "MANAGER") return PERMISSIONS.filter((p) => p !== "orders.delete" && p !== "audit.export");
   if (role === "STAFF") return [
-    "dashboard.read", "notifications.read",
+    "dashboard.read", "notifications.read", "reports.capacity.read",
     "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.read", "orders.payment.write",
     "catalog.product.read", "catalog.package.read", "availability.read", "availability.write",
     "delivery.read", "delivery.write", "customers.read", "customers.write", "customers.consent.read",

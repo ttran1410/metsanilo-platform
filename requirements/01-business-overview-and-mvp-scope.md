@@ -23,7 +23,7 @@ The operating model is:
 - Build a reusable customer history without requiring customer accounts.
 - Build trust through transparent content, reviews, local identity, and clear pickup/delivery rules.
 - Establish a small foundation for future payment, messaging, customer-account, and delivery enhancements.
-- Produce a downloadable order invoice PDF and basic payment/picking records; full finance reporting is deferred.
+- Provide basic payment records and existing-data reporting v1; invoices, picking costs, and full finance reporting remain deferred.
 
 ## 3. Actors
 
@@ -87,7 +87,7 @@ The data model and interfaces should allow these capabilities to be added withou
 ## 6. Key assumptions and resolved decisions
 
 - `fulfillment_date`, not `created_at`, controls operational automation.
-- `NEW` and `CONFIRMED` orders reserve capacity. Cancellation before picking releases it; cancellation after `PICKING` begins records consumed/waste capacity and does not reopen availability automatically.
+- `NEW` and `CONFIRMED` orders reserve capacity. Cancellation before picking releases it; a later non-fulfilled outcome remains post-picking unfulfilled capacity and does not reopen availability automatically.
 - Capacity is stored in litres per product/date. Public MVP orders contain one fixed active package line with quantity 1; manual/historical orders may contain multiple lines and positive integer quantities sharing one fulfillment date and method.
 - Orders require manual confirmation. An unsuccessful contact attempt may lead to `CANCELLED`.
 - `READY` is a human-confirmed operational fact and is never set automatically in MVP.

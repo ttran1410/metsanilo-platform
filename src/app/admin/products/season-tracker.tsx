@@ -64,6 +64,7 @@ export function SeasonTracker({
   const [endDate, setEndDate] = useState(`${currentYear}-08-31`);
   const [notes, setNotes] = useState("");
   const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
+  const [targetLitres, setTargetLitres] = useState("");
 
   useEffect(() => {
     if (!productId) return;
@@ -99,9 +100,36 @@ export function SeasonTracker({
   }, [productId, selectedSeasonId]);
 
   function selectSeason(seasonId: string) {
+    const selected = seasons.find((season) => season.id === seasonId);
     setSelectedSeasonId((current) => (current === seasonId ? null : seasonId));
+    setTargetLitres(selected?.targetVolumeMl ? String(selected.targetVolumeMl / 1000) : "");
     setSummary(null);
     setSummaryLoading(selectedSeasonId === seasonId ? false : true);
+  }
+
+  async function saveSeasonGoal(season: SeasonItem) {
+    if (!productId) return;
+    const litres = targetLitres.trim() === "" ? null : Number(targetLitres);
+    if (litres !== null && (!Number.isInteger(litres) || litres <= 0)) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/admin/products/${productId}/seasons/${season.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ targetVolumeMl: litres === null ? null : litres * 1000 }) });
+      const body = await response.json();
+      if (response.ok && body.data) setSeasons((prev) => prev.map((item) => item.id === season.id ? body.data : item));
+    } finally { setBusy(false); }
+  }
+
+  async function saveFallbackSeasonGoal() {
+    if (!productId) return;
+    const litres = targetLitres.trim() === "" ? null : Number(targetLitres);
+    if (litres !== null && (!Number.isInteger(litres) || litres <= 0)) return;
+    setBusy(true);
+    try {
+      const year = new Date(`${availableFrom}T00:00:00Z`).getUTCFullYear();
+      const response = await fetch(`/api/admin/products/${productId}/seasons`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nameEn: `${year} Harvest Season`, nameFi: `${year} Satokausi`, startDate: availableFrom, endDate: availableThrough, targetVolumeMl: litres === null ? null : litres * 1000 }) });
+      const body = await response.json();
+      if (response.ok && body.data) setSeasons([body.data]);
+    } finally { setBusy(false); }
   }
 
   async function handleAddSeason(e: FormEvent) {
@@ -114,8 +142,8 @@ export function SeasonTracker({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(cloneSourceId
-          ? { action: "clone", sourceSeasonId: cloneSourceId, nameFi, nameEn, startDate, endDate, notes }
-          : { nameFi, nameEn, startDate, endDate, notes }),
+          ? { action: "clone", sourceSeasonId: cloneSourceId, nameFi, nameEn, startDate, endDate, notes, targetVolumeMl: targetLitres ? Number(targetLitres) * 1000 : null }
+          : { nameFi, nameEn, startDate, endDate, notes, targetVolumeMl: targetLitres ? Number(targetLitres) * 1000 : null }),
       });
       const body = await response.json();
       setBusy(false);
@@ -140,6 +168,7 @@ export function SeasonTracker({
     setStartDate(season.startDate);
     setEndDate(season.endDate);
     setNotes(season.notes ?? "");
+    setTargetLitres(season.targetVolumeMl ? String(season.targetVolumeMl / 1000) : "");
     setShowAddForm(true);
   }
 
@@ -289,6 +318,13 @@ export function SeasonTracker({
         </div>
       </div>
 
+      {productId && seasons.length === 0 && (
+        <div className="p-3 bg-surface rounded-xl border border-amber-200 flex flex-wrap items-end justify-between gap-3 text-xs">
+          <div><strong className="block text-ink">This availability window has no saved season record yet.</strong><span className="text-muted">Set a target below to save this current window as an editable harvest season.</span></div>
+          <div className="flex items-end gap-2"><label className="field max-w-[14rem]"><span>Season fulfilled target (litres)</span><div className="relative"><input type="number" min="1" step="1" value={targetLitres} onChange={(event) => setTargetLitres(event.target.value)} placeholder="e.g. 240" /><span className="absolute right-2 top-2 text-muted">L</span></div></label><button type="button" className="btn btn-secondary text-xs" onClick={() => void saveFallbackSeasonGoal()} disabled={busy || !targetLitres}>Save current season</button></div>
+        </div>
+      )}
+
       {/* CREATE NEW SEASON FORM MODAL/DRAWER */}
       {showAddForm && (
         <form onSubmit={handleAddSeason} className="p-3 bg-surface rounded-xl border border-line flex flex-col gap-3 text-xs">
@@ -334,6 +370,11 @@ export function SeasonTracker({
                 required
               />
             </label>
+            <label className="field">
+              <span>Season fulfilled target (litres)</span>
+              <div className="relative"><input type="number" min="1" step="1" value={targetLitres} onChange={(e) => setTargetLitres(e.target.value)} placeholder="e.g. 240" /><span className="absolute right-2 top-2 text-muted">L</span></div>
+              <small className="text-muted">How many litres do you aim to fulfil this season? This does not change daily capacity.</small>
+            </label>
           </div>
 
           <label className="field">
@@ -367,6 +408,7 @@ export function SeasonTracker({
       {seasons.length > 0 && (
         <div className="flex flex-col gap-2 pt-2 border-t border-line/60">
           <span className="eyebrow text-[10px] muted">ALL HARVEST SEASONS ({seasons.length})</span>
+          <span className="text-[11px] text-muted">Choose <strong>Edit target</strong> on a season to update its fulfilled-litre target.</span>
 
           <div className="space-y-2">
             {seasons.map((s) => {
@@ -419,6 +461,14 @@ export function SeasonTracker({
                     <button
                       type="button"
                       className="btn btn-secondary text-[11px] py-1 px-2 font-bold"
+                      onClick={(event) => { event.stopPropagation(); selectSeason(s.id); }}
+                    >
+                      {selectedSeasonId === s.id ? "Close" : "Edit target"}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-secondary text-[11px] py-1 px-2 font-bold"
                       onClick={(event) => {
                         event.stopPropagation();
                         void handleExtendSeason(s);
@@ -453,7 +503,14 @@ export function SeasonTracker({
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  </div>
+                      </div>
+
+                  {selectedSeasonId === s.id && productId && (
+                    <div className="basis-full flex flex-wrap items-end gap-2 border-t border-line/60 pt-2">
+                      <label className="field text-[11px] max-w-[15rem]"><span>Season fulfilled target (litres)</span><div className="relative"><input type="number" min="1" step="1" value={targetLitres} onChange={(event) => setTargetLitres(event.target.value)} placeholder="No target" /><span className="absolute right-2 top-2 text-muted">L</span></div></label>
+                      <button type="button" className="btn btn-secondary text-[11px] py-1.5 px-2.5" onClick={() => void saveSeasonGoal(s)} disabled={busy}>Save goal</button>
+                    </div>
+                  )}
 
                   {selectedSeasonId === s.id && (
                     <div className="basis-full grid grid-cols-2 sm:grid-cols-5 gap-2 border-t border-line/60 pt-2 text-[11px]" aria-live="polite">
@@ -463,6 +520,7 @@ export function SeasonTracker({
                         <span><strong className="block text-ink ops-tabular">{(summary.reservedVolumeMl / 1000).toFixed(1)} L</strong>reserved</span>
                         <span><strong className="block text-ink ops-tabular">{(summary.remainingVolumeMl / 1000).toFixed(1)} L</strong>remaining</span>
                         <span><strong className="block text-ink ops-tabular">{summary.orderCount}</strong>orders</span>
+                        {s.targetVolumeMl ? <span><strong className="block text-ink ops-tabular">{Math.min(100, Math.round((summary.orderedVolumeMl / s.targetVolumeMl) * 100))}%</strong>goal progress</span> : null}
                       </> : <span className="text-muted col-span-full">No season metrics available.</span>}
                     </div>
                   )}

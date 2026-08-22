@@ -30,7 +30,7 @@ const updateSeasonSchema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   status: z.enum(["UPCOMING", "ACTIVE", "PAUSED", "COMPLETED"]).optional(),
   additionalDays: z.number().min(1).max(90).optional(),
-  targetVolumeMl: z.number().optional().nullable(),
+  targetVolumeMl: z.number().int().positive().optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
 });
 

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard,
+  BarChart3,
   AlertCircle,
   ShoppingBag,
   Calendar,
@@ -23,6 +24,8 @@ import {
   Store,
   ChevronDown,
   Shield,
+  MessageSquareQuote,
+  UserCog,
 } from "lucide-react";
 import { SignOutButton } from "./sign-out-button";
 
@@ -38,12 +41,15 @@ function NavIcon({ id }: { id: string }) {
   const props = { className: "w-4 h-4 stroke-[1.8]" };
   switch (id) {
     case "dashboard": return <LayoutDashboard {...props} />;
+    case "reports": return <BarChart3 {...props} />;
     case "triage": return <AlertCircle {...props} />;
     case "orders": return <ShoppingBag {...props} />;
     case "availability": return <Calendar {...props} />;
     case "manual-orders": return <PlusCircle {...props} />;
     case "customers": return <Users {...props} />;
+    case "reviews": return <MessageSquareQuote {...props} />;
     case "products": return <Package {...props} />;
+    case "users": return <UserCog {...props} />;
     case "settings": return <Settings {...props} />;
     case "audit": return <Shield {...props} />;
     default: return <Shield {...props} />;
