@@ -416,7 +416,10 @@ export function SeasonTracker({
               return (
                 <div
                   key={s.id}
-                  onClick={() => selectSeason(s.id)}
+                  onClick={(event) => {
+                    if ((event.target as HTMLElement).closest("input, button")) return;
+                    selectSeason(s.id);
+                  }}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(event) => {
