@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import type { Locale } from "@/lib/format";
+import { formatDecimal, type Locale } from "@/lib/format";
 
 export type FeaturedReviewItem = {
   id: string;
   displayName: string;
   rating: number;
   displayText: string | null;
-  originalText: string;
   verifiedBuyer?: boolean;
   orderId?: string | null;
 };
@@ -30,7 +29,7 @@ export function HighlightReviews({
     fi: {
       eyebrow: "🌲 MITÄ ASIAKKAAMME SANOVAT",
       heading: "Aitoja asiakaskokemuksia Satakunnasta",
-      score: `${ratingAvg.toFixed(1)} / 5.0 Tyytyväisyys`,
+       score: `${formatDecimal(ratingAvg, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${formatDecimal(5, locale, { minimumFractionDigits: 1 })} Tyytyväisyys`,
       countNote: `${reviewCount}+ Vahvistettua satakuntalaista varausta`,
       verifiedBadge: "✓ Vahvistettu tilaus",
       readAll: "💬 Lue kaikki arvostelut",
@@ -38,7 +37,7 @@ export function HighlightReviews({
     en: {
       eyebrow: "🌲 WHAT OUR CUSTOMERS SAY",
       heading: "Real customer experiences from Satakunta",
-      score: `${ratingAvg.toFixed(1)} / 5.0 Rating`,
+       score: `${formatDecimal(ratingAvg, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${formatDecimal(5, locale, { minimumFractionDigits: 1 })} Rating`,
       countNote: `${reviewCount}+ Verified Satakunta reservations`,
       verifiedBadge: "✓ Verified Order",
       readAll: "💬 Read all reviews",
@@ -76,7 +75,7 @@ export function HighlightReviews({
                 <span className="text-2xl text-[#a8d6b8] leading-none select-none font-serif font-bold">“</span>
               </div>
               <p className="text-[1.025rem] text-[#24362b] leading-relaxed">
-                &quot;{review.displayText || review.originalText}&quot;
+                &quot;{review.displayText}&quot;
               </p>
             </div>
 

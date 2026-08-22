@@ -6,13 +6,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { AdminNotice, AdminPageHeader } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
-import { AdminRowActionMenu, IconEye, IconLink, IconPencil, IconTrash } from "../ui/admin-row-action-menu";
+import { AdminRowActionMenu, IconLink, IconLock, IconPencil, IconTrash, IconUser } from "../ui/admin-row-action-menu";
 import { LinkIdentityModal } from "./link-identity-modal";
 import { EditReviewModal } from "./edit-review-modal";
+import { PublicationIdentityModal } from "./publication-identity-modal";
 
 type Review = {
   id: string;
   displayName: string;
+  reviewerName?: string | null;
+  isAnonymous?: boolean;
   contact: string | null;
   rating: number;
   originalText: string;
@@ -63,8 +66,10 @@ export function ReviewsManager({
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
   const [modalVerifiedChecked, setModalVerifiedChecked] = useState(true);
+  const [modalAnonymousChecked, setModalAnonymousChecked] = useState(false);
 
   const [editingReview, setEditingReview] = useState<Review | null>(null);
+  const [identityReview, setIdentityReview] = useState<Review | null>(null);
   const [editingDisplayTextId, setEditingDisplayTextId] = useState<string | null>(null);
   const [draftDisplayText, setDraftDisplayText] = useState("");
   const [replyingId, setReplyingId] = useState<string | null>(null);
@@ -140,34 +145,20 @@ export function ReviewsManager({
     setMessage("Review deleted permanently.");
   }
 
-  async function confirmManual(reviewId: string, source: string) {
-    setMessage("");
-    setErrorMsg("");
-    const res = await fetch("/api/admin/reviews", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: reviewId, confirmSource: source }),
-    });
-    const body = await res.json();
-    if (!res.ok) {
-      setErrorMsg(body.message || body.code || "Confirmation failed");
-      return;
-    }
-    setRows((current) => current.map((item) => (item.id === reviewId ? body.data : item)));
-    setMessage(`Publication consent confirmed via ${source}.`);
-  }
-
   async function submitManualImport(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
     setErrorMsg("");
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const displayName = (form.get("displayName") as string)?.trim();
     const rating = Number(form.get("rating"));
     const originalText = (form.get("originalText") as string)?.trim();
     const orderId = (form.get("orderId") as string)?.trim() || undefined;
     const verifiedBuyer = form.get("verifiedBuyer") === "on";
+    const isAnonymous = form.get("isAnonymous") === "on";
     const source = (form.get("acknowledgementSource") as string)?.trim() || undefined;
+    const publicationConsentNote = (form.get("publicationConsentNote") as string)?.trim() || undefined;
 
     if (verifiedBuyer && (!orderId || !orderId.trim())) {
       setErrorMsg("Order Reference, Phone, Facebook Profile, or Email proof is required when marking as Verified Buyer.");
@@ -179,11 +170,14 @@ export function ReviewsManager({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         displayName,
+        reviewerName: displayName,
+        isAnonymous,
         rating,
         originalText,
         orderId,
         verifiedBuyer,
         acknowledgementSource: source,
+        publicationConsentNote,
       }),
     });
     const body = await res.json();
@@ -196,8 +190,9 @@ export function ReviewsManager({
     setCurrentPage(1);
     setSearchQuery("");
     setShowManualModal(false);
+    setModalAnonymousChecked(false);
     setMessage("Manual review imported successfully.");
-    event.currentTarget.reset();
+    formElement.reset();
   }
 
   // Calculate Metrics
@@ -229,14 +224,13 @@ export function ReviewsManager({
 
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
-      const text = `${r.displayName} ${r.contact ?? ""} ${r.orderId ?? ""} ${r.originalText} ${r.displayText ?? ""}`.toLowerCase();
+      const text = `${r.reviewerName ?? r.displayName} ${r.contact ?? ""} ${r.orderId ?? ""} ${r.originalText} ${r.displayText ?? ""}`.toLowerCase();
       return text.includes(q);
     }
 
     return true;
   });
 
-  const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
   const paginatedRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
@@ -387,7 +381,11 @@ export function ReviewsManager({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-bold text-sm text-slate-900">{review.displayName}</span>
+                      <span className="font-bold text-sm text-slate-900">{review.reviewerName || review.displayName}</span>
+
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${review.isAnonymous ? "bg-violet-50 text-violet-700 border-violet-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
+                        {review.isAnonymous ? "Anonymous publication" : "Named publication"}
+                      </span>
 
                       {/* Verified Buyer Badge */}
                       {review.verifiedBuyer ? (
@@ -439,22 +437,34 @@ export function ReviewsManager({
                       <span className="text-slate-300">{"★".repeat(5 - review.rating)}</span>
                     </div>
 
-                    {/* AdminRowActionMenu with Kebab ⋮ Icon */}
+                      {/* AdminRowActionMenu with Kebab ⋮ Icon */}
                     <AdminRowActionMenu
                       items={[
-                        {
-                          id: "edit",
-                          label: "Edit Review",
-                          icon: <IconPencil className="w-4 h-4 text-blue-600" />,
-                          onClick: () => setEditingReview(review),
-                        },
-                        {
-                          id: "link",
-                          label: "Link Order / Identity",
-                          icon: <IconLink className="w-4 h-4 text-emerald-600" />,
-                          onClick: () => setLinkingReview(review),
-                        },
-                        ...(review.status !== "APPROVED"
+                        ...(canModerate
+                          ? [
+                              {
+                                id: "edit",
+                                label: "Edit Review",
+                                icon: <IconPencil className="w-4 h-4 text-blue-600" />,
+                                onClick: () => setEditingReview(review),
+                              },
+                              {
+                                id: "publication-identity",
+                                label: review.isAnonymous ? "Publish reviewer name" : "Make reviewer anonymous",
+                                icon: review.isAnonymous
+                                  ? <IconUser className="w-4 h-4 text-blue-600" />
+                                  : <IconLock className="w-4 h-4 text-violet-600" />,
+                                onClick: () => setIdentityReview(review),
+                              },
+                              {
+                                id: "link",
+                                label: "Link Order / Identity",
+                                icon: <IconLink className="w-4 h-4 text-emerald-600" />,
+                                onClick: () => setLinkingReview(review),
+                              },
+                            ]
+                          : []),
+                        ...(canModerate && review.status !== "APPROVED"
                           ? [
                               {
                                 id: "approve",
@@ -478,16 +488,20 @@ export function ReviewsManager({
                               },
                             ]
                           : []),
-                        {
-                          id: "reply",
-                          label: review.sellerReplyText ? "Edit Seller Reply" : "Reply to Customer",
-                          icon: <span className="text-xs">💬</span>,
-                          onClick: () => {
-                            setReplyingId(replyingId === review.id ? null : review.id);
-                            setDraftReplyText(review.sellerReplyText || "");
-                          },
-                        },
-                        ...(review.status !== "REJECTED"
+                        ...(canModerate
+                          ? [
+                              {
+                                id: "reply",
+                                label: review.sellerReplyText ? "Edit Seller Reply" : "Reply to Customer",
+                                icon: <span className="text-xs">💬</span>,
+                                onClick: () => {
+                                  setReplyingId(replyingId === review.id ? null : review.id);
+                                  setDraftReplyText(review.sellerReplyText || "");
+                                },
+                              },
+                            ]
+                          : []),
+                        ...(canModerate && review.status !== "REJECTED"
                           ? [
                               {
                                 id: "reject",
@@ -497,13 +511,17 @@ export function ReviewsManager({
                               },
                             ]
                           : []),
-                        {
-                          id: "delete",
-                          label: "Delete Review Permanently",
-                          icon: <IconTrash className="w-4 h-4 text-rose-600" />,
-                          danger: true,
-                          onClick: () => void handleDeleteReview(review.id),
-                        },
+                        ...(canModerate
+                          ? [
+                              {
+                                id: "delete",
+                                label: "Delete Review Permanently",
+                                icon: <IconTrash className="w-4 h-4 text-rose-600" />,
+                                danger: true,
+                                onClick: () => void handleDeleteReview(review.id),
+                              },
+                            ]
+                          : []),
                       ]}
                     />
                   </div>
@@ -652,8 +670,8 @@ export function ReviewsManager({
       {/* Manual Import Modal */}
       {showManualModal && (
         <div className="admin-dialog-backdrop">
-          <div className="admin-dialog card space-y-4 max-w-lg w-full p-6 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-line pb-3">
+          <div className="admin-dialog card manual-review-dialog space-y-4 animate-in fade-in zoom-in-95">
+            <div className="manual-review-dialog-header flex items-center justify-between gap-4 border-b border-line">
               <div>
                 <span className="eyebrow">OFFLINE FEEDBACK INGESTION</span>
                 <h2 className="text-base font-bold text-ink">➕ Manual Feedback Import</h2>
@@ -675,7 +693,7 @@ export function ReviewsManager({
 
             <form onSubmit={(e) => void submitManualImport(e)} className="space-y-4">
               <label className="field text-xs">
-                <span className="font-semibold text-ink">Reviewer Display Name *</span>
+                <span className="font-semibold text-ink">Reviewer Name</span>
                 <input
                   name="displayName"
                   required
@@ -683,12 +701,28 @@ export function ReviewsManager({
                   className="text-xs"
                   placeholder="e.g. Maija Virtanen"
                 />
+                <small>
+                  {modalAnonymousChecked ? "Kept private and visible only to staff." : "Published with the review."}
+                </small>
               </label>
 
-              <div className="grid grid-cols-2 gap-3">
+              <label className="field-checkbox manual-review-choice text-xs">
+                <input
+                  name="isAnonymous"
+                  type="checkbox"
+                  checked={modalAnonymousChecked}
+                  onChange={(e) => setModalAnonymousChecked(e.target.checked)}
+                />
+                <span>
+                  <strong>Anonymous publication</strong>
+                  <small>Hide the reviewer name on the storefront while retaining it for staff.</small>
+                </span>
+              </label>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="field text-xs">
-                  <span className="font-semibold text-ink">Rating *</span>
-                  <select name="rating" defaultValue="5" className="text-xs font-bold">
+                  <span className="font-semibold text-ink">Rating</span>
+                  <select name="rating" required defaultValue="5" className="text-xs font-bold">
                     <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
                     <option value="4">⭐⭐⭐⭐ (4/5)</option>
                     <option value="3">⭐⭐⭐ (3/5)</option>
@@ -698,8 +732,8 @@ export function ReviewsManager({
                 </label>
 
                 <label className="field text-xs">
-                  <span className="font-semibold text-ink">Consent Source *</span>
-                  <select name="acknowledgementSource" defaultValue={sources[0]?.key ?? "WHATSAPP"} className="text-xs font-bold">
+                  <span className="font-semibold text-ink">Consent Source</span>
+                  <select name="acknowledgementSource" required defaultValue={sources[0]?.key ?? "WHATSAPP"} className="text-xs font-bold">
                     {sources.map((src) => (
                       <option key={src.key} value={src.key}>
                         {src.labelEn || src.key}
@@ -711,39 +745,56 @@ export function ReviewsManager({
 
               <label className="field text-xs">
                 <span className="font-semibold text-ink">
-                  Order Ref / Facebook / Phone {modalVerifiedChecked && <span className="text-rose-600 font-bold">*</span>}
+                  Order Ref / Facebook / Phone
                 </span>
                 <input
                   name="orderId"
+                  required={modalVerifiedChecked}
                   className="text-xs"
                   placeholder="e.g. H-A1B2C, 0401234567, fb/username"
                 />
               </label>
 
               <label className="field text-xs">
-                <span className="font-semibold text-ink">Customer Feedback Quote *</span>
+                <span className="font-semibold text-ink">Publication Consent Note</span>
+                <textarea
+                  name="publicationConsentNote"
+                  required
+                  minLength={2}
+                  maxLength={500}
+                  rows={2}
+                  className="text-xs"
+                  placeholder="Record how the reviewer approved this publication identity choice."
+                />
+              </label>
+
+              <label className="field text-xs">
+                <span className="font-semibold text-ink">Customer Feedback Quote</span>
                 <textarea
                   name="originalText"
                   required
                   minLength={10}
                   maxLength={2000}
                   rows={3}
-                  className="text-xs"
+                  className="manual-review-quote text-xs"
                   placeholder="Kiitos mahtavista marjoista! Toriparkin nouto sujui loistavasti..."
                 />
               </label>
 
-              <label className="field-checkbox text-xs">
+              <label className="field-checkbox manual-review-choice text-xs">
                 <input
                   name="verifiedBuyer"
                   type="checkbox"
                   checked={modalVerifiedChecked}
                   onChange={(e) => setModalVerifiedChecked(e.target.checked)}
                 />
-                <span className="font-semibold">Mark as Verified Buyer (Requires Order Ref or Contact Proof)</span>
+                <span>
+                  <strong>Verified buyer</strong>
+                  <small>Requires an order reference or contact proof.</small>
+                </span>
               </label>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-line">
+              <div className="manual-review-actions">
                 <button
                   type="button"
                   className="btn btn-secondary text-xs font-semibold py-2 px-4"
@@ -752,7 +803,7 @@ export function ReviewsManager({
                   Cancel
                 </button>
                 <button type="submit" className="btn text-xs font-bold py-2 px-4 shadow-xs">
-                  Import Review & Log Consent
+                  Import review
                 </button>
               </div>
             </form>
@@ -769,6 +820,21 @@ export function ReviewsManager({
             setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
             setEditingReview(null);
             setMessage("Review updated successfully.");
+          }}
+        />
+      )}
+
+      {identityReview && (
+        <PublicationIdentityModal
+          review={identityReview}
+          sources={sources}
+          onClose={() => setIdentityReview(null)}
+          onSaved={(updated) => {
+            setRows((current) => current.map((review) => (review.id === updated.id ? updated : review)));
+            setIdentityReview(null);
+            setMessage(updated.isAnonymous
+              ? "Reviewer identity is now private."
+              : "Reviewer name recorded. Review returned to Pending Triage.");
           }}
         />
       )}

@@ -239,6 +239,13 @@
       "when": 1787251140787,
       "tag": "0033_third_marvel_zombies",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1787392533958,
+      "tag": "0034_goofy_cloak",
+      "breakpoints": true
     }
   ]
 }

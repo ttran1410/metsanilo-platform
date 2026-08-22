@@ -6,7 +6,9 @@ import { DomainError } from "@/domain/errors";
 
 export const runtime = "nodejs";
 const input = z.object({
-  displayName: z.string().min(2).max(80),
+  displayName: z.string().max(80).optional(),
+  isAnonymous: z.boolean().default(false),
+  crmConsent: z.boolean().default(false),
   rating: z.number().int().min(1).max(5),
   reviewText: z.string().min(10).max(2000),
   contact: z.string().max(254).optional(),
@@ -15,10 +17,11 @@ const input = z.object({
   locale: z.enum(["fi", "en"]),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     if (!(await getReviewsVisibility(db()))) return success({ reviews: [], rollup: { ratingAvg: 5.0, reviewCount: 0, starDistribution: { "5": 0, "4": 0, "3": 0, "2": 0, "1": 0 } } });
-    const reviewsList = await listPublishedReviews(db());
+    const locale = new URL(request.url).searchParams.get("locale") === "fi" ? "fi" : "en";
+    const reviewsList = await listPublishedReviews(db(), { locale });
     const rollup = await getReviewRollup(db());
     return success({ reviews: reviewsList, rollup });
   } catch (error) {
@@ -34,6 +37,8 @@ export async function POST(request: Request) {
     return success(
       await createPublicReview(db(), {
         displayName: parsed.data.displayName,
+        isAnonymous: parsed.data.isAnonymous,
+        crmConsent: parsed.data.crmConsent,
         rating: parsed.data.rating,
         originalText: parsed.data.reviewText,
         publicationAcknowledgement: parsed.data.publicationAcknowledgement,
@@ -47,4 +52,3 @@ export async function POST(request: Request) {
     return failure(error);
   }
 }
-

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { OrderReceipt } from "@/domain/orders";
-import { formatEuros, formatLitres, type Locale } from "@/lib/format";
+import { formatEuros, formatLitres, formatStorefrontDate, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
 import { CustomerFieldError, customerValidationCopy, focusFirstCustomerFieldError } from "./customer-form-validation";
 import { localizeServerFieldErrors, validateReservationFields, type ReservationField } from "./order-form-validation";
@@ -77,6 +77,7 @@ export function OrderForm({
     return nextAvailableDate?.date ?? visibleOrderableDates.find((item) => item.date === todayIso)?.date ?? visibleOrderableDates[0].date;
   }, [visibleOrderableDates]);
   const selectedDate = date && orderableDates.some((item) => item.date === date) ? date : defaultDate;
+  const selectedDateLabel = selectedDate ? formatStorefrontDate(selectedDate, locale) : (locale === "fi" ? "päivä valitsematta" : "date not selected");
 
   function changeProduct(nextId: string) {
     const next = products.find((item) => item.id === nextId);
@@ -159,7 +160,7 @@ export function OrderForm({
       });
       const body = await response.json();
       if (!response.ok) {
-        setError(`${t.error} (${body.code ?? "RETRY_LATER"})`);
+        setError(t.error);
         const serverErrors = localizeServerFieldErrors(body.fieldErrors, locale);
         showFieldErrors(serverErrors, form);
         return;
@@ -167,7 +168,7 @@ export function OrderForm({
       setReceipt(body.data);
       setIdempotencyKey(crypto.randomUUID());
     } catch {
-      setError(`${t.error} (RETRY_LATER)`);
+      setError(t.error);
     } finally {
       setSubmitting(false);
     }
@@ -178,7 +179,7 @@ export function OrderForm({
       <section className="card success mt-6" aria-live="polite">
         <h3 className="text-2xl font-bold">{t.success}</h3>
         <p className="mt-3"><strong>{t.reference}:</strong> {receipt.publicReference}</p>
-        <p className="mt-2">{receipt.productName} — {receipt.packageLabel} ({formatLitres(receipt.volumeMl, locale)} l), {receipt.fulfillmentDate}</p>
+        <p className="mt-2">{receipt.productName} — {receipt.packageLabel} ({formatLitres(receipt.volumeMl, locale)} l), {formatStorefrontDate(receipt.fulfillmentDate, locale)}</p>
         <p className="mt-3 font-bold">{t.pending}</p>
         {receipt.pickup ? (
           <div className="mt-4 rounded-lg bg-white p-4">
@@ -242,7 +243,7 @@ export function OrderForm({
 
       <fieldset className="form-step">
         <legend><span>02</span> {t.method}</legend>
-        <div className={`field fulfillment-date-field${fieldErrors.fulfillmentDate ? " field-invalid" : ""}`} data-field="fulfillmentDate" aria-invalid={Boolean(fieldErrors.fulfillmentDate)} aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined}><span>{t.date}</span><div className="date-chip-grid" role="radiogroup" aria-label={t.date}>{visibleOrderableDates.map((item) => { const chipDate = new Date(`${item.date}T12:00:00`); const label = new Intl.DateTimeFormat(locale === "fi" ? "fi-FI" : "en-GB", { weekday: "short", day: "numeric", month: "numeric" }).format(chipDate); return <label className={`date-chip${selectedDate === item.date ? " selected" : ""}`} key={item.date}><input type="radio" name="fulfillmentDate" value={item.date} checked={selectedDate === item.date} onChange={() => setDate(item.date)} required aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined} /><span>{label}</span></label>; })}</div>{orderableDates.length === 0 && <small className="availability-hint" aria-live="polite">{t.closed}</small>}<CustomerFieldError field="fulfillmentDate" error={fieldErrors.fulfillmentDate} /></div>
+        <div className={`field fulfillment-date-field${fieldErrors.fulfillmentDate ? " field-invalid" : ""}`} data-field="fulfillmentDate" aria-invalid={Boolean(fieldErrors.fulfillmentDate)} aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined}><span>{t.date}</span><div className="date-chip-grid" role="radiogroup" aria-label={t.date}>{visibleOrderableDates.map((item) => { const label = formatStorefrontDate(item.date, locale, { weekday: "short", day: "numeric", month: "numeric" }); return <label className={`date-chip${selectedDate === item.date ? " selected" : ""}`} key={item.date}><input type="radio" name="fulfillmentDate" value={item.date} checked={selectedDate === item.date} onChange={() => setDate(item.date)} required aria-describedby={fieldErrors.fulfillmentDate ? "fulfillmentDate-error" : undefined} /><span>{label}</span></label>; })}</div>{orderableDates.length === 0 && <small className="availability-hint" aria-live="polite">{t.closed}</small>}<CustomerFieldError field="fulfillmentDate" error={fieldErrors.fulfillmentDate} /></div>
         <div className="choice-grid">
           <label className={`choice-card${method === "PICKUP" ? " selected" : ""}`}><input type="radio" checked={method === "PICKUP"} onChange={() => setMethod("PICKUP")} /> <span><strong>{t.pickup}</strong><small>{locale === "fi" ? "Nouda sovittuna päivänä Porista" : "Collect on the agreed date in Pori"}</small></span></label>
           <label className={`choice-card${method === "DELIVERY" ? " selected" : ""}`}><input type="radio" checked={method === "DELIVERY"} onChange={() => setMethod("DELIVERY")} /> <span><strong>{t.delivery}</strong><small>{locale === "fi" ? "Sovitaan toimituksesta" : "Delivery to be agreed"}</small></span></label>
@@ -275,7 +276,7 @@ export function OrderForm({
       <label className="marketing-consent-field"><input type="checkbox" name="marketingConsent" value="true" /> <span>{locale === "fi" ? "Haluan saada METSÄNILO-kausitarjouksia tekstiviestillä tai WhatsAppilla." : "I would like to receive METSÄNILO seasonal offers by SMS or WhatsApp."}</span></label>
       </div>
       <div className="reservation-summary-bar">
-        <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {quantity} {locale === "fi" ? "kpl" : quantity === 1 ? "item" : "items"} · {selectedDate || (locale === "fi" ? "päivä valitsematta" : "date not selected")}</small></div>
+        <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {quantity} {locale === "fi" ? "kpl" : quantity === 1 ? "item" : "items"} · {selectedDateLabel}</small></div>
         <div className="summary-meta"><span>{method === "PICKUP" ? t.pickup : t.delivery}</span><span>{formatLitres(totalLitres * 1000, locale)} l</span></div>
         <div className={`summary-total${method === "DELIVERY" ? " summary-total-delivery" : ""}`}><span>{method === "DELIVERY" ? t.productTotal : (locale === "fi" ? "Yhteensä" : "Total")}</span><strong>{formatEuros(subtotalCents, locale)}</strong>{method === "DELIVERY" && <small>{t.deliveryFeePending}<br />{t.excludesDeliveryFee}</small>}</div>
         <button className="btn btn-accent submit-button" disabled={submitting} type="submit">{submitting ? "…" : t.submit}<span aria-hidden="true">→</span></button>

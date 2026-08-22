@@ -23,7 +23,7 @@ export default async function ReviewsPage({ params }: { params: Promise<{ locale
   if (!(await getReviewsVisibility(db()))) notFound();
 
   const data = await getPublicCatalog(db());
-  const published = await listPublishedReviews(db());
+  const published = await listPublishedReviews(db(), { locale });
   const publishedRows = Array.isArray(published) ? published : published.items;
   const rollup = await getReviewRollup(db());
   const nav = navCopy[locale];

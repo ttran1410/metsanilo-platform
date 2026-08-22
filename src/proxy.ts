@@ -2,6 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { readSession, SESSION_COOKIE } from "@/domain/session";
 
 export function proxy(request: NextRequest) {
+  const storefrontLocale = request.nextUrl.pathname.split("/")[1];
+  if (storefrontLocale === "fi" || storefrontLocale === "en") {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-storefront-locale", storefrontLocale);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
   if (request.nextUrl.pathname === "/admin/login" || request.nextUrl.pathname.startsWith("/api/auth/")) return NextResponse.next();
   const session = readSession(request.cookies.get(SESSION_COOKIE)?.value);
   const betterSession = request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
@@ -14,4 +20,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.redirect(new URL("/admin/login", request.url));
 }
 
-export const config = { matcher: ["/admin/:path*", "/api/admin/:path*"] };
+export const config = { matcher: ["/fi/:path*", "/en/:path*", "/admin/:path*", "/api/admin/:path*"] };
