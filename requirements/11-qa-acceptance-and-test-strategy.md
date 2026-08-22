@@ -1,6 +1,6 @@
 # 11 — QA Acceptance Criteria and Test Strategy
 
-> **v0.0.1 release subset — ADR-0005 applies.** Release testing covers one shop, Admin/Manager/Staff/Content Creator permissions, Finnish/English public flow, product availability/capacity/sold-out, pickup, delivery-to-be-agreed with manual fee, orders, payments/invoice PDF, picker records, litre/kg picking records with unit-specific buy prices, four-image CMS, and audit. Multi-shop, Google, Facebook/WhatsApp, supplier/expense/reporting, video, and marketing scenarios are deferred and must not block this release.
+> **Active release subset — ADR-0005 and ADR-0015 apply.** Release testing covers one shop, Admin/Manager/Staff/Content Creator permissions, Finnish/English public flow, product availability/capacity/sold-out, pickup, delivery-to-be-agreed with manual fee, orders, payments/refunds, reporting v1, four-image CMS, and audit. Multi-shop, Google, Facebook/WhatsApp, supplier/expense/advanced-finance, video, and marketing scenarios remain deferred.
 
 For v0.0.1, the acceptance scenarios below are a reusable future baseline. Only the pilot subset named above is a release gate; scenarios that mention Google, Platform Admin, Content Editor, public picker applications, suppliers, expenses, advanced reports, channels, or video are explicitly deferred.
 
@@ -33,7 +33,7 @@ For v0.0.1, the acceptance scenarios below are a reusable future baseline. Only 
 - **AC-ORD-015:** When public phone/WhatsApp and email/provider identifiers conflict across existing customers, the order is created once with a provisional customer flagged for review; neither existing customer is auto-linked/merged and the submitted snapshot remains immutable after resolution.
 - **AC-ORD-016:** An outside/unverifiable delivery order stores an authoritative item subtotal but null/pending delivery fee and final total; confirmation is blocked until agreement records the fee and final total.
 - **AC-ORD-017:** A partial refund leaves fulfillment status completed and sets payment summary `PARTIALLY_REFUNDED`; only full cumulative refund transitions to `REFUNDED`, and cumulative refunds cannot exceed the refundable amount.
-- **AC-ORD-018:** Cancellation from `NEW`/`CONFIRMED` releases capacity once, while cancellation from `PICKING`, `READY`, or `OUT_FOR_DELIVERY` records consumed/waste litres and does not reopen availability.
+- **AC-ORD-018:** Cancellation from `NEW`/`CONFIRMED` releases capacity once, while a later non-fulfilled outcome records post-picking unfulfilled litres and does not reopen availability.
 - **AC-ORD-019:** Public ordering creates a pending reservation request; the sales-contract event is recorded only on staff confirmation, both locales make that timing prominent before submit and on receipt, the customer cannot bypass the applicable terms/disclosures, and no charge occurs before confirmation.
 
 ### Product and availability
@@ -95,7 +95,11 @@ For v0.0.1, the acceptance scenarios below are a reusable future baseline. Only 
 - **AC-AVL-003:** Manual sold-out changes no order, reservation, capacity movement, sold/delivered litre, revenue, refund, expense, purchase, Picking Entry, or payment total. Internal availability reporting records the override cause/period separately; sales/finance/fulfillment reports continue to reconcile only to authoritative transactions.
 - **AC-FIN-008:** Staff sees only their own earnings; direct API/export attempts to access another staff’s amounts are denied.
 - **AC-RPT-001:** ISO week boundaries follow Monday–Sunday in the configured shop timezone, including year/DST boundaries; applied filters and formula/data-cutoff metadata are visible.
-- **AC-RPT-002:** CSV and PDF exports reconcile to the on-screen report/source totals and enforce identical permission filters.
+- **AC-RPT-002:** Each reporting-v1 CSV reconciles to the on-screen report/source totals and enforces identical permission filters. Overview exposes no CSV action, and PDF report export remains unavailable.
+- **AC-RPT-003:** Fulfilled sales and litres use first completion at `PICKED_UP`/`DELIVERED`; refunds use `recorded_at`, do not reverse fulfilled litres, and do not recreate an outstanding balance.
+- **AC-RPT-004:** A new customer has their first fulfilled order in the selected period; a repeat customer has an earlier fulfilled order. Unresolved identities are excluded from repeat rate and shown through linkage coverage.
+- **AC-RPT-005:** Season progress counts fulfilled litres against the optional per-product fulfilled-litre goal, excludes reservations and post-picking unfulfilled outcomes, and hides the percentage when no goal exists.
+- **AC-RPT-006:** Past capacity reports label the latest stored value as Final configured capacity and do not claim an unavailable historical as-of plan.
 - **AC-INV-001:** Issuing an eligible invoice assigns one unique number/version, snapshots all content, and produces a downloadable PDF without sending customer email.
 - **AC-INV-002:** Changing current customer/product/settings data after invoice issue does not change the issued PDF; material correction creates a new auditable version/process.
 - **AC-INV-003:** Concurrent/retried issue commands cannot create duplicate invoice numbers or versions.

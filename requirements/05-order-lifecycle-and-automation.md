@@ -14,8 +14,8 @@
 | `PICKED_UP` | Pickup completed | Operationally yes | Consumed |
 | `DELIVERED` | Delivery completed | Operationally yes | Consumed |
 | `CUSTOMER_DECLINED` | Customer declined before confirmation | Yes | Released once |
-| `CANCELLED` | Shop/business stopped order before handover | Yes | Released from `NEW`/`CONFIRMED`; consumed/waste from later states |
-| `CANCELLED_BY_CUSTOMER` | Customer cancelled after confirmation | Yes | Released from `CONFIRMED`; consumed/waste from later states |
+| `CANCELLED` | Shop/business stopped order before handover | Yes | Released from `NEW`/`CONFIRMED`; post-picking unfulfilled from later states |
+| `CANCELLED_BY_CUSTOMER` | Customer cancelled after confirmation | Yes | Released from `CONFIRMED`; post-picking unfulfilled from later states |
 | `REJECTED` | Prepared order refused by customer | Yes | Consumed; not restored |
 | `NO_SHOW` | Customer unavailable/did not collect | Yes | Consumed; not restored |
 | `REFUNDED` | Completed order financially refunded | Yes | Historical consumption unchanged |
@@ -125,6 +125,6 @@ The scheduler must **not** change them to `READY`. Staff may open the filtered l
 
 ## 8. Capacity effects by transition
 
-Capacity is reserved when an order is first created in `NEW`/`CONFIRMED`. Normal forward transitions do not reserve again. `CUSTOMER_DECLINED` and cancellation from `NEW`/`CONFIRMED` release once. Cancellation from `PICKING`, `READY`, or `OUT_FOR_DELIVERY`, plus `REJECTED`, `NO_SHOW`, partial/full refunds, do not release availability because picking/preparation has begun or the period is historical. These outcomes record consumed/waste litres for operational reporting.
+Capacity is reserved when an order is first created in `NEW`/`CONFIRMED`. Normal forward transitions do not reserve again. `CUSTOMER_DECLINED` and cancellation from `NEW`/`CONFIRMED` release once. Cancellation from `PICKING`, `READY`, or `OUT_FOR_DELIVERY`, plus `REJECTED`, `NO_SHOW`, partial/full refunds, do not release availability because picking/preparation has begun or the period is historical. Reports classify a later non-fulfilled outcome as post-picking unfulfilled litres without asserting that the berries became physical waste.
 
 Any attempt to replay a transition must be idempotent and must not modify capacity twice.

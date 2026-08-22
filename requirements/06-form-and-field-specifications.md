@@ -1,6 +1,6 @@
 # 06 — Form and Field Specifications
 
-> **v0.0.1 scope override — ADR-0005 applies.** Delivery is always “Delivery to be agreed” with an optional manually entered fee. The editor is fixed-page, Finnish/English, and image-only (maximum four images per page/product). User forms use Admin/Manager/Staff/Content Creator feature permissions. Google, Meta, postal-zone, tenant-provisioning, supplier/expense/reporting, video, and marketing forms below are deferred.
+> **Active scope override — ADR-0005 and ADR-0015 apply.** Delivery is always “Delivery to be agreed” with an optional manually entered fee. The editor is fixed-page, Finnish/English, and image-only (maximum four images per page/product). User and reporting forms use Admin/Manager/Staff/Content Creator feature permissions. Google, Meta, postal-zone, tenant-provisioning, supplier/expense/advanced-finance, video, and marketing forms below remain deferred.
 
 ## 1. Shared form design standard
 

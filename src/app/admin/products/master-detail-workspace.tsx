@@ -831,15 +831,6 @@ export function MasterDetailWorkspace({
               {/* TAB 1: GENERAL & CONTENT */}
               {activeTab === "general" && (
                 <div className="flex flex-col gap-4">
-                  {/* HARVEST SEASON TIMELINE TRACKER */}
-                  <SeasonTracker
-                    productId={selectedRow.product.id}
-                    availableFrom={availableFrom}
-                    availableThrough={availableThrough}
-                    active={active}
-                    onUpdateDates={handleExtendSeason}
-                  />
-
                   {/* SYNCHRONIZED BILINGUAL EDITOR */}
                   <BilingualEditor
                     nameFi={nameFi}
@@ -877,6 +868,15 @@ export function MasterDetailWorkspace({
               {/* TAB 4: SEASON & CHANNELS (SEO & DATA SAFETY) */}
               {activeTab === "channels" && (
                 <div className="flex flex-col gap-4">
+                  {/* HARVEST SEASON TIMELINE & FULFILLED LITRE GOAL */}
+                  <SeasonTracker
+                    productId={selectedRow.product.id}
+                    availableFrom={availableFrom}
+                    availableThrough={availableThrough}
+                    active={active}
+                    onUpdateDates={handleExtendSeason}
+                  />
+
                   <div className="card p-4 md:p-5 grid gap-5">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
                       <div>

@@ -1,19 +1,19 @@
 # 15 — Reporting, Finance, Staff Earnings and Invoices
 
-> **v0.0.1 boundary — ADR-0005 applies.** Implement only order payment records, invoice PDF issue/download, record-only external pickers, and picking records in litres or kilograms with unit-specific buy prices. Expenses, supplier purchases, quality/rates, staff compensation, weekly profit reports, exports, payroll, and accounting workflows are deferred.
+> **Reporting v1 boundary — ADR-0015 applies.** Build on-screen and CSV reports from existing order, capacity, payment, refund, and customer records. Expenses, supplier purchases, picking costs, profit, VAT, PDF report export, payroll, and accounting workflows remain phase-two work.
 
 ## 1. Purpose and boundary
 
-This module provides management visibility into whether METSÄNILO is economically viable. It is a management-reporting subsystem, not a substitute for statutory bookkeeping, payroll, VAT returns, tax calculations, bank reconciliation, or professional accounting advice.
+Reporting v1 gives permitted shop users operational, fulfilled-sales, payment, refund, capacity, and customer-health visibility. It is not a substitute for statutory bookkeeping, payroll, VAT returns, tax calculations, bank reconciliation, or professional accounting advice.
 
-It must answer two separate questions:
+The phase-two financial module must later answer two separate questions:
 
 1. What result does the business produce before assigning a cost to staff berry-picking work?
 2. What estimated profit remains after staff picking earnings are treated as a business cost?
 
-## 2. Canonical weekly financial statement
+## 2. Future canonical weekly financial statement
 
-For an ISO Monday–Sunday week in `Europe/Helsinki`:
+Phase two uses this ISO Monday–Sunday statement in `Europe/Helsinki` after the required authoritative cost records exist:
 
 ```text
 Gross recognized revenue
@@ -64,7 +64,73 @@ Late entry or correction appears in the period dictated by the corrected fact an
 
 ## 4. Reporting catalogue
 
-### 4.1 Weekly financial overview
+Reporting v1 contains five on-screen views. Four detailed views also support CSV export; Overview remains screen-only.
+
+### 4.1 Overview
+
+Overview answers what needs attention and whether today and the current week are progressing.
+
+- Orders requiring action and overdue work.
+- Today’s fulfillment stages and litres.
+- Today and three-day capacity pressure.
+- Current-week fulfilled litres and fulfilled sales with prior-period comparison.
+- Season fulfilled-litre progress when a goal is configured.
+- Recorded cash and outstanding amount shown separately from fulfilled sales.
+
+### 4.2 Sales and fulfillment
+
+Sales and fulfillment reports completed physical handovers and their commercial snapshots.
+
+- Fulfilled orders, litres, fulfilled sales, average order value, and refunds.
+- Product/package mix.
+- Pickup versus delivery.
+- Delivery-fee component.
+- Configured order source.
+- Fulfillment outcomes.
+- Privacy-protected delivery-destination breakdown.
+
+Average order value equals fulfilled sales divided by fulfilled orders. Refunds remain separate and do not alter average order value.
+
+### 4.3 Capacity and demand
+
+Capacity and demand reports operational ceilings and outcomes without reconstructing unavailable historical plans.
+
+- Final configured, reserved, remaining, fulfilled, and post-picking unfulfilled litres by product/date.
+- Capacity utilization.
+- Current natural capacity exhaustion and manual sold-out facts, with private audit details only for authorized users.
+- Average and percentile time from `NEW` to confirmation or terminal resolution.
+- Overdue-new and overdue-picking counts.
+- Fulfillment outcomes and workload.
+
+Manual sold-out state never contributes an order, sold/delivered litre, revenue, refund, expense, purchase, Picking Entry, or payment amount. Every total reconciles only to authoritative transaction records.
+
+### 4.4 Payments and refunds
+
+Payments and refunds separates recorded cash movement from fulfilled-sales recognition.
+
+- Payment and refund movement by `recorded_at`.
+- Retained cash: payments minus refunds.
+- Current outstanding amount: resolved order total minus payments recorded.
+- Payment method and state.
+- `Refund required` exceptions for cancelled orders with recorded payments.
+- Drill-down to append-only payment and refund records.
+
+A refund never recreates customer debt. A fully paid and fully refunded order has zero outstanding amount and zero retained cash.
+
+### 4.5 Customer health
+
+Customer health measures repeat fulfillment behavior without exposing identity through aggregate reporting.
+
+- New customers whose first-ever fulfilled order occurs in the period.
+- Repeat customers with a fulfilled order in the period and at least one earlier fulfilled order.
+- Repeat rate among identifiable fulfilled customers.
+- Stable-link coverage and the count excluded for missing or unresolved customer identity.
+- Permission-protected drill-down to customer records.
+- Marketing-consent counts shown separately from fulfillment behavior.
+
+### 4.6 Phase-two catalogue
+
+Phase two adds reports only after their authoritative source modules exist.
 
 - Revenue, refunds, net revenue.
 - Each non-staff cost category.
@@ -73,45 +139,12 @@ Late entry or correction appears in the period dictated by the corrected fact an
 - Estimated profit after staff picking cost.
 - Gross/net/VAT basis indicator.
 - Comparison to prior week and optional season-to-date.
-- Drill-down to source orders/refunds/expenses/purchases/picking entries.
-
-### 4.2 Sales and product report
-
-- Orders, litres, gross/net recognized revenue, average order value.
-- Product/package mix.
-- Pickup versus delivery.
-- Delivery-fee revenue.
-- Order source: website, WhatsApp, Messenger, SMS, phone, other.
-- Order outcomes and refunds.
-
-### 4.3 Capacity and operations report
-
-- Configured, reserved, remaining, fulfilled, cancelled, rejected/no-show litres by product/date.
-- Capacity utilization.
-- Natural capacity exhaustion and manual sold-out periods as separate operational facts, including private actor/reason/timestamps only for authorized internal users.
-- Average/percentile time `NEW → CONFIRMED/CANCELLED`.
-- Overdue-new and overdue-picking counts.
-- Fulfillment outcomes and workload.
-
-Manual sold-out state never contributes an order, sold/delivered litre, revenue, refund, expense, purchase, Picking Entry, or payment amount. Every sales, fulfillment, expense, and finance total reconciles only to its authoritative transaction records.
-
-### 4.4 Customer report
-
-- New/repeat customers and repeat rate.
-- Orders/revenue/average order value by non-identifying area or permitted customer view.
-- Customer drill-down only for roles with customer permission.
-- Marketing-consent counts are separate and do not imply campaign capability.
-
-### 4.5 Delivery economics
-
-- Delivery order count/litres/revenue.
+- Drill-down to source orders, refunds, expenses, purchases, and picking entries.
+- Delivery order count, litres, and revenue.
 - Delivery fees collected.
 - Fuel/delivery expenses.
 - Approximate delivery contribution: delivery fees minus tagged fuel/delivery costs.
 - Inside/outside/manual-agreement breakdown.
-
-### 4.6 Supply and picking report
-
 - Staff litres and approved earnings by staff/product/date.
 - External supplier litres and cost by supplier/product/date.
 - Total sourced litres and average cost per litre.
@@ -119,14 +152,20 @@ Manual sold-out state never contributes an order, sold/delivered litre, revenue,
 
 ## 5. Filters and comparisons
 
-- Current/previous ISO week, month, season-to-date, custom date range.
-- Product/package, staff, supplier, expense category.
-- Pickup/delivery, order source, order outcome.
-- Approval/payment state for cost/earning views.
-- Gross/net basis where data supports it.
-- Compare with immediately preceding equivalent period.
+Reporting v1 uses a shared period and product filter plus relevant view-specific controls.
 
-Every report displays timezone, currency, applied filters, formula version, generated/data-as-of times, and whether any source records remain draft/unapproved.
+- Period: today, current ISO week, previous ISO week, current month, season, or custom range.
+- Time grouping: day, ISO week, or month.
+- Product: all permitted products or one product.
+- Sales: package, fulfillment method, order source, and outcome.
+- Capacity: season and outcome.
+- Payments: payment method, payment/refund, and payment state.
+- Customer health: new/repeat, product, order source, and fulfillment method.
+- Compare with the immediately preceding equivalent period; partial periods compare with the same elapsed portion.
+
+An individual customer is not a general report filter. Identifying customer drill-down requires `customers.read`.
+
+Every reporting-v1 view and CSV displays timezone, currency, applied filters, formula version, and generated/data-as-of times. Customer health also displays linkage coverage. Future cost reports must additionally disclose any draft or unapproved source records.
 
 ## 6. Expense management
 
@@ -198,6 +237,8 @@ Supplier profiles represent external pickers/vendors and are distinct from staff
 Purchase cost usually equals litres × €/L. An authorized total override requires a reason. External purchases follow `DRAFT → SUBMITTED → APPROVED → PAID`, with rejection/correction controls. Approval recognizes cost; Paid tracks settlement. Manager and Platform Admin in selected-shop context may approve their own purchase; workflow actions remain individually audited. Supplier payment details are restricted and excluded from ordinary exports.
 
 ## 9. CSV export
+
+Sales and fulfillment, Capacity and demand, Payments and refunds, and Customer health provide reporting-v1 CSV exports. Overview remains screen-only.
 
 - UTF-8 with stable English machine column names and ISO dates/timestamps.
 - Decimal/currency semantics documented; no locale-formatted ambiguity in machine fields.

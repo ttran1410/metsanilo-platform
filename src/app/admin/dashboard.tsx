@@ -44,6 +44,8 @@ export type DashboardData = {
     collectedCents: number;
     outstandingCents: number;
     collectedPercentage: number;
+    fulfilledSalesCents: number;
+    fulfilledLitres: number;
   };
   lookahead: Array<{
     label: string;

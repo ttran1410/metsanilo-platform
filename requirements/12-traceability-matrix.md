@@ -28,7 +28,7 @@ This matrix groups related requirements to keep maintenance practical. Detailed 
 | Suppliers/external purchases | FR-SUP-001–003 | BR-FIN-004, 008, 010 | AC-FIN-005, 007 |
 | Expenses/allocations | FR-FIN-001–003, 007 | BR-FIN-004, 007, 010–011 | AC-FIN-004, 007; owner-authority audit suite |
 | Staff picking/earnings | FR-FIN-004–008 | BR-FIN-005, 009–011 | AC-FIN-006–008 |
-| Reports/exports | FR-RPT-001–006 | BR-FIN-001–013; BR-AVL-003 | AC-FIN-001–005; AC-AVL-003; AC-RPT-001–002 |
+| Reports/exports | FR-RPT-001–006 | BR-FIN-001–013; BR-AVL-003; ADR-0015 | AC-FIN-001–005; AC-AVL-003; AC-RPT-001–006 |
 | Invoice PDF | FR-ORD-015; FR-INV-001–004 | BR-INV-001–003 | AC-INV-001–003 |
 | Product media gallery | FR-MED-001–003 | BR-MED-001–002 | AC-MED-001 |
 | Fixed public quantity/manual quantity | FR-PRD-005–006 | BR-ORD-004, 018 | AC-ORD-011 |

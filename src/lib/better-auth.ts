@@ -4,6 +4,14 @@ import { createDatabase } from "@/db/client";
 import { authAccounts, authSessions, authUsers, authVerifications } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/domain/passwords";
 
+function configuredAuthUrl() {
+  const value = process.env.BETTER_AUTH_URL?.trim();
+  if (!value) return undefined;
+  try { return new URL(value); } catch { return undefined; }
+}
+
+const authUrl = configuredAuthUrl();
+
 /**
  * Parallel Better Auth instance. It is intentionally exposed under a separate
  * endpoint until shop-user synchronization and RBAC mapping are verified.
@@ -20,12 +28,16 @@ export const betterAuthInstance = betterAuth({
       verification: authVerifications,
     },
   }),
-  baseURL: process.env.BETTER_AUTH_URL,
+  // Better Auth requires a syntactically valid base URL even while Next is
+  // collecting dynamic routes. Runtime preflight still rejects an invalid
+  // production BETTER_AUTH_URL; this fallback only keeps module evaluation
+  // safe for local/build environments.
+  baseURL: authUrl?.toString() ?? "http://localhost:3000",
   trustedOrigins: [
     "https://metsanilo.vercel.app",
     "https://metsanilo-platform.vercel.app",
     "https://metsanilo-metsanilo.vercel.app",
-    ...(process.env.BETTER_AUTH_URL ? [new URL(process.env.BETTER_AUTH_URL).origin] : []),
+    ...(authUrl ? [authUrl.origin] : []),
   ],
   secret: process.env.BETTER_AUTH_SECRET || "local-development-better-auth-secret-change-me",
   emailAndPassword: {

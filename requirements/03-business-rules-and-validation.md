@@ -1,6 +1,6 @@
 # 03 — Business Rules and Validation
 
-> **v0.0.1 scope override — ADR-0005 applies.** Capacity, sold-out, order, pickup, payment, invoice, picking, and authorization invariants below are retained. Google routing, postal zones, tenant/platform rules, connector consent, supplier/expense/quality/reporting rules, and automated schedulers are deferred unless explicitly called out in the pilot plan.
+> **Active scope override — ADR-0005 and ADR-0015 apply.** Capacity, sold-out, order, pickup, payment, reporting-v1, and authorization invariants below are retained. Google routing, postal zones, tenant/platform rules, connector consent, supplier/expense/quality/advanced-finance rules, and unapproved schedulers remain deferred.
 
 ## 1. Order and capacity rules
 
@@ -11,7 +11,7 @@
 - **BR-ORD-004:** A public MVP order contains exactly one Order Item. Manual/historical orders may contain one or more items, but every item in one order shares one fulfillment date and method.
 - **BR-ORD-005:** A product/package/date must be active, orderable, within cutoff, and have sufficient remaining capacity when submitted.
 - **BR-ORD-006:** `NEW` and `CONFIRMED` hold capacity. `PICKING`, `READY`, `OUT_FOR_DELIVERY`, `PICKED_UP`, and `DELIVERED` represent capacity already committed/consumed.
-- **BR-ORD-007:** `CUSTOMER_DECLINED` and cancellation from `NEW`/`CONFIRMED` release capacity once. Cancellation from `PICKING`, `READY`, or `OUT_FOR_DELIVERY`, plus `REJECTED`, `NO_SHOW`, and refunds, do not restore availability because picking/preparation has begun or fulfillment is historical. Post-picking cancellation records consumed/waste litres for reporting.
+- **BR-ORD-007:** `CUSTOMER_DECLINED` and cancellation from `NEW`/`CONFIRMED` release capacity once. Cancellation from `PICKING`, `READY`, or `OUT_FOR_DELIVERY`, plus `REJECTED`, `NO_SHOW`, and refunds, do not restore availability because picking/preparation has begun or fulfillment is historical. Reporting classifies a later non-fulfilled outcome as post-picking unfulfilled litres without asserting physical waste.
 - **BR-ORD-008:** Concurrent orders may not make remaining capacity negative. Validation and reservation occur within one atomic operation.
 - **BR-ORD-009:** When an edit increases required litres or changes the product/date, the new capacity must be secured before releasing the old reservation; failure leaves the order unchanged.
 - **BR-ORD-010:** Price and delivery fee are calculated server-side. Client totals are informational only.

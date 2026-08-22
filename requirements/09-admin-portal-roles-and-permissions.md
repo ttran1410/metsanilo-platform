@@ -1,6 +1,6 @@
 # 09 — Admin Portal, Roles and Permissions
 
-> **v0.0.1 active matrix — ADR-0005 applies.** The portal is one shop. The four roles are `ADMIN`, `MANAGER`, `STAFF`, and `CONTENT_CREATOR`. The pilot does not expose Platform Console, shop switcher, Google delivery settings, channels/shared inbox, supplier/expense/reporting modules, or video media. Feature permissions are assigned per user; Admin has all, Manager may assign Staff/Content Creator permissions, and Staff may invoice/pay/pick only when assigned.
+> **Active matrix — ADR-0005 and ADR-0015 apply.** The portal is one shop with `ADMIN`, `MANAGER`, `STAFF`, and `CONTENT_CREATOR`. Reporting v1 includes the operational Overview and permission-scoped existing-data reports. Platform Console, Google delivery settings, channels/shared inbox, suppliers, expenses, advanced finance, and video media remain deferred.
 
 ## 1. Navigation and modules
 
@@ -32,7 +32,7 @@ Reports & Exports
 Invoices
 ```
 
-There is no Platform Console or shop switcher in v0.0.1. The navigation labels for Shared Inbox, Channels, Suppliers, Expenses, Reports, and Picker Applications are future/deferred and should be hidden from the pilot UI.
+There is no Platform Console or shop switcher. Shared Inbox, Channels, Suppliers, Expenses, and Picker Applications remain hidden until their modules ship. Reports & Exports appears only when the user holds at least one reporting permission.
 
 Navigation is permission-aware, but hidden navigation is not authorization; every server operation enforces permission.
 
@@ -49,7 +49,7 @@ The dashboard presents actionable operational data for the current business date
 - Upcoming 7-day workload.
 - New contact messages and external-picker records.
 - Recent operational failures.
-- Order/payment/invoice/picking-quantity summaries; full financial and analytics reporting is deferred.
+- Current-week fulfilled litres and fulfilled sales; recorded cash and outstanding amount remain separate measures.
 
 Cards link to filtered lists. Values include an “as of” timestamp and use the active shop timezone, initially `Europe/Helsinki`.
 
@@ -83,7 +83,7 @@ Fixed-page CMS, product names/descriptions, pickup instructions, preview/publish
 
 ## 5. Permission matrix
 
-Rows for Platform Admin, channels, Google, suppliers, expenses, quality, analytics, and advanced reports are retained as future reference only; they are not release permissions in v0.0.1.
+Rows for Platform Admin, channels, Google, suppliers, expenses, quality, and advanced finance remain future reference. Reporting-v1 rows are active and follow ADR-0015.
 
 Legend: `M` manage, `V` view, `—` denied, `L` limited.
 
@@ -117,14 +117,20 @@ Legend: `M` manage, `V` view, `—` denied, `L` limited.
 | Finance approve/reject/correct/mark paid, including own record | M | M | L: explicit permission | — |
 | Picking records (litres/kg + buy price) | M | M | L: explicit permission | — |
 | Other staff earnings/rates | M: selected shop | M | — unless finance permission | — |
-| Reports/CSV/PDF | M: selected shop | M | L: same scope as permissions | — |
+| Overview | M | M | V: default | — |
+| Capacity and demand report/CSV | M | M | V: default | — |
+| Sales and fulfillment report/CSV | M | M | L: explicit permission | — |
+| Payments and refunds report/CSV | M | M | L: explicit permission | — |
+| Customer health report/CSV | M | M | L: explicit permission | — |
+| Identifying customer drill-down | M | M | L: `customers.read` | — |
+| Phase-two reports/PDF | — | — | — | — |
 | Order Summary/invoice PDF | M: selected shop | M | L: if granted | — |
 
 ## 6. Suggested stable permission codes
 
-`orders.read`, `orders.create`, `orders.update`, `orders.transition`, `orders.payment.write`, `invoices.issue`, `invoices.download`, `customers.read`, `customers.write`, `catalog.product.write`, `catalog.product.delete_unreferenced`, `catalog.package.write`, `media.write`, `availability.write`, `availability.sold_out`, `delivery.configure`, `delivery.override`, `picking.write`, `pickers.manage`, `reviews.moderate`, `messages.manage`, `cms.edit`, `cms.publish`, `shop_users.manage`, `shop_permissions.assign`, `settings.operational`, `audit.read`.
+`dashboard.read`, `reports.sales.read`, `reports.capacity.read`, `reports.payments.read`, `reports.customers.read`, `orders.read`, `orders.create`, `orders.update`, `orders.transition`, `orders.payment.write`, `invoices.issue`, `invoices.download`, `customers.read`, `customers.write`, `catalog.product.write`, `catalog.product.delete_unreferenced`, `catalog.package.write`, `media.write`, `availability.write`, `availability.sold_out`, `delivery.configure`, `delivery.override`, `picking.write`, `pickers.manage`, `reviews.moderate`, `messages.manage`, `cms.edit`, `cms.publish`, `shop_users.manage`, `shop_permissions.assign`, `settings.operational`, `audit.read`.
 
-Admin receives the complete shop-permission catalogue. Manager receives the operational catalogue and may assign/revoke feature permissions for Staff and Content Creator, but cannot grant Admin. Domain/data invariants remain mandatory.
+Admin and Manager receive all reporting-v1 permissions. Staff receives `dashboard.read` and `reports.capacity.read` by default; Manager may explicitly grant the other reporting permissions. Content Creator receives none by default. Report permission never grants identifying drill-down by itself; the target record’s permission remains required.
 
 There are no provider cost controls in v0.0.1. Staff may retain `delivery.configure` and `delivery.override` only when explicitly assigned.
 

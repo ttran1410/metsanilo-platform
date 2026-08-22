@@ -1,6 +1,6 @@
 # 18 — Architectural Review and Requirements Synthesis
 
-> **v0.0.1 release override — ADR-0005 applies.** Reduce this future-ready synthesis to one shop, Admin/Manager/Staff/Content Creator permissions, fixed-page four-image CMS, manual delivery fees, invoice/payment records, record-only pickers, and litre/kg picking records with unit-specific buy prices. Customer orders/capacity remain litres-only. Multi-tenant, Google, channel, video, supplier/expense/reporting, and marketing sections are deferred.
+> **Active release override — ADR-0005 and ADR-0015 apply.** Reduce this future-ready synthesis to one shop, Admin/Manager/Staff/Content Creator permissions, fixed-page four-image CMS, manual delivery fees, payment/refund records, and reporting v1. Customer orders/capacity remain litres-only. Multi-tenant, Google, channel, video, supplier/expense/advanced-finance, and marketing sections remain deferred.
 
 Version: 2.0  
 Status: Corrected MVP synthesis  
@@ -264,7 +264,7 @@ Capacity is not restored for:
 
 - `REJECTED`.
 - `NO_SHOW`.
-- `CANCELLED`/`CANCELLED_BY_CUSTOMER` from `PICKING`, `READY`, or `OUT_FOR_DELIVERY`; these record consumed/waste litres.
+- `CANCELLED`/`CANCELLED_BY_CUSTOMER` from `PICKING`, `READY`, or `OUT_FOR_DELIVERY`; these record post-picking unfulfilled litres without asserting physical waste.
 - `REFUNDED`.
 
 ### 8.3 Manual and historical orders

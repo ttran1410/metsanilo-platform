@@ -21,7 +21,7 @@ const fixture: DashboardData = {
     done: { count: 31, volumeLitres: 74.3 },
   },
   volume: { capacityLitres: 120, reservedLitres: 82.4, remainingLitres: 37.6, percentage: 68, pickupVolumeLitres: 46.2, pickupCrates: 14, deliveryVolumeLitres: 36.2, deliveryCrates: 9 },
-  financials: { grossBookedCents: 284000, collectedCents: 198800, outstandingCents: 85200, collectedPercentage: 70 },
+  financials: { grossBookedCents: 284000, collectedCents: 198800, outstandingCents: 85200, collectedPercentage: 70, fulfilledSalesCents: 240000, fulfilledLitres: 74.3 },
   lookahead: [
     { label: "Today", date: "2026-08-20", capacityLitres: 120, reservedLitres: 82.4, remainingLitres: 37.6, percentage: 68 },
     { label: "Tomorrow", date: "2026-08-21", capacityLitres: 120, reservedLitres: 91.2, remainingLitres: 28.8, percentage: 76 },

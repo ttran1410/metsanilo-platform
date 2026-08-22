@@ -1,6 +1,6 @@
 # 08 — Technical Architecture and API
 
-> **v0.0.1 scope override — ADR-0005 applies.** Build a single-shop modular monolith with four user roles and feature-level authorization. Remove Google Maps/Routes, postal-zone classification, Facebook/WhatsApp, multi-tenant routing, supplier/expense/reporting, video processing, and background integration dependencies from the pilot.
+> **Active scope override — ADR-0005 and ADR-0015 apply.** Build a single-shop modular monolith with four user roles, feature-level authorization, and existing-data reporting v1. Google Maps/Routes, postal-zone classification, Facebook/WhatsApp, multi-tenant routing, supplier/expense/advanced-finance dependencies, video processing, and background integrations remain deferred.
 
 ## 1. Architecture goals
 
@@ -28,7 +28,7 @@ flowchart TB
     OBS --- WK
 ```
 
-Domain modules: Catalog/Media, Availability, Orders, Customers, Fulfillment/Delivery, Payment records, Invoices/Documents, Picking/External Pickers, Reviews, Contact, CMS, IAM/Permissions, Settings, Audit. Future modules include tenancy, channels, suppliers, expenses, analytics, and advanced reporting.
+Domain modules: Catalog/Media, Availability, Orders, Customers, Fulfillment/Delivery, Payment records, Reviews, Contact, CMS, IAM/Permissions, Settings, Audit, and existing-data Reporting. Future modules include tenancy, channels, suppliers, expenses, invoices/documents, picking/external pickers, analytics, and advanced finance reporting.
 
 ## 3. Application boundaries
 

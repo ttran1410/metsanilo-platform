@@ -15,7 +15,7 @@ The documents are intended to be usable by Product Owners, Software Engineers, U
 
 ## v0.0.1 scope at a glance
 
-The pilot is one shop operated by `ADMIN` (owner), `MANAGER`, `STAFF`, and `CONTENT_CREATOR`. It includes Finnish-default/English-switchable public content, products and bounded capacity/sold-out controls, pickup, delivery always shown as “Delivery to be agreed,” manually entered delivery fees, orders, basic payment records, invoice PDF download, picking records in either litres or kilograms with unit-specific buy prices, record-only external pickers, and feature-level per-user permissions. Customer orders/capacity remain litres-only. It excludes shop organisation, Platform Admin, Facebook/WhatsApp, Google route services, postal-zone classification, supplier/expense/quality/accounting/reporting modules, video media, and marketing automation.
+The application is one shop operated by `ADMIN` (owner), `MANAGER`, `STAFF`, and `CONTENT_CREATOR`. It includes Finnish-default/English-switchable public content, products and bounded capacity/sold-out controls, pickup, delivery always shown as “Delivery to be agreed,” manually entered delivery fees, orders, basic payment records, existing-data reporting v1, and feature-level per-user permissions. Customer orders/capacity remain litres-only. It excludes shop organisation, Platform Admin, Facebook/WhatsApp, Google route services, postal-zone classification, supplier/expense/quality/accounting and advanced-finance modules, video media, and marketing automation.
 
 ## Document index
 

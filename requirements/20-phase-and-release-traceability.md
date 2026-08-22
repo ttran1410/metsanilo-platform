@@ -26,7 +26,7 @@ Phase 0 owns decisions, design validation, provider/legal inputs, and backlog re
 
 The pilot release gate is the following behavior, regardless of the future ID-to-phase table below: `FR-PUB-001–008`, `FR-ORD-001–018` excluding connector messaging, `FR-PRD-001–007`, `FR-AVL-001–008`, `FR-DLV-001–008` as rewritten for manual delivery, `FR-CMS-001–005`, `FR-IAM-001–005`, `FR-INV-001–003`, basic payment-record rules, record-only external pickers, litre/kg picking records with unit-specific buy prices, Finnish/English localization, image validation/max-four constraint, audit, and capacity concurrency. The pilot must prove: customer order submission, pickup address/instructions, “Delivery to be agreed,” manual fee entry, invoice PDF download, payment record, picker/picking record in either unit, user permission assignment, and no Google/Meta/WhatsApp API call.
 
-All `FR-TEN-*`, `FR-CHN-*`, Google-specific delivery behavior, postal-zone classification, supplier/expense/quality/full finance/reporting, analytics, video, public picker application scenarios, and marketing acceptance scenarios are deferred and do not block v0.0.1. The record-only picker and litre/kg picking subset is in scope.
+All `FR-TEN-*`, `FR-CHN-*`, Google-specific delivery behavior, postal-zone classification, supplier/expense/quality/full finance and advanced reporting, analytics, video, public picker application scenarios, and marketing acceptance scenarios are deferred and do not block the pilot. Reporting v1 follows ADR-0015 using existing authoritative records.
 
 ## 3. Functional requirements
 
@@ -78,7 +78,7 @@ Coverage total: **47 of 47 non-functional requirements**. These are Definition-o
 | 4 | Core | AC-ORD-001–004, AC-ORD-007, AC-ORD-010–011, AC-ORD-014–016, AC-ORD-019; AC-DLV-001–003; AC-CUS-001–003; AC-PRV-001–002; AC-AVL-002 |
 | 5 | Core | AC-ORD-005–006, AC-ORD-008–009, AC-ORD-012–013, AC-ORD-017–018; AC-AUT-001–005; AC-PAY-001; AC-NTF-001–002 |
 | 6 | Core | AC-DOC-001; AC-REV-001; AC-PIC-001; AC-MSG-001 |
-| 7 | Core | AC-FIN-001–008; AC-RPT-001–002; AC-QLT-001; AC-AVL-003 |
+| 7 | Core | AC-FIN-001–008; AC-RPT-001–006; AC-QLT-001; AC-AVL-003 |
 | 8 | Core | AC-ACC-001 |
 | 9 | Extended | AC-INV-001–003; AC-MED-001; AC-ANA-001–003 |
 | 10 | Extended | AC-CHN-001–005 |

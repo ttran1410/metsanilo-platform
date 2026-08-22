@@ -114,6 +114,7 @@ export async function getDashboard(database: Database) {
   const grossBookedCents = activeToday.reduce((sum, r) => sum + r.finalCents, 0);
   const collectedCents = activeToday.reduce((sum, r) => sum + r.paidCents, 0);
   const outstandingCents = Math.max(0, grossBookedCents - collectedCents);
+  const fulfilledToday = todayOrders.filter((row) => row.status === "PICKED_UP" || row.status === "DELIVERED");
 
   // 5. 48-HOUR LOOKAHEAD DEMAND CARDS
   const day1 = new Date(`${date}T00:00:00.000Z`);
@@ -201,6 +202,8 @@ export async function getDashboard(database: Database) {
       collectedCents,
       outstandingCents,
       collectedPercentage: grossBookedCents > 0 ? Math.round((collectedCents / grossBookedCents) * 100) : 100,
+      fulfilledSalesCents: fulfilledToday.reduce((sum, row) => sum + row.finalCents, 0),
+      fulfilledLitres: fulfilledToday.reduce((sum, row) => sum + row.volumeMl, 0) / 1000,
     },
     lookahead,
     attention,
