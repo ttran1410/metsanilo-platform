@@ -28,6 +28,11 @@ import { SignOutButton } from "./sign-out-button";
 
 type NavItem = { id: string; label: string; group: string; href?: string; enabled: boolean };
 type OrderResult = { id: string; publicReference: string; customerName: string; mobile: string; status: string };
+type TeamAlert = { id: string; title: string; body: string; createdAt: string; orderId: string | null };
+
+function formatAlertCount(count: number) {
+  return count > 99 ? "99+" : String(count);
+}
 
 function NavIcon({ id }: { id: string }) {
   const props = { className: "w-4 h-4 stroke-[1.8]" };
@@ -56,12 +61,13 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
   const [orders, setOrders] = useState<OrderResult[]>([]);
   const [triageCount, setTriageCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [triageActive, setTriageActive] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [alerts, setAlerts] = useState<TeamAlert[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const initial = window.setTimeout(() => {
-      setTriageActive(pathname === "/admin/orders" && new URLSearchParams(window.location.search).get("view")?.toLowerCase() === "triage");
       try { setCollapsed(window.localStorage.getItem("metsanilo-admin-rail") === "collapsed"); } catch { /* Preference is optional. */ }
     }, 0);
     return () => window.clearTimeout(initial);
@@ -76,6 +82,29 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
   }, []);
+
+  async function openAlerts() {
+    setAlertsOpen(true);
+    setAlertsLoading(true);
+    try {
+      const response = await fetch("/api/admin/notifications", { cache: "no-store" });
+      const body = await response.json();
+      if (response.ok) setAlerts(body.data ?? []);
+    } finally {
+      setAlertsLoading(false);
+    }
+  }
+
+  async function markAlertsRead(id?: string) {
+    await fetch("/api/admin/notifications", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(id ? { id } : {}),
+    });
+    if (id) setAlerts((current) => current.filter((alert) => alert.id !== id));
+    else setAlerts([]);
+    setUnreadCount((count) => id ? Math.max(0, count - 1) : 0);
+  }
 
   useEffect(() => { if (paletteOpen) window.setTimeout(() => searchRef.current?.focus(), 0); }, [paletteOpen]);
 
@@ -131,10 +160,15 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
             <Keyboard className="w-3.5 h-3.5" />
             <span>Shortcuts</span>
           </button>
-          <Link className="admin-quick-tool" href="/admin/orders?view=triage" aria-label={`${triageCount} action required, ${unreadCount} unread notifications`}>
+          <button className="admin-quick-tool" type="button" onClick={() => void openAlerts()} aria-label={`${unreadCount} unread team alerts`}>
             <Bell className="w-3.5 h-3.5" />
             <span>Alerts</span>
-            {triageCount > 0 && <b className="admin-header-badge">{triageCount}</b>}
+            {unreadCount > 0 && <b className="admin-header-badge" aria-label={`${unreadCount} unread alerts`}>{formatAlertCount(unreadCount)}</b>}
+          </button>
+          <Link className={`admin-quick-tool${triageCount > 0 ? " is-attention" : ""}`} href="/admin/orders?view=triage" aria-label={`${triageCount} orders needing attention`}>
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>Needs attention</span>
+            {triageCount > 0 && <b className="admin-header-badge" aria-label={`${triageCount} orders needing attention`}>{formatAlertCount(triageCount)}</b>}
           </Link>
         </div>
         <span className="admin-user-state"><i aria-hidden="true" />{role}</span>
@@ -160,7 +194,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
             <span className="admin-nav-group-label">{group}</span>
             {items.filter((item) => item.enabled && item.group === group).map((item) => {
               const href = item.href ?? (item.id === "dashboard" ? "/admin" : `/admin/${item.id}`);
-              const active = item.id === "triage" ? triageActive : item.id === "dashboard" ? pathname === "/admin" : item.id === "orders" ? pathname === "/admin/orders" && !triageActive : pathname === href || pathname.startsWith(`${href}/`);
+              const active = item.id === "dashboard" ? pathname === "/admin" : item.id === "orders" ? pathname === "/admin/orders" : pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <Link
                   className={`admin-nav-link${active ? " active" : ""}`}
@@ -168,15 +202,12 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
                   href={href}
                   onClick={() => {
                     setMenuOpen(false);
-                    if (item.id === "triage") setTriageActive(true);
-                    if (item.id === "orders") setTriageActive(false);
                   }}
                   key={item.id}
                   title={collapsed ? item.label : undefined}
                 >
                   <span className="admin-nav-icon" aria-hidden="true"><NavIcon id={item.id} /></span>
                   <span className="admin-nav-label">{item.label}</span>
-                  {item.id === "triage" && triageCount > 0 && <b className="admin-nav-badge">{triageCount}</b>}
                 </Link>
               );
             })}
@@ -190,6 +221,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
       </div>
     </aside>
 
+    {alertsOpen && <div className="admin-command-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setAlertsOpen(false); }}><section className="admin-shortcut-help admin-alerts-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-alerts-title"><div className="section-inline-heading"><div><p className="eyebrow">OPERATIONS INBOX</p><h2 id="admin-alerts-title">Team alerts</h2></div><button type="button" onClick={() => setAlertsOpen(false)} aria-label="Close team alerts">×</button></div>{alertsLoading ? <p className="muted">Loading alerts…</p> : alerts.length === 0 ? <p className="muted">You’re all caught up.</p> : <div className="admin-alerts-list">{alerts.map((alert) => <article key={alert.id}><div><strong>{alert.title}</strong><p>{alert.body}</p><small>{new Date(alert.createdAt).toLocaleString("en-FI")}</small></div><div className="admin-alert-actions">{alert.orderId && <Link href={`/admin/orders/${alert.orderId}`} onClick={() => setAlertsOpen(false)}>View order</Link>}<button type="button" onClick={() => void markAlertsRead(alert.id)}>Mark read</button></div></article>)}</div>}{alerts.length > 0 && <button className="btn btn-secondary" type="button" onClick={() => void markAlertsRead()}>Mark all as read</button>}</section></div>}
     {paletteOpen && <div className="admin-command-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setPaletteOpen(false); }}><section className="admin-command-palette" role="dialog" aria-modal="true" aria-labelledby="admin-command-title"><h2 id="admin-command-title" className="sr-only">Command search</h2><label><span aria-hidden="true"><Search className="w-4 h-4 text-slate-400" /></span><input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && commands[0]) { event.preventDefault(); setPaletteOpen(false); router.push(commands[0].href); } }} placeholder="Search orders or go to a module…" /></label><div className="admin-command-results">{commands.map((command) => <Link href={command.href} key={command.id} onClick={() => setPaletteOpen(false)}><span><strong>{command.label}</strong><small>{command.detail}</small></span><kbd>↵</kbd></Link>)}{commands.length === 0 && <p>No matching commands.</p>}</div><footer><span>Type to search · Enter opens first result</span><span><kbd>Esc</kbd> close</span></footer></section></div>}
     {helpOpen && <div className="admin-command-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setHelpOpen(false); }}><section className="admin-shortcut-help" role="dialog" aria-modal="true" aria-labelledby="shortcut-help-title"><div className="section-inline-heading"><div><p className="eyebrow">OPERATIONS</p><h2 id="shortcut-help-title">Keyboard shortcuts</h2></div><button type="button" onClick={() => setHelpOpen(false)} aria-label="Close shortcuts">×</button></div><dl><div><dt><kbd>⌘/Ctrl K</kbd></dt><dd>Search orders and modules</dd></div><div><dt><kbd>J / K</kbd></dt><dd>Move through the order queue</dd></div><div><dt><kbd>Enter</kbd></dt><dd>View the focused order</dd></div><div><dt><kbd>E</kbd></dt><dd>Prepare the next order action</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close the active panel</dd></div><div><dt><kbd>?</kbd></dt><dd>Show this shortcut list</dd></div></dl></section></div>}
   </header>;

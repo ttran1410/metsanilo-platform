@@ -18,7 +18,6 @@ export async function hasAdminPermission(request: Request, permission: Permissio
 export async function adminNavigation(request: Request) {
   return [
     { id: "dashboard", label: "Overview", group: "Operations", enabled: await hasAdminPermission(request, "dashboard.read") },
-    { id: "triage", label: "Action required", group: "Operations", href: "/admin/orders?view=triage", enabled: await hasAdminPermission(request, "orders.read") },
     { id: "orders", label: "Orders", group: "Operations", enabled: await hasAdminPermission(request, "orders.read") },
     { id: "availability", label: "Harvest availability", group: "Operations", enabled: await hasAdminPermission(request, "availability.read") },
     { id: "customers", label: "Customers", group: "Catalog & customers", enabled: await hasAdminPermission(request, "customers.read") },

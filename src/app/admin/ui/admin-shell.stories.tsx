@@ -4,7 +4,6 @@ import { AdminNavigation } from "../navigation";
 type NavigationItem = Parameters<typeof AdminNavigation>[0]["items"][number];
 const items: NavigationItem[] = [
   { id: "dashboard", label: "Overview", group: "Operations", href: "/admin", enabled: true },
-  { id: "triage", label: "Action required", group: "Operations", href: "/admin/orders?view=triage", enabled: true },
   { id: "orders", label: "Orders", group: "Operations", href: "/admin/orders", enabled: true },
   { id: "availability", label: "Availability", group: "Operations", href: "/admin/availability", enabled: true },
   { id: "manual-orders", label: "Manual order", group: "Operations", href: "/admin/manual-orders", enabled: true },
