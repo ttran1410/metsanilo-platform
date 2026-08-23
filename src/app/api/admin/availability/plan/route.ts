@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { planAvailability } from "@/domain/availability";
+import { planAvailability, previewAvailabilityPlan } from "@/domain/availability";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
 import { requirePermission } from "@/domain/access";
@@ -17,14 +17,16 @@ const command = z.object({
   capacityMl: z.number().int().nonnegative(),
   manualSoldOut: z.boolean().default(false),
   soldOutReason: z.string().max(500).optional(),
+  preview: z.boolean().default(false),
 });
 
 export async function POST(request: Request) {
   try {
     const parsed = command.safeParse(await request.json());
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability plan", 422);
-    await requirePermission(db(), request, parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write");
-    return success(await planAvailability(db(), parsed.data));
+    const actor = await requirePermission(db(), request, parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write");
+    if (parsed.data.preview) return success(await previewAvailabilityPlan(db(), parsed.data));
+    return success(await planAvailability(db(), { ...parsed.data, actor: actor.email ?? actor.id }));
   } catch (error) {
     return failure(error);
   }

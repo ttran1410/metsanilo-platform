@@ -20,8 +20,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const parsed = command.safeParse(await request.json());
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability command", 422);
     const { id } = await params;
-    await requirePermission(db(), request, parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write");
-    return success(await updateAvailability(db(), { id, ...parsed.data }));
+    const actor = await requirePermission(db(), request, parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write");
+    return success(await updateAvailability(db(), { id, ...parsed.data, actor: actor.email ?? actor.id }));
   } catch (error) {
     return failure(error);
   }

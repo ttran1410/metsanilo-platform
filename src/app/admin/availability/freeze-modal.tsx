@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { LockKeyhole, X } from "lucide-react";
 
 const REASON_PRESETS = [
-  "🌧️ Heavy Rain / Sääeste",
-  "👥 Pickers Unavailable / Työvoimapula",
-  "🚜 Allocated to Wholesale / Tukkumyynti",
-  "📦 Daily Capacity Full / Kapasiteetti täynnä",
+  "Unsafe weather / Sääeste",
+  "Pickers unavailable / Työvoimapula",
+  "Allocated to wholesale / Tukkumyynti",
+  "Daily capacity full / Kapasiteetti täynnä",
 ];
 
 export function FreezeModal({
@@ -35,25 +36,25 @@ export function FreezeModal({
 
   return (
     <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="admin-dialog card max-w-md w-full p-6 shadow-2xl rounded-2xl bg-surface border border-line">
+      <div className="admin-dialog card availability-freeze-dialog" role="dialog" aria-modal="true" aria-labelledby="availability-freeze-title">
         <div className="flex items-center justify-between border-b border-line pb-3 mb-4">
           <div>
-            <p className="eyebrow text-danger">EMERGENCY FREEZE CONTROL</p>
-            <h3 className="text-lg font-bold text-ink">Lock Intake for {date}?</h3>
+            <p className="eyebrow text-danger">Reservation intake</p>
+            <h3 id="availability-freeze-title" className="text-lg font-bold text-ink">Freeze {date}?</h3>
             <span className="text-xs muted font-semibold block">{productName}</span>
           </div>
-          <button type="button" className="btn btn-secondary text-xs py-1 px-2.5" onClick={onClose}>
-            ✕ Close
+          <button type="button" className="admin-icon-button" onClick={onClose} aria-label="Close freeze dialog">
+            <X aria-hidden="true" />
           </button>
         </div>
 
         <p className="text-xs muted leading-relaxed mb-4">
-          Locking stops public customer intake for this date in under 1 second. Select a reason to annotate the lock record.
+          Freezing stops new customer reservations for this product and date. Existing reservations remain protected. Select the reason recorded in the audit trail.
         </p>
 
         <form className="flex flex-col gap-4" onSubmit={handleFormSubmit}>
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted">1-Tap Preset Reasons</span>
+            <span className="text-xs font-bold text-muted">Reason</span>
             {REASON_PRESETS.map((preset) => (
               <label
                 key={preset}
@@ -87,7 +88,7 @@ export function FreezeModal({
                 checked={useCustom}
                 onChange={() => setUseCustom(true)}
               />
-              <span>✍️ Enter Custom Reason…</span>
+              <span>Enter another reason</span>
             </label>
 
             {useCustom && (
@@ -108,7 +109,7 @@ export function FreezeModal({
               Cancel
             </button>
             <button className="btn btn-danger text-xs font-bold py-2 px-4 shadow-md" type="submit">
-              🔒 Confirm Emergency Freeze
+              <LockKeyhole aria-hidden="true" />Confirm freeze
             </button>
           </div>
         </form>

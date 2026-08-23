@@ -277,6 +277,7 @@ export async function updateAvailability(
     manualSoldOut: boolean;
     soldOutReason?: string;
     acceptsOrders?: boolean;
+    actor?: string;
   },
 ) {
   const { SHOP_ID } = env();
@@ -339,7 +340,7 @@ export async function updateAvailability(
 
     const audits = [
       {
-        id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "capacity.updated",
+        id: randomUUID(), shopId: SHOP_ID, actor: input.actor ?? "system", action: "capacity.updated",
         entityType: "availability", entityId: input.id,
         detailsJson: JSON.stringify({ fromMl: current.availability.capacityMl, toMl: input.capacityMl }),
         createdAt: updatedAt,
@@ -347,7 +348,7 @@ export async function updateAvailability(
     ];
     if (current.availability.manualSoldOut !== input.manualSoldOut) {
       audits.push({
-        id: randomUUID(), shopId: SHOP_ID, actor: "manager",
+        id: randomUUID(), shopId: SHOP_ID, actor: input.actor ?? "system",
         action: input.manualSoldOut ? "sold_out.set" : "sold_out.cleared",
         entityType: "availability", entityId: input.id,
         detailsJson: JSON.stringify(input.manualSoldOut ? { reason: input.soldOutReason!.trim() } : {}),
@@ -356,7 +357,7 @@ export async function updateAvailability(
     }
     if (input.acceptsOrders !== undefined && current.availability.acceptsOrders !== input.acceptsOrders) {
       audits.push({
-        id: randomUUID(), shopId: SHOP_ID, actor: "manager",
+        id: randomUUID(), shopId: SHOP_ID, actor: input.actor ?? "system",
         action: input.acceptsOrders ? "availability.reopened" : "availability.closed",
         entityType: "availability", entityId: input.id,
         detailsJson: JSON.stringify({ acceptsOrders: input.acceptsOrders }),
@@ -390,6 +391,72 @@ export async function previewAvailabilityUpdate(database: Database, input: { id:
   };
 }
 
+export async function previewAvailabilityPlan(
+  database: Database,
+  input: {
+    productId: string;
+    seasonId?: string;
+    frequency: PlanFrequency;
+    startDate: string;
+    endDate: string;
+    dates?: string[];
+    capacityMl: number;
+  },
+) {
+  const { SHOP_ID } = env();
+  if (!Number.isSafeInteger(input.capacityMl) || input.capacityMl < 0) {
+    throw new DomainError("VALIDATION_ERROR", "Capacity must be non-negative millilitres", 422);
+  }
+  const dates = planDates(input);
+  const [product, shop] = await Promise.all([
+    database.query.products.findFirst({ where: and(eq(products.id, input.productId), eq(products.shopId, SHOP_ID)) }),
+    database.query.shops.findFirst({ where: eq(shops.id, SHOP_ID) }),
+  ]);
+  if (!product || !shop) throw new DomainError("NOT_FOUND", "Product not found", 404);
+  if (input.seasonId) {
+    const season = await database.query.harvestSeasons.findFirst({ where: and(eq(harvestSeasons.id, input.seasonId), eq(harvestSeasons.productId, input.productId), eq(harvestSeasons.shopId, SHOP_ID)) });
+    if (!season) throw new DomainError("NOT_FOUND", "Harvest season not found for product", 404);
+  }
+  const today = todayInTimezone(shop.timezone);
+  if (dates.some((date) => date < today)) throw new DomainError("HISTORICAL_DATE", "Historical availability cannot be edited", 409);
+  if (dates.some((date) => date < product.availableFrom || date > product.availableThrough)) {
+    throw new DomainError("OUTSIDE_PRODUCT_WINDOW", "A planning date is outside the product window", 409);
+  }
+  const entries = [];
+  for (const businessDate of dates) {
+    const season = input.seasonId
+      ? await database.query.harvestSeasons.findFirst({ where: eq(harvestSeasons.id, input.seasonId) })
+      : await getHarvestSeasonForDate(database, input.productId, businessDate);
+    const current = await database.query.availability.findFirst({
+      where: and(
+        eq(availability.shopId, SHOP_ID),
+        eq(availability.productId, input.productId),
+        season ? eq(availability.seasonId, season.id) : isNull(availability.seasonId),
+        eq(availability.businessDate, businessDate),
+      ),
+    });
+    entries.push({
+      date: businessDate,
+      operation: current ? "OVERWRITE" as const : "CREATE" as const,
+      currentCapacityMl: current?.capacityMl ?? null,
+      reservedMl: current?.reservedMl ?? 0,
+      nextCapacityMl: input.capacityMl,
+      version: current?.version ?? null,
+      canApply: !current || input.capacityMl >= current.reservedMl,
+    });
+  }
+  return {
+    productId: product.id,
+    productName: product.nameFi,
+    entries,
+    summary: {
+      creates: entries.filter((entry) => entry.operation === "CREATE").length,
+      overwrites: entries.filter((entry) => entry.operation === "OVERWRITE").length,
+      blocked: entries.filter((entry) => !entry.canApply).length,
+    },
+  };
+}
+
 export async function planAvailability(
   database: Database,
   input: {
@@ -402,6 +469,7 @@ export async function planAvailability(
     capacityMl: number;
     manualSoldOut: boolean;
     soldOutReason?: string;
+    actor?: string;
   },
 ) {
   const { SHOP_ID } = env();
@@ -444,7 +512,7 @@ export async function planAvailability(
         touched.push(id);
       }
     }
-    await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: "manager", action: "availability.planned", entityType: "product", entityId: input.productId, detailsJson: JSON.stringify({ frequency: input.frequency, dates, capacityMl: input.capacityMl, manualSoldOut: input.manualSoldOut }), createdAt: now });
+    await tx.insert(auditEntries).values({ id: randomUUID(), shopId: SHOP_ID, actor: input.actor ?? "system", action: "availability.planned", entityType: "product", entityId: input.productId, detailsJson: JSON.stringify({ frequency: input.frequency, dates, capacityMl: input.capacityMl, manualSoldOut: input.manualSoldOut }), createdAt: now });
     const rows = await tx.select().from(availability).where(and(eq(availability.shopId, SHOP_ID), eq(availability.productId, input.productId), input.seasonId ? eq(availability.seasonId, input.seasonId) : undefined));
     return rows.filter((row) => touched.includes(row.id));
   });

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { AdminStatusBadge, formatAdminMoney } from "../presentation";
+import { LockKeyhole, MapPin, Pencil, Truck, UnlockKeyhole, X } from "lucide-react";
+import { AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 
 type OrderItem = {
   id: string;
@@ -41,7 +42,7 @@ export function DateInspectorDrawer({
   canManage,
   canSoldOut,
   onClose,
-  onIncreaseCapacity,
+  onEditCapacity,
   onFreeze,
 }: {
   date: string;
@@ -54,7 +55,7 @@ export function DateInspectorDrawer({
   canManage: boolean;
   canSoldOut: boolean;
   onClose: () => void;
-  onIncreaseCapacity: (addLitres: number) => void;
+  onEditCapacity?: () => void;
   onFreeze: () => void;
 }) {
   const remainingMl = Math.max(0, capacityMl - reservedMl);
@@ -70,23 +71,24 @@ export function DateInspectorDrawer({
 
   return (
     <div
-      className="fixed inset-0 bg-ink/50 backdrop-blur-xs z-50 flex justify-end transition-opacity"
+      className="availability-inspector-backdrop"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <aside className="w-full max-w-lg bg-surface h-full shadow-2xl flex flex-col justify-between overflow-y-auto border-l border-line animate-in slide-in-from-right">
+      <aside className="availability-inspector" role="dialog" aria-modal="true" aria-labelledby="availability-inspector-title">
         {/* Drawer Header */}
-        <div className="flex items-center justify-between p-4 border-b border-line bg-surface-muted sticky top-0 z-10">
+        <div className="availability-inspector-header">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-muted">DATE CAPACITY INSPECTOR</span>
-            <h3 className="text-base font-bold text-ink">{formattedDate}</h3>
+            <span className="eyebrow">Date inspector</span>
+            <h3 id="availability-inspector-title" className="text-base font-bold text-ink">{formattedDate}</h3>
             <span className="text-xs muted font-semibold block">{productName}</span>
           </div>
-          <button type="button" className="btn btn-secondary text-xs py-1 px-2.5" onClick={onClose}>
-            ✕ Close
+          <button type="button" className="admin-icon-button" onClick={onClose} aria-label="Close date inspector">
+            <X aria-hidden="true" />
           </button>
         </div>
 
         <div className="p-5 flex flex-col gap-5 flex-1">
+          {canManage && !onEditCapacity && <AdminNotice>Select one product in the planner before changing capacity or freezing intake.</AdminNotice>}
           {/* CAPACITY SUMMARY CARD */}
           <section className="card p-4 flex flex-col gap-3 bg-surface-muted/50 border border-line">
             <div className="flex items-center justify-between border-b border-line pb-2">
@@ -114,34 +116,33 @@ export function DateInspectorDrawer({
               </div>
             </div>
 
-            {/* Quick Action Steppers & Lock inside Drawer */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-line/60">
-              {canManage && (
+            <div className="availability-inspector-actions">
+              {canManage && onEditCapacity && (
                 <button
                   type="button"
-                  className="btn btn-secondary text-xs py-1.5 px-3 font-semibold"
-                  onClick={() => onIncreaseCapacity(10)}
+                  className="btn btn-secondary"
+                  onClick={onEditCapacity}
                 >
-                  ＋ Increase Capacity by 10L
+                  <Pencil aria-hidden="true" />Edit capacity
                 </button>
               )}
 
               {canSoldOut && (
                 <button
                   type="button"
-                  className={`btn text-xs py-1.5 px-3 font-semibold ${
+                  className={`btn ${
                     soldOut ? "btn-secondary" : "btn-danger"
                   }`}
                   onClick={onFreeze}
                 >
-                  {soldOut ? "🔓 Reopen Date" : "🔒 Emergency Freeze / Lock"}
+                  {soldOut ? <UnlockKeyhole aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}{soldOut ? "Reopen date" : "Freeze date"}
                 </button>
               )}
             </div>
 
             {soldOutReason && (
               <div className="text-xs p-2.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 font-medium">
-                ⚠️ Lock Reason: <strong>{soldOutReason}</strong>
+                Lock reason: <strong>{soldOutReason}</strong>
               </div>
             )}
           </section>
@@ -156,14 +157,14 @@ export function DateInspectorDrawer({
 
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200">
-                  <span className="font-bold text-emerald-900 block text-sm">📍 Pickup</span>
+                  <span className="font-bold text-emerald-900 flex items-center gap-1.5 text-sm"><MapPin aria-hidden="true" />Pickup</span>
                   <span className="text-emerald-800 font-semibold block mt-1">
                     {formatLitres(ordersData.pickupVolumeMl)} ({ordersData.pickupCount} orders)
                   </span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200">
-                  <span className="font-bold text-blue-900 block text-sm">🚚 Home Delivery</span>
+                  <span className="font-bold text-blue-900 flex items-center gap-1.5 text-sm"><Truck aria-hidden="true" />Home delivery</span>
                   <span className="text-blue-800 font-semibold block mt-1">
                     {formatLitres(ordersData.deliveryVolumeMl)} ({ordersData.deliveryCount} orders)
                   </span>
@@ -208,7 +209,7 @@ export function DateInspectorDrawer({
                     </div>
                     <span className="text-ink font-semibold block mt-0.5">{order.customerName}</span>
                     <span className="muted text-[11px] block">
-                      {order.packageLabelFi} ({formatLitres(order.volumeMl)}) · {order.fulfillmentMethod === "PICKUP" ? "📍 Pickup" : "🚚 Delivery"}
+                      {order.packageLabelFi} ({formatLitres(order.volumeMl)}) · {order.fulfillmentMethod === "PICKUP" ? "Pickup" : "Delivery"}
                     </span>
                   </div>
 
@@ -218,7 +219,7 @@ export function DateInspectorDrawer({
                       className="text-[11px] font-semibold text-primary hover:underline"
                       href={`/admin/orders/${order.id}`}
                     >
-                      View ↗
+                      View order
                     </Link>
                   </div>
                 </div>
