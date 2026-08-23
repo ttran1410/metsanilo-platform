@@ -144,7 +144,7 @@ export function AdminRowActionMenu({
 
     const openUpwards = windowHeight - rect.bottom < estimatedMenuHeight && rect.top > estimatedMenuHeight;
 
-    let top = openUpwards ? rect.top - 6 : rect.bottom + 6;
+    const top = openUpwards ? rect.top - 6 : rect.bottom + 6;
     let left = align === "right" ? rect.right - menuWidth : rect.left;
 
     // Boundary guards
