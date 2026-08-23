@@ -1042,6 +1042,32 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .admin-settings-workspace .field input:disabled,
 .admin-settings-workspace .field textarea:disabled,
 .admin-settings-workspace .field select:disabled { background: #f1f5f2; color: #718078; }
+.settings-section-tabs { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: .25rem; overflow-x: auto; border: 1px solid var(--admin-border); border-radius: var(--admin-radius); background: var(--admin-surface-muted); padding: .25rem; }
+.settings-section-tab { display: flex; min-height: 3rem; align-items: center; justify-content: center; gap: .45rem; border: 1px solid transparent; border-radius: calc(var(--admin-radius) - .1rem); background: transparent; color: var(--admin-ink-muted); padding: .55rem .45rem; font-size: .7rem; font-weight: 700; text-align: left; cursor: pointer; }
+.settings-section-tab svg { width: .95rem; height: .95rem; flex: 0 0 .95rem; stroke-width: 1.8; }
+.settings-section-tab[aria-current="page"] { border-color: var(--admin-border); background: var(--admin-surface); color: var(--admin-primary); box-shadow: 0 2px 8px rgb(23 55 43 / 5%); }
+.settings-section-heading,.settings-subheading { display: flex; align-items: flex-start; gap: .75rem; }
+.settings-section-heading h3,.settings-subheading h4 { margin: 0; }
+.settings-section-heading p,.settings-subheading p { margin: .2rem 0 0; line-height: 1.5; }
+.settings-subheading > svg { width: 1rem; height: 1rem; flex: 0 0 1rem; margin-top: .15rem; color: var(--admin-primary); stroke-width: 1.8; }
+.settings-section-icon-danger { border-color: #e8b6ba; color: var(--admin-danger); }
+.settings-asset-card,.settings-record-card { display: grid; gap: .85rem; border: 1px solid var(--admin-border); border-radius: var(--admin-radius); background: var(--admin-surface); padding: 1rem; }
+.settings-asset-card .btn svg,.settings-record-card .btn svg,.settings-savebar .btn svg { width: .9rem; height: .9rem; flex: 0 0 .9rem; }
+.settings-asset-preview { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid var(--admin-border); border-radius: var(--admin-radius); background: var(--admin-surface-muted); padding: .75rem; text-align: center; }
+.settings-dropzone { display: flex; min-height: 8rem; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed var(--admin-border); border-radius: var(--admin-radius); padding: 1rem; text-align: center; cursor: pointer; transition: border-color .15s ease,background .15s ease; }
+.settings-dropzone > svg { width: 1.35rem; height: 1.35rem; margin-bottom: .35rem; color: var(--admin-primary); stroke-width: 1.6; }
+.settings-upload-spinner { animation: admin-spin .8s linear infinite; }
+.settings-alt-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; border-top: 1px solid var(--admin-border); padding-top: .75rem; }
+.settings-lock-icon { display: inline-flex; color: var(--admin-ink-muted); }
+.settings-lock-icon svg,.admin-status-badge svg { width: .75rem; height: .75rem; }
+.settings-record-actions { display: flex; justify-content: flex-end; border-top: 1px solid var(--admin-border); padding-top: .75rem; }
+.admin-settings-workspace h4 > svg { width: .9rem; height: .9rem; vertical-align: -.12rem; }
+.settings-savebar { position: fixed; z-index: 50; right: 1rem; bottom: 1rem; display: flex; align-items: center; gap: .65rem; border: 1px solid rgb(255 255 255 / 18%); border-radius: var(--admin-radius); background: #17201b; padding: .75rem; color: white; box-shadow: 0 12px 36px rgb(0 0 0 / 20%); }
+.settings-savebar > span { display: grid; min-width: 14rem; gap: .1rem; }
+.settings-savebar strong { font-size: .75rem; }
+.settings-savebar small { color: rgb(255 255 255 / 68%); font-size: .66rem; }
+.settings-savebar .btn-secondary { border-color: rgb(255 255 255 / 28%); background: transparent; color: white; }
+@keyframes admin-spin { to { transform: rotate(360deg); } }
 .theme-manager { display: grid; gap: 1.25rem; }
 .theme-manager-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; border-bottom: 1px solid var(--admin-border); padding-bottom: 1rem; }
 .theme-manager-heading > div:first-child { display: flex; align-items: flex-start; gap: .8rem; }
@@ -1112,8 +1138,12 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   .admin-settings-workspace { padding-inline: .85rem; }
   .admin-settings-workspace > .flex.flex-wrap { align-items: stretch; }
   .admin-settings-workspace > .flex.flex-wrap > .btn { width: 100%; justify-content: center; }
-  .admin-settings-workspace > nav { align-items: stretch; }
-  .admin-settings-workspace > nav button { flex: 1 0 11rem; justify-content: flex-start; }
+  .settings-section-tabs { grid-template-columns: repeat(2,minmax(0,1fr)); overflow: visible; }
+  .settings-section-tab { justify-content: flex-start; }
+  .settings-alt-grid { grid-template-columns: 1fr; }
+  .settings-savebar { right: .75rem; bottom: .75rem; left: .75rem; align-items: stretch; flex-wrap: wrap; }
+  .settings-savebar > span { width: 100%; }
+  .settings-savebar .btn { flex: 1; justify-content: center; }
   .theme-manager-heading { align-items: stretch; flex-direction: column; }
   .theme-published-status { min-width: 0; text-align: left; }
   .theme-manager-grid { grid-template-columns: 1fr; }

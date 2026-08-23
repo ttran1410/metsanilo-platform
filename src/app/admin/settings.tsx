@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Building2, CreditCard, ExternalLink, Image, Inbox, MapPin, Palette, ShieldAlert, type LucideIcon } from "lucide-react";
+import { Building2, CreditCard, ExternalLink, Image as ImageIcon, Inbox, LoaderCircle, LockKeyhole, MapPin, Palette, Pause, Phone, Play, Plus, Save, ShieldAlert, Store, Trash2, UploadCloud, type LucideIcon } from "lucide-react";
 import { AdminNotice, AdminPageHeader } from "./presentation";
 import { StorefrontThemeManager } from "./storefront-theme-manager";
 
@@ -67,7 +67,6 @@ function ImageDropzone({
   description,
   currentUrl,
   defaultFallbackUrl = "/metsanilo-leaf.svg",
-  pageKey,
   onUpload,
   onRemove,
   isUploading,
@@ -77,7 +76,6 @@ function ImageDropzone({
   description: string;
   currentUrl?: string | null;
   defaultFallbackUrl?: string;
-  pageKey: string;
   onUpload: (file: File, altFi: string, altEn: string) => Promise<void>;
   onRemove?: () => Promise<void>;
   isUploading?: boolean;
@@ -86,6 +84,7 @@ function ImageDropzone({
   const [isDragOver, setIsDragOver] = useState(false);
   const [altFi, setAltFi] = useState("");
   const [altEn, setAltEn] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const displayUrl = currentUrl || defaultFallbackUrl;
 
@@ -95,7 +94,7 @@ function ImageDropzone({
   }
 
   return (
-    <div className="card p-4 border border-line bg-surface flex flex-col gap-3">
+    <div className="settings-asset-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="font-bold text-sm text-ink">{label}</h4>
@@ -107,24 +106,33 @@ function ImageDropzone({
             className="btn btn-secondary text-xs text-danger font-bold py-1 px-2.5"
             onClick={() => void onRemove()}
           >
-            🗑️ Remove Custom Asset
+            <Trash2 aria-hidden="true" /> Remove custom asset
           </button>
         )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
-        {/* Preview Frame */}
-        <div className="sm:col-span-1 flex flex-col items-center justify-center p-3 rounded-xl border border-line bg-surface-muted/40 text-center">
+        <div className="settings-asset-preview">
           <div className="w-20 h-20 relative flex items-center justify-center rounded-xl overflow-hidden bg-surface border border-line p-2 shadow-2xs">
             <img src={displayUrl} alt={label} className="max-w-full max-h-full object-contain" />
           </div>
           <span className="text-[10px] font-bold text-ink/70 mt-1.5 truncate max-w-[140px]">
-            {currentUrl ? "Custom Active Asset" : "Brand SVG Fallback"}
+            {currentUrl ? "Custom asset active" : "Default brand asset"}
           </span>
         </div>
 
-        {/* Drag and Drop Zone */}
         {!disabled && (
+          <>
+          <input
+            ref={inputRef}
+            className="sr-only"
+            type="file"
+            accept="image/png,image/svg+xml,image/webp,image/x-icon,image/jpeg"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void handleFileSelected(file);
+            }}
+          />
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -137,28 +145,31 @@ function ImageDropzone({
               const file = e.dataTransfer.files[0];
               if (file) void handleFileSelected(file);
             }}
-            className={`sm:col-span-2 border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-center transition-colors cursor-pointer ${
+            className={`settings-dropzone ${
               isDragOver ? "border-primary bg-primary/5" : "border-line hover:border-primary/50 hover:bg-surface-muted/30"
             }`}
-            onClick={() => {
-              const input = document.createElement("input");
-              input.type = "file";
-              input.accept = "image/png,image/svg+xml,image/webp,image/x-icon,image/jpeg";
-              input.onchange = (e) => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                if (file) void handleFileSelected(file);
-              };
-              input.click();
+            role="button"
+            tabIndex={0}
+            onClick={() => inputRef.current?.click()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") inputRef.current?.click();
             }}
           >
-            <span className="text-2xl mb-1">📁</span>
+            {isUploading ? <LoaderCircle className="settings-upload-spinner" aria-hidden="true" /> : <UploadCloud aria-hidden="true" />}
             <p className="text-xs font-bold text-ink">
-              {isUploading ? "⏳ Uploading brand asset..." : "Drag & Drop image file here or Click to browse"}
+              {isUploading ? "Uploading asset…" : "Drop an image or choose a file"}
             </p>
-            <p className="text-[11px] muted mt-0.5">Supports PNG, SVG, WEBP, ICO (Max 2 MB)</p>
+            <p className="text-[11px] muted mt-0.5">PNG, SVG, WebP, ICO or JPEG · maximum 2 MB</p>
           </div>
+          </>
         )}
       </div>
+      {!disabled && (
+        <div className="settings-alt-grid">
+          <label className="field"><span>Alternative text (FI)</span><input value={altFi} onChange={(event) => setAltFi(event.target.value)} placeholder={`${label} suomeksi`} /></label>
+          <label className="field"><span>Alternative text (EN)</span><input value={altEn} onChange={(event) => setAltEn(event.target.value)} placeholder={label} /></label>
+        </div>
+      )}
     </div>
   );
 }
@@ -193,7 +204,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
   const [howMedia, setHowMedia] = useState<MediaItem[]>([]);
   const [aboutMedia, setAboutMedia] = useState<MediaItem[]>([]);
 
-  const [isDirty, setIsDirty] = useState(false);
+  const [shopDirty, setShopDirty] = useState(false);
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState<"success" | "error">("success");
   const [uploadingPageKey, setUploadingPageKey] = useState<string | null>(null);
@@ -239,7 +250,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
       void loadPageMedia("how-it-works", setHowMedia);
       void loadPageMedia("about-us", setAboutMedia);
 
-      setIsDirty(false);
+      setShopDirty(false);
     } catch (error) {
       feedback(error instanceof Error ? error.message : "Settings unavailable", "error");
     }
@@ -253,16 +264,16 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
   }, []);
 
   // Save Shop Identity & Contact
-  async function saveShopIdentity(event?: FormEvent) {
+  async function saveShopIdentity(event?: FormEvent, nextShopData: ShopIdentity = shopData) {
     if (event) event.preventDefault();
     try {
       const updated = await request("/api/admin/contact", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(shopData),
+        body: JSON.stringify(nextShopData),
       });
       setShopData(updated);
-      setIsDirty(false);
+      setShopDirty(false);
       feedback("Shop identity & settings saved.", "success");
     } catch (error) {
       feedback(error instanceof Error ? error.message : "Could not save settings", "error");
@@ -291,7 +302,6 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
       });
 
       setLocations((rows) => rows.map((row) => (row.id === location.id ? updated : row)));
-      setIsDirty(false);
       feedback("Fulfillment location saved.", "success");
     } catch (error) {
       feedback(error instanceof Error ? error.message : "Location update failed", "error");
@@ -378,7 +388,6 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
         }),
       });
       setSources((rows) => rows.map((row) => (row.id === source.id ? data : row)));
-      setIsDirty(false);
       feedback("Order intake channel saved.", "success");
     } catch (error) {
       feedback(error instanceof Error ? error.message : "Source update failed", "error");
@@ -457,7 +466,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
     { id: "fulfillment", label: "Fulfillment hubs", icon: MapPin, desc: "Pickup locations and directions" },
     { id: "payments", label: "Payment methods", icon: CreditCard, desc: "Payment guidance and instructions" },
     { id: "channels", label: "Order channels", icon: Inbox, desc: "Intake sources and attribution" },
-    { id: "storefront", label: "Storefront & media", icon: Image, desc: "Page visibility and managed imagery" },
+    { id: "storefront", label: "Storefront & media", icon: ImageIcon, desc: "Page visibility and managed imagery" },
     { id: "themes", label: "Frontstore themes", icon: Palette, desc: "Draft, preview and publish" },
     { id: "danger", label: "System & safety", icon: ShieldAlert, desc: "Emergency intake controls" },
   ];
@@ -466,9 +475,9 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
     <section className="admin-settings-workspace shell pb-20 flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
         <AdminPageHeader
-          eyebrow="ADMINISTRATION"
-          title="Operational Settings & CMS"
-          description="Configure branding assets, fulfillment hubs, payment guidance, intake channels, page visibility, and storefront CMS images."
+          eyebrow="Administration"
+          title="Settings"
+          description="Manage shop operations and customer-facing configuration by domain. Each section saves independently."
         />
         <Link
           href="/fi"
@@ -487,8 +496,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
         </AdminNotice>
       )}
 
-      {/* MODERN HORIZONTAL SEGMENTED TOP TAB BAR */}
-      <nav className="flex items-center gap-1 overflow-x-auto p-1 bg-surface-muted/60 border border-line rounded-2xl">
+      <nav className="settings-section-tabs" aria-label="Settings sections">
         {sections.map((sec) => {
           const active = activeSection === sec.id;
           const Icon = sec.icon;
@@ -497,7 +505,9 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
               key={sec.id}
               type="button"
               onClick={() => setActiveSection(sec.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              aria-current={active ? "page" : undefined}
+              title={sec.desc}
+              className={`settings-section-tab ${
                 active
                   ? "bg-surface text-primary shadow-xs border border-line"
                   : "text-muted hover:text-ink hover:bg-surface/50"
@@ -510,21 +520,22 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
         })}
       </nav>
 
-      {/* MAIN CONTENT WORKSPACE */}
       <main className="flex flex-col gap-6">
-        {/* DOMAIN 1: SHOP IDENTITY & BRAND ASSETS */}
         {activeSection === "identity" && (
           <div className="flex flex-col gap-6">
             <form
               className="card p-5 grid gap-4 border border-line"
               onSubmit={(e) => void saveShopIdentity(e)}
-              onChange={() => setIsDirty(true)}
+              onChange={() => setShopDirty(true)}
             >
-              <div>
-                <h3 className="font-bold text-lg text-ink">🏢 Shop Identity &amp; Legal Details</h3>
+              <div className="settings-section-heading">
+                <span className="admin-section-icon" aria-hidden="true"><Building2 /></span>
+                <div>
+                <h3 className="font-bold text-lg text-ink">Shop identity and legal details</h3>
                 <p className="text-xs muted">
-                  Configure public-facing brand names, consumer law compliance details, and customer care lines.
+                  Public brand names, legal identity and customer contact details.
                 </p>
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -575,9 +586,11 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
 
               <hr className="my-1 border-line" />
 
-              <div>
-                <h4 className="font-bold text-sm text-ink">📞 Customer Care &amp; Direct Lines</h4>
+              <div className="settings-subheading">
+                <Phone aria-hidden="true" />
+                <div><h4 className="font-bold text-sm text-ink">Customer contact</h4>
                 <p className="text-xs muted">Shown on storefront, receipts, and order confirmation messages.</p>
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
@@ -615,19 +628,20 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
               {canManageSettings && (
                 <div className="mt-2">
                   <button type="submit" className="btn font-bold text-xs">
-                    💾 Save Identity &amp; Care Settings
+                    <Save aria-hidden="true" /> Save identity and contact
                   </button>
                 </div>
               )}
             </form>
 
-            {/* BRAND LOGO & FAVICON DRAG-AND-DROP MANAGERS */}
             <div className="flex flex-col gap-4">
-              <div>
-                <h3 className="font-bold text-base text-ink">🏷️ Brand Logo &amp; Favicon Asset Managers</h3>
+              <div className="settings-section-heading">
+                <span className="admin-section-icon" aria-hidden="true"><ImageIcon /></span>
+                <div><h3 className="font-bold text-base text-ink">Brand assets</h3>
                 <p className="text-xs muted">
-                  Interactive Drag-and-Drop image upload for brand header mark, receipts, and browser tab icons. Defaults to 3-leaf Metsänilo SVG icon.
+                  Upload the storefront header mark and browser icon. The Metsänilo leaf remains the fallback.
                 </p>
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -636,7 +650,6 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                   description="Main logo displayed on storefront header lockup & receipts."
                   currentUrl={logoMedia[0]?.url || shopData.logoUrl}
                   defaultFallbackUrl="/metsanilo-leaf.svg"
-                  pageKey="logo"
                   onUpload={(file, altFi, altEn) => handleMediaUpload("logo", file, altFi, altEn)}
                   onRemove={logoMedia[0] ? () => deleteMediaAttachmentItem(logoMedia[0].attachmentId!, "logo") : undefined}
                   isUploading={uploadingPageKey === "logo"}
@@ -648,7 +661,6 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                   description="Favicon displayed in browser tabs & bookmarks."
                   currentUrl={faviconMedia[0]?.url || shopData.faviconUrl}
                   defaultFallbackUrl="/metsanilo-leaf.svg"
-                  pageKey="favicon"
                   onUpload={(file, altFi, altEn) => handleMediaUpload("favicon", file, altFi, altEn)}
                   onRemove={faviconMedia[0] ? () => deleteMediaAttachmentItem(faviconMedia[0].attachmentId!, "favicon") : undefined}
                   isUploading={uploadingPageKey === "favicon"}
@@ -659,14 +671,15 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
           </div>
         )}
 
-        {/* DOMAIN 2: FULFILLMENT HUBS */}
         {activeSection === "fulfillment" && (
           <div className="card p-5 flex flex-col gap-4 border border-line">
-            <div>
-              <h3 className="font-bold text-lg text-ink">📍 Fulfillment &amp; Pickup Locations</h3>
+            <div className="settings-section-heading">
+              <span className="admin-section-icon" aria-hidden="true"><MapPin /></span>
+              <div><h3 className="font-bold text-lg text-ink">Fulfilment locations</h3>
               <p className="text-xs muted">
-                Manage where customers collect their fresh berries and delivery dispatch origins.
+                Manage customer pickup points and delivery dispatch origins.
               </p>
+              </div>
             </div>
 
             <div className="flex flex-col gap-4">
@@ -675,16 +688,15 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                   key={loc.id}
                   className="grid gap-3 rounded-xl border border-line bg-surface-muted/30 p-4"
                   onSubmit={(e) => void saveLocation(e, loc)}
-                  onChange={() => setIsDirty(true)}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-xs text-ink">
-                        {loc.type === "PICKUP" ? "📍 Pickup Location" : "🚚 Delivery Dispatch Origin"}
+                        {loc.type === "PICKUP" ? "Pickup location" : "Delivery dispatch origin"}
                       </span>
                       {loc.isDefault && (
                         <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-300">
-                          ⭐ Default Hub
+                          Default for type
                         </span>
                       )}
                     </div>
@@ -695,7 +707,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                         rel="noreferrer"
                         className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
                       >
-                        🗺️ Preview on Maps ↗
+                        Preview on Maps <ExternalLink aria-hidden="true" />
                       </a>
 
                       {!loc.isDefault && canManageSettings && (
@@ -704,7 +716,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                           className="btn btn-secondary text-xs text-danger py-1 px-2 font-bold"
                           onClick={() => void deleteLocationItem(loc.id)}
                         >
-                          🗑️ Delete
+                          <Trash2 aria-hidden="true" /> Delete
                         </button>
                       )}
                     </div>
@@ -782,7 +794,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
 
             {canManageSettings && (
               <form className="rounded-xl border border-dashed border-line p-4 flex flex-col gap-3 mt-2" onSubmit={(e) => void addLocation(e)}>
-                <h4 className="font-bold text-xs text-ink uppercase tracking-wider">➕ Add New Fulfillment Hub</h4>
+                <h4 className="font-bold text-xs text-ink uppercase tracking-wider"><Plus aria-hidden="true" /> Add fulfilment location</h4>
                 <div className="grid gap-2 md:grid-cols-4">
                   <select name="type" className="text-xs">
                     <option value="PICKUP">Pickup Location</option>
@@ -812,11 +824,14 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
         {/* DOMAIN 3: PAYMENT METHODS */}
         {activeSection === "payments" && (
           <div className="card p-5 flex flex-col gap-4 border border-line">
-            <div>
-              <h3 className="font-bold text-lg text-ink">💳 Payment Methods &amp; Customer Guidance</h3>
+            <div className="settings-section-heading">
+              <span className="admin-section-icon" aria-hidden="true"><CreditCard /></span>
+              <div>
+              <h3 className="font-bold text-lg text-ink">Payment methods</h3>
               <p className="text-xs muted">
-                System default payment options (MobilePay, Bank Transfer, Cash) are protected. Custom methods can be created and deleted if unused.
+                Enable methods and maintain customer instructions. Changes are saved explicitly per method.
               </p>
+              </div>
             </div>
 
             <div className="flex flex-col gap-4">
@@ -824,41 +839,39 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                 const isSystemDefault = ["CASH", "BANK_TRANSFER", "MOBILEPAY"].includes(method.method);
 
                 return (
-                  <div key={method.method} className="rounded-xl border border-line p-4 flex flex-col gap-3 bg-surface-muted/20">
+                  <form key={method.method} className="settings-record-card" onSubmit={(event) => { event.preventDefault(); void savePaymentMethod(method); }}>
                     <div className="flex items-center justify-between border-b border-line pb-2">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-sm text-ink">
                           {method.method === "MOBILEPAY"
-                            ? "📱 MobilePay"
+                            ? "MobilePay"
                             : method.method === "CASH"
-                            ? "💵 Käteinen / Cash at Pickup"
+                            ? "Cash at pickup"
                             : method.method === "CARD"
-                            ? "💳 Korttimaksu / Card at Pickup"
+                            ? "Card at pickup"
                             : method.method === "BANK_TRANSFER"
-                            ? "🏦 Pankkisiirto / Bank Invoice (B2B)"
-                            : `📦 Custom: ${method.method}`}
+                            ? "Bank transfer"
+                            : method.method}
                         </span>
                         {isSystemDefault ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300">
-                            🔒 System Default
+                          <span className="admin-status-badge admin-status-neutral">
+                            <LockKeyhole aria-hidden="true" /> System method
                           </span>
                         ) : (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
-                            Custom Method
+                          <span className="admin-status-badge admin-status-success">
+                            Custom method
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-3">
                         <label className="flex items-center gap-2 font-bold text-xs">
-                          <span>{method.enabled ? "🟢 Enabled" : "⚪ Disabled"}</span>
+                          <span>{method.enabled ? "Enabled" : "Disabled"}</span>
                           <input
                             type="checkbox"
                             checked={method.enabled}
                             disabled={!canManageSettings}
-                            onChange={() => {
-                              void savePaymentMethod({ ...method, enabled: !method.enabled });
-                            }}
+                            onChange={(event) => setMethods((rows) => rows.map((row) => row.method === method.method ? { ...row, enabled: event.target.checked } : row))}
                           />
                         </label>
 
@@ -868,7 +881,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                             className="btn btn-secondary text-xs text-danger font-bold py-1 px-2"
                             onClick={() => void deletePaymentMethodItem(method.method)}
                           >
-                            🗑️ Delete
+                            <Trash2 aria-hidden="true" /> Delete
                           </button>
                         )}
                       </div>
@@ -878,49 +891,47 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                       <label className="field">
                         <span className="font-semibold text-xs text-ink">Customer Instruction Note (FI)</span>
                         <input
-                          defaultValue={method.instructionsFi ?? ""}
+                          value={method.instructionsFi ?? ""}
                           placeholder={
                             method.method === "MOBILEPAY"
                               ? "Maksu noudettaessa MobilePaylla numeroon 89123."
                               : "Ohje asiakkaalle..."
                           }
                           disabled={!canManageSettings}
-                          onBlur={(e) => {
-                            void savePaymentMethod({ ...method, instructionsFi: e.target.value });
-                          }}
+                          onChange={(event) => setMethods((rows) => rows.map((row) => row.method === method.method ? { ...row, instructionsFi: event.target.value } : row))}
                         />
                       </label>
                       <label className="field">
                         <span className="font-semibold text-xs text-ink">Customer Instruction Note (EN)</span>
                         <input
-                          defaultValue={method.instructionsEn ?? ""}
+                          value={method.instructionsEn ?? ""}
                           placeholder={
                             method.method === "MOBILEPAY"
                               ? "Pay via MobilePay to number 89123 at pickup."
                               : "Instructions for customer..."
                           }
                           disabled={!canManageSettings}
-                          onBlur={(e) => {
-                            void savePaymentMethod({ ...method, instructionsEn: e.target.value });
-                          }}
+                          onChange={(event) => setMethods((rows) => rows.map((row) => row.method === method.method ? { ...row, instructionsEn: event.target.value } : row))}
                         />
                       </label>
                     </div>
-                  </div>
+                    {canManageSettings && <div className="settings-record-actions"><button type="submit" className="btn"><Save aria-hidden="true" />Save method</button></div>}
+                  </form>
                 );
               })}
             </div>
           </div>
         )}
 
-        {/* DOMAIN 4: ORDER CHANNELS */}
         {activeSection === "channels" && (
           <div className="card p-5 flex flex-col gap-4 border border-line">
-            <div>
-              <h3 className="font-bold text-lg text-ink">📥 Order Intake Channels &amp; Attribution</h3>
+            <div className="settings-section-heading">
+              <span className="admin-section-icon" aria-hidden="true"><Inbox /></span>
+              <div><h3 className="font-bold text-lg text-ink">Order intake channels</h3>
               <p className="text-xs muted">
-                System core channels (Website, Manual, Historical) are protected. Custom channels can be added or deleted if unused.
+                Maintain attribution labels and ordering. Core channels are protected from deletion.
               </p>
+              </div>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -932,12 +943,11 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                     key={source.id}
                     className="grid gap-2 rounded-xl border border-line p-3 md:grid-cols-6 items-center bg-surface-muted/20"
                     onSubmit={(e) => void saveSource(e, source)}
-                    onChange={() => setIsDirty(true)}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
                       <input name="key" defaultValue={source.key} disabled={!canManageSettings || isCoreChannel} required className="text-xs font-mono font-bold" />
                       {isCoreChannel && (
-                        <span title="System Core Channel" className="text-[10px] text-blue-900 font-bold">🔒</span>
+                        <span title="System core channel" className="settings-lock-icon"><LockKeyhole aria-hidden="true" /></span>
                       )}
                     </div>
 
@@ -962,7 +972,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                           className="btn btn-secondary text-xs text-danger font-bold py-1 px-2"
                           onClick={() => void deleteOrderSourceItem(source.id)}
                         >
-                          🗑️
+                          <Trash2 aria-hidden="true" /><span className="sr-only">Delete {source.labelEn}</span>
                         </button>
                       )}
                     </div>
@@ -973,7 +983,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
 
             {canManageSettings && (
               <form className="rounded-xl border border-dashed border-line p-4 flex flex-col gap-3 mt-2" onSubmit={(e) => void addSource(e)}>
-                <h4 className="font-bold text-xs text-ink uppercase tracking-wider">➕ Add Custom Order Intake Channel</h4>
+                <h4 className="font-bold text-xs text-ink uppercase tracking-wider"><Plus aria-hidden="true" /> Add custom order channel</h4>
                 <div className="grid gap-2 md:grid-cols-4">
                   <input name="key" placeholder="KEY (e.g. INSTAGRAM)" required className="text-xs font-mono font-bold" />
                   <input name="labelFi" placeholder="Finnish Label" required className="text-xs" />
@@ -987,27 +997,28 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
           </div>
         )}
 
-        {/* DOMAIN 5: STOREFRONT & CMS */}
         {activeSection === "storefront" && (
           <div className="flex flex-col gap-6">
             <form
               className="card p-5 flex flex-col gap-4 border border-line"
               onSubmit={(e) => void saveShopIdentity(e)}
-              onChange={() => setIsDirty(true)}
+              onChange={() => setShopDirty(true)}
             >
-              <div>
-                <h3 className="font-bold text-lg text-ink">🌐 Storefront Page Visibility Switches</h3>
+              <div className="settings-section-heading">
+                <span className="admin-section-icon" aria-hidden="true"><Store /></span>
+                <div><h3 className="font-bold text-lg text-ink">Storefront page visibility</h3>
                 <p className="text-xs muted">
                   Control active storefront pages. Disabling a page hides its link from navigation menus and returns 404 on direct access.
                 </p>
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
                 {/* How it works toggle */}
                 <div className="rounded-xl border border-line p-4 flex flex-col gap-2 bg-surface-muted/30">
-                  <span className="font-bold text-xs text-ink">📘 How It Works Page</span>
+                  <span className="font-bold text-xs text-ink">How it works</span>
                   <label className="flex items-center justify-between text-xs font-bold">
-                    <span>{shopData.howItWorksVisible ? "🟢 Visible" : "🔴 Hidden (404)"}</span>
+                    <span>{shopData.howItWorksVisible ? "Visible" : "Hidden · 404"}</span>
                     <input
                       type="checkbox"
                       checked={shopData.howItWorksVisible}
@@ -1019,9 +1030,9 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
 
                 {/* Reviews toggle */}
                 <div className="rounded-xl border border-line p-4 flex flex-col gap-2 bg-surface-muted/30">
-                  <span className="font-bold text-xs text-ink">⭐️ Reviews Hub Page</span>
+                  <span className="font-bold text-xs text-ink">Reviews</span>
                   <label className="flex items-center justify-between text-xs font-bold">
-                    <span>{shopData.reviewsVisible ? "🟢 Visible" : "🔴 Hidden (404)"}</span>
+                    <span>{shopData.reviewsVisible ? "Visible" : "Hidden · 404"}</span>
                     <input
                       type="checkbox"
                       checked={shopData.reviewsVisible}
@@ -1033,9 +1044,9 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
 
                 {/* About Us toggle */}
                 <div className="rounded-xl border border-line p-4 flex flex-col gap-2 bg-surface-muted/30">
-                  <span className="font-bold text-xs text-ink">🌲 About Us Story Page</span>
+                  <span className="font-bold text-xs text-ink">About us</span>
                   <label className="flex items-center justify-between text-xs font-bold">
-                    <span>{shopData.aboutUsVisible ? "🟢 Visible" : "🔴 Hidden (404)"}</span>
+                    <span>{shopData.aboutUsVisible ? "Visible" : "Hidden · 404"}</span>
                     <input
                       type="checkbox"
                       checked={shopData.aboutUsVisible}
@@ -1049,54 +1060,49 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
               {canManageSettings && (
                 <div>
                   <button type="submit" className="btn text-xs font-bold">
-                    💾 Save Page Visibility Switches
+                    <Save aria-hidden="true" /> Save page visibility
                   </button>
                 </div>
               )}
             </form>
 
-            {/* PAGE MEDIA MANAGERS */}
             <div className="card p-5 flex flex-col gap-5 border border-line">
-              <div>
-                <h3 className="font-bold text-lg text-ink">🖼️ Storefront Page Media Managers</h3>
+              <div className="settings-section-heading">
+                <span className="admin-section-icon" aria-hidden="true"><ImageIcon /></span>
+                <div><h3 className="font-bold text-lg text-ink">Storefront media</h3>
                 <p className="text-xs muted">
-                  Drag &amp; drop imagery for Homepage Hero, How It Works process steps, and About Us story.
+                  Upload managed imagery for the homepage hero, How it works and About us.
                 </p>
+                </div>
               </div>
 
-              {/* Hero Media */}
               <ImageDropzone
                 label="Homepage Hero Banner"
                 description="Hero banner image for storefront homepage."
                 currentUrl={heroMedia[0]?.url}
                 defaultFallbackUrl="/metsanilo-leaf.svg"
-                pageKey="hero"
                 onUpload={(file, altFi, altEn) => handleMediaUpload("hero", file, altFi, altEn)}
                 onRemove={heroMedia[0] ? () => deleteMediaAttachmentItem(heroMedia[0].attachmentId!, "hero") : undefined}
                 isUploading={uploadingPageKey === "hero"}
                 disabled={!canManageSettings}
               />
 
-              {/* How it works Media */}
               <ImageDropzone
                 label="How It Works Process Media"
                 description="Process step diagrams and illustrations."
                 currentUrl={howMedia[0]?.url}
                 defaultFallbackUrl="/metsanilo-leaf.svg"
-                pageKey="how-it-works"
                 onUpload={(file, altFi, altEn) => handleMediaUpload("how-it-works", file, altFi, altEn)}
                 onRemove={howMedia[0] ? () => deleteMediaAttachmentItem(howMedia[0].attachmentId!, "how-it-works") : undefined}
                 isUploading={uploadingPageKey === "how-it-works"}
                 disabled={!canManageSettings}
               />
 
-              {/* About Us Media */}
               <ImageDropzone
                 label="About Us Story & Forest Media"
                 description="Forest harvest photos for brand story page."
                 currentUrl={aboutMedia[0]?.url}
                 defaultFallbackUrl="/metsanilo-leaf.svg"
-                pageKey="about-us"
                 onUpload={(file, altFi, altEn) => handleMediaUpload("about-us", file, altFi, altEn)}
                 onRemove={aboutMedia[0] ? () => deleteMediaAttachmentItem(aboutMedia[0].attachmentId!, "about-us") : undefined}
                 isUploading={uploadingPageKey === "about-us"}
@@ -1108,27 +1114,27 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
 
         {activeSection === "themes" && <StorefrontThemeManager canManageTheme={canManageTheme} />}
 
-        {/* DOMAIN 6: DANGER ZONE & SAFETY */}
         {activeSection === "danger" && (
           <div className="card p-5 flex flex-col gap-4 border border-rose-200 bg-rose-50/20">
-            <div>
-              <h3 className="font-bold text-lg text-rose-900">🚨 DANGER ZONE &amp; EMERGENCY OVERRIDES</h3>
+            <div className="settings-section-heading">
+              <span className="admin-section-icon settings-section-icon-danger" aria-hidden="true"><ShieldAlert /></span>
+              <div><h3 className="font-bold text-lg text-rose-900">System safety</h3>
               <p className="text-xs text-rose-800 font-medium">
-                High-security administrative controls protected behind double-confirmation actions.
+                Emergency controls that immediately affect the public ordering path.
               </p>
+              </div>
             </div>
 
-            {/* Emergency Intake Pause */}
             <div className="rounded-xl border border-rose-200 bg-surface p-4 flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h4 className="font-bold text-sm text-ink">1. Emergency Storefront Intake Pause</h4>
+                  <h4 className="font-bold text-sm text-ink">Public reservation intake</h4>
                   <p className="text-xs muted">
                     Temporarily stop all public web reservations across all dates during harvest emergencies or storms.
                   </p>
                 </div>
                 <span className={`font-bold text-xs px-3 py-1 rounded-full border ${shopData.active ? "bg-emerald-100 text-emerald-900 border-emerald-300" : "bg-rose-100 text-rose-900 border-rose-300"}`}>
-                  {shopData.active ? "🟢 Intake Open" : "🔴 INTAKE PAUSED"}
+                  {shopData.active ? "Intake open" : "Intake paused"}
                 </span>
               </div>
 
@@ -1144,12 +1150,13 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                           `Are you sure you want to ${nextState ? "RESUME" : "PAUSE"} storefront web reservations?`,
                         )
                       ) {
-                        setShopData({ ...shopData, active: nextState });
-                        void saveShopIdentity();
+                        const nextShopData = { ...shopData, active: nextState };
+                        setShopData(nextShopData);
+                        void saveShopIdentity(undefined, nextShopData);
                       }
                     }}
                   >
-                    {shopData.active ? "⏸️ Pause Public Web Intake (Emergency Lock)" : "▶️ Resume Public Web Intake"}
+                    {shopData.active ? <><Pause aria-hidden="true" />Pause public reservations</> : <><Play aria-hidden="true" />Resume public reservations</>}
                   </button>
                 </div>
               )}
@@ -1159,22 +1166,22 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
       </main>
 
       {/* Floating Dirty-State Save Bar */}
-      {isDirty && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 rounded-xl bg-slate-900 px-6 py-3 text-white shadow-2xl animate-bounce">
-          <span className="text-xs font-semibold">⚠️ You have unsaved changes in Settings.</span>
+      {shopDirty && (
+        <div className="settings-savebar" role="status">
+          <span><strong>Unsaved shop settings</strong><small>Save or discard identity and storefront visibility changes.</small></span>
           <button
             type="button"
-            className="rounded bg-slate-700 px-3 py-1 text-xs font-semibold hover:bg-slate-600"
+            className="btn btn-secondary"
             onClick={() => void loadAll()}
           >
-            Discard
+            Discard changes
           </button>
           <button
             type="button"
-            className="rounded bg-emerald-500 px-3.5 py-1 text-xs font-bold hover:bg-emerald-400"
+            className="btn"
             onClick={() => void saveShopIdentity()}
           >
-            💾 Save Changes
+            <Save aria-hidden="true" /> Save shop settings
           </button>
         </div>
       )}
