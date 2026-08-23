@@ -140,7 +140,7 @@ export function ReviewModal({
             <p className="text-sm text-slate-600 max-w-xs mx-auto">{copy.successBody}</p>
             <button
               type="button"
-              className="btn bg-emerald-700 text-white font-semibold text-sm px-6 py-2 rounded-xl mt-4"
+              className="btn btn-accent text-white font-semibold text-sm px-6 py-2 rounded-full mt-4"
               onClick={onClose}
             >
               {copy.close}

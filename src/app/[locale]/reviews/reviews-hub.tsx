@@ -97,18 +97,18 @@ export function ReviewsHub({
   return (
     <div className="space-y-8">
       {/* 1. Rating Summary & Scorecard */}
-      <section className="p-6 md:p-8 rounded-2xl bg-white border border-[#E7E2D7] shadow-sm grid gap-6 md:grid-cols-12 items-center">
-        <div className="md:col-span-5 space-y-3 text-center md:text-left border-b md:border-b-0 md:border-r border-[#EFEBE4] pb-6 md:pb-0 md:pr-6">
-          <div className="inline-block px-3 py-1 bg-[#F5F0E6] text-[#635A4B] text-xs font-extrabold uppercase tracking-wider rounded-full">
+      <section className="p-6 md:p-8 rounded-2xl bg-surface border border-line shadow-sm grid gap-6 md:grid-cols-12 items-center">
+        <div className="md:col-span-5 space-y-3 text-center md:text-left border-b md:border-b-0 md:border-r border-line pb-6 md:pb-0 md:pr-6">
+          <div className="inline-block px-3 py-1 bg-surface-muted text-ink text-xs font-extrabold uppercase tracking-wider rounded-full">
             {copy.eyebrow}
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-[#2C261E]">{copy.title}</h1>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-ink">{copy.title}</h1>
           <div className="flex items-center justify-center md:justify-start gap-2">
-            <span className="text-3xl font-extrabold text-[#1E6B34]">{formatDecimal(avgRating, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
-            <span className="text-[#8C8375] font-semibold text-lg">/ {formatDecimal(5, locale, { minimumFractionDigits: 1 })}</span>
+            <span className="text-3xl font-extrabold text-[var(--forest)]">{formatDecimal(avgRating, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+            <span className="muted font-semibold text-lg">/ {formatDecimal(5, locale, { minimumFractionDigits: 1 })}</span>
             <span className="text-amber-500 text-xl ml-1">⭐⭐⭐⭐⭐</span>
           </div>
-          <p className="text-xs text-[#6E6658] font-medium">
+          <p className="text-xs muted font-medium">
             {totalReviewsCount} {copy.scoreSubtitle}
           </p>
           <button
@@ -186,7 +186,7 @@ export function ReviewsHub({
       {/* 3. Reviews Feed */}
       <section className="space-y-4">
         {sorted.length === 0 && (
-          <div className="p-8 text-center text-xs font-medium text-[#7C7364] bg-white rounded-xl border border-[#E7E2D7]">
+          <div className="p-8 text-center text-xs font-medium muted bg-surface rounded-xl border border-line">
             {copy.noReviews}
           </div>
         )}
@@ -205,7 +205,7 @@ export function ReviewsHub({
                 <span className="font-extrabold text-ink text-base">{review.displayName}</span>
 
                 {review.verifiedBuyer ? (
-                  <span className="bg-emerald-50 text-[var(--forest)] text-xs font-semibold px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  <span className="bg-surface-muted text-[var(--forest)] text-xs font-semibold px-2.5 py-0.5 rounded-full border border-line">
                     {copy.verifiedOrder}
                   </span>
                 ) : (
