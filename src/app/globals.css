@@ -11,9 +11,10 @@
   --ink: #0a140f;
   --muted: #33453b;
   --line: #b5b0a4;
-  --focus: #c26b35;
-  --success: #2f6b4f;
-  --error: #9b2e42;
+  --focus: #005fcc;
+  --focus-inverse: #ffcc66;
+  --success: #18794e;
+  --error: #b42318;
   --error-surface: #fff1f3;
   --error-surface-text: #7f1d32;
   --canvas: var(--cream);
@@ -22,7 +23,7 @@
   --form-control-background: var(--paper);
   --form-control-border: #8c9288;
   --form-control-hover-border: var(--forest);
-  --form-control-focus-border: var(--moss);
+  --form-control-focus-border: var(--forest);
   --form-control-error-border: var(--error);
   --form-control-error-background: #fff7f8;
   --form-control-radius: .65rem;
@@ -343,7 +344,11 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .field :is(input, select, textarea):focus-visible,
 .review-form-field :is(input, select, textarea):focus-visible,
 .admin-login-field :is(input, select, textarea):focus-visible,
-.admin-app :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select, textarea):focus-visible { border-color: var(--form-control-focus-border); }
+.admin-app :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), select, textarea):focus-visible {
+  outline: none;
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--forest) 18%, transparent);
+}
 .form-control:disabled,
 .field :is(input, select, textarea):disabled,
 .review-form-field :is(input, select, textarea):disabled,
