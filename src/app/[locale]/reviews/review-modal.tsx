@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
+import { PenLine, Rocket, CheckCircle2, X } from "lucide-react";
 import type { Locale } from "@/lib/format";
 
 export function ReviewModal({
@@ -29,7 +30,7 @@ export function ReviewModal({
 
   const copy = {
     fi: {
-      title: "✍️ Jaa kokemuksesi",
+      title: "Jaa kokemuksesi",
       subtitle: "Auta muita Satakunnan marjaystäviä kuulemaan kokemuksestasi.",
       step1: "1. Valitse tähtiluokitus",
       step2: "2. Nimesi / Nimimerkki (Julkaistaan)",
@@ -43,7 +44,7 @@ export function ReviewModal({
       placeholderContact: "040 123 4567 tai R-9102",
       placeholderReview: "Kerro marjojen laadusta, noudosta tai toimituksesta...",
       cancel: "Peruuta",
-      submit: "🚀 Lähetä arvostelu",
+      submit: "Lähetä arvostelu",
       submitting: "Lähetetään...",
       successTitle: "Kiitos arvostelustasi!",
       successBody: "Palautteesi on lähetetty ja julkaistaan henkilökunnan tarkistuksen jälkeen.",
@@ -52,7 +53,7 @@ export function ReviewModal({
       submitError: "Arvostelun lähettäminen epäonnistui. Yritä uudelleen.",
     },
     en: {
-      title: "✍️ Share Your Experience",
+      title: "Share Your Experience",
       subtitle: "Help other berry lovers hear about your experience.",
       step1: "1. Select Rating",
       step2: "2. Your Name / Nickname (Public)",
@@ -66,7 +67,7 @@ export function ReviewModal({
       placeholderContact: "040 123 4567 or R-9102",
       placeholderReview: "Tell us about the quality of berries, pickup, or delivery...",
       cancel: "Cancel",
-      submit: "🚀 Submit Review",
+      submit: "Submit Review",
       submitting: "Submitting...",
       successTitle: "Thank you for your review!",
       successBody: "Your feedback has been received and will be displayed after moderation.",
@@ -127,17 +128,20 @@ export function ReviewModal({
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 relative animate-in fade-in zoom-in-95">
         <button
           type="button"
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 font-bold text-lg"
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-surface-muted transition-colors cursor-pointer"
           onClick={onClose}
+          aria-label={copy.close}
         >
-          ✕
+          <X className="w-5 h-5" />
         </button>
 
         {submittedSuccess ? (
           <div className="py-6 text-center space-y-3">
-            <span className="text-4xl">🎉</span>
-            <h2 className="text-xl font-extrabold text-slate-900">{copy.successTitle}</h2>
-            <p className="text-sm text-slate-600 max-w-xs mx-auto">{copy.successBody}</p>
+            <div className="w-12 h-12 rounded-full bg-emerald-100 text-[var(--forest)] mx-auto flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <h2 className="text-xl font-extrabold text-ink">{copy.successTitle}</h2>
+            <p className="text-sm muted max-w-xs mx-auto">{copy.successBody}</p>
             <button
               type="button"
               className="btn btn-accent text-white font-semibold text-sm px-6 py-2 rounded-full mt-4"
@@ -149,8 +153,11 @@ export function ReviewModal({
         ) : (
           <>
             <div>
-              <h2 className="text-xl font-extrabold text-slate-900">{copy.title}</h2>
-              <p className="text-xs text-slate-500 mt-1">{copy.subtitle}</p>
+              <div className="flex items-center gap-2">
+                <PenLine className="w-5 h-5 text-[var(--forest)]" />
+                <h2 className="text-xl font-extrabold text-ink">{copy.title}</h2>
+              </div>
+              <p className="text-xs muted mt-1">{copy.subtitle}</p>
             </div>
 
             {errorMsg && (
@@ -275,8 +282,9 @@ export function ReviewModal({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="btn btn-accent text-white font-bold text-xs px-6 py-2.5 rounded-full shadow-sm transition-all"
+                  className="btn btn-accent text-white font-bold text-xs px-6 py-2.5 rounded-full shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
                 >
+                  <Rocket className="w-3.5 h-3.5" />
                   {isSubmitting ? copy.submitting : copy.submit}
                 </button>
               </div>

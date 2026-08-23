@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PenLine, Star, CheckCircle2, MessageSquare, ChevronDown } from "lucide-react";
 import { formatDecimal, formatStorefrontDate, type Locale } from "@/lib/format";
 import { ReviewModal } from "./review-modal";
 
@@ -38,40 +39,40 @@ export function ReviewsHub({
       eyebrow: "ASIAKASKOKEMUKSET",
       title: "Aitoja kokemuksia Satakunnan tuoreista metsämarjoista.",
       scoreSubtitle: "Vahvistettua asiakasarvostelua • 100% Suosittelee",
-      writeBtn: "✍️ Kirjoita arvostelu",
+      writeBtn: "Kirjoita arvostelu",
       all: "Kaikki",
       stars: "tähteä",
-      blueberry: "🫐 Mustikka",
-      lingonberry: "🔴 Puolukka",
+      blueberry: "Mustikka",
+      lingonberry: "Puolukka",
       sortNewest: "Uusimmat ensin",
       sortHighest: "Korkein arvio",
       sortLabel: "Järjestä:",
-      verifiedOrder: "✓ Vahvistettu tilaus",
-      verifiedCustomer: "✓ Vahvistettu asiakas",
+      verifiedOrder: "Vahvistettu tilaus",
+      verifiedCustomer: "Vahvistettu asiakas",
       publicReview: "Julkinen arvostelu",
-      sellerReplyTitle: "↳ 🌲 Vastaus myyjältä (Metsänilo):",
+      sellerReplyTitle: "Vastaus myyjältä (Metsänilo):",
       noReviews: "Ei arvosteluja valitulla suodattimella.",
-      loadMore: "💬 Lataa lisää arvosteluja",
+      loadMore: "Lataa lisää arvosteluja",
       showingCount: (visible: number, total: number) => `Näytetään ${Math.min(visible, total)} / ${total} arvostelusta`,
     },
     en: {
       eyebrow: "CUSTOMER EXPERIENCES",
       title: "Genuine reviews from Satakunta fresh forest berries.",
       scoreSubtitle: "Verified customer reviews • 100% Recommended",
-      writeBtn: "✍️ Write a Review",
+      writeBtn: "Write a Review",
       all: "All",
       stars: "stars",
-      blueberry: "🫐 Blueberry",
-      lingonberry: "🔴 Lingonberry",
-      sortNewest: "Newest First",
-      sortHighest: "Highest Rating",
-      sortLabel: "Sort:",
-      verifiedOrder: "✓ Verified Order",
-      verifiedCustomer: "✓ Verified Customer",
-      publicReview: "Public Review",
-      sellerReplyTitle: "↳ 🌲 Seller Reply (Metsänilo):",
-      noReviews: "No reviews found for selected filter.",
-      loadMore: "💬 Load More Reviews",
+      blueberry: "Blueberry",
+      lingonberry: "Lingonberry",
+      sortNewest: "Newest first",
+      sortHighest: "Highest rated",
+      sortLabel: "Sort by:",
+      verifiedOrder: "Verified order",
+      verifiedCustomer: "Verified customer",
+      publicReview: "Public review",
+      sellerReplyTitle: "Seller reply (Metsänilo):",
+      noReviews: "No reviews found matching the filter.",
+      loadMore: "Load more reviews",
       showingCount: (visible: number, total: number) => `Showing ${Math.min(visible, total)} of ${total} reviews`,
     },
   }[locale];
@@ -113,9 +114,10 @@ export function ReviewsHub({
           </p>
           <button
             type="button"
-            className="btn btn-accent text-white font-extrabold text-sm px-5 py-2.5 rounded-full shadow-xs transition-all mt-2"
+            className="btn btn-accent text-white font-extrabold text-sm px-5 py-2.5 rounded-full shadow-xs transition-all mt-2 flex items-center justify-center md:justify-start gap-2 cursor-pointer"
             onClick={() => setIsModalOpen(true)}
           >
+            <PenLine className="w-4 h-4" />
             {copy.writeBtn}
           </button>
         </div>
