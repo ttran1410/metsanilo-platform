@@ -179,6 +179,25 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
           {heroImage ? <Image src={heroImage.url} alt={heroImage.alt || (locale === "fi" ? "Tuoreita puhdistettuja metsämarjoja Satakunnasta" : "Fresh cleaned wild berries from Satakunta")} fill priority unoptimized sizes="(max-width: 960px) 100vw, 48vw" /> : <div className="hero-placeholder"><span>M</span></div>}
           <div className="harvest-seal"><span>{locale === "fi" ? "Kauden" : "Seasonal"}</span><strong>{locale === "fi" ? "SATO" : "HARVEST"}</strong><span>{seasonYear}</span></div>
           <p className="hero-caption">{locale === "fi" ? "Puhdistettu ja valmis pakastettavaksi" : "Cleaned and ready for freezing"}</p>
+          <div className="harvest-band" role="region" aria-label={locale === "fi" ? "Satotilanne" : "Harvest status"}>
+            <div className="harvest-band-edge" aria-hidden="true" />
+            <div className="harvest-band-item">
+              <span>{locale === "fi" ? "Poimittu" : "Harvested"}:</span>
+              <strong>{locale === "fi" ? "Päivittäin Satakunnasta" : "Daily from Satakunta"}</strong>
+            </div>
+            {nextPickupDate && (
+              <div className="harvest-band-item">
+                <span>{locale === "fi" ? "Nouto" : "Pickup"}:</span>
+                <strong>{nextPickupLabel}</strong>
+              </div>
+            )}
+            {nextPickupRemainingMl > 0 && (
+              <div className="harvest-band-item">
+                <span>{locale === "fi" ? "Jäljellä" : "Remaining"}:</span>
+                <strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

@@ -177,18 +177,54 @@ export function OrderForm({
 
   if (receipt) {
     return (
-      <section className="card success mt-6" aria-live="polite">
-        <h3 className="text-2xl font-bold">{t.success}</h3>
-        <p className="mt-3"><strong>{t.reference}:</strong> {receipt.publicReference}</p>
-        <p className="mt-2">{receipt.productName} — {receipt.packageLabel} ({formatLitres(receipt.volumeMl, locale)} l), {formatStorefrontDate(receipt.fulfillmentDate, locale)}</p>
-        <p className="mt-3 font-bold">{t.pending}</p>
+      <section className="p-6 md:p-10 rounded-2xl bg-white border border-[#2f6b4f]/30 shadow-md my-8 space-y-6 animate-in fade-in" aria-live="polite">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[#edf5ef] border border-[#a9c3b0] flex items-center justify-center text-[#14532d]">
+            <Check className="w-5 h-5 stroke-[2.5]" />
+          </div>
+          <div>
+            <span className="text-xs font-extrabold uppercase tracking-widest text-[#1e6b34]">{locale === "fi" ? "Kiitos varauksesta" : "Thank you"}</span>
+            <h2 className="text-2xl md:text-3xl font-serif font-semibold text-[#17201b] tracking-tight">{t.success}</h2>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-[#f7f7f2] border border-[#d8d5cd] flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span className="text-xs text-[#5f6c63] uppercase tracking-wider block font-bold">{t.reference}</span>
+            <strong className="text-xl md:text-2xl font-mono text-[#14532d] tracking-wide">{receipt.publicReference}</strong>
+          </div>
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#edf5ef] text-[#14532d] border border-[#a9c3b0]">
+            {locale === "fi" ? "Odottaa vahvistusta" : "Pending confirmation"}
+          </span>
+        </div>
+
+        <div className="space-y-2 text-sm text-[#17201b]">
+          <p className="font-semibold text-base">
+            {receipt.productName} — {receipt.packageLabel} ({formatLitres(receipt.volumeMl, locale)} l)
+          </p>
+          <p className="text-[#5f6c63]">
+            {locale === "fi" ? "Toimituspäivä" : "Fulfillment date"}: <strong className="text-[#17201b]">{formatStorefrontDate(receipt.fulfillmentDate, locale)}</strong>
+          </p>
+        </div>
+
+        <div className="p-4 rounded-xl bg-[#edf5ef] border border-[#a9c3b0] text-sm leading-relaxed text-[#17201b]">
+          <strong className="block mb-1 text-[#14532d]">{locale === "fi" ? "Mitä tapahtuu seuraavaksi?" : "What happens next?"}</strong>
+          <p>{t.pending}</p>
+        </div>
+
         {receipt.pickup ? (
-          <div className="mt-4 rounded-lg bg-white p-4">
-            <h4 className="font-bold">{t.pickupDetails}</h4>
-            <p>{receipt.pickup.name}<br />{receipt.pickup.address}<br />{receipt.pickup.instructions}<br />{receipt.pickup.time}</p>
+          <div className="p-4 rounded-xl bg-white border border-[#d8d5cd] space-y-1 text-sm">
+            <h3 className="font-bold text-[#14532d]">{t.pickupDetails}</h3>
+            <p className="font-medium text-[#17201b]">{receipt.pickup.name}</p>
+            <p className="text-[#5f6c63] whitespace-pre-line">{receipt.pickup.address}</p>
+            <p className="text-[#5f6c63]">{receipt.pickup.instructions}</p>
+            <p className="text-[#5f6c63] font-semibold">{receipt.pickup.time}</p>
           </div>
         ) : (
-          <div className="mt-4"><strong>{t.deliveryPending}</strong><br />{receipt.delivery?.streetAddress}, {receipt.delivery?.postalCode} {receipt.delivery?.city}</div>
+          <div className="p-4 rounded-xl bg-white border border-[#d8d5cd] space-y-1 text-sm">
+            <strong className="text-[#14532d]">{t.deliveryPending}</strong>
+            <p className="text-[#5f6c63]">{receipt.delivery?.streetAddress}, {receipt.delivery?.postalCode} {receipt.delivery?.city}</p>
+          </div>
         )}
       </section>
     );
