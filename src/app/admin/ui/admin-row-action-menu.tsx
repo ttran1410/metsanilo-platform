@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export function IconEye({ className = "w-4 h-4 text-slate-500" }: { className?: string }) {
   return (
@@ -128,46 +129,98 @@ export function AdminRowActionMenu({
   align?: "left" | "right";
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; openUpwards: boolean } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const leaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const calculatePosition = () => {
+    if (!buttonRef.current) return null;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+    const windowWidth = window.innerWidth;
+    const estimatedMenuHeight = 220;
+    const menuWidth = 210;
+
+    const openUpwards = windowHeight - rect.bottom < estimatedMenuHeight && rect.top > estimatedMenuHeight;
+
+    let top = openUpwards ? rect.top - 6 : rect.bottom + 6;
+    let left = align === "right" ? rect.right - menuWidth : rect.left;
+
+    // Boundary guards
+    if (left + menuWidth > windowWidth - 8) {
+      left = windowWidth - menuWidth - 8;
+    }
+    if (left < 8) {
+      left = 8;
+    }
+
+    return { top, left, openUpwards };
+  };
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
-      if (isOpen && containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        isOpen &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node) &&
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
+
+    function handleScrollOrResize() {
+      if (isOpen) {
+        setIsOpen(false);
+      }
+    }
+
     document.addEventListener("mousedown", handleOutsideClick);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
       if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
     };
   }, [isOpen]);
 
   const handleMouseEnter = () => {
     if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    const pos = calculatePosition();
+    if (pos) setCoords(pos);
     setIsOpen(true);
   };
 
   const handleMouseLeave = () => {
     leaveTimerRef.current = setTimeout(() => {
       setIsOpen(false);
-    }, 200);
+    }, 150);
+  };
+
+  const toggleMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isOpen) {
+      const pos = calculatePosition();
+      if (pos) setCoords(pos);
+    }
+    setIsOpen((prev) => !prev);
   };
 
   return (
     <div
-      ref={containerRef}
-      className={`relative inline-block text-left row-action-menu ${isOpen ? "z-[99]" : "z-10"}`}
+      className="relative inline-block text-left row-action-menu"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       <button
+        ref={buttonRef}
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen((prev) => !prev);
-        }}
+        onClick={toggleMenu}
         aria-expanded={isOpen}
         aria-label="Actions menu"
         className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
@@ -184,37 +237,52 @@ export function AdminRowActionMenu({
         </svg>
       </button>
 
-      {isOpen && (
-        <div
-          className={`absolute ${
-            align === "right" ? "right-0" : "left-0"
-          } top-full mt-1.5 min-w-[210px] rounded-xl border border-slate-200 bg-white/95 backdrop-blur-md p-1.5 shadow-xl z-[100] animate-in fade-in zoom-in-95 duration-100`}
-        >
-          <div className="flex flex-col gap-0.5" role="menu">
-            {items.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                disabled={item.disabled}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsOpen(false);
-                  item.onClick();
-                }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors text-left ${
-                  item.danger
-                    ? "text-rose-600 hover:bg-rose-50"
-                    : "text-slate-700 hover:text-slate-900 hover:bg-slate-100"
-                } ${item.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                role="menuitem"
-              >
-                {item.icon && <span className="w-4 h-4 flex items-center justify-center shrink-0">{item.icon}</span>}
-                <span className="truncate">{item.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {isOpen &&
+        coords &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            onMouseEnter={() => {
+              if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+            }}
+            onMouseLeave={handleMouseLeave}
+            style={{
+              position: "fixed",
+              top: coords.openUpwards ? "auto" : `${coords.top}px`,
+              bottom: coords.openUpwards ? `${window.innerHeight - coords.top}px` : "auto",
+              left: `${coords.left}px`,
+              width: "210px",
+              zIndex: 99999,
+            }}
+            className="rounded-xl border border-slate-200 bg-white/95 backdrop-blur-md p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100"
+          >
+            <div className="flex flex-col gap-0.5" role="menu">
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={item.disabled}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsOpen(false);
+                    item.onClick();
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg transition-colors text-left ${
+                    item.danger
+                      ? "text-rose-600 hover:bg-rose-50"
+                      : "text-slate-700 hover:text-slate-900 hover:bg-slate-100"
+                  } ${item.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                  role="menuitem"
+                >
+                  {item.icon && <span className="w-4 h-4 flex items-center justify-center shrink-0">{item.icon}</span>}
+                  <span className="truncate">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

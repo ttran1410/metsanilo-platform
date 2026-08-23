@@ -4,29 +4,25 @@ import { useState, type FormEvent } from "react";
 import type { Role } from "@/lib/permissions";
 import type { CreatedUser } from "./master-detail-workspace";
 
-const ROLE_PRESETS: Array<{ key: Role; label: string; icon: string; description: string }> = [
+const ROLE_PRESETS: Array<{ key: Role; label: string; description: string }> = [
   {
     key: "STAFF",
-    label: "👤 STAFF (Recommended for Seasonal Workers)",
-    icon: "👤",
+    label: "Staff (Recommended for Seasonal Workers)",
     description: "Order transitions, pickup check-off, packing queues, and basic customer context. No access to financial totals or exports.",
   },
   {
     key: "MANAGER",
-    label: "🛡️ MANAGER (Operations Lead)",
-    icon: "🛡️",
+    label: "Manager (Operations Lead)",
     description: "Manages daily orders, pricing, harvest capacity, sold-out locks, and staff assignments.",
   },
   {
     key: "ADMIN",
-    label: "👑 ADMIN (Store Owner)",
-    icon: "👑",
+    label: "Admin (Store Owner)",
     description: "Full access to all business operations, financial ledgers, system settings, and user permissions.",
   },
   {
     key: "CONTENT_CREATOR",
-    label: "🎨 CONTENT CREATOR (Photographer / Writer)",
-    icon: "🎨",
+    label: "Content creator (Photographer / Writer)",
     description: "Product descriptions, media gallery uploads, website copy editing, and customer reviews moderation.",
   },
 ];
@@ -187,7 +183,7 @@ export function OnboardingModal({
                 className="text-[11px] font-semibold text-primary hover:underline"
                 onClick={() => setPassword(generateOneTimePassword())}
               >
-                🔄 Regenerate Code
+                Regenerate password
               </button>
             </div>
 
@@ -202,7 +198,7 @@ export function OnboardingModal({
               />
             </div>
             <small className="muted text-[11px]">
-              🔒 User will be forced to change this password on their first login.
+              User will be forced to choose a new password on their first login.
             </small>
           </div>
 
@@ -210,8 +206,8 @@ export function OnboardingModal({
             <button className="btn btn-secondary text-xs" type="button" onClick={onClose}>
               Cancel
             </button>
-            <button className="btn text-xs font-bold py-2 px-4 shadow-md" type="submit" disabled={busy}>
-              {busy ? "Creating…" : "🚀 Create Team Account"}
+            <button className="btn text-xs font-semibold py-2 px-4 shadow-sm" type="submit" disabled={busy}>
+              {busy ? "Creating account…" : "Create team account"}
             </button>
           </div>
         </form>

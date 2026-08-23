@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   }
 
   // Generate CSV
-  const headers = ["Timestamp", "Actor", "Role/Email", "Severity", "Category", "Action", "Entity Type", "Entity ID", "Summary / Reason", "Raw JSON"];
+  const headers = ["Timestamp", "Actor", "Role/Email", "Severity", "Category", "Action", "Entity Type", "Entity ID", "Correlation ID", "Summary / Reason", "Raw JSON"];
   const rows = result.items.map((item) => {
     return [
       `"${item.createdAt}"`,
@@ -55,6 +55,7 @@ export async function GET(request: Request) {
       `"${item.action}"`,
       `"${item.entityType}"`,
       `"${item.entityId}"`,
+      `"${item.correlationId ?? ""}"`,
       `"${(item.diff.summary + (item.diff.reason ? ` - ${item.diff.reason}` : "")).replace(/"/g, '""')}"`,
       `"${item.detailsJson.replace(/"/g, '""')}"`,
     ].join(",");

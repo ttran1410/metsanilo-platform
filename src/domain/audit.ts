@@ -9,6 +9,7 @@ export type AuditCategory = "ORDERS" | "USERS" | "CUSTOMERS" | "AVAILABILITY" | 
 export interface AuditDiff {
   summary: string;
   reason?: string;
+  correlationId?: string;
   before?: Record<string, unknown>;
   after?: Record<string, unknown>;
   changes?: Array<{ field: string; oldVal: unknown; newVal: unknown }>;
@@ -32,24 +33,25 @@ export interface FormattedAuditItem {
   severity: AuditSeverity;
   category: AuditCategory;
   diff: AuditDiff;
+  correlationId?: string;
 }
 
 export function formatAuditActionTitle(action: string): { title: string; icon: string } {
   const act = action.toLowerCase();
-  if (act === "order.payment_recorded" || act.includes("payment")) return { title: "Payment Recorded", icon: "💳" };
-  if (act === "order.status_transition" || act.includes("status")) return { title: "Status Changed", icon: "🔄" };
-  if (act === "order.price_adjusted" || act.includes("price")) return { title: "Price Adjusted", icon: "🏷️" };
-  if (act === "order.refund_recorded" || act.includes("refund")) return { title: "Refund Processed", icon: "💸" };
-  if (act.includes("created")) return { title: "Record Created", icon: "✨" };
-  if (act.includes("permission_granted") || act.includes("grant")) return { title: "Permission Granted", icon: "🔑" };
-  if (act.includes("permission_revoked") || act.includes("revoke")) return { title: "Permission Revoked", icon: "🔒" };
-  if (act.includes("role")) return { title: "Role Updated", icon: "👔" };
-  if (act.includes("merged")) return { title: "Profiles Merged", icon: "🔗" };
-  if (act.includes("availability")) return { title: "Availability Set", icon: "📅" };
-  if (act.includes("note")) return { title: "Note Added", icon: "📝" };
-  if (act.includes("updated")) return { title: "Record Updated", icon: "✏️" };
-  if (act.includes("delete")) return { title: "Record Deleted", icon: "🗑️" };
-  return { title: action.replaceAll(".", " ").replaceAll("_", " "), icon: "📋" };
+  if (act === "order.payment_recorded" || act.includes("payment")) return { title: "Payment recorded", icon: "CreditCard" };
+  if (act === "order.status_transition" || act.includes("status")) return { title: "Status changed", icon: "RefreshCw" };
+  if (act === "order.price_adjusted" || act.includes("price")) return { title: "Price adjusted", icon: "Tag" };
+  if (act === "order.refund_recorded" || act.includes("refund")) return { title: "Refund processed", icon: "ReceiptRefund" };
+  if (act.includes("created")) return { title: "Record created", icon: "PlusCircle" };
+  if (act.includes("permission_granted") || act.includes("grant")) return { title: "Permission granted", icon: "KeyRound" };
+  if (act.includes("permission_revoked") || act.includes("revoke")) return { title: "Permission revoked", icon: "Lock" };
+  if (act.includes("role")) return { title: "Role updated", icon: "UserCheck" };
+  if (act.includes("merged")) return { title: "Profiles merged", icon: "GitMerge" };
+  if (act.includes("availability")) return { title: "Availability updated", icon: "Calendar" };
+  if (act.includes("note")) return { title: "Note added", icon: "FileText" };
+  if (act.includes("updated")) return { title: "Record updated", icon: "Pencil" };
+  if (act.includes("delete")) return { title: "Record deleted", icon: "Trash2" };
+  return { title: action.replaceAll(".", " ").replaceAll("_", " "), icon: "Activity" };
 }
 
 export function formatAuditActor(
@@ -158,9 +160,11 @@ export function getAuditCategory(entityType: string): AuditCategory {
 export function parseAuditDiff(detailsJson: string): AuditDiff {
   try {
     const parsed = JSON.parse(detailsJson);
+    const correlationId = parsed.correlationId ?? parsed.traceId ?? parsed.requestId ?? undefined;
     const result: AuditDiff = {
       summary: parsed.summary ?? parsed.message ?? parsed.action ?? "System action recorded",
       reason: parsed.reason ?? parsed.moderationReason ?? parsed.notes ?? undefined,
+      correlationId,
       rawPayload: parsed,
     };
 
@@ -182,7 +186,7 @@ export function parseAuditDiff(detailsJson: string): AuditDiff {
       // Look for standard before/after patterns in flat payloads
       const changes: Array<{ field: string; oldVal: unknown; newVal: unknown }> = [];
       for (const [key, val] of Object.entries(parsed)) {
-        if (key === "summary" || key === "reason") continue;
+        if (key === "summary" || key === "reason" || key === "correlationId" || key === "traceId") continue;
         if (key.endsWith("Before") || key.endsWith("Old")) {
           const baseKey = key.replace(/(Before|Old)$/, "");
           const afterKey = `${baseKey}After` in parsed ? `${baseKey}After` : `${baseKey}New`;
@@ -327,6 +331,7 @@ export async function listAuditEntries(
       productMap,
       userMap
     );
+    const diff = parseAuditDiff(entry.detailsJson);
 
     return {
       ...entry,
@@ -338,7 +343,8 @@ export async function listAuditEntries(
       targetInfo,
       severity: getAuditSeverity(entry.action),
       category: getAuditCategory(entry.entityType),
-      diff: parseAuditDiff(entry.detailsJson),
+      diff,
+      correlationId: diff.correlationId,
     };
   });
 

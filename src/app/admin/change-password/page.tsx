@@ -1,2 +1,30 @@
 import { ForcedPasswordForm } from "./form";
-export default function ChangePasswordPage() { return <main className="admin-login-page"><div className="admin-login-frame"><div className="admin-login-brand"><span className="admin-brand-mark" aria-hidden="true"><i /><i /><i /></span><div><strong>METSÄNILO</strong><span>Operations</span></div></div><section className="admin-login-card" aria-labelledby="change-password-title"><p className="eyebrow">ACCOUNT SECURITY</p><h1 id="change-password-title">Choose a new password</h1><p className="admin-login-lede">For security, update your temporary password before continuing to the operations workspace.</p><ForcedPasswordForm /></section></div></main>; }
+
+export default function ChangePasswordPage() {
+  return (
+    <main className="admin-login-page">
+      <div className="admin-login-frame">
+        <div className="admin-login-brand">
+          <span className="admin-brand-mark" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <div>
+            <strong>METSÄNILO</strong>
+            <span>Operations</span>
+          </div>
+        </div>
+
+        <section className="admin-login-card" aria-labelledby="change-password-title">
+          <p className="eyebrow">ACCOUNT SECURITY</p>
+          <h1 id="change-password-title">Choose a new password</h1>
+          <p className="admin-login-lede">
+            For security, update your temporary password before continuing to the operations workspace.
+          </p>
+          <ForcedPasswordForm />
+        </section>
+      </div>
+    </main>
+  );
+}

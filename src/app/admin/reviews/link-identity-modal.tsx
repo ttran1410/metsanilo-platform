@@ -156,24 +156,24 @@ export function LinkIdentityModal({
 
         {/* MATCHING ORDERS */}
         <div className="flex flex-col gap-2">
-          <span className="eyebrow text-[10px] text-emerald-900 font-bold">🛒 MATCHING DIGITAL ORDERS ({ordersList.length})</span>
+          <span className="eyebrow text-[10px] text-slate-500 font-bold">MATCHING DIGITAL ORDERS ({ordersList.length})</span>
           {ordersList.map((ord) => (
             <div
               key={ord.id}
-              className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-center justify-between gap-2 hover:bg-emerald-100/60 transition-colors"
+              className="p-2.5 rounded-xl border border-line bg-surface flex items-center justify-between gap-2 hover:bg-surface-muted/50 transition-colors"
             >
               <div>
-                <strong className="text-emerald-950 font-bold font-mono">{ord.publicReference}</strong>
+                <strong className="text-ink font-bold font-mono">{ord.publicReference}</strong>
                 <span className="block text-ink text-[11px] font-semibold">{ord.customerName}</span>
                 <span className="muted text-[10px]">{ord.mobile ?? ord.email ?? "No contact"}</span>
               </div>
               <button
                 type="button"
-                className="btn btn-secondary text-xs py-1 px-3 font-bold text-emerald-900 border-emerald-300 bg-white"
+                className="btn btn-secondary text-xs py-1 px-3 font-semibold"
                 disabled={submitting}
                 onClick={() => void handleLink({ orderId: ord.id })}
               >
-                🔗 Link Order
+                Link order
               </button>
             </div>
           ))}
@@ -185,23 +185,23 @@ export function LinkIdentityModal({
 
         {/* MATCHING CUSTOMERS */}
         <div className="flex flex-col gap-2 pt-2 border-t border-line">
-          <span className="eyebrow text-[10px] text-blue-900 font-bold">👤 MATCHING CRM CUSTOMERS ({customersList.length})</span>
+          <span className="eyebrow text-[10px] text-slate-500 font-bold">MATCHING CRM CUSTOMERS ({customersList.length})</span>
           {customersList.map((cust) => (
             <div
               key={cust.id}
-              className="p-2.5 rounded-xl border border-blue-200 bg-blue-50/50 flex items-center justify-between gap-2 hover:bg-blue-100/60 transition-colors"
+              className="p-2.5 rounded-xl border border-line bg-surface flex items-center justify-between gap-2 hover:bg-surface-muted/50 transition-colors"
             >
               <div>
-                <strong className="text-blue-950 font-bold text-xs">{cust.name}</strong>
+                <strong className="text-ink font-bold text-xs">{cust.name}</strong>
                 <span className="block text-[11px] muted font-mono">{cust.mobile ?? cust.email ?? cust.facebookProfile ?? "No contact"}</span>
               </div>
               <button
                 type="button"
-                className="btn btn-secondary text-xs py-1 px-3 font-bold text-blue-900 border-blue-300 bg-white"
+                className="btn btn-secondary text-xs py-1 px-3 font-semibold"
                 disabled={submitting}
                 onClick={() => void handleLink({ customerId: cust.id })}
               >
-                👤 Link Customer
+                Link customer
               </button>
             </div>
           ))}
