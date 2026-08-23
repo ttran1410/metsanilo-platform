@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { ArrowLeft, Boxes, ChevronDown, ClipboardList, Copy, Gauge, KeyRound, LockKeyhole, MapPinned, Pencil, Plus, RefreshCcw, Save, Search, ShieldAlert, ShieldCheck, ShoppingBasket, Store, UserRoundX, UsersRound, type LucideIcon } from "lucide-react";
 import {
   defaultPermissionsForRole,
   isHighRiskPermission,
@@ -11,7 +11,7 @@ import {
 } from "@/lib/permissions";
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
-import { AdminRowActionMenu, IconCopy, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
+import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { OnboardingModal } from "./onboarding-modal";
 
 export type UserRow = {
@@ -48,15 +48,15 @@ type AuditItem = {
   createdAt: string;
 };
 
-const PERMISSION_GROUPS: Array<{ label: string; icon: string; permissions: Permission[] }> = [
+const PERMISSION_GROUPS: Array<{ label: string; icon: LucideIcon; permissions: Permission[] }> = [
   {
-    label: " Overview & Dashboard",
-    icon: "📊",
+    label: "Overview and notifications",
+    icon: Gauge,
     permissions: ["dashboard.read", "notifications.read"],
   },
   {
-    label: " Orders & Fulfillment",
-    icon: "📦",
+    label: "Orders and fulfilment",
+    icon: ShoppingBasket,
     permissions: [
       "orders.read",
       "orders.create",
@@ -70,8 +70,8 @@ const PERMISSION_GROUPS: Array<{ label: string; icon: string; permissions: Permi
     ],
   },
   {
-    label: " Harvest Capacity & Availability",
-    icon: "🫐",
+    label: "Availability and delivery",
+    icon: MapPinned,
     permissions: [
       "availability.read",
       "availability.write",
@@ -82,8 +82,8 @@ const PERMISSION_GROUPS: Array<{ label: string; icon: string; permissions: Permi
     ],
   },
   {
-    label: " Customer Context",
-    icon: "👥",
+    label: "Customer context",
+    icon: UsersRound,
     permissions: [
       "customers.read",
       "customers.write",
@@ -93,8 +93,8 @@ const PERMISSION_GROUPS: Array<{ label: string; icon: string; permissions: Permi
     ],
   },
   {
-    label: " Product Catalog",
-    icon: "🏷️",
+    label: "Product catalog",
+    icon: Boxes,
     permissions: [
       "catalog.product.read",
       "catalog.product.write",
@@ -104,8 +104,8 @@ const PERMISSION_GROUPS: Array<{ label: string; icon: string; permissions: Permi
     ],
   },
   {
-    label: " Customer Reviews & CMS",
-    icon: "⭐",
+    label: "Reviews and storefront content",
+    icon: Store,
     permissions: [
       "reviews.read",
       "reviews.create",
@@ -115,13 +115,14 @@ const PERMISSION_GROUPS: Array<{ label: string; icon: string; permissions: Permi
       "cms.read",
       "cms.edit",
       "cms.publish",
+      "theme.manage",
       "media.read",
       "media.write",
     ],
   },
   {
-    label: " System & Administration",
-    icon: "⚙️",
+    label: "System administration",
+    icon: ShieldCheck,
     permissions: [
       "shop_users.read",
       "shop_users.manage",
@@ -173,6 +174,7 @@ const PERMISSION_LABELS: Record<string, string> = {
   "cms.read": "View site copy",
   "cms.edit": "Edit site copy",
   "cms.publish": "Publish site copy",
+  "theme.manage": "Draft, publish and restore Frontstore themes",
   "media.read": "View photo gallery",
   "media.write": "Upload & reorder photo gallery",
   "shop_users.read": "View team roster",
@@ -221,6 +223,8 @@ export function MasterDetailUserWorkspace({
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [pendingPermissions, setPendingPermissions] = useState<Partial<Record<Permission, boolean>>>({});
+  const [savingPermissions, setSavingPermissions] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [createdInfo, setCreatedInfo] = useState<{ user: CreatedUser; tempPassword: string } | null>(null);
 
@@ -243,6 +247,7 @@ export function MasterDetailUserWorkspace({
   async function loadUserExtras(id: string) {
     setSelectedId(id);
     setMobileView("detail");
+    setPendingPermissions({});
     try {
       const response = await fetch(`/api/admin/users/${id}`);
       const body = await response.json();
@@ -254,6 +259,15 @@ export function MasterDetailUserWorkspace({
       /* ignore */
     }
   }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (selectedId) void loadUserExtras(selectedId);
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // Load the initially selected user's lifecycle context once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function refreshUsersList(idToSelect?: string) {
     try {
@@ -315,34 +329,56 @@ export function MasterDetailUserWorkspace({
     return filteredUsers.slice(0, splitLimit);
   }, [filteredUsers, splitLimit]);
 
-  const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredUsers.slice(start, start + pageSize);
   }, [filteredUsers, currentPage, pageSize]);
 
-  // Grant / Revoke Permission Override
-  async function handleGrantPermission(permission: Permission, granted: boolean) {
+  function stagePermission(permission: Permission, granted: boolean) {
     if (!selectedUser) return;
+    const current = selectedUser.permissions.includes(permission);
+    setPendingPermissions((changes) => {
+      const next = { ...changes };
+      if (granted === current) delete next[permission];
+      else next[permission] = granted;
+      return next;
+    });
+  }
+
+  async function savePermissionChanges() {
+    if (!selectedUser || savingPermissions) return;
+    const changes = Object.entries(pendingPermissions) as Array<[Permission, boolean]>;
+    if (!changes.length) return;
+    setSavingPermissions(true);
     setError("");
     setMessage("");
-
-    const response = await fetch(`/api/admin/users/${selectedUser.id}/permissions`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ permission, granted }),
-    });
-
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not update permission.");
-
-    setMessage(`${granted ? "Granted" : "Revoked"}: ${permissionName(permission)}`);
-    void refreshUsersList(selectedUser.id);
+    let saved = 0;
+    try {
+      for (const [permission, granted] of changes) {
+        const response = await fetch(`/api/admin/users/${selectedUser.id}/permissions`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ permission, granted }),
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message ?? `Could not update ${permissionName(permission)}.`);
+        saved += 1;
+      }
+      setPendingPermissions({});
+      setMessage(`${saved} permission ${saved === 1 ? "change" : "changes"} saved for ${selectedUser.displayName}.`);
+      await refreshUsersList(selectedUser.id);
+    } catch (caught) {
+      setError(`${saved ? `${saved} changes were saved. ` : ""}${caught instanceof Error ? caught.message : "Could not save permission changes."}`);
+      await refreshUsersList(selectedUser.id);
+    } finally {
+      setSavingPermissions(false);
+    }
   }
 
   // Reset to Role Defaults
   async function handleResetToDefaults() {
     if (!selectedUser) return;
+    if (!window.confirm(`Reset all custom permission overrides for ${selectedUser.displayName}?`)) return;
     setError("");
     setMessage("");
 
@@ -359,32 +395,10 @@ export function MasterDetailUserWorkspace({
     void refreshUsersList(selectedUser.id);
   }
 
-  // Change Role
-  async function handleChangeRole(newRole: Role) {
-    if (!selectedUser) return;
-    setError("");
-    setMessage("");
-
-    if (newRole === "ADMIN" && actorRole !== "ADMIN") {
-      return setError("Only Store Owner (ADMIN) accounts can grant the ADMIN role.");
-    }
-
-    const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "role", role: newRole }),
-    });
-
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not update user role.");
-
-    setMessage(`Role for ${selectedUser.displayName} updated to ${newRole}.`);
-    void refreshUsersList(selectedUser.id);
-  }
-
   // Toggle Active/Suspended
   async function handleToggleActive(active: boolean) {
     if (!selectedUser) return;
+    if (!window.confirm(`${active ? "Activate" : "Suspend"} ${selectedUser.displayName}?${active ? "" : " Their active sessions will no longer be valid."}`)) return;
     setError("");
     setMessage("");
 
@@ -402,19 +416,19 @@ export function MasterDetailUserWorkspace({
   }
 
   // Reset Password
-  async function handleResetPassword() {
-    if (!selectedUser) return;
-    if (!window.confirm(`Reset password for ${selectedUser.displayName}?`)) return;
+  async function handleResetPassword(target: UserRow | undefined = selectedUser) {
+    if (!target) return;
+    if (!window.confirm(`Reset password for ${target.displayName}?`)) return;
     setError("");
     setMessage("");
 
-    const response = await fetch(`/api/admin/users/${selectedUser.id}/password`, { method: "POST" });
+    const response = await fetch(`/api/admin/users/${target.id}/password`, { method: "POST" });
     const body = await response.json();
 
     if (!response.ok) return setError(body.message ?? "Password reset failed.");
 
     setCreatedInfo({
-      user: selectedUser,
+      user: target,
       tempPassword: body.data.temporaryPassword,
     });
   }
@@ -422,6 +436,7 @@ export function MasterDetailUserWorkspace({
   // Revoke All Active Sessions
   async function handleRevokeSessions() {
     if (!selectedUser) return;
+    if (!window.confirm(`Revoke every active session for ${selectedUser.displayName}?`)) return;
     setError("");
     setMessage("");
 
@@ -483,42 +498,41 @@ export function MasterDetailUserWorkspace({
     selectedUser &&
     (actorRole === "ADMIN" || selectedUser.role === "STAFF" || selectedUser.role === "CONTENT_CREATOR") &&
     (actorRole === "ADMIN" || selectedUser.role !== "ADMIN");
+  const pendingPermissionCount = Object.keys(pendingPermissions).length;
 
   return (
     <section className="admin-users-workspace shell pb-10 flex flex-col gap-4">
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
-      {/* TOP KPI METRICS SUMMARY BAR */}
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4 my-1">
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-muted text-[10px]">TOTAL TEAM</span>
-          <p className="text-2xl font-black text-ink mt-1">{metrics.total} <span className="text-xs font-normal muted">users</span></p>
-          <span className="text-[11px] text-primary font-semibold mt-1">Active Roster</span>
+      <div className="admin-user-metrics">
+        <div>
+          <span>Total team</span>
+          <strong>{metrics.total}</strong>
+          <small>Staff accounts</small>
         </div>
 
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-muted text-[10px]">ADMIN & MANAGER</span>
-          <p className="text-2xl font-black text-purple-950 mt-1">{metrics.adminManagers} <span className="text-xs font-normal text-purple-700">execs</span></p>
-          <span className="text-[11px] text-purple-800 font-semibold mt-1">Full Executive Access</span>
+        <div>
+          <span>Privileged roles</span>
+          <strong>{metrics.adminManagers}</strong>
+          <small>Admin and manager</small>
         </div>
 
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-muted text-[10px]">STAFF & CREATORS</span>
-          <p className="text-2xl font-black text-emerald-950 mt-1">{metrics.staffPickers} <span className="text-xs font-normal text-emerald-700">ops</span></p>
-          <span className="text-[11px] text-emerald-800 font-semibold mt-1">Operations & Content</span>
+        <div>
+          <span>Operational roles</span>
+          <strong>{metrics.staffPickers}</strong>
+          <small>Staff and content</small>
         </div>
 
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-muted text-[10px]">CUSTOM OVERRIDES</span>
-          <p className="text-2xl font-black text-amber-950 mt-1">{metrics.customOverrides} <span className="text-xs font-normal text-amber-700">custom</span></p>
-          <span className="text-[11px] text-amber-800 font-semibold mt-1">Granted/Revoked RBAC</span>
+        <div>
+          <span>Custom access</span>
+          <strong>{metrics.customOverrides}</strong>
+          <small>Users with overrides</small>
         </div>
       </div>
 
-      {/* DUAL WORKSPACE VIEW SWITCHER & ONBOARD ACTION */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-muted p-2.5 rounded-xl border border-line">
-        <div className="flex items-center gap-2">
+      <div className="admin-users-viewbar">
+        <div className="admin-users-view-switch" role="group" aria-label="Roster view">
           <button
             type="button"
             className={`btn text-xs px-3.5 py-1.5 font-bold transition-all ${
@@ -526,7 +540,7 @@ export function MasterDetailUserWorkspace({
             }`}
             onClick={() => setViewMode("split")}
           >
-             Split view
+             Directory and detail
           </button>
 
           <button
@@ -536,7 +550,7 @@ export function MasterDetailUserWorkspace({
             }`}
             onClick={() => setViewMode("table")}
           >
-             Table matrix
+             Team table
           </button>
         </div>
 
@@ -546,7 +560,7 @@ export function MasterDetailUserWorkspace({
             className="btn bg-emerald-700 hover:bg-emerald-800 text-white text-xs py-1.5 px-3 font-bold shadow-xs"
             onClick={() => setShowWizard(true)}
           >
-             Onboard user
+             <Plus aria-hidden="true" /> Add team member
           </button>
         )}
       </div>
@@ -559,7 +573,8 @@ export function MasterDetailUserWorkspace({
             <div className="flex items-center gap-2 flex-1 max-w-md">
               <div className="relative flex-1">
                 <input
-                  placeholder="Search staff users by name, email, or role…"
+                  placeholder="Search team"
+                  aria-label="Search team members"
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -698,8 +713,7 @@ export function MasterDetailUserWorkspace({
                                   label: "Reset Password",
                                   icon: <IconLock />,
                                   onClick: () => {
-                                    void loadUserExtras(u.id);
-                                    void handleResetPassword();
+                                    void handleResetPassword(u);
                                   },
                                 },
                               ]
@@ -746,7 +760,8 @@ export function MasterDetailUserWorkspace({
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <input
-                  placeholder="Search staff users by name, email, or role…"
+                  placeholder="Search team"
+                  aria-label="Search team members"
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -855,7 +870,7 @@ export function MasterDetailUserWorkspace({
                   className="btn btn-secondary text-xs px-3.5 py-2 font-bold flex items-center gap-1.5 w-full justify-center"
                   onClick={() => setMobileView("list")}
                 >
-                  ← Back to Team Roster List
+                  <ArrowLeft aria-hidden="true" /> Back to team directory
                 </button>
               </div>
 
@@ -877,86 +892,44 @@ export function MasterDetailUserWorkspace({
                     </div>
                   </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {canManageUsers && (
-                    <label className="text-xs font-semibold text-ink flex items-center gap-1.5">
-                      <span>Role:</span>
-                      <select
-                        aria-label="User role"
-                        value={selectedUser.role}
-                        onChange={(e) => void handleChangeRole(e.target.value as Role)}
-                        className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface font-bold"
-                      >
-                        <option value="ADMIN" disabled={actorRole !== "ADMIN"}>
-                          {actorRole !== "ADMIN" ? "ADMIN (Requires Store Owner)" : "ADMIN"}
-                        </option>
-                        <option value="MANAGER">MANAGER</option>
-                        <option value="STAFF">STAFF</option>
-                        <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
-                      </select>
-                    </label>
-                  )}
-
-                  {canManageUsers && (
-                    <button
-                      type="button"
-                      className="btn text-xs py-1.5 px-3 flex items-center gap-1 font-bold shadow-xs"
-                      onClick={() => setEditingUser(selectedUser)}
-                    >
-                      ✏️ Edit Profile
-                    </button>
-                  )}
-
-                  {canResetPasswords && (
-                    <button
-                      type="button"
-                      className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
-                      onClick={() => void handleResetPassword()}
-                    >
-                      🔑 Reset Password
-                    </button>
-                  )}
-
-                  {canManageUsers && (
-                    <button
-                      type="button"
-                      className={`btn text-xs py-1.5 px-3 font-semibold ${
-                        selectedUser.active !== false ? "btn-secondary text-danger" : "btn-primary"
-                      }`}
-                      onClick={() => void handleToggleActive(selectedUser.active === false)}
-                    >
-                      {selectedUser.active !== false ? "🚫 Suspend" : "🟢 Activate"}
-                    </button>
-                  )}
+                  <div className="admin-user-profile-status">
+                    <AdminStatusBadge status="NEUTRAL" label={selectedUser.role.replaceAll("_", " ")} />
+                    <AdminStatusBadge status={selectedUser.active === false ? "CANCELLED" : selectedUser.mustChangePassword ? "UNPAID" : "CONFIRMED"} label={selectedUser.active === false ? "Suspended" : selectedUser.mustChangePassword ? "Password change required" : "Active"} />
+                  </div>
                 </div>
+
+                <div className="admin-user-lifecycle-actions" aria-label="Account actions">
+                  {canManageUsers && <button type="button" className="btn" onClick={() => setEditingUser(selectedUser)}><Pencil aria-hidden="true" />Edit profile and role</button>}
+                  {canResetPasswords && <button type="button" className="btn btn-secondary" onClick={() => void handleResetPassword()}><KeyRound aria-hidden="true" />Reset password</button>}
+                  {canManageUsers && <button type="button" className={`btn btn-secondary ${selectedUser.active !== false ? "text-danger" : ""}`} onClick={() => void handleToggleActive(selectedUser.active === false)}>{selectedUser.active !== false ? <><UserRoundX aria-hidden="true" />Suspend account</> : <><ShieldCheck aria-hidden="true" />Activate account</>}</button>}
               </div>
 
-              {/* Session Kill Switch & Summary Line */}
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs bg-surface-muted p-3 rounded-xl border border-line">
-                <div className="flex items-center gap-3">
-                  <span>Role Defaults: <strong>{selectedDefaults.length}</strong></span>
-                  <span>•</span>
-                  <span>Effective Granted: <strong className="text-primary">{selectedUser.permissions.length}</strong></span>
+              <div className="admin-user-access-summary">
+                <div>
+                  <span>Role defaults <strong>{selectedDefaults.length}</strong></span>
+                  <span>Effective permissions <strong>{selectedUser.permissions.length}</strong></span>
+                  <span>Active sessions <strong>{sessions.length}</strong></span>
                 </div>
 
                 {canManageUsers && (
                   <button
                     type="button"
                     className="btn btn-secondary text-xs py-1 px-2.5 text-danger font-semibold"
+                    disabled={sessions.length === 0}
                     onClick={() => void handleRevokeSessions()}
                   >
-                    🚪 Revoke All Active Sessions
+                    <LockKeyhole aria-hidden="true" /> Revoke all sessions
                   </button>
                 )}
               </div>
             </div>
 
-            {/* GROUPED PERMISSION ASSIGNMENT MATRIX */}
-            <div className="card p-4 md:p-5 flex flex-col gap-5">
+            <div className="card p-4 md:p-5 flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
                 <div>
-                  <span className="eyebrow">GRANULAR ACCESS CONTROL (RBAC)</span>
-                  <h3 className="text-base font-bold text-ink">Permission Assignment Matrix</h3>
+                  <span className="eyebrow">Effective access</span>
+                  <h3 className="text-base font-bold text-ink">Permissions by operational domain</h3>
+                  <p className="text-xs muted">Role defaults provide the baseline. Custom changes are reviewed and saved together.</p>
                 </div>
 
                 {canAssignPermissions && (
@@ -965,23 +938,35 @@ export function MasterDetailUserWorkspace({
                     className="btn btn-secondary text-xs py-1.5 px-3"
                     onClick={() => void handleResetToDefaults()}
                   >
-                    ↺ Reset to Role Defaults
+                    <RefreshCcw aria-hidden="true" /> Reset overrides
                   </button>
                 )}
               </div>
 
-              <div className="flex flex-col gap-5 divide-y divide-line">
-                {PERMISSION_GROUPS.map((group) => (
-                  <div key={group.label} className="pt-4 first:pt-0 flex flex-col gap-2.5">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-2">
-                      <span>{group.icon}</span> {group.label}
-                    </h4>
+              {pendingPermissionCount > 0 && (
+                <div className="admin-permission-savebar" role="status">
+                  <div><strong>{pendingPermissionCount} unsaved {pendingPermissionCount === 1 ? "change" : "changes"}</strong><span>Review highlighted permissions before saving.</span></div>
+                  <div><button type="button" className="btn btn-secondary" disabled={savingPermissions} onClick={() => setPendingPermissions({})}>Discard</button><button type="button" className="btn" disabled={savingPermissions} onClick={() => void savePermissionChanges()}><Save aria-hidden="true" />{savingPermissions ? "Saving…" : "Save access changes"}</button></div>
+                </div>
+              )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              <div className="admin-permission-groups">
+                {PERMISSION_GROUPS.map((group, groupIndex) => {
+                  const GroupIcon = group.icon;
+                  const grantedCount = group.permissions.filter((permission) => pendingPermissions[permission] ?? selectedUser.permissions.includes(permission)).length;
+                  const pendingInGroup = group.permissions.filter((permission) => pendingPermissions[permission] !== undefined).length;
+                  return <details key={group.label} open={groupIndex === 0}>
+                    <summary>
+                      <span><GroupIcon aria-hidden="true" /><strong>{group.label}</strong></span>
+                      <span>{grantedCount} of {group.permissions.length} granted{pendingInGroup ? ` · ${pendingInGroup} pending` : ""}<ChevronDown aria-hidden="true" /></span>
+                    </summary>
+
+                    <div className="admin-permission-grid">
                       {group.permissions.map((permKey) => {
                         const isRoleDefault = selectedDefaults.includes(permKey);
-                        const isGranted = selectedUser.permissions.includes(permKey);
+                        const isGranted = pendingPermissions[permKey] ?? selectedUser.permissions.includes(permKey);
                         const isHighRisk = isHighRiskPermission(permKey);
+                        const isPending = pendingPermissions[permKey] !== undefined;
 
                         const isCustomGranted =
                           selectedUser.customOverrides?.granted.includes(permKey);
@@ -991,11 +976,7 @@ export function MasterDetailUserWorkspace({
                         return (
                           <div
                             key={permKey}
-                            className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-colors ${
-                              isGranted
-                                ? "bg-surface border-line"
-                                : "bg-surface-muted/40 border-line/60 opacity-70"
-                            }`}
+                            className={`admin-permission-row${isGranted ? " is-granted" : ""}${isPending ? " is-pending" : ""}`}
                           >
                             <div className="flex flex-col gap-0.5 min-w-0">
                               <div className="flex items-center gap-1.5">
@@ -1003,9 +984,7 @@ export function MasterDetailUserWorkspace({
                                   {permissionName(permKey)}
                                 </span>
                                 {isHighRisk && (
-                                  <span title="High Risk Shield" className="text-amber-800 text-[10px]">
-                                    🛡️
-                                  </span>
+                                  <span title="High-risk permission" className="admin-permission-risk"><ShieldAlert aria-hidden="true" /></span>
                                 )}
                               </div>
 
@@ -1029,6 +1008,7 @@ export function MasterDetailUserWorkspace({
                                     - Revoked
                                   </span>
                                 )}
+                                {isPending && <span className="admin-status-badge admin-status-warning">Pending {isGranted ? "grant" : "revoke"}</span>}
                               </div>
                             </div>
 
@@ -1038,17 +1018,17 @@ export function MasterDetailUserWorkspace({
                                 className={`btn text-xs py-1 px-2.5 font-bold shrink-0 ${
                                   isGranted ? "btn-secondary text-danger" : "btn-primary"
                                 }`}
-                                onClick={() => void handleGrantPermission(permKey, !isGranted)}
+                                onClick={() => stagePermission(permKey, !isGranted)}
                               >
-                                {isGranted ? "Revoke" : "Grant"}
+                                {isGranted ? "Remove" : "Add"}
                               </button>
                             )}
                           </div>
                         );
                       })}
                     </div>
-                  </div>
-                ))}
+                  </details>;
+                })}
               </div>
             </div>
 
@@ -1056,9 +1036,7 @@ export function MasterDetailUserWorkspace({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Active Sessions */}
               <div className="card p-4 flex flex-col gap-3">
-                <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
-                  📱 Active Sessions ({sessions.length})
-                </h4>
+                <h4 className="admin-user-panel-title"><LockKeyhole aria-hidden="true" /> Active sessions <span>{sessions.length}</span></h4>
 
                 <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
                   {sessions.map((s) => (
@@ -1079,9 +1057,7 @@ export function MasterDetailUserWorkspace({
 
               {/* User Audit Feed */}
               <div className="card p-4 flex flex-col gap-3">
-                <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
-                  📜 Security Audit Feed ({audit.length})
-                </h4>
+                <h4 className="admin-user-panel-title"><ClipboardList aria-hidden="true" /> User audit trail <span>{audit.length}</span></h4>
 
                 <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
                   {audit.map((a) => (
@@ -1131,10 +1107,10 @@ export function MasterDetailUserWorkspace({
           <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between border-b border-line pb-2">
               <h3 className="text-base font-bold text-ink flex items-center gap-2">
-                <span>✏️</span> Edit User Profile
+                <Pencil aria-hidden="true" /> Edit profile and role
               </h3>
-              <button type="button" className="text-lg font-bold text-muted hover:text-ink" onClick={() => setEditingUser(null)}>
-                ✕
+              <button type="button" className="admin-dialog-close" aria-label="Close edit profile" onClick={() => setEditingUser(null)}>
+                ×
               </button>
             </div>
 
@@ -1166,7 +1142,7 @@ export function MasterDetailUserWorkspace({
                   Cancel
                 </button>
                 <button className="btn text-xs font-bold min-w-[120px]" type="submit" disabled={savingEdit}>
-                  {savingEdit ? "⏳ Saving…" : "Save Profile"}
+                  {savingEdit ? "Saving…" : "Save profile"}
                 </button>
               </div>
             </form>
@@ -1194,7 +1170,7 @@ export function MasterDetailUserWorkspace({
                   setMessage("Temporary password copied to clipboard!");
                 }}
               >
-                <IconCopy className="w-3.5 h-3.5" />
+                <Copy className="w-3.5 h-3.5" />
                 <span>Copy</span>
               </button>
             </div>

@@ -5,12 +5,12 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { eq } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
-import { availability, customers, notifications, orderPayments, orders, outboxJobs, packages, products, shops, userPermissions } from "@/db/schema";
+import { auditEntries, availability, customers, notifications, orderPayments, orders, outboxJobs, packages, products, shops, userPermissions } from "@/db/schema";
 import { createUser, requirePermission, setUserPermission } from "@/domain/access";
 import { createExternalOrder, createHistoricalOrder, runAutomation } from "@/domain/operations";
-import { addOrderNote, archiveManagerOrder, confirmPickup, deleteManagerOrder, getManagerOrder, getOrderQueue, previewManagerOrderUpdate, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder, unarchiveManagerOrder, updateManagerOrder } from "@/domain/orders";
+import { addOrderNote, archiveManagerOrder, confirmPickup, getManagerOrder, getOrderQueue, previewManagerOrderUpdate, recordPayment, recordRefund, setDeliveryFee, submitOrder, transitionOrder, unarchiveManagerOrder, updateManagerOrder } from "@/domain/orders";
 import { createProduct, deleteProduct } from "@/domain/products";
-import { planAvailability, previewAvailabilityUpdate } from "@/domain/availability";
+import { planAvailability, previewAvailabilityPlan, previewAvailabilityUpdate } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
 import { listPaymentMethods, setPaymentMethod } from "@/domain/payment-methods";
 
@@ -196,15 +196,37 @@ describe("availability planning", () => {
     expect(unchanged?.acceptsOrders).toBe(true);
   });
 
+  it("previews create and overwrite operations without mutating the planning window", async () => {
+    const preview = await previewAvailabilityPlan(database, {
+      productId: "product-berries", frequency: "DAY", startDate: "2099-08-13", endDate: "2099-08-15", capacityMl: 9000,
+    });
+    const unchanged = await database.query.availability.findFirst({ where: eq(availability.id, "availability-main") });
+
+    expect(preview.summary).toEqual({ creates: 1, overwrites: 2, blocked: 0 });
+    expect(preview.entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ date: "2099-08-13", operation: "OVERWRITE", currentCapacityMl: 5000, nextCapacityMl: 9000, version: 1 }),
+      expect.objectContaining({ date: "2099-08-15", operation: "CREATE", currentCapacityMl: null, nextCapacityMl: 9000 }),
+    ]));
+    expect(unchanged?.capacityMl).toBe(5000);
+
+    await submitOrder(database, pickupInput("blocked-plan-preview"));
+    const blocked = await previewAvailabilityPlan(database, {
+      productId: "product-berries", frequency: "CUSTOM", startDate: "2099-08-13", endDate: "2099-08-13", dates: ["2099-08-13"], capacityMl: 1,
+    });
+    expect(blocked.summary.blocked).toBe(1);
+    expect(blocked.entries[0]).toMatchObject({ canApply: false, reservedMl: 5000 });
+  });
+
   it("plans daily dates, creates missing rows, and protects reservations", async () => {
     await submitOrder(database, pickupInput("planner-reservation"));
     const planned = await planAvailability(database, {
       productId: "product-berries", frequency: "DAY", startDate: "2099-08-13", endDate: "2099-08-15",
-      capacityMl: 12000, manualSoldOut: true, soldOutReason: "Picker unavailable",
+      capacityMl: 12000, manualSoldOut: true, soldOutReason: "Picker unavailable", actor: "manager@example.fi",
     });
     expect(planned).toHaveLength(3);
     expect(planned.every((row) => row.capacityMl === 12000 && row.manualSoldOut)).toBe(true);
     expect((await database.query.availability.findFirst({ where: eq(availability.businessDate, "2099-08-15") }))?.reservedMl).toBe(0);
+    expect((await database.query.auditEntries.findFirst({ where: eq(auditEntries.action, "availability.planned") }))?.actor).toBe("manager@example.fi");
     await expect(planAvailability(database, {
       productId: "product-berries", frequency: "CUSTOM", startDate: "2099-08-13", endDate: "2099-08-13",
       dates: ["2099-08-13"], capacityMl: 1, manualSoldOut: false,

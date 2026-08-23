@@ -21,6 +21,7 @@ export const shops = sqliteTable("shops", {
   businessId: text("business_id"),
   logoUrl: text("logo_url"),
   faviconUrl: text("favicon_url"),
+  storefrontTheme: text("storefront_theme", { enum: ["forest-harvest", "nordic-ink", "berry-season"] }).notNull().default("forest-harvest"),
   reviewsVisible: integer("reviews_visible", { mode: "boolean" }).notNull().default(true),
   howItWorksVisible: integer("how_it_works_visible", { mode: "boolean" }).notNull().default(true),
   aboutUsVisible: integer("about_us_visible", { mode: "boolean" }).notNull().default(true),
@@ -28,6 +29,26 @@ export const shops = sqliteTable("shops", {
   reviewCount: integer("review_count").notNull().default(0),
   starDistributionJson: text("star_distribution_json").notNull().default('{"5":0,"4":0,"3":0,"2":0,"1":0}'),
 });
+
+export const storefrontThemeVersions = sqliteTable(
+  "storefront_theme_versions",
+  {
+    id: text("id").primaryKey(),
+    shopId: text("shop_id").notNull().references(() => shops.id),
+    version: integer("version").notNull(),
+    themeKey: text("theme_key", { enum: ["forest-harvest", "nordic-ink", "berry-season"] }).notNull(),
+    status: text("status", { enum: ["DRAFT", "PUBLISHED", "SUPERSEDED", "DISCARDED"] }).notNull().default("DRAFT"),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    publishedBy: text("published_by"),
+    publishedAt: text("published_at"),
+  },
+  (table) => [
+    uniqueIndex("storefront_theme_versions_shop_version_unique").on(table.shopId, table.version),
+    index("storefront_theme_versions_shop_status_idx").on(table.shopId, table.status, table.updatedAt),
+  ],
+);
 
 export const orderSources = sqliteTable("order_sources", {
   id: text("id").primaryKey(),

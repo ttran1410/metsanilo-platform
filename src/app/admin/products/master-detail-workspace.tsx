@@ -4,8 +4,25 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { packages, products } from "@/db/schema";
-import { Search } from "lucide-react";
-import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  ClipboardList,
+  Eye,
+  FileText,
+  Globe2,
+  Home,
+  Image as ImageIcon,
+  Package,
+  Plus,
+  Save,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLink } from "../ui/admin-row-action-menu";
 
@@ -62,7 +79,6 @@ export function MasterDetailWorkspace({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -84,15 +100,10 @@ export function MasterDetailWorkspace({
       const isPostSeason = today > row.product.availableThrough;
       return row.product.active && !isPreSeason && !isPostSeason;
     }).length;
-    const activePackages = productsList.reduce(
-      (sum, row) => sum + row.packages.filter((pkg) => pkg.active).length,
-      0,
-    );
-    const storefrontVisible = productsList.filter(
-      (row) => row.product.active && row.product.showOnHomepage,
-    ).length;
+    const upcoming = productsList.filter((row) => row.product.active && today < row.product.availableFrom).length;
+    const archived = productsList.filter((row) => !row.product.active || today > row.product.availableThrough).length;
 
-    return { total, inSeason, activePackages, storefrontVisible };
+    return { total, inSeason, upcoming, archived };
   }, [productsList, today]);
 
   const selectedRow = useMemo(() => {
@@ -212,7 +223,6 @@ export function MasterDetailWorkspace({
     });
   }, [productsList, searchQuery, filterStatus, today]);
 
-  const totalPages = Math.ceil(filteredMasterList.length / pageSize) || 1;
   const paginatedMasterList = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredMasterList.slice(start, start + pageSize);
@@ -284,7 +294,6 @@ export function MasterDetailWorkspace({
   // Smart Delete or Archive Guard
   async function handleDeleteOrArchive() {
     if (!selectedRow) return;
-    setDeleting(true);
     setError("");
     setMessage("");
 
@@ -292,8 +301,6 @@ export function MasterDetailWorkspace({
       method: "DELETE",
     });
     const body = await response.json();
-    setDeleting(false);
-
     if (!response.ok) {
       if (body.code === "PRODUCT_IN_USE" || response.status === 409) {
         // Fallback to non-destructive Archive
@@ -322,72 +329,40 @@ export function MasterDetailWorkspace({
   }
 
   const missingEn = !nameEn.trim() || !descEn.trim();
+  const filterOptions: Array<{ key: FilterStatus; label: string; count: number; tone: string }> = [
+    { key: "all", label: "All", count: metrics.total, tone: "neutral" },
+    { key: "in_season", label: "In season", count: metrics.inSeason, tone: "success" },
+    { key: "upcoming", label: "Upcoming", count: metrics.upcoming, tone: "warning" },
+    { key: "archived", label: "Archived", count: metrics.archived, tone: "neutral" },
+  ];
 
   return (
     <section className="admin-catalog-workspace shell pb-10 flex flex-col gap-3">
+      <AdminPageHeader
+        eyebrow="Catalog"
+        title="Products"
+        description="Find a product, check whether it is ready to sell, and make a focused change."
+        actions={
+          <>
+            <label className="admin-catalog-view-picker">
+              <span>View</span>
+              <select value={viewMode} onChange={(event) => setViewMode(event.target.value as "split" | "table")}>
+                <option value="split">List and editor</option>
+                <option value="table">Comparison table</option>
+              </select>
+            </label>
+            {canManageProducts && (
+              <Link className="btn admin-catalog-create" href="/admin/products/new">
+                <Plus aria-hidden="true" />
+                <span>New product</span>
+              </Link>
+            )}
+          </>
+        }
+      />
+
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
-
-      {/* TOP KPI METRICS SUMMARY BAR */}
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4 my-1">
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-muted text-[10px]">TOTAL VARIETIES</span>
-          <p className="text-2xl font-black text-ink mt-1">{metrics.total} <span className="text-xs font-normal muted">products</span></p>
-          <span className="text-[11px] text-primary font-semibold mt-1">Catalog Varieties</span>
-        </div>
-
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-muted text-[10px]">IN SEASON NOW</span>
-          <p className="text-2xl font-black text-emerald-950 mt-1">{metrics.inSeason} <span className="text-xs font-normal text-emerald-700">active</span></p>
-          <span className="text-[11px] text-emerald-800 font-semibold mt-1">Harvest Window Open</span>
-        </div>
-
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-muted text-[10px]">ACTIVE PACKAGES</span>
-          <p className="text-2xl font-black text-blue-950 mt-1">{metrics.activePackages} <span className="text-xs font-normal text-blue-700">skus</span></p>
-          <span className="text-[11px] text-blue-800 font-semibold mt-1">Available Volumes</span>
-        </div>
-
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-muted text-[10px]">STOREFRONT HIGHLIGHTS</span>
-          <p className="text-2xl font-black text-amber-950 mt-1">{metrics.storefrontVisible} <span className="text-xs font-normal text-amber-700">featured</span></p>
-          <span className="text-[11px] text-amber-800 font-semibold mt-1">Homepage Display</span>
-        </div>
-      </div>
-
-      {/* VIEW SWITCHER TOOLBAR */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-muted p-2.5 rounded-xl border border-line">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className={`btn text-xs px-3.5 py-1.5 font-bold transition-all cursor-pointer ${
-              viewMode === "split" ? "bg-primary text-white shadow-xs" : "btn-secondary"
-            }`}
-            onClick={() => setViewMode("split")}
-          >
-            Split view
-          </button>
-
-          <button
-            type="button"
-            className={`btn text-xs px-3.5 py-1.5 font-bold transition-all cursor-pointer ${
-              viewMode === "table" ? "bg-primary text-white shadow-xs" : "btn-secondary"
-            }`}
-            onClick={() => setViewMode("table")}
-          >
-            Table matrix
-          </button>
-        </div>
-
-        {canManageProducts && (
-          <Link
-            className="btn bg-emerald-700 hover:bg-emerald-800 text-white text-xs py-1.5 px-3 font-bold shadow-xs"
-            href="/admin/products/new"
-          >
-            New product
-          </Link>
-        )}
-      </div>
 
       {/* WORKSPACE CONTENT AREA */}
       {viewMode === "table" ? (
@@ -397,7 +372,7 @@ export function MasterDetailWorkspace({
             <div className="flex flex-wrap items-center gap-2 flex-1 max-w-lg">
               <div className="relative flex-1">
                 <input
-                  placeholder="Search products by title, SKU, or package size…"
+                  placeholder="Search by name or code…"
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -408,13 +383,8 @@ export function MasterDetailWorkspace({
                 <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
               </div>
 
-              <div className="flex items-center gap-1 text-[11px]">
-                {[
-                  { key: "all", label: "All" },
-                  { key: "in_season", label: "🟢 In Season" },
-                  { key: "upcoming", label: "🟡 Upcoming" },
-                  { key: "archived", label: "⚪ Archived" },
-                ].map((tab) => (
+              <div className="admin-catalog-filters text-[11px]">
+                {filterOptions.map((tab) => (
                   <button
                     key={tab.key}
                     type="button"
@@ -424,11 +394,12 @@ export function MasterDetailWorkspace({
                         : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
                     }`}
                     onClick={() => {
-                      setFilterStatus(tab.key as FilterStatus);
-                      setCurrentPage(1);
-                    }}
+                        setFilterStatus(tab.key);
+                        setCurrentPage(1);
+                      }}
                   >
-                    {tab.label}
+                    <span className={`admin-status-dot is-${tab.tone}`} aria-hidden="true" />
+                    {tab.label} <span className="admin-filter-count">{tab.count}</span>
                   </button>
                 ))}
               </div>
@@ -465,7 +436,7 @@ export function MasterDetailWorkspace({
                           {primaryImg ? (
                             <img src={primaryImg.url} alt={row.product.nameFi} className="w-full h-full object-cover" />
                           ) : (
-                            <span className="text-base">🫐</span>
+                            <ImageIcon className="admin-placeholder-icon" aria-hidden="true" />
                           )}
                         </div>
                         <div>
@@ -496,13 +467,13 @@ export function MasterDetailWorkspace({
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-1 text-[10px] font-semibold">
                         {row.product.showOnHomepage && (
-                          <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded border border-amber-300">
-                            🛒 Homepage
+                          <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded border border-amber-300 inline-flex items-center gap-1">
+                            <Home aria-hidden="true" /> Homepage
                           </span>
                         )}
                         {row.product.showOnReserve && (
-                          <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded border border-emerald-300">
-                            📝 Reserve Form
+                          <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded border border-emerald-300 inline-flex items-center gap-1">
+                            <ClipboardList aria-hidden="true" /> Reservation form
                           </span>
                         )}
                       </div>
@@ -517,7 +488,8 @@ export function MasterDetailWorkspace({
                             : "bg-surface-muted text-ink/70 border-line"
                         }`}
                       >
-                        {isInSeason ? "🟢 In Season" : isPreSeason ? "🟡 Upcoming" : "⚪ Archived"}
+                        <span className={`admin-status-dot ${isInSeason ? "is-success" : isPreSeason ? "is-warning" : "is-neutral"}`} aria-hidden="true" />
+                        {isInSeason ? "In season" : isPreSeason ? "Upcoming" : "Archived"}
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">
@@ -543,7 +515,7 @@ export function MasterDetailWorkspace({
                           {
                             id: "packages-pricing",
                             label: "Packages & Pricing",
-                            icon: <span className="text-slate-500 font-bold">📦</span>,
+                            icon: <Package aria-hidden="true" />,
                             onClick: () => {
                               selectProduct(row);
                               setViewMode("split");
@@ -584,22 +556,16 @@ export function MasterDetailWorkspace({
           }`}>
             <div className="flex items-center justify-between border-b border-line pb-2.5">
               <div>
-                <span className="eyebrow">CATALOG MASTER</span>
-                <h2 className="text-base font-bold text-ink">Products ({filteredMasterList.length})</h2>
+                <span className="eyebrow">Catalog list</span>
+                <h2 className="text-base font-bold text-ink">{filteredMasterList.length} products</h2>
               </div>
-
-              {canManageProducts && (
-                <Link className="btn text-xs py-1 px-2.5" href="/admin/products/new">
-                  New product
-                </Link>
-              )}
             </div>
 
             {/* Search & Filter Controls */}
             <div className="flex flex-col gap-2">
               <div className="relative w-full">
                 <input
-                  placeholder="Search products by title, SKU, or package size…"
+                  placeholder="Search by name or code…"
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -610,13 +576,8 @@ export function MasterDetailWorkspace({
                 <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
               </div>
 
-              <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
-                {[
-                  { key: "all", label: "All" },
-                  { key: "in_season", label: "🟢 In Season" },
-                  { key: "upcoming", label: "🟡 Upcoming" },
-                  { key: "archived", label: "⚪ Archived" },
-                ].map((tab) => (
+              <div className="admin-catalog-filters text-[11px]">
+                {filterOptions.map((tab) => (
                   <button
                     key={tab.key}
                     type="button"
@@ -626,11 +587,12 @@ export function MasterDetailWorkspace({
                         : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
                     }`}
                     onClick={() => {
-                      setFilterStatus(tab.key as FilterStatus);
-                      setCurrentPage(1);
-                    }}
+                        setFilterStatus(tab.key);
+                        setCurrentPage(1);
+                      }}
                   >
-                    {tab.label}
+                    <span className={`admin-status-dot is-${tab.tone}`} aria-hidden="true" />
+                    {tab.label} <span className="admin-filter-count">{tab.count}</span>
                   </button>
                 ))}
               </div>
@@ -672,20 +634,18 @@ export function MasterDetailWorkspace({
                         {primaryImg ? (
                           <img src={primaryImg.url} alt={row.product.nameFi} className="w-full h-full object-cover" />
                         ) : (
-                          <span className="text-lg">🫐</span>
+                          <ImageIcon className="admin-placeholder-icon" aria-hidden="true" />
                         )}
                       </div>
 
                       {/* Text Details */}
                       <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-start justify-between gap-2">
                           <strong className="text-sm font-bold text-ink truncate">{row.product.nameFi}</strong>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-muted border border-line text-ink/80 shrink-0">
-                            {row.product.code}
-                          </span>
                         </div>
 
                         <span className="text-xs muted truncate">{row.product.nameEn}</span>
+                        <span className="admin-product-code">{row.product.code}</span>
 
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
@@ -695,7 +655,8 @@ export function MasterDetailWorkspace({
                               ? "bg-amber-50 text-amber-900 border-amber-200"
                               : "bg-surface-muted text-muted border-line"
                           }`}>
-                            {isInSeason ? "🟢 In Season" : isPreSeason ? "🟡 Upcoming" : "⚪ Ended"}
+                            <span className={`admin-status-dot ${isInSeason ? "is-success" : isPreSeason ? "is-warning" : "is-neutral"}`} aria-hidden="true" />
+                            {isInSeason ? "In season" : isPreSeason ? "Upcoming" : "Ended"}
                           </span>
 
                           <span className="text-[10px] muted font-medium">
@@ -711,6 +672,7 @@ export function MasterDetailWorkspace({
                         <button
                           type="button"
                           title="Move product position up on storefront"
+                          aria-label={`Move ${row.product.nameFi} up`}
                           disabled={index === 0}
                           className="p-1 rounded hover:bg-surface-muted disabled:opacity-20 text-[10px] font-bold leading-none"
                           onClick={(e) => {
@@ -718,11 +680,12 @@ export function MasterDetailWorkspace({
                             void handleMoveProduct(index, "up");
                           }}
                         >
-                          ▲
+                          <ArrowUp aria-hidden="true" />
                         </button>
                         <button
                           type="button"
                           title="Move product position down on storefront"
+                          aria-label={`Move ${row.product.nameFi} down`}
                           disabled={index === filteredMasterList.length - 1}
                           className="p-1 rounded hover:bg-surface-muted disabled:opacity-20 text-[10px] font-bold leading-none"
                           onClick={(e) => {
@@ -730,7 +693,7 @@ export function MasterDetailWorkspace({
                             void handleMoveProduct(index, "down");
                           }}
                         >
-                          ▼
+                          <ArrowDown aria-hidden="true" />
                         </button>
                       </div>
                     )}
@@ -762,7 +725,7 @@ export function MasterDetailWorkspace({
                 className="btn btn-secondary text-xs px-3.5 py-2 font-bold flex items-center gap-1.5 w-full justify-center"
                 onClick={() => setMobileView("list")}
               >
-                ← Back to Product Catalog
+                <ArrowLeft aria-hidden="true" /> Back to products
               </button>
             </div>
           {selectedRow ? (
@@ -771,7 +734,7 @@ export function MasterDetailWorkspace({
               <div className="card p-4 md:p-5 flex flex-col gap-3">
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-3">
                   <div>
-                    <span className="eyebrow">PRODUCT WORKSPACE EDITOR</span>
+                    <span className="eyebrow">Product editor</span>
                     <div className="flex flex-wrap items-center gap-2 mt-0.5">
                       <h1 className="text-2xl font-bold tracking-tight text-ink">{nameFi}</h1>
                       <AdminStatusBadge status={active ? "CONFIRMED" : "CANCELLED"} label={active ? "Active" : "Archived"} />
@@ -787,7 +750,7 @@ export function MasterDetailWorkspace({
                       className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
                       onClick={() => setShowPreviewDrawer(true)}
                     >
-                      👁️ Preview Storefront
+                      <Eye aria-hidden="true" /> Preview
                     </button>
 
                     {canManageProducts && (
@@ -797,7 +760,7 @@ export function MasterDetailWorkspace({
                         onClick={() => void handleSaveChanges()}
                         disabled={saving}
                       >
-                        {saving ? "Saving…" : "💾 Save Changes"}
+                        <Save aria-hidden="true" /> {saving ? "Saving…" : "Save changes"}
                       </button>
                     )}
                   </div>
@@ -806,10 +769,10 @@ export function MasterDetailWorkspace({
                 {/* 4 WORKSPACE TABS */}
                 <nav className="flex items-center gap-2 border-b border-line pb-0 overflow-x-auto" aria-label="Editor Tabs">
                   {[
-                    { key: "general", label: "Tab 1: General & Text", badge: missingEn },
-                    { key: "packages", label: `Tab 2: Packages (${selectedRow.packages.length})` },
-                    { key: "media", label: `Tab 3: Media (${selectedRow.media?.length ?? 0})` },
-                    { key: "channels", label: "Tab 4: Season & Channels" },
+                    { key: "general", label: "General and copy", icon: FileText, badge: missingEn },
+                    { key: "packages", label: `Packages (${selectedRow.packages.length})`, icon: Package },
+                    { key: "media", label: `Media (${selectedRow.media?.length ?? 0})`, icon: ImageIcon },
+                    { key: "channels", label: "Publishing", icon: Globe2 },
                   ].map((tab) => (
                     <button
                       key={tab.key}
@@ -821,6 +784,7 @@ export function MasterDetailWorkspace({
                       }`}
                       onClick={() => setActiveTab(tab.key as ActiveTab)}
                     >
+                      <tab.icon aria-hidden="true" />
                       {tab.label}
                       {tab.badge && <span className="text-amber-500 font-bold">●</span>}
                     </button>
@@ -893,7 +857,7 @@ export function MasterDetailWorkspace({
                               className="btn btn-secondary text-xs text-amber-900 border-amber-300 bg-amber-50 hover:bg-amber-100 py-1.5 px-3 flex items-center gap-1.5 font-medium"
                               onClick={() => setShowArchiveConfirm(true)}
                             >
-                              📦 Archive Product
+                              <Archive aria-hidden="true" /> Archive product
                             </button>
                           ) : (
                             <button
@@ -901,7 +865,7 @@ export function MasterDetailWorkspace({
                               className="btn text-xs bg-emerald-700 hover:bg-emerald-800 text-white py-1.5 px-3 flex items-center gap-1.5 font-bold shadow-sm"
                               onClick={() => setShowUnarchiveConfirm(true)}
                             >
-                              🟢 Un-archive Product
+                              <ArchiveRestore aria-hidden="true" /> Restore product
                             </button>
                           )}
 
@@ -910,7 +874,7 @@ export function MasterDetailWorkspace({
                             className="btn btn-secondary text-xs text-danger border-rose-200 bg-rose-50/50 hover:bg-rose-100 py-1.5 px-3 flex items-center gap-1.5 font-medium"
                             onClick={() => setShowDeleteConfirm(true)}
                           >
-                            🗑️ Delete Product
+                            <Trash2 aria-hidden="true" /> Delete product
                           </button>
                         </div>
                       )}
@@ -976,7 +940,7 @@ export function MasterDetailWorkspace({
                           checked={showOnHomepage}
                           onChange={(e) => setShowOnHomepage(e.target.checked)}
                         />
-                        <span>🌐 Show on Storefront Homepage</span>
+                        <span className="inline-flex items-center gap-1.5"><Home aria-hidden="true" /> Show on storefront homepage</span>
                       </label>
 
                       <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
@@ -985,7 +949,7 @@ export function MasterDetailWorkspace({
                           checked={showOnReserve}
                           onChange={(e) => setShowOnReserve(e.target.checked)}
                         />
-                        <span>📝 Show on Reservation Form</span>
+                        <span className="inline-flex items-center gap-1.5"><ClipboardList aria-hidden="true" /> Show on reservation form</span>
                       </label>
                     </div>
                   </div>
@@ -1008,7 +972,7 @@ export function MasterDetailWorkspace({
       {showArchiveConfirm && selectedRow && (
         <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowArchiveConfirm(false)}>
           <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
-            <p className="eyebrow text-amber-900">CONFIRM ARCHIVE</p>
+            <p className="eyebrow text-amber-900">Confirm archive</p>
             <h3 className="text-lg font-bold text-ink">Archive {selectedRow.product.nameFi}?</h3>
             <p className="text-xs muted leading-relaxed">
               Archiving hides this product from the customer storefront and reservation portal. Historical order records and audit receipts will be preserved intact.
@@ -1025,7 +989,7 @@ export function MasterDetailWorkspace({
                   void handleToggleActive(false);
                 }}
               >
-                📦 Confirm Archive
+                <Archive aria-hidden="true" /> Archive product
               </button>
             </div>
           </div>
@@ -1036,7 +1000,7 @@ export function MasterDetailWorkspace({
       {showUnarchiveConfirm && selectedRow && (
         <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowUnarchiveConfirm(false)}>
           <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
-            <p className="eyebrow text-emerald-800">CONFIRM RESTORE</p>
+            <p className="eyebrow text-emerald-800">Confirm restore</p>
             <h3 className="text-lg font-bold text-ink">Un-archive {selectedRow.product.nameFi}?</h3>
             <p className="text-xs muted leading-relaxed">
               Un-archiving restores this product to active status in your product catalog. Check availability dates to ensure storefront ordering is ready.
@@ -1053,7 +1017,7 @@ export function MasterDetailWorkspace({
                   void handleToggleActive(true);
                 }}
               >
-                🟢 Confirm Un-archive
+                <ArchiveRestore aria-hidden="true" /> Restore product
               </button>
             </div>
           </div>
@@ -1064,7 +1028,7 @@ export function MasterDetailWorkspace({
       {showDeleteConfirm && selectedRow && (
         <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
           <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
-            <p className="eyebrow text-danger">CONFIRM PERMANENT DELETE</p>
+            <p className="eyebrow text-danger">Confirm permanent delete</p>
             <h3 className="text-lg font-bold text-ink">Delete {selectedRow.product.nameFi}?</h3>
             <p className="text-xs muted leading-relaxed">
               Permanently delete this product from the database? This action cannot be undone. If historical orders exist, deletion will be blocked and the product will be archived instead.
@@ -1081,7 +1045,7 @@ export function MasterDetailWorkspace({
                   void handleDeleteOrArchive();
                 }}
               >
-                🗑️ Confirm Delete
+                <Trash2 aria-hidden="true" /> Delete permanently
               </button>
             </div>
           </div>

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Edit3, Phone, MessageSquare, Share2, ExternalLink, PlusCircle, Search } from "lucide-react";
-import { AdminEmptyState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
+import { ArrowLeft, CircleCheck, Edit3, ExternalLink, GitMerge, LayoutList, Mail, MapPin, MessageSquare, PanelLeft, Phone, Pin, Plus, PlusCircle, Save, Search, ShieldAlert, ShieldCheck, Star } from "lucide-react";
+import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge, formatAdminMoney } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconDocument, IconEye } from "../ui/admin-row-action-menu";
 import { CustomerModal } from "./customer-modal";
@@ -93,6 +93,13 @@ function cleanPhoneForWhatsApp(mobile?: string | null) {
   return digits;
 }
 
+function maskPhone(mobile?: string | null) {
+  if (!mobile) return "No phone";
+  const compact = mobile.replace(/\s/g, "");
+  if (compact.length <= 6) return compact;
+  return `${compact.slice(0, 4)} ••• ${compact.slice(-4)}`;
+}
+
 export function MasterDetailCustomerWorkspace({
   initialCustomers,
   canEdit,
@@ -110,7 +117,7 @@ export function MasterDetailCustomerWorkspace({
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
   const [filterChip, setFilterChip] = useState<"all" | "vip" | "conflicts" | "consent">(() => searchParams.get("filter") as "all" | "vip" | "conflicts" | "consent" || "all");
   const [sortMode, setSortMode] = useState<"recent" | "spend_desc" | "litres_desc" | "name_asc">(() => searchParams.get("sort") as "recent" | "spend_desc" | "litres_desc" | "name_asc" || "recent");
-  const [workspaceView, setWorkspaceView] = useState<"table" | "split">(() => searchParams.get("view") === "split" ? "split" : "table");
+  const [workspaceView, setWorkspaceView] = useState<"table" | "split">(() => searchParams.get("view") === "table" ? "table" : "split");
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
 
   const [tableSortField, setTableSortField] = useState<"name" | "volume" | "spend" | "status">("name");
@@ -138,9 +145,9 @@ export function MasterDetailCustomerWorkspace({
   const [editingNoteText, setEditingNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
-  async function loadProfile(id: string) {
+  async function loadProfile(id: string, showDetail = true) {
     setSelectedId(id);
-    setMobileView("detail");
+    if (showDetail) setMobileView("detail");
     setLoadingProfile(true);
     setError("");
     try {
@@ -177,27 +184,14 @@ export function MasterDetailCustomerWorkspace({
 
   // Load the first profile once the client workspace mounts.
   useEffect(() => {
-    if (rawList[0]?.id && !profile) {
+    if (selectedId && !profile) {
       // This initial fetch hydrates profile state from the server-provided list.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      void loadProfile(rawList[0].id);
+      void loadProfile(selectedId, false);
     }
     // The initial profile is intentionally loaded once from the server-provided list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Calculate Summary KPI Metrics
-  const summaryMetrics = useMemo(() => {
-    const totalLitres = customersList.reduce((acc, c) => acc + (c.metrics?.lifetimeLitres ?? 0), 0);
-    const vipCount = customersList.filter((c) => c.metrics?.isVip).length;
-    const consentCount = customersList.filter((c) => c.marketingConsent).length;
-    return {
-      totalCustomers: customersList.length,
-      vipCount,
-      totalLitres,
-      consentCount,
-    };
-  }, [customersList]);
 
   // Filter & Sort Customer Master List
   const filteredCustomers = useMemo(() => {
@@ -229,7 +223,6 @@ export function MasterDetailCustomerWorkspace({
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [splitLimit, setSplitLimit] = useState(20);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -237,20 +230,10 @@ export function MasterDetailCustomerWorkspace({
     if (searchQuery) next.set("q", searchQuery); else next.delete("q");
     if (filterChip !== "all") next.set("filter", filterChip); else next.delete("filter");
     if (sortMode !== "recent") next.set("sort", sortMode); else next.delete("sort");
-    if (workspaceView !== "table") next.set("view", workspaceView); else next.delete("view");
+    if (workspaceView !== "split") next.set("view", workspaceView); else next.delete("view");
     if (page > 1) next.set("page", String(page)); else next.delete("page");
     if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [filterChip, page, router, searchParams, searchQuery, selectedId, sortMode, workspaceView]);
-
-  useEffect(() => {
-    function handleOutsideClick(event: MouseEvent) {
-      if (activeMenuId && !(event.target as HTMLElement).closest(".row-action-menu")) {
-        setActiveMenuId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [activeMenuId]);
 
   const paginatedCustomers = useMemo(() => {
     const list = [...filteredCustomers];
@@ -318,58 +301,22 @@ export function MasterDetailCustomerWorkspace({
     void refreshList();
   }
 
-  // WhatsApp Pre-filled Triggers
-  function triggerWhatsApp(templateKind: "READY" | "CONFIRMED") {
-    if (!profile) return;
-    const cleanPhone = cleanPhoneForWhatsApp(profile.customer.mobile);
-    const firstName = profile.customer.name.split(" ")[0] ?? profile.customer.name;
-
-    const msg =
-      templateKind === "READY"
-        ? `Hei ${firstName}! Marjaeräsi on pakattu ja valmiina noudettavaksi tänään Toriparkista. Tervetuloa! 🫐`
-        : `Hei ${firstName}! Kiitos varauksestasi Metsänilolla. Vahvistamme marjavarauksesi. 🫐`;
-
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
-  }
-
   return (
     <section className="admin-customers-workspace shell pb-10 flex flex-col gap-4">
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
-      {/* TOP KPI SUMMARY METRICS BAR */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="card p-3 flex flex-col gap-1 border-line bg-surface">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
-            <span>👥</span> Total Customers
-          </span>
-          <strong className="text-xl font-extrabold text-ink">{summaryMetrics.totalCustomers}</strong>
-        </div>
-
-        <div className="card p-3 flex flex-col gap-1 border-amber-200 bg-amber-50/40">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-            <span>⭐</span> VIP Buyers (20L+)
-          </span>
-          <strong className="text-xl font-extrabold text-amber-900">{summaryMetrics.vipCount}</strong>
-        </div>
-
-        <div className="card p-3 flex flex-col gap-1 border-emerald-200 bg-emerald-50/40">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
-            <span>🫐</span> Berry Volume Sold
-          </span>
-          <strong className="text-xl font-extrabold text-emerald-900">{formatLitres(summaryMetrics.totalLitres)}</strong>
-        </div>
-
-        <div className="card p-3 flex flex-col gap-1 border-line bg-surface">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
-            <span>✉️</span> Marketing Consent
-          </span>
-          <strong className="text-xl font-extrabold text-ink">{summaryMetrics.consentCount}</strong>
-        </div>
+      <div className="customers-page-heading">
+        <AdminPageHeader
+          eyebrow="Relationships"
+          title="Customers"
+          description={`${customersList.length} customer${customersList.length === 1 ? "" : "s"} · Search safely, inspect the relationship, then take the next action.`}
+        />
+        {canEdit && <button type="button" className="btn" onClick={() => setShowCreateModal(true)}><Plus aria-hidden="true" />New customer</button>}
       </div>
 
       {/* WORKSPACE TOOLBAR: SEARCH, SORT, VIEW SWITCHER & NEW CUSTOMER */}
-      <div className="card p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="card customers-toolbar">
         <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <div className="relative flex-1">
             <input
@@ -386,54 +333,54 @@ export function MasterDetailCustomerWorkspace({
             onChange={(e) => setSortMode(e.target.value as typeof sortMode)}
             className="text-xs py-2 px-2.5 rounded-lg border border-line bg-surface font-medium"
           >
-            <option value="recent">🕒 Most Recent Activity</option>
-            <option value="spend_desc">💶 Highest Spend (€)</option>
-            <option value="litres_desc">🫐 Highest Volume (L)</option>
-            <option value="name_asc">🔤 Name (A–Z)</option>
+            <option value="recent">Most recent activity</option>
+            <option value="spend_desc">Highest spend (€)</option>
+            <option value="litres_desc">Highest volume (L)</option>
+            <option value="name_asc">Name (A–Z)</option>
           </select>
         </div>
 
         <div className="flex items-center gap-2 justify-between sm:justify-end">
-          <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-lg border border-line">
+          <div className="customers-view-switch" role="tablist" aria-label="Customer workspace view">
             <button
               type="button"
-              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                workspaceView === "table" ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
-              }`}
-              onClick={() => setWorkspaceView("table")}
-            >
-               Table view
-            </button>
-            <button
-              type="button"
+              role="tab"
+              aria-selected={workspaceView === "split"}
               className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
                 workspaceView === "split" ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
               }`}
               onClick={() => setWorkspaceView("split")}
             >
-               Split view
+              <PanelLeft aria-hidden="true" />Profiles
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={workspaceView === "table"}
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                workspaceView === "table" ? "bg-surface text-ink shadow-xs" : "text-muted hover:text-ink"
+              }`}
+              onClick={() => setWorkspaceView("table")}
+            >
+              <LayoutList aria-hidden="true" />Table
             </button>
           </div>
-
-          {canEdit && (
-            <button type="button" className="btn text-xs py-1.5 px-3 flex items-center gap-1 shrink-0" onClick={() => setShowCreateModal(true)}>
-               <PlusCircle className="w-3.5 h-3.5" /> New customer
-            </button>
-          )}
         </div>
       </div>
 
       {/* FILTER CHIPS BAR */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+      <div className="customers-saved-views" role="tablist" aria-label="Customer saved views">
         {[
-          { key: "all", label: `All Customers (${filteredCustomers.length})` },
-          { key: "vip", label: "⭐ VIP Buyers" },
-          { key: "conflicts", label: "⚠️ Conflicts" },
-          { key: "consent", label: "✉️ Marketing" },
+          { key: "all", label: "All", count: customersList.length },
+          { key: "vip", label: "High value", count: customersList.filter((customer) => customer.metrics?.isVip).length },
+          { key: "conflicts", label: "Identity conflicts", count: customersList.filter((customer) => customer.matchStatus === "CONFLICT_REVIEW").length },
+          { key: "consent", label: "Marketing consent", count: customersList.filter((customer) => customer.marketingConsent).length },
         ].map((chip) => (
           <button
             key={chip.key}
             type="button"
+            role="tab"
+            aria-selected={filterChip === chip.key}
             className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-colors ${
               filterChip === chip.key
                 ? "bg-primary text-on-primary shadow-xs"
@@ -441,7 +388,7 @@ export function MasterDetailCustomerWorkspace({
             }`}
             onClick={() => setFilterChip(chip.key as typeof filterChip)}
           >
-            {chip.label}
+            <span>{chip.label}</span><b>{chip.count}</b>
           </button>
         ))}
       </div>
@@ -454,7 +401,7 @@ export function MasterDetailCustomerWorkspace({
             className="btn btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5"
             onClick={() => setMobileView("list")}
           >
-            ← Back to Customer List
+            <ArrowLeft aria-hidden="true" />Back to customers
           </button>
           <span className="text-xs font-bold text-ink truncate max-w-[160px]">{profile?.customer.name}</span>
         </div>
@@ -462,9 +409,9 @@ export function MasterDetailCustomerWorkspace({
 
       {/* SCALABLE FULL-WIDTH DATA TABLE VIEW */}
       {workspaceView === "table" ? (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+        <div className="card overflow-hidden customer-table-card">
+          <div className="customer-table-wrap">
+            <table className="customer-table w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-surface-muted border-b border-line text-muted font-bold uppercase text-[10px] tracking-wider">
                   {[
@@ -511,7 +458,7 @@ export function MasterDetailCustomerWorkspace({
                       setMobileView("detail");
                     }}
                   >
-                    <td className="p-3">
+                    <td data-label="Customer" className="p-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center font-bold text-primary text-xs shrink-0">
                           {c.name.slice(0, 1).toUpperCase()}
@@ -520,18 +467,16 @@ export function MasterDetailCustomerWorkspace({
                           <div className="flex items-center gap-1.5">
                             <strong className="text-ink text-xs font-bold truncate">{c.name}</strong>
                             {c.metrics?.isVip && (
-                              <span className="text-xs cursor-help select-none" title="VIP High-Volume Buyer (20L+)">
-                                👑
-                              </span>
+                              <Star className="customer-vip-icon" aria-label="High-value customer" />
                             )}
                           </div>
                           {c.facebookProfile && <span className="text-[10px] text-muted truncate block">{c.facebookProfile}</span>}
                         </div>
                       </div>
                     </td>
-                    <td className="p-3 font-mono text-[11px]">
+                    <td data-label="Contact" className="p-3 font-mono text-[11px]">
                       <div className="flex items-center gap-1">
-                        <span>{c.mobile || "—"}</span>
+                        <span>{maskPhone(c.mobile)}</span>
                         {c.mobile && (
                           <button
                             type="button"
@@ -547,37 +492,36 @@ export function MasterDetailCustomerWorkspace({
                           </button>
                         )}
                       </div>
-                      <div className="text-[10px] text-muted">{c.email || ""}</div>
                     </td>
-                    <td className="p-3 font-bold text-forest">
+                    <td data-label="Lifetime volume" className="p-3 font-bold text-forest">
                       {formatLitres(c.metrics?.lifetimeLitres ?? 0)}
                     </td>
-                    <td className="p-3 font-bold text-ink">
+                    <td data-label="Lifetime value" className="p-3 font-bold text-ink">
                       {formatAdminMoney(c.metrics?.totalSpendCents ?? 0)}
                     </td>
-                    <td className="p-3">
+                    <td data-label="Orders" className="p-3">
                       {c.metrics?.completedOrders ?? 0} finished
                     </td>
-                    <td className="p-3">
+                    <td data-label="Attention" className="p-3">
                       <div className="flex flex-wrap gap-1">
                         {Boolean(c.metrics?.averageRating) && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300">
-                            ⭐ {c.metrics?.averageRating} ({c.metrics?.reviewCount})
+                            <Star aria-hidden="true" />{c.metrics?.averageRating} ({c.metrics?.reviewCount})
                           </span>
                         )}
                         {c.matchStatus === "CONFLICT_REVIEW" && (
                           <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded">
-                            ⚠️ Conflict
+                            <ShieldAlert aria-hidden="true" />Conflict
                           </span>
                         )}
                         {c.marketingConsent && (
                           <span className="text-[10px] font-bold text-emerald-900 bg-emerald-100 px-1.5 py-0.5 rounded">
-                            ✉️ Consent
+                            <Mail aria-hidden="true" />Consent
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="p-3 text-right">
+                    <td data-label="Actions" className="p-3 text-right">
                       <AdminRowActionMenu
                         items={[
                           {
@@ -595,7 +539,7 @@ export function MasterDetailCustomerWorkspace({
                                 {
                                   id: "resolve-conflict",
                                   label: "Resolve Conflict",
-                                  icon: <span className="text-amber-600 font-bold">⚠️</span>,
+                                  icon: <ShieldAlert className="text-amber-600" aria-hidden="true" />,
                                   onClick: () => {
                                     void loadProfile(c.id);
                                     setWorkspaceView("split");
@@ -689,12 +633,12 @@ export function MasterDetailCustomerWorkspace({
                           <strong className="text-sm font-bold text-ink truncate">{customer.name}</strong>
                           {customer.metrics?.isVip && (
                             <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
-                              ⭐ VIP
+                              <Star aria-hidden="true" />High value
                             </span>
                           )}
                         </div>
 
-                        <span className="text-xs text-muted font-mono truncate">{customer.mobile || "No phone"}</span>
+                        <span className="text-xs text-muted font-mono truncate">{maskPhone(customer.mobile)}</span>
 
                         <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-muted font-medium">
                           <span className="font-bold text-forest">{litresStr}</span>
@@ -705,14 +649,14 @@ export function MasterDetailCustomerWorkspace({
                           {Boolean(customer.metrics?.averageRating) && (
                             <>
                               <span>•</span>
-                              <span className="font-bold text-amber-700">⭐ {customer.metrics?.averageRating}</span>
+                              <span className="font-bold text-amber-700 inline-flex items-center gap-1"><Star aria-hidden="true" />{customer.metrics?.averageRating}</span>
                             </>
                           )}
                         </div>
 
                         {customer.matchStatus === "CONFLICT_REVIEW" && (
                           <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded mt-1 inline-block w-fit">
-                            ⚠️ Phone Conflict Review
+                            <ShieldAlert aria-hidden="true" />Identity conflict
                           </span>
                         )}
                       </div>
@@ -773,14 +717,14 @@ export function MasterDetailCustomerWorkspace({
                         <h1 className="text-2xl font-bold tracking-tight text-ink">{profile.customer.name}</h1>
                         {profile.metrics.isVip && (
                           <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                            👑 VIP High-Volume Buyer (20L+)
+                            <Star aria-hidden="true" />High-value customer
                           </span>
                         )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs muted font-medium">
                         <span className="font-mono text-ink font-semibold flex items-center gap-1">
-                          📞 {profile.customer.mobile}
+                          <Phone aria-hidden="true" />{profile.customer.mobile}
                           {profile.customer.mobile && (
                             <button
                               type="button"
@@ -797,7 +741,7 @@ export function MasterDetailCustomerWorkspace({
                         </span>
                         {profile.customer.email && (
                           <span className="flex items-center gap-1">
-                            ✉️ {profile.customer.email}
+                            <Mail aria-hidden="true" />{profile.customer.email}
                             <button
                               type="button"
                               className="p-0.5 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
@@ -818,17 +762,17 @@ export function MasterDetailCustomerWorkspace({
                             rel="noopener noreferrer"
                             className="text-blue-700 hover:underline font-semibold flex items-center gap-1"
                           >
-                            📘 {profile.customer.facebookProfile}
+                            <ExternalLink aria-hidden="true" />{profile.customer.facebookProfile}
                           </a>
                         )}
-                        <span>📍 Preferred: <strong>{profile.metrics.preferredMethod === "DELIVERY" ? "Home Delivery" : "Pickup"}</strong></span>
+                        <span className="inline-flex items-center gap-1"><MapPin aria-hidden="true" />Preferred: <strong>{profile.metrics.preferredMethod === "DELIVERY" ? "Home delivery" : "Pickup"}</strong></span>
                       </div>
 
                       {/* CUSTOMER PRIMARY DELIVERY ADDRESS CARD */}
                       {profile.metrics.primaryAddress && (
                         <div className="flex items-center justify-between p-2.5 bg-surface-muted/80 rounded-xl border border-line text-xs mt-2">
                           <span className="font-semibold text-ink flex items-center gap-1.5">
-                            <span>📍</span> Delivery Address: <strong className="text-ink">{profile.metrics.primaryAddress}</strong>
+                            <MapPin aria-hidden="true" />Delivery address: <strong className="text-ink">{profile.metrics.primaryAddress}</strong>
                           </span>
                           <button
                             type="button"
@@ -861,38 +805,18 @@ export function MasterDetailCustomerWorkspace({
 
                 {/* OMNICHANNEL FAST-COMMUNICATION TOOLBAR */}
                 <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-surface-muted rounded-xl border border-line">
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted">1-Tap Fast Contact:</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted">Contact actions</span>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* WhatsApp Action Pills */}
                     {profile.customer.mobile && (
                       <>
-                        <button
-                          type="button"
-                          className="btn text-xs py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-on-primary font-bold flex items-center gap-1.5 shadow-sm rounded-lg"
-                          onClick={() => triggerWhatsApp("READY")}
-                          title="Open WhatsApp with pre-filled Ready for Pickup notification"
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                          <span>💬 Valmis (Ready)</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary text-xs py-1.5 px-3 font-semibold flex items-center gap-1.5 rounded-lg"
-                          onClick={() => triggerWhatsApp("CONFIRMED")}
-                          title="Open WhatsApp with pre-filled Order Confirmed notification"
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                          <span>💬 Vahvistus (Confirm)</span>
-                        </button>
-
                         <a
                           className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg"
                           href={`tel:${profile.customer.mobile}`}
                           title={`Call ${profile.customer.mobile}`}
                         >
                           <Phone className="w-3.5 h-3.5" />
-                          <span>📞 Call</span>
+                          <span>Call</span>
                         </a>
                         <a
                           className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg"
@@ -900,7 +824,17 @@ export function MasterDetailCustomerWorkspace({
                           title={`SMS ${profile.customer.mobile}`}
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
-                          <span>✉️ SMS</span>
+                          <span>SMS</span>
+                        </a>
+                        <a
+                          className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 rounded-lg"
+                          href={`https://wa.me/${cleanPhoneForWhatsApp(profile.customer.mobile)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open WhatsApp"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>WhatsApp</span>
                         </a>
                       </>
                     )}
@@ -913,7 +847,7 @@ export function MasterDetailCustomerWorkspace({
                         rel="noopener noreferrer"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
-                        <span>📘 Facebook</span>
+                        <span>Facebook</span>
                       </a>
                     )}
 
@@ -927,8 +861,8 @@ export function MasterDetailCustomerWorkspace({
               </div>
 
               {/* KEY METRICS & RELIABILITY SCORE CARD */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="card p-3 flex flex-col justify-between">
+              <div className="customer-relationship-summary card">
+                <div className="customer-summary-fact">
                   <span className="text-xs font-bold uppercase tracking-wider muted">Total Volume</span>
                   <div className="flex items-baseline justify-between mt-2">
                     <span className="text-2xl font-bold text-ink ops-tabular">
@@ -938,7 +872,7 @@ export function MasterDetailCustomerWorkspace({
                   </div>
                 </div>
 
-                <div className="card p-3 flex flex-col justify-between">
+                <div className="customer-summary-fact">
                   <span className="text-xs font-bold uppercase tracking-wider text-primary">Lifetime Spend</span>
                   <div className="flex items-baseline justify-between mt-2">
                     <span className="text-2xl font-bold text-primary ops-tabular">
@@ -948,11 +882,11 @@ export function MasterDetailCustomerWorkspace({
                   </div>
                 </div>
 
-                <div className="card p-3 flex flex-col justify-between">
+                <div className="customer-summary-fact">
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Customer Sentiment</span>
                   <div className="flex items-baseline justify-between mt-2">
                     <span className="text-2xl font-bold text-amber-800 ops-tabular flex items-center gap-1">
-                      {profile.metrics.averageRating ? `⭐ ${profile.metrics.averageRating}` : "—"}
+                      {profile.metrics.averageRating ? <><Star aria-hidden="true" />{profile.metrics.averageRating}</> : "—"}
                     </span>
                     <span className="text-xs text-amber-900 font-semibold">
                       {profile.metrics.reviewCount ? `${profile.metrics.reviewCount} review(s)` : "No reviews"}
@@ -960,7 +894,7 @@ export function MasterDetailCustomerWorkspace({
                   </div>
                 </div>
 
-                <div className="card p-3 flex flex-col justify-between">
+                <div className="customer-summary-fact">
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">Reliability Rate</span>
                   <div className="flex items-baseline justify-between mt-2">
                     <span className="text-2xl font-bold text-emerald-700 ops-tabular">
@@ -972,14 +906,14 @@ export function MasterDetailCustomerWorkspace({
                   </div>
                 </div>
 
-                <div className="card p-3 flex flex-col justify-between">
+                <div className="customer-summary-fact">
                   <span className="text-xs font-bold uppercase tracking-wider text-purple-700">No-Show Risk</span>
                   <div className="flex items-baseline justify-between mt-2">
                     <span className={`text-2xl font-bold ops-tabular ${profile.metrics.noShowCount > 0 ? "text-danger" : "text-slate-600"}`}>
                       {profile.metrics.noShowCount}
                     </span>
                     <span className="text-xs muted font-semibold">
-                      {profile.metrics.noShowCount > 0 ? "⚠️ Past No-Show" : "0 No-Shows"}
+                      {profile.metrics.noShowCount > 0 ? "Past no-show" : "No no-shows"}
                     </span>
                   </div>
                 </div>
@@ -990,7 +924,7 @@ export function MasterDetailCustomerWorkspace({
                 <div className="card p-4 bg-amber-50 border border-amber-300 rounded-xl flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <strong className="text-sm font-bold text-amber-900 flex items-center gap-1.5">
-                      ⚠️ Identity Conflict Detected
+                      <ShieldAlert aria-hidden="true" />Identity conflict detected
                     </strong>
                     <p className="text-xs text-amber-800 mt-0.5">
                       Found {profile.identityConflicts.length} duplicate record(s) matching phone number {profile.customer.mobile}.
@@ -1003,7 +937,7 @@ export function MasterDetailCustomerWorkspace({
                       className="btn text-xs py-1.5 px-3 bg-amber-800 hover:bg-amber-900 text-on-primary font-bold shadow"
                       onClick={() => setMergingDuplicate(profile.identityConflicts[0])}
                     >
-                      🔗 Merge Profiles
+                      <GitMerge aria-hidden="true" />Review merge
                     </button>
                   )}
                 </div>
@@ -1013,7 +947,7 @@ export function MasterDetailCustomerWorkspace({
               <div className="card p-4 md:p-5 flex flex-col gap-3 bg-amber-50/40 border border-amber-200">
                 <div className="flex items-center justify-between border-b border-amber-200 pb-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                    📌 PINNED STAFF NOTES &amp; HANDLING INSTRUCTIONS
+                    <Pin aria-hidden="true" />Staff note and handling instructions
                   </span>
                   {canEdit && (
                     <button
@@ -1022,7 +956,7 @@ export function MasterDetailCustomerWorkspace({
                       onClick={() => void handleSaveNote()}
                       disabled={savingNote}
                     >
-                      {savingNote ? "Saving…" : "💾 Save Note"}
+                      {savingNote ? "Saving…" : <><Save aria-hidden="true" />Save note</>}
                     </button>
                   )}
                 </div>
@@ -1048,14 +982,14 @@ export function MasterDetailCustomerWorkspace({
                   <div>
                     <span className="eyebrow">CUSTOMER SENTIMENT &amp; FEEDBACK</span>
                     <h3 className="text-base font-bold text-ink flex items-center gap-2">
-                      ⭐ Customer Reviews &amp; Testimonials
+                      <Star aria-hidden="true" />Customer reviews
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
                         {profile.reviews?.length ?? 0}
                       </span>
                     </h3>
                   </div>
                   <Link className="btn btn-secondary text-xs py-1.5 px-3 font-semibold" href="/admin/reviews">
-                    Manage All Reviews ↗
+                    Manage reviews<ExternalLink aria-hidden="true" />
                   </Link>
                 </div>
 
@@ -1070,12 +1004,12 @@ export function MasterDetailCustomerWorkspace({
                           <strong className="font-bold text-ink text-sm">{rev.rating}.0 / 5.0</strong>
                           {rev.verifiedBuyer && (
                             <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
-                              ✓ Verified Buyer
+                              <CircleCheck aria-hidden="true" />Verified buyer
                             </span>
                           )}
                           {rev.featured && (
                             <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-1.5 py-0.5 rounded border border-purple-300">
-                              ✨ Featured
+                              <Star aria-hidden="true" />Featured
                             </span>
                           )}
                         </div>
@@ -1102,7 +1036,7 @@ export function MasterDetailCustomerWorkspace({
                         <div className="text-[11px] muted flex items-center gap-1 mt-0.5">
                           <span>Linked Order:</span>
                           <Link className="text-primary hover:underline font-bold font-mono" href={`/admin/orders/${rev.orderId}`}>
-                            View Order ↗
+                            View order<ExternalLink aria-hidden="true" />
                           </Link>
                         </div>
                       )}
@@ -1110,7 +1044,7 @@ export function MasterDetailCustomerWorkspace({
                       {rev.sellerReplyText && (
                         <div className="mt-1 p-2.5 bg-surface-muted rounded-lg border-l-4 border-primary text-xs space-y-1">
                           <strong className="text-primary font-bold block text-[11px] uppercase tracking-wider">
-                            💬 Official Store Reply ({rev.sellerRepliedAt?.slice(0, 10)})
+                            Store reply ({rev.sellerRepliedAt?.slice(0, 10)})
                           </strong>
                           <p className="text-ink font-medium leading-relaxed">{rev.sellerReplyText}</p>
                         </div>
@@ -1171,7 +1105,7 @@ export function MasterDetailCustomerWorkspace({
                                 {formatAdminMoney(order.finalTotalCents ?? order.itemSubtotalCents ?? 0)}
                               </strong>
                               <Link className="text-[11px] font-semibold text-primary hover:underline" href={`/admin/orders/${order.id}`}>
-                                View ↗
+                                View<ExternalLink aria-hidden="true" />
                               </Link>
                             </div>
                           </div>
@@ -1190,7 +1124,7 @@ export function MasterDetailCustomerWorkspace({
               <div className="card p-4 md:p-5 flex flex-wrap items-center justify-between gap-4 bg-surface-muted/30">
                 <div className="flex flex-col gap-1 text-xs">
                   <strong className="font-bold text-ink uppercase tracking-wider text-[11px]">
-                    🛡️ GDPR Compliance &amp; Consent Governance
+                    <ShieldCheck aria-hidden="true" />Privacy and consent
                   </strong>
                   <div className="flex flex-wrap items-center gap-2 mt-0.5">
                     <span
@@ -1216,7 +1150,7 @@ export function MasterDetailCustomerWorkspace({
                     className="btn btn-secondary text-xs text-danger py-1.5 px-3"
                     onClick={() => setShowAnonymizeConfirm(true)}
                   >
-                    🛡️ Anonymize Customer (Right to be Forgotten)
+                    <ShieldAlert aria-hidden="true" />Start anonymization
                   </button>
                 )}
               </div>

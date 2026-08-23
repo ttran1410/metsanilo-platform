@@ -4,7 +4,7 @@ import { OperationsSettings } from "../settings";
 import { AdminNotice, AdminPageHeader } from "../presentation";
 
 function SettingsStory({ canManageSettings = true }: { canManageSettings?: boolean }) {
-  return <OperationsSettings canManageSettings={canManageSettings} />;
+  return <OperationsSettings canManageSettings={canManageSettings} canManageTheme={canManageSettings} />;
 }
 
 const meta = { title: "Admin / Settings", component: SettingsStory, parameters: { layout: "fullscreen" }, argTypes: { canManageSettings: { control: "boolean" } } } satisfies Meta<typeof SettingsStory>;

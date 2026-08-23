@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
+import { ArrowUpRight, Mail, Phone } from "lucide-react";
 import { db } from "@/db/client";
 import { getPublicCatalog } from "@/domain/availability";
 import { isLocale, type Locale } from "@/lib/format";
@@ -9,6 +10,7 @@ import { LocaleDocument } from "../locale-document";
 import { MobileNav } from "../mobile-nav";
 import { getReviewRollup, listFeaturedReviews } from "@/domain/reviews";
 import { HighlightReviews, type FeaturedReviewItem } from "../reviews/highlight-reviews";
+import { isStorefrontThemeKey, resolveStorefrontTheme } from "@/domain/storefront-themes";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,6 +24,7 @@ export default async function ReservePage({
     product?: string;
     package?: string;
     notice?: string;
+    "theme-preview"?: string;
   }>;
 }) {
   const { locale: rawLocale } = await params;
@@ -83,6 +86,9 @@ export default async function ReservePage({
       }));
   const products = [...productMap.values()];
   const query = await searchParams;
+  const theme = isStorefrontThemeKey(query["theme-preview"])
+    ? query["theme-preview"]
+    : resolveStorefrontTheme(data.shop.storefrontTheme);
   const requestedProduct = query.product
     ? products.find((item) => item.id === query.product)
     : undefined;
@@ -140,7 +146,7 @@ export default async function ReservePage({
   const rollup = await getReviewRollup(db());
 
   return (
-    <main className="storefront">
+    <main className="storefront" data-theme={theme}>
       <LocaleDocument locale={locale} />
       <header className="storefront-header">
         <div className="shell storefront-nav">
@@ -178,7 +184,7 @@ export default async function ReservePage({
             href={`/${locale === "fi" ? "en" : "fi"}/reserve`}
           >
             {t.switchLocale}
-            <span aria-hidden="true">↗</span>
+            <ArrowUpRight aria-hidden="true" />
           </a>
         </div>
       </header>
@@ -262,7 +268,7 @@ export default async function ReservePage({
                   className="footer-contact-item"
                   href={`tel:${data.shop.contactPhone}`}
                 >
-                  <span>📞</span> {data.shop.contactPhone}
+                  <Phone aria-hidden="true" /> {data.shop.contactPhone}
                 </a>
               )}
               {data.shop.contactEmail && (
@@ -270,7 +276,7 @@ export default async function ReservePage({
                   className="footer-contact-item"
                   href={`mailto:${data.shop.contactEmail}`}
                 >
-                  <span>✉️</span> {data.shop.contactEmail}
+                  <Mail aria-hidden="true" /> {data.shop.contactEmail}
                 </a>
               )}
             </div>

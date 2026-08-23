@@ -15,9 +15,9 @@ export default async function UsersPage() {
     <AdminRouteFrame permission="shop_users.read">
       <main className="shell admin-users-page">
         <AdminPageHeader
-          eyebrow="ADMINISTRATION"
-          title="Users &amp; permissions"
-          description="Manage staff access and operational permissions."
+          eyebrow="Administration"
+          title="Users and permissions"
+          description="Manage team accounts, role baselines, custom access and security lifecycle."
         />
         <div className="admin-users-module">
           <UserModule

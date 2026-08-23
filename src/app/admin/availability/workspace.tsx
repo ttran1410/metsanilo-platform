@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { CalendarRange, ChevronLeft, ChevronRight, Eye, LockKeyhole, Pencil, UnlockKeyhole } from "lucide-react";
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
@@ -89,7 +90,6 @@ export function AvailabilityWorkspace({
   });
   const [productFilter, setProductFilter] = useState(() => searchParams.get("productId") ?? "ALL");
   const [seasonFilter, setSeasonFilter] = useState(() => searchParams.get("seasonId") ?? "ALL");
-  const [viewFilter, setViewFilter] = useState("ALL");
 
   useEffect(() => {
     const viewParam = searchParams.get("view")?.toUpperCase();
@@ -109,9 +109,7 @@ export function AvailabilityWorkspace({
   const [editing, setEditing] = useState<AvailabilityRow | null>(null);
   const [batchPanelOpen, setBatchPanelOpen] = useState(false);
 
-  // Inline Editing State
-  const [inlineEditingRowId, setInlineEditingRowId] = useState<string | null>(null);
-  const [inlineCapacityVal, setInlineCapacityVal] = useState<string>("");
+  const [capacityDraftLitres, setCapacityDraftLitres] = useState(0);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -198,12 +196,9 @@ export function AvailabilityWorkspace({
     return workspace.rows.filter((row) => {
       if (productFilter !== "ALL" && row.product.id !== productFilter) return false;
       if (seasonFilter !== "ALL" && row.availability.seasonId !== seasonFilter) return false;
-      if (viewFilter === "SOLD_OUT") return row.soldOut;
-      if (viewFilter === "NEAR") return row.nearCapacity && !row.soldOut;
-      if (viewFilter === "ATTENTION") return row.soldOut || row.nearCapacity;
       return true;
     });
-  }, [workspace.rows, productFilter, seasonFilter, viewFilter]);
+  }, [workspace.rows, productFilter, seasonFilter]);
 
   const paginatedRows = useMemo(() => {
     return rows.slice((tablePage - 1) * tableLimit, tablePage * tableLimit);
@@ -237,49 +232,11 @@ export function AvailabilityWorkspace({
   const windowReservedTotalMl = useMemo(() => dateCards.reduce((sum, d) => sum + d.reserved, 0), [dateCards]);
   const windowUtilization = windowCapacityTotalMl > 0 ? Math.round((windowReservedTotalMl / windowCapacityTotalMl) * 100) : 0;
 
-  // Inline Stepper Quick Bump Capacity
-  async function bumpCapacity(row: AvailabilityRow, deltaLitres: number) {
+  function openCapacityEditor(row: AvailabilityRow) {
     setError("");
     setMessage("");
-    const nextCapacityMl = Math.max(row.availability.reservedMl, row.availability.capacityMl + deltaLitres * 1000);
-
-    const response = await fetch(`/api/admin/availability/${row.availability.id}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        expectedVersion: row.availability.version,
-        capacityMl: nextCapacityMl,
-        manualSoldOut: row.availability.manualSoldOut,
-        soldOutReason: row.availability.manualSoldOutReason ?? undefined,
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not update capacity.");
-    setMessage(`Capacity for ${row.availability.businessDate} updated to ${litres(nextCapacityMl)}.`);
-    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
-  }
-
-  // Save Inline Direct Capacity Entry
-  async function saveInlineCapacity(row: AvailabilityRow, newLitresVal: number) {
-    setError("");
-    setMessage("");
-    setInlineEditingRowId(null);
-
-    const newCapacityMl = Math.max(row.availability.reservedMl, Math.round(newLitresVal * 1000));
-    const response = await fetch(`/api/admin/availability/${row.availability.id}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        expectedVersion: row.availability.version,
-        capacityMl: newCapacityMl,
-        manualSoldOut: row.availability.manualSoldOut,
-        soldOutReason: row.availability.manualSoldOutReason ?? undefined,
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not update capacity.");
-    setMessage(`Capacity for ${row.availability.businessDate} updated to ${litres(newCapacityMl)}.`);
-    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
+    setEditing(row);
+    setCapacityDraftLitres(row.availability.capacityMl / 1000);
   }
 
   // Emergency Freeze Lock
@@ -311,19 +268,19 @@ export function AvailabilityWorkspace({
     if (!editing) return;
     setError("");
     setMessage("");
-    const form = new FormData(event.currentTarget);
-    const manualSoldOut = form.get("manualSoldOut") === "on";
-    const reason = String(form.get("reason") ?? "").trim();
-    if (manualSoldOut && reason.length < 2) return setError("A sold-out reason is required.");
+    const capacityMl = Math.round(capacityDraftLitres * 1000);
+    if (!Number.isFinite(capacityMl) || capacityMl < editing.availability.reservedMl) {
+      return setError(`Capacity cannot be lower than the ${litres(editing.availability.reservedMl)} already reserved.`);
+    }
 
     const response = await fetch(`/api/admin/availability/${editing.availability.id}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         expectedVersion: editing.availability.version,
-        capacityMl: Math.round(Number(form.get("capacityLitres")) * 1000),
-        manualSoldOut,
-        soldOutReason: manualSoldOut ? reason : undefined,
+        capacityMl,
+        manualSoldOut: editing.availability.manualSoldOut,
+        soldOutReason: editing.availability.manualSoldOutReason ?? undefined,
       }),
     });
 
@@ -341,15 +298,15 @@ export function AvailabilityWorkspace({
   const inspectedProductName = inspectedDayRow?.product.nameFi ?? "All Products";
 
   return (
-    <main className="shell py-8 availability-workspace flex flex-col gap-4">
+    <main className="shell py-8 availability-workspace availability-planner flex flex-col gap-4">
       <AdminPageHeader
-        eyebrow="HARVEST PLANNING"
-        title="Capacity &amp; Availability Scheduler"
-        description="Manage perishable wild produce capacity, emergency weather locks, and customer reservation intake."
+        eyebrow="Operations"
+        title="Harvest availability"
+        description="See what can still be promised, then safely adjust one product and business date at a time."
         actions={
           canManage ? (
-            <button className="btn font-bold text-xs shadow-2xs" type="button" onClick={() => setBatchPanelOpen((prev) => !prev)}>
-              {batchPanelOpen ? "Close batch planner" : "Open batch planner"}
+            <button className="btn" type="button" onClick={() => setBatchPanelOpen((prev) => !prev)}>
+              <CalendarRange aria-hidden="true" />{batchPanelOpen ? "Close batch plan" : "Plan capacity"}
             </button>
           ) : undefined
         }
@@ -361,9 +318,10 @@ export function AvailabilityWorkspace({
       {/* EXPANDABLE IN-PAGE BATCH PLANNER PANEL */}
       {batchPanelOpen && canManage && (
         <BatchPlannerPanel
-          initialStartDate={workspace.startDate}
-          initialEndDate={workspace.endDate}
+          initialStartDate={workspace.startDate < workspace.today ? workspace.today : workspace.startDate}
+          initialEndDate={workspace.endDate < workspace.today ? workspace.today : workspace.endDate}
           products={workspace.products}
+          initialProductId={productFilter !== "ALL" ? productFilter : undefined}
           seasonId={productFilter !== "ALL" && seasonFilter !== "ALL" ? seasonFilter : undefined}
           onClose={() => setBatchPanelOpen(false)}
           onApplied={() => {
@@ -375,10 +333,10 @@ export function AvailabilityWorkspace({
       )}
 
       {/* TOP CONTROLS & MULTI-VIEW SELECTOR BAR */}
-      <section className="card p-4 flex flex-col gap-3 border border-line">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <section className="card availability-toolbar">
+        <div className="availability-toolbar-primary">
           {/* View Mode Tabs */}
-          <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-line">
+          <div className="availability-view-tabs" role="tablist" aria-label="Availability view">
             {[
               { key: "WEEK", label: "Week" },
               { key: "MONTH", label: "Month" },
@@ -387,11 +345,9 @@ export function AvailabilityWorkspace({
               <button
                 key={mode.key}
                 type="button"
-                className={`text-xs font-bold px-3.5 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
-                  viewMode === mode.key
-                    ? "bg-primary text-on-primary shadow-xs"
-                    : "text-muted hover:text-ink hover:bg-surface"
-                }`}
+                role="tab"
+                aria-selected={viewMode === mode.key}
+                className={viewMode === mode.key ? "is-active" : ""}
                 onClick={() => handleViewModeChange(mode.key as ViewMode)}
               >
                 {mode.label}
@@ -399,44 +355,12 @@ export function AvailabilityWorkspace({
             ))}
           </div>
 
-          {/* Product Filter Tabs with High-Contrast Ring */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider muted">Product:</span>
-            <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
-              <button
-                type="button"
-                className={`px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs ${
-                  productFilter === "ALL"
-                    ? "bg-slate-900 text-white border-slate-900 ring-2 ring-slate-400/40"
-                    : "bg-surface text-ink border-line hover:border-slate-400"
-                }`}
-                onClick={() => handleProductFilterChange("ALL")}
-              >
-                {productFilter === "ALL" && "✓ "}All Products
-              </button>
-
-              {workspace.products.map((prod) => (
-                <button
-                  key={prod.id}
-                  type="button"
-                  className={`px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs ${
-                    productFilter === prod.id
-                      ? "bg-slate-900 text-white border-slate-900 ring-2 ring-slate-400/40"
-                      : "bg-surface text-ink border-line hover:border-slate-400"
-                  }`}
-                   onClick={() => handleProductFilterChange(prod.id)}
-                >
-                  {productFilter === prod.id && "✓ "}{prod.nameFi}
-                </button>
-              ))}
-            </div>
-          </div>
+          <label className="availability-filter-field"><span>Product</span><select value={productFilter} onChange={(event) => handleProductFilterChange(event.target.value)}><option value="ALL">All products</option>{workspace.products.map((product) => <option value={product.id} key={product.id}>{product.nameFi}</option>)}</select></label>
 
           {productFilter !== "ALL" && selectedSeasons.length > 0 && (
-            <label className="flex items-center gap-2 text-xs font-bold">
-              <span className="uppercase tracking-wider muted">Season:</span>
+            <label className="availability-filter-field">
+              <span>Season</span>
               <select
-                className="rounded-lg border border-line bg-surface px-2 py-1.5 font-semibold"
                 value={seasonFilter}
                 onChange={(event) => handleSeasonFilterChange(event.target.value)}
               >
@@ -450,30 +374,30 @@ export function AvailabilityWorkspace({
         </div>
 
         {/* Dynamic Navigation & Summary Line */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-line text-xs">
-          <div className="flex items-center gap-2">
-            <button type="button" className="btn btn-secondary text-xs py-1 px-3 font-bold" onClick={() => handleNavigate(-1)}>
-              {viewMode === "WEEK" ? "◄ Previous Week" : viewMode === "MONTH" ? "◄ Previous Month" : "◄ Previous Range"}
+        <div className="availability-window-bar">
+          <div className="availability-window-navigation">
+            <button type="button" className="btn btn-secondary" onClick={() => handleNavigate(-1)} aria-label={viewMode === "WEEK" ? "Previous week" : viewMode === "MONTH" ? "Previous month" : "Previous range"}>
+              <ChevronLeft aria-hidden="true" /> <span>Previous</span>
             </button>
-            <span className="font-bold text-ink">
+            <strong>
               {workspace.startDate} – {workspace.endDate}
-            </span>
-            <button type="button" className="btn btn-secondary text-xs py-1 px-3 font-bold" onClick={() => handleNavigate(1)}>
-              {viewMode === "WEEK" ? "Next Week ►" : viewMode === "MONTH" ? "Next Month ►" : "Next Range ►"}
+            </strong>
+            <button type="button" className="btn btn-secondary" onClick={() => handleNavigate(1)} aria-label={viewMode === "WEEK" ? "Next week" : viewMode === "MONTH" ? "Next month" : "Next range"}>
+              <span>Next</span> <ChevronRight aria-hidden="true" />
             </button>
           </div>
 
-          <div className="flex items-center gap-4 text-xs muted font-medium">
-            <span>Window Capacity: <strong className="text-ink ops-tabular">{litres(windowCapacityTotalMl)}</strong></span>
-            <span>Reserved Orders: <strong className="text-primary ops-tabular">{litres(windowReservedTotalMl)} ({windowUtilization}%)</strong></span>
-            <span className="text-emerald-700 font-semibold">Remaining to sell: {litres(Math.max(0, windowCapacityTotalMl - windowReservedTotalMl))}</span>
+          <div className="availability-window-summary" aria-label="Planning window totals">
+            <span><small>Capacity</small><strong>{litres(windowCapacityTotalMl)}</strong></span>
+            <span><small>Reserved</small><strong>{litres(windowReservedTotalMl)} · {windowUtilization}%</strong></span>
+            <span><small>Remaining</small><strong>{litres(Math.max(0, windowCapacityTotalMl - windowReservedTotalMl))}</strong></span>
           </div>
         </div>
       </section>
 
       {/* VIEW MODE 1: CALENDAR WEEK TIMELINE VIEW (MON-SUN) */}
       {viewMode === "WEEK" && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2.5">
+        <section className="availability-day-grid">
           {dateCards.map((day) => {
             const tone = fillTone(day.utilization, day.soldOut);
             const remainingLitres = Math.max(0, day.capacity - day.reserved);
@@ -484,7 +408,7 @@ export function AvailabilityWorkspace({
             return (
               <article
                 key={day.date}
-                className={`card p-3 flex flex-col justify-between gap-3 border transition-all cursor-pointer hover:border-primary min-w-0 ${
+                className={`card availability-day-card ${
                   day.isPast
                     ? "bg-slate-100/60 border-slate-200 opacity-75"
                     : day.isOffSeason
@@ -499,7 +423,6 @@ export function AvailabilityWorkspace({
                     ? "bg-amber-50/50 border-amber-300"
                     : "bg-surface border-line"
                 }`}
-                onClick={() => setInspectingDate(day.date)}
               >
                 <div>
                   {/* Card Date Header */}
@@ -541,57 +464,10 @@ export function AvailabilityWorkspace({
                     />
                   </div>
 
-                  {/* Capacity Metrics & Inline Direct Numeric Editing */}
-                  <div className="my-2.5">
-                    {day.dayRows[0] && inlineEditingRowId === day.dayRows[0].availability.id ? (
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (day.dayRows[0]) void saveInlineCapacity(day.dayRows[0], Number(inlineCapacityVal));
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-1 my-1"
-                      >
-                        <input
-                          type="number"
-                          step="1"
-                          min="0"
-                          value={inlineCapacityVal}
-                          onChange={(e) => setInlineCapacityVal(e.target.value)}
-                          autoFocus
-                          className="w-20 px-2 py-1 text-xs font-bold rounded border border-primary bg-surface text-ink"
-                        />
-                        <button type="submit" className="btn text-[10px] font-bold py-1 px-2">
-                          Save
-                        </button>
-                      </form>
-                    ) : (
-                      <div
-                        onClick={(e) => {
-                          if (canManage && day.dayRows[0] && !day.isPast) {
-                            e.stopPropagation();
-                            setInlineEditingRowId(day.dayRows[0].availability.id);
-                            setInlineCapacityVal(String(day.dayRows[0].availability.capacityMl / 1000));
-                          }
-                        }}
-                        title={canManage && !day.isPast ? "Click to type exact capacity" : undefined}
-                        className={`group ${canManage && !day.isPast ? "cursor-edit hover:text-primary" : ""}`}
-                      >
-                        <span className="text-xl font-bold text-ink ops-tabular block">
-                          {litres(remainingLitres)}
-                          {canManage && !day.isPast && day.dayRows[0] && (
-                            <span className="text-[10px] muted ml-1 opacity-0 group-hover:opacity-100 transition-opacity">✏️</span>
-                          )}
-                        </span>
-                        <span className="text-[11px] muted font-medium block">
-                          remaining of {litres(day.capacity)}
-                        </span>
-                        <span className="text-[10px] text-primary font-semibold block mt-0.5">
-                          {litres(day.reserved)} reserved ({day.utilization}%)
-                        </span>
-                      </div>
-                    )}
+                  <div className="availability-day-facts">
+                    <div><span>Remaining</span><strong>{litres(remainingLitres)}</strong></div>
+                    <div><span>Capacity</span><strong>{litres(day.capacity)}</strong></div>
+                    <div><span>Reserved</span><strong>{litres(day.reserved)} · {day.utilization}%</strong></div>
                   </div>
 
                   {/* Visual Utilization Bar */}
@@ -613,8 +489,8 @@ export function AvailabilityWorkspace({
                   {/* Order Breakdown Chips */}
                   {dayOrders && dayOrders.orders.length > 0 ? (
                     <div className="flex flex-col gap-1 text-[11px] bg-surface-muted/50 p-2 rounded-lg border border-line">
-                      <span className="font-bold text-ink">📦 {dayOrders.orders.length} order(s)</span>
-                      <span className="muted">📍 {dayOrders.pickupCount} pickup · 🚚 {dayOrders.deliveryCount} delivery</span>
+                      <span className="font-bold text-ink">{dayOrders.orders.length} order(s)</span>
+                      <span className="muted">{dayOrders.pickupCount} pickup · {dayOrders.deliveryCount} delivery</span>
                     </div>
                   ) : day.isUnplanned ? (
                     <span className="text-[11px] text-slate-500 italic block">No capacity set for this date</span>
@@ -624,51 +500,27 @@ export function AvailabilityWorkspace({
 
                   {day.freezeReason && (
                     <span className="text-[10px] text-amber-900 bg-amber-100 p-1.5 rounded font-medium block mt-1">
-                      ⚠️ {day.freezeReason}
+                      Lock reason: {day.freezeReason}
                     </span>
                   )}
                 </div>
 
                 {/* Card Action Controls */}
-                <div
-                  className="flex flex-wrap items-center justify-between gap-1.5 border-t border-line/60 pt-2 text-xs min-w-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
+                <div className="availability-day-actions">
                   {day.dayRows[0] && !day.isPast ? (
                     <>
-                      {/* Emergency Freeze Toggle */}
-                      {canSoldOut && (
+                      <button type="button" className="btn btn-secondary" onClick={() => setInspectingDate(day.date)}><Eye aria-hidden="true" />Inspect</button>
+                      {productFilter !== "ALL" && canManage && (
+                        <button type="button" className="btn btn-secondary" onClick={() => openCapacityEditor(day.dayRows[0])}><Pencil aria-hidden="true" />Edit capacity</button>
+                      )}
+                      {productFilter !== "ALL" && canSoldOut && (
                         <button
                           type="button"
-                          className={`text-[11px] font-bold py-0.5 px-1 rounded hover:bg-surface-muted transition-colors shrink-0 ${
-                            day.soldOut ? "text-forest" : "text-berry"
-                          }`}
+                          className={`btn ${day.soldOut ? "btn-secondary" : "btn-danger"}`}
                           onClick={() => setFreezingRow(day.dayRows[0])}
                         >
-                          {day.soldOut ? "🔓 Reopen" : "🔒 Freeze"}
+                          {day.soldOut ? <UnlockKeyhole aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}{day.soldOut ? "Reopen" : "Freeze"}
                         </button>
-                      )}
-
-                      {/* Quick Stepper Pills (+5L / -5L) */}
-                      {canManage && (
-                        <div className="flex items-center gap-1 shrink-0 ml-auto">
-                          <button
-                            type="button"
-                            className="h-6 px-1.5 text-[10px] font-bold rounded-md bg-surface-muted hover:bg-paper border border-line text-ink transition-colors flex items-center justify-center min-w-[2rem]"
-                            onClick={() => void bumpCapacity(day.dayRows[0], -5)}
-                            title="Decrease capacity by 5L"
-                          >
-                            -5L
-                          </button>
-                          <button
-                            type="button"
-                            className="h-6 px-1.5 text-[10px] font-bold rounded-md bg-surface-muted hover:bg-paper border border-line text-ink transition-colors flex items-center justify-center min-w-[2rem]"
-                            onClick={() => void bumpCapacity(day.dayRows[0], 5)}
-                            title="Increase capacity by 5L"
-                          >
-                            +5L
-                          </button>
-                        </div>
                       )}
                     </>
                   ) : day.isUnplanned && canManage && !day.isPast ? (
@@ -677,7 +529,7 @@ export function AvailabilityWorkspace({
                       className="btn text-[11px] font-bold py-1 px-2.5 w-full shadow-2xs"
                       onClick={() => setBatchPanelOpen(true)}
                     >
-                      ＋ Set Capacity
+                      Set capacity
                     </button>
                   ) : (
                     <span className="text-[10px] muted italic">Read-only history</span>
@@ -712,9 +564,10 @@ export function AvailabilityWorkspace({
               const tone = fillTone(day.utilization, day.soldOut);
 
               return (
-                <div
+                <button
+                  type="button"
                   key={day.date}
-                  className={`p-3 rounded-xl border text-center flex flex-col justify-between gap-1 cursor-pointer transition-all hover:scale-105 ${
+                  className={`availability-month-day ${
                     day.isPast
                       ? "bg-slate-200 text-slate-700 border-slate-300 opacity-75"
                       : day.isUnplanned
@@ -737,7 +590,7 @@ export function AvailabilityWorkspace({
                   <span className="text-[10px] font-semibold opacity-90 block">
                     {day.isPast ? "Past Date" : day.isUnplanned ? "Unplanned" : day.soldOut ? "Locked" : `${day.utilization}% Reserved`}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -767,35 +620,35 @@ export function AvailabilityWorkspace({
 
                 return (
                   <tr key={row.availability.id} className="hover:bg-surface-muted/50 transition-colors">
-                    <td className="p-3 font-bold text-ink ops-tabular">
+                    <td data-label="Business date" className="p-3 font-bold text-ink ops-tabular">
                       {row.availability.businessDate} ({formatDay(row.availability.businessDate).weekday})
                     </td>
-                    <td className="p-3 font-semibold text-ink">{row.product.nameFi}</td>
-                    <td className="p-3 text-right font-bold text-ink ops-tabular">
+                    <td data-label="Product" className="p-3 font-semibold text-ink">{row.product.nameFi}</td>
+                    <td data-label="Capacity" className="p-3 text-right font-bold text-ink ops-tabular">
                       {litres(row.availability.capacityMl)}
                     </td>
-                    <td className="p-3 text-right font-semibold text-primary ops-tabular">
+                    <td data-label="Reserved" className="p-3 text-right font-semibold text-primary ops-tabular">
                       {litres(row.availability.reservedMl)}
                     </td>
-                    <td className="p-3 text-right font-bold text-emerald-700 ops-tabular">
+                    <td data-label="Remaining" className="p-3 text-right font-bold text-emerald-700 ops-tabular">
                       {litres(remainingLitres)}
                     </td>
-                    <td className="p-3 text-center font-bold ops-tabular">{row.utilization}%</td>
-                    <td className="p-3 text-center">
+                    <td data-label="Fill rate" className="p-3 text-center font-bold ops-tabular">{row.utilization}%</td>
+                    <td data-label="Status" className="p-3 text-center">
                       <AdminStatusBadge
                         status={row.soldOut ? "CANCELLED" : row.utilization >= 75 ? "CAPACITY_NEAR_LIMIT" : "CONFIRMED"}
                         label={row.soldOut ? "Sold out" : row.utilization >= 75 ? "Near limit" : "Open"}
                       />
                     </td>
                     {canManage && (
-                      <td className="p-3 text-right">
+                      <td data-label="Actions" className="p-3 text-right">
                         <AdminRowActionMenu
                           items={[
                             {
                               id: "edit-capacity",
                               label: "Edit Capacity",
                               icon: <IconPencil />,
-                              onClick: () => setEditing(row),
+                              onClick: () => openCapacityEditor(row),
                             },
                             {
                               id: "inspect-date",
@@ -889,11 +742,9 @@ export function AvailabilityWorkspace({
           productName={inspectedProductName}
           ordersData={inspectedOrdersData}
           canManage={canManage}
-          canSoldOut={canSoldOut}
+          canSoldOut={canSoldOut && productFilter !== "ALL"}
           onClose={() => setInspectingDate(null)}
-          onIncreaseCapacity={(addLitres) => {
-            if (inspectedDayRow) void bumpCapacity(inspectedDayRow, addLitres);
-          }}
+          onEditCapacity={productFilter !== "ALL" && inspectedDayRow ? () => openCapacityEditor(inspectedDayRow) : undefined}
           onFreeze={() => {
             if (inspectedDayRow) setFreezingRow(inspectedDayRow);
           }}
@@ -914,38 +765,37 @@ export function AvailabilityWorkspace({
       {/* EDIT AVAILABILITY MODAL */}
       {editing && (
         <div className="admin-dialog-backdrop">
-          <form className="admin-dialog card availability-dialog" onSubmit={(event) => void saveAvailability(event)}>
-            <p className="eyebrow">DATE CAPACITY CONTROL</p>
-            <h2>{editing.product.nameFi} · {editing.availability.businessDate}</h2>
+          <form className="admin-dialog card availability-dialog" role="dialog" aria-modal="true" aria-labelledby="availability-edit-title" onSubmit={(event) => void saveAvailability(event)}>
+            <p className="eyebrow">Capacity change</p>
+            <h2 id="availability-edit-title">{editing.product.nameFi} · {editing.availability.businessDate}</h2>
+            <p className="muted text-xs">Review the effect before saving. This record is currently version {editing.availability.version}.</p>
+            {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
             <label className="field">
-              <span>Capacity (Litres) *</span>
+              <span>Capacity (litres)</span>
               <input
-                name="capacityLitres"
                 type="number"
                 min={editing.availability.reservedMl / 1000}
                 step="0.1"
-                defaultValue={editing.availability.capacityMl / 1000}
+                value={capacityDraftLitres}
+                onChange={(event) => setCapacityDraftLitres(Number(event.target.value))}
                 required
               />
             </label>
 
-            <label className="field-checkbox">
-              <input name="manualSoldOut" type="checkbox" defaultChecked={editing.availability.manualSoldOut} />
-              <span>Manually freeze date (Emergency Lock)</span>
-            </label>
-
-            <label className="field">
-              <span>Reason for freeze</span>
-              <input name="reason" defaultValue={editing.availability.manualSoldOutReason ?? ""} placeholder="Rain / Storm / Crop Shortage..." />
-            </label>
+            <div className="availability-change-preview" aria-label="Capacity change preview">
+              <div><span>Current capacity</span><strong>{litres(editing.availability.capacityMl)}</strong></div>
+              <div><span>Reserved</span><strong>{litres(editing.availability.reservedMl)}</strong></div>
+              <div><span>New capacity</span><strong>{litres(Math.round(capacityDraftLitres * 1000))}</strong></div>
+              <div><span>New remaining</span><strong>{litres(Math.max(0, Math.round(capacityDraftLitres * 1000) - editing.availability.reservedMl))}</strong></div>
+            </div>
 
             <div className="admin-dialog-actions">
               <button className="btn btn-secondary" type="button" onClick={() => setEditing(null)}>
                 Cancel
               </button>
               <button className="btn" type="submit">
-                Save Changes
+                Save capacity
               </button>
             </div>
           </form>

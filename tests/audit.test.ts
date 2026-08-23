@@ -102,6 +102,18 @@ describe("Security & Audit Engine", () => {
     });
   });
 
+  it("extracts correlationId and trace metadata correctly", () => {
+    const json = JSON.stringify({
+      summary: "Customer consent updated",
+      correlationId: "req_audit_trace_987",
+      consentMarketing: true,
+    });
+
+    const diff = parseAuditDiff(json);
+    expect(diff.correlationId).toBe("req_audit_trace_987");
+    expect(diff.summary).toBe("Customer consent updated");
+  });
+
   it("fetches filtered audit entries and calculates anomaly metrics", async () => {
     const now = new Date().toISOString();
     const earlier = new Date(Date.now() - 1000).toISOString();

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
-import { AdminNotice, AdminPageHeader } from "../presentation";
+import { Ban, CheckCircle2, Eye, EyeOff, MessageSquare, Plus, Search, ShieldCheck, Star, Trash2, X } from "lucide-react";
+import { AdminEmptyState, AdminNotice, AdminPageHeader } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconLink, IconLock, IconPencil, IconTrash, IconUser } from "../ui/admin-row-action-menu";
 import { LinkIdentityModal } from "./link-identity-modal";
@@ -39,6 +39,16 @@ type Review = {
 
 type ReviewTab = "pending" | "approved" | "featured" | "rejected" | "all";
 type RejectionReason = "SPAM" | "PROFANITY" | "UNRELATED" | "COMPETITOR" | "OTHER";
+
+function maskContact(contact: string | null) {
+  if (!contact) return null;
+  if (contact.includes("@")) {
+    const [name, domain] = contact.split("@");
+    return `${name.slice(0, 2)}•••@${domain}`;
+  }
+  const compact = contact.replace(/\s/g, "");
+  return compact.length > 7 ? `${compact.slice(0, 4)} ••• ${compact.slice(-4)}` : compact;
+}
 
 export function ReviewsManager({
   initial,
@@ -77,6 +87,9 @@ export function ReviewsManager({
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<RejectionReason>("SPAM");
   const [linkingReview, setLinkingReview] = useState<Review | null>(null);
+  const [approvingReview, setApprovingReview] = useState<Review | null>(null);
+  const [deletingReview, setDeletingReview] = useState<Review | null>(null);
+  const [busyReviewId, setBusyReviewId] = useState<string | null>(null);
   const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([
     { key: "WHATSAPP", labelEn: "WhatsApp" },
     { key: "FACEBOOK", labelEn: "Facebook" },
@@ -112,37 +125,48 @@ export function ReviewsManager({
   async function updateReview(reviewId: string, patch: Record<string, unknown>) {
     setMessage("");
     setErrorMsg("");
+    setBusyReviewId(reviewId);
     const res = await fetch("/api/admin/reviews", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: reviewId, ...patch }),
     });
     const body = await res.json();
+    setBusyReviewId(null);
     if (!res.ok) {
       setErrorMsg(body.message || body.code || "Review action failed");
-      return;
+      return false;
     }
     setRows((current) => current.map((item) => (item.id === reviewId ? body.data : item)));
     setMessage("Review updated successfully.");
     setEditingDisplayTextId(null);
     setReplyingId(null);
     setRejectingId(null);
+    return true;
   }
 
   async function handleDeleteReview(reviewId: string) {
-    if (!confirm("Are you sure you want to permanently delete this review? This action cannot be undone.")) return;
     setMessage("");
     setErrorMsg("");
+    setBusyReviewId(reviewId);
     const res = await fetch(`/api/admin/reviews?id=${encodeURIComponent(reviewId)}`, {
       method: "DELETE",
     });
     const body = await res.json();
+    setBusyReviewId(null);
     if (!res.ok) {
       setErrorMsg(body.message || body.code || "Failed to delete review");
       return;
     }
     setRows((current) => current.filter((r) => r.id !== reviewId));
+    setDeletingReview(null);
     setMessage("Review deleted permanently.");
+  }
+
+  async function confirmApproval() {
+    if (!approvingReview) return;
+    const updated = await updateReview(approvingReview.id, { status: "APPROVED" });
+    if (updated) setApprovingReview(null);
   }
 
   async function submitManualImport(event: React.FormEvent<HTMLFormElement>) {
@@ -201,17 +225,6 @@ export function ReviewsManager({
   const featuredReviews = rows.filter((r) => r.featured && r.status === "APPROVED");
   const rejectedReviews = rows.filter((r) => r.status === "REJECTED");
 
-  const totalCount = totalApproved.length;
-  const ratingSum = totalApproved.reduce((acc, r) => acc + r.rating, 0);
-  const avgRating = totalCount > 0 ? (ratingSum / totalCount).toFixed(2) : "5.00";
-  const fiveStarPercent = totalCount > 0 ? Math.round((totalApproved.filter((r) => r.rating === 5).length / totalCount) * 100) : 100;
-
-  const starCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-  for (const r of totalApproved) {
-    const star = r.rating as 1 | 2 | 3 | 4 | 5;
-    if (starCounts[star] !== undefined) starCounts[star]++;
-  }
-
   // Filtered & Searched Rows for active tab
   const filteredRows = rows.filter((r) => {
     let matchesTab = true;
@@ -235,145 +248,77 @@ export function ReviewsManager({
 
   return (
     <main className="admin-reviews-workspace shell py-8 space-y-6">
-      {/* Header & Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="reviews-page-heading">
         <AdminPageHeader
-          eyebrow="CONTENT & TRUST"
-          title="Review Moderation Hub"
-          description="High-velocity review triage, dual-text auditing, and storefront highlights."
+          eyebrow="Content and trust"
+          title="Review moderation"
+          description={`${pendingTriage.length} awaiting decision · Verify consent and publication identity before publishing.`}
         />
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Read-Only Storefront Status Pill */}
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
-            <span className={`inline-block w-2.5 h-2.5 rounded-full ${masterVisible ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
-            <span>{masterVisible ? "🟢 Public on Storefront" : "⚪ Hidden in Settings"}</span>
-            <Link href="/admin/settings" className="text-primary hover:underline font-normal text-[11px] ml-1">
-              (Settings)
-            </Link>
+        <div className="reviews-page-actions">
+          <div className="reviews-storefront-state">
+            {masterVisible ? <Eye aria-hidden="true" /> : <EyeOff aria-hidden="true" />}
+            <span>{masterVisible ? "Reviews visible" : "Reviews hidden"}</span>
+            <Link href="/admin/settings" className="text-primary hover:underline">Settings</Link>
           </div>
-
-          {canCreate && (
-            <button
-              type="button"
-              className="btn btn-secondary text-xs font-semibold px-4 py-2"
-              onClick={() => setShowManualModal(true)}
-            >
-              Manual feedback import
-            </button>
-          )}
+          {canCreate && <button type="button" className="btn btn-secondary" onClick={() => setShowManualModal(true)}><Plus aria-hidden="true" />Import review</button>}
         </div>
       </div>
 
       {message && <AdminNotice tone="success">{message}</AdminNotice>}
       {errorMsg && <AdminNotice tone="error">{errorMsg}</AdminNotice>}
 
-      {/* Analytics KPI Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card p-4 flex flex-col justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Public Rating Rollup</span>
-          <div className="flex items-baseline gap-2 mt-2">
-            <span className="text-3xl font-black text-slate-900">{avgRating}</span>
-            <span className="text-amber-500 text-lg">★</span>
-            <span className="text-xs text-slate-500 font-medium">({totalCount} reviews)</span>
-          </div>
-          <span className="text-[11px] text-slate-400 mt-2">{fiveStarPercent}% 5-star rating score</span>
-        </div>
-
-        <div className="card p-4 flex flex-col justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Pending Moderation</span>
-          <div className="flex items-baseline gap-2 mt-2">
-            <span className={`text-3xl font-black ${pendingTriage.length > 0 ? "text-amber-600" : "text-slate-700"}`}>
-              {pendingTriage.length}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">awaiting triage</span>
-          </div>
-          <span className="text-[11px] text-slate-400 mt-2">Requires staff consent check</span>
-        </div>
-
-        <div className="card p-4 flex flex-col justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Homepage Featured</span>
-          <div className="flex items-baseline gap-2 mt-2">
-            <span className="text-3xl font-black text-emerald-700">{featuredReviews.length}</span>
-            <span className="text-xs text-slate-500 font-medium">highlighted cards</span>
-          </div>
-          <span className="text-[11px] text-slate-400 mt-2">Selected for Storefront homepage</span>
-        </div>
-
-        <div className="card p-4 flex flex-col justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Rating Breakdown</span>
-          <div className="space-y-1 mt-1 text-[11px]">
-            {[5, 4, 3, 2, 1].map((star) => (
-              <div key={star} className="flex items-center gap-2">
-                <span className="w-8 font-semibold text-slate-600">{star} ★</span>
-                <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-amber-400 h-full rounded-full"
-                    style={{ width: `${totalCount > 0 ? ((starCounts[star as 1|2|3|4|5] || 0) / totalCount) * 100 : 0}%` }}
-                  />
-                </div>
-                <span className="w-5 text-right font-medium text-slate-500">{starCounts[star as 1|2|3|4|5] || 0}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs & Search Filter */}
-      <div className="card p-4 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-          <div className="flex flex-wrap items-center gap-1">
+      <div className="card review-queue">
+        <div className="review-filter-bar">
+          <div className="review-state-tabs" role="tablist" aria-label="Review moderation views">
             {[
-              { id: "pending", label: `Pending Triage (${pendingTriage.length})` },
-              { id: "approved", label: `Approved (${totalApproved.length})` },
-              { id: "featured", label: `Featured (${featuredReviews.length})` },
-              { id: "rejected", label: `Rejected (${rejectedReviews.length})` },
-              { id: "all", label: `All Reviews (${rows.length})` },
+              { id: "pending", label: "Pending", count: pendingTriage.length },
+              { id: "approved", label: "Approved", count: totalApproved.length },
+              { id: "featured", label: "Featured", count: featuredReviews.length },
+              { id: "rejected", label: "Rejected", count: rejectedReviews.length },
+              { id: "all", label: "All", count: rows.length },
             ].map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-                  activeTab === tab.id
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                className={activeTab === tab.id ? "is-active" : ""}
                 onClick={() => {
                   setActiveTab(tab.id as ReviewTab);
                   setCurrentPage(1);
                 }}
               >
-                {tab.label}
+                <span>{tab.label}</span><b>{tab.count}</b>
               </button>
             ))}
           </div>
 
-          {/* Search Box */}
-          <div className="relative min-w-[240px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+          <label className="review-search">
+            <Search aria-hidden="true" />
             <input
               type="text"
-              placeholder="Search reviews by reviewer, contact, or feedback quote…"
-              className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+              placeholder="Search reviewer, order, or review text"
+              aria-label="Search reviews"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
             />
-          </div>
+          </label>
         </div>
 
-        {/* Reviews List Grid */}
         {filteredRows.length === 0 ? (
-          <div className="py-12 text-center text-slate-500 text-sm italic">
-            No reviews found matching the current tab and filter.
-          </div>
+          <AdminEmptyState
+            title={activeTab === "pending" && !searchQuery ? "Pending queue is clear" : "No reviews match this view"}
+            description={activeTab === "pending" && !searchQuery ? "Every submitted review has a moderation decision. Continue with Approved or All reviews." : "Clear the search or choose another saved view."}
+          />
         ) : (
-          <div className="space-y-4">
+          <div className="review-record-list">
             {paginatedRows.map((review) => (
               <article
                 key={review.id}
-                className={`p-4 rounded-xl border transition-all space-y-3 bg-white ${
+                className={`review-record ${
                   review.featured ? "border-amber-300 ring-1 ring-amber-200" : "border-slate-200"
                 }`}
               >
@@ -390,7 +335,7 @@ export function ReviewsManager({
                       {/* Verified Buyer Badge */}
                       {review.verifiedBuyer ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          ✓ Verified Buyer
+                          <CheckCircle2 aria-hidden="true" />Verified buyer
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
@@ -418,15 +363,18 @@ export function ReviewsManager({
 
                       {review.featured && (
                         <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500 text-white">
-                          ⭐ Featured
+                          <Star aria-hidden="true" />Featured
                         </span>
                       )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                       <span>Submitted: {new Date(review.createdAt).toLocaleDateString("fi-FI")}</span>
-                      {review.contact && <span>Contact: {review.contact}</span>}
+                      {review.contact && <span>Contact: {maskContact(review.contact)}</span>}
                       {review.orderId && <span>Order: #{review.orderId.substring(0, 8)}</span>}
+                      <span className={review.publicationAcknowledgement ? "review-consent-ok" : "review-consent-missing"}>
+                        {review.publicationAcknowledgement ? <><ShieldCheck aria-hidden="true" />Publication consent recorded</> : <><Ban aria-hidden="true" />Consent evidence missing</>}
+                      </span>
                     </div>
                   </div>
 
@@ -469,8 +417,9 @@ export function ReviewsManager({
                               {
                                 id: "approve",
                                 label: "Approve Review",
-                                icon: <span className="text-xs">🟢</span>,
-                                onClick: () => void updateReview(review.id, { status: "APPROVED" }),
+                                icon: <CheckCircle2 className="text-emerald-700" aria-hidden="true" />,
+                                disabled: !review.publicationAcknowledgement,
+                                onClick: () => setApprovingReview(review),
                               },
                             ]
                           : []),
@@ -479,7 +428,7 @@ export function ReviewsManager({
                               {
                                 id: "feature",
                                 label: review.featured ? "Unfeature from Homepage" : "Feature on Homepage",
-                                icon: <span className="text-xs">⭐</span>,
+                                icon: <Star className="text-amber-600" aria-hidden="true" />,
                                 onClick: () =>
                                   void updateReview(review.id, {
                                     featured: !review.featured,
@@ -493,7 +442,7 @@ export function ReviewsManager({
                               {
                                 id: "reply",
                                 label: review.sellerReplyText ? "Edit Seller Reply" : "Reply to Customer",
-                                icon: <span className="text-xs">💬</span>,
+                                icon: <MessageSquare className="text-blue-700" aria-hidden="true" />,
                                 onClick: () => {
                                   setReplyingId(replyingId === review.id ? null : review.id);
                                   setDraftReplyText(review.sellerReplyText || "");
@@ -506,7 +455,7 @@ export function ReviewsManager({
                               {
                                 id: "reject",
                                 label: "Reject Review",
-                                icon: <span className="text-xs">🚫</span>,
+                                icon: <Ban className="text-rose-700" aria-hidden="true" />,
                                 onClick: () => setRejectingId(review.id),
                               },
                             ]
@@ -518,7 +467,7 @@ export function ReviewsManager({
                                 label: "Delete Review Permanently",
                                 icon: <IconTrash className="w-4 h-4 text-rose-600" />,
                                 danger: true,
-                                onClick: () => void handleDeleteReview(review.id),
+                                onClick: () => setDeletingReview(review),
                               },
                             ]
                           : []),
@@ -531,7 +480,7 @@ export function ReviewsManager({
                 <div className="bg-slate-50 p-3 rounded border border-slate-200 text-xs space-y-1">
                   <div className="flex items-center justify-between text-slate-500 font-medium">
                     <span>Original Customer Quote:</span>
-                    <button
+                    {canModerate && <button
                       type="button"
                       className="text-primary hover:underline font-semibold"
                       onClick={() => {
@@ -539,8 +488,8 @@ export function ReviewsManager({
                         setDraftDisplayText(review.displayText || review.originalText);
                       }}
                     >
-                      {review.displayText ? "Edit Storefront Text" : "+ Custom Storefront Copy"}
-                    </button>
+                      {review.displayText ? "Edit storefront text" : "Add storefront text"}
+                    </button>}
                   </div>
                   <p className="text-slate-800 italic font-medium">&quot;{review.originalText}&quot;</p>
 
@@ -580,7 +529,7 @@ export function ReviewsManager({
                 {review.sellerReplyText && (
                   <div className="bg-emerald-50/60 p-3.5 rounded border border-emerald-200 text-sm space-y-1">
                     <p className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                      🌲 Seller Reply (Metsänilo):
+                      <MessageSquare aria-hidden="true" />Store reply:
                       {review.sellerRepliedAt && (
                         <span className="text-slate-500 font-normal text-xs">
                           ({new Date(review.sellerRepliedAt).toLocaleDateString("fi-FI")})
@@ -622,7 +571,7 @@ export function ReviewsManager({
 
                 {/* Rejection Prompt */}
                 {rejectingId === review.id && (
-                  <div className="flex items-center gap-2 bg-rose-50 p-2 rounded border border-rose-200">
+                  <div className="review-rejection-panel">
                     <span className="text-xs font-bold text-rose-900">Reason for rejection:</span>
                     <select
                       className="text-xs border border-rose-300 rounded p-1"
@@ -639,8 +588,9 @@ export function ReviewsManager({
                       type="button"
                       className="btn bg-rose-600 text-white text-xs px-2.5 py-1 font-bold"
                       onClick={() => void updateReview(review.id, { status: "REJECTED", rejectionReason })}
+                      disabled={busyReviewId === review.id}
                     >
-                      Confirm Reject
+                      {busyReviewId === review.id ? "Saving…" : "Confirm rejection"}
                     </button>
                     <button
                       type="button"
@@ -651,21 +601,56 @@ export function ReviewsManager({
                     </button>
                   </div>
                 )}
+
+                {canModerate && (review.status === "PENDING" || review.status === "PENDING_CONFIRMATION") && (
+                  <footer className="review-decision-bar">
+                    <span>{review.publicationAcknowledgement ? "Consent evidence is recorded." : "Record publication consent before approval."}</span>
+                    <div>
+                      <button type="button" className="btn btn-secondary" onClick={() => setRejectingId(review.id)}><Ban aria-hidden="true" />Reject</button>
+                      <button type="button" className="btn" disabled={!review.publicationAcknowledgement || busyReviewId === review.id} onClick={() => setApprovingReview(review)}><CheckCircle2 aria-hidden="true" />Review approval</button>
+                    </div>
+                  </footer>
+                )}
               </article>
             ))}
           </div>
         )}
       </div>
 
-      {/* Pagination Controls */}
-      <AdminPagination
+      {filteredRows.length > pageSize && <AdminPagination
         page={currentPage}
         limit={pageSize}
         total={filteredRows.length}
         onPageChange={setCurrentPage}
         onLimitChange={(newLimit) => setPageSize(newLimit)}
         itemLabel="reviews"
-      />
+      />}
+
+      {approvingReview && (
+        <div className="admin-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && busyReviewId !== approvingReview.id) setApprovingReview(null); }}>
+          <section className="admin-dialog card review-approval-dialog" role="dialog" aria-modal="true" aria-labelledby="review-approval-title">
+            <header><div><p className="eyebrow">Publication review</p><h2 id="review-approval-title">Approve this review?</h2></div><button type="button" className="admin-icon-button" aria-label="Close approval review" disabled={busyReviewId === approvingReview.id} onClick={() => setApprovingReview(null)}><X aria-hidden="true" /></button></header>
+            <dl>
+              <div><dt>Identity</dt><dd>{approvingReview.isAnonymous ? "Anonymous publication" : approvingReview.reviewerName || approvingReview.displayName}</dd></div>
+              <div><dt>Consent</dt><dd>{approvingReview.publicationAcknowledgement ? `Recorded${approvingReview.acknowledgementSource ? ` via ${approvingReview.acknowledgementSource}` : ""}` : "Missing"}</dd></div>
+              <div><dt>Verification</dt><dd>{approvingReview.verifiedBuyer ? `Verified · ${approvingReview.verificationType}` : "Unverified"}</dd></div>
+              <div><dt>Storefront text</dt><dd>&quot;{approvingReview.displayText || approvingReview.originalText}&quot;</dd></div>
+            </dl>
+            <AdminNotice tone="warning">Approval publishes this review according to the selected identity when storefront reviews are visible.</AdminNotice>
+            <footer><button type="button" className="btn btn-secondary" disabled={busyReviewId === approvingReview.id} onClick={() => setApprovingReview(null)}>Cancel</button><button type="button" className="btn" disabled={!approvingReview.publicationAcknowledgement || busyReviewId === approvingReview.id} onClick={() => void confirmApproval()}>{busyReviewId === approvingReview.id ? "Publishing…" : "Approve and publish"}</button></footer>
+          </section>
+        </div>
+      )}
+
+      {deletingReview && (
+        <div className="admin-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && busyReviewId !== deletingReview.id) setDeletingReview(null); }}>
+          <section className="admin-dialog card review-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="review-delete-title">
+            <header><Trash2 aria-hidden="true" /><div><p className="eyebrow">Permanent deletion</p><h2 id="review-delete-title">Delete review permanently?</h2></div></header>
+            <p>This permanently removes the review by <strong>{deletingReview.reviewerName || deletingReview.displayName}</strong>. Use rejection or hiding when the moderation history should remain available.</p>
+            <footer><button type="button" className="btn btn-secondary" disabled={busyReviewId === deletingReview.id} onClick={() => setDeletingReview(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={busyReviewId === deletingReview.id} onClick={() => void handleDeleteReview(deletingReview.id)}>{busyReviewId === deletingReview.id ? "Deleting…" : "Delete permanently"}</button></footer>
+          </section>
+        </div>
+      )}
 
       {/* Manual Import Modal */}
       {showManualModal && (
@@ -673,21 +658,21 @@ export function ReviewsManager({
           <div className="admin-dialog card manual-review-dialog space-y-4 animate-in fade-in zoom-in-95">
             <div className="manual-review-dialog-header flex items-center justify-between gap-4 border-b border-line">
               <div>
-                <span className="eyebrow">OFFLINE FEEDBACK INGESTION</span>
-                <h2 className="text-base font-bold text-ink">➕ Manual Feedback Import</h2>
+                <span className="eyebrow">Offline feedback</span>
+                <h2 className="text-base font-bold text-ink">Manual review import</h2>
               </div>
               <button
                 type="button"
                 className="text-ink/60 hover:text-ink font-bold text-lg p-1"
                 onClick={() => setShowManualModal(false)}
               >
-                ✕
+                <X aria-hidden="true" />
               </button>
             </div>
 
             {errorMsg && (
               <div className="p-3 text-xs font-bold rounded-xl bg-rose-100 text-rose-900 border border-rose-300">
-                ⚠️ {errorMsg}
+                {errorMsg}
               </div>
             )}
 
@@ -723,11 +708,11 @@ export function ReviewsManager({
                 <label className="field text-xs">
                   <span className="font-semibold text-ink">Rating</span>
                   <select name="rating" required defaultValue="5" className="text-xs font-bold">
-                    <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
-                    <option value="4">⭐⭐⭐⭐ (4/5)</option>
-                    <option value="3">⭐⭐⭐ (3/5)</option>
-                    <option value="2">⭐⭐ (2/5)</option>
-                    <option value="1">⭐ (1/5)</option>
+                    <option value="5">5 — Excellent</option>
+                    <option value="4">4 — Very good</option>
+                    <option value="3">3 — Good</option>
+                    <option value="2">2 — Fair</option>
+                    <option value="1">1 — Poor</option>
                   </select>
                 </label>
 

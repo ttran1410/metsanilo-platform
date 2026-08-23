@@ -3,12 +3,64 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Calendar,
+  ChevronRight,
+  CreditCard,
+  Download,
+  ExternalLink,
+  FileDown,
+  KeyRound,
+  Lock,
+  PlusCircle,
+  ReceiptText,
+  RefreshCw,
+  Search,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Tag,
+  Trash2,
+  UserCheck,
+  Users,
+  X,
+} from "lucide-react";
 import type { AuditCategory, AuditSeverity, FormattedAuditItem } from "@/domain/audit";
-import { AdminNotice } from "../presentation";
+import { AdminEmptyState, AdminNotice } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconEye, IconLink } from "../ui/admin-row-action-menu";
 import { DiffInspectorDrawer } from "./diff-inspector-drawer";
+
+function ActionTypeIcon({ name }: { name: string }) {
+  const props = { className: "w-3.5 h-3.5 stroke-[1.8] shrink-0" };
+  switch (name) {
+    case "CreditCard":
+      return <CreditCard {...props} />;
+    case "RefreshCw":
+      return <RefreshCw {...props} />;
+    case "Tag":
+      return <Tag {...props} />;
+    case "ReceiptRefund":
+    case "ReceiptText":
+      return <ReceiptText {...props} />;
+    case "PlusCircle":
+      return <PlusCircle {...props} />;
+    case "KeyRound":
+      return <KeyRound {...props} />;
+    case "Lock":
+      return <Lock {...props} />;
+    case "UserCheck":
+      return <UserCheck {...props} />;
+    case "Calendar":
+      return <Calendar {...props} />;
+    case "Trash2":
+      return <Trash2 {...props} />;
+    default:
+      return <Activity {...props} />;
+  }
+}
 
 export function MasterAuditWorkspace({
   initialData,
@@ -37,23 +89,13 @@ export function MasterAuditWorkspace({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedAuditId, setSelectedAuditId] = useState<string | null>(searchParams.get("audit") ?? null);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-
-  useEffect(() => {
-    function handleOutsideClick(event: MouseEvent) {
-      if (activeMenuId && !(event.target as HTMLElement).closest(".row-action-menu")) {
-        setActiveMenuId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [activeMenuId]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? searchParams.get("search") ?? "");
-  const [severityFilter, setSeverityFilter] = useState<AuditSeverity | "ALL">(() => searchParams.get("severity") as AuditSeverity | "ALL" || "ALL");
-  const [categoryFilter, setCategoryFilter] = useState<AuditCategory | "ALL">(() => searchParams.get("category") as AuditCategory | "ALL" || "ALL");
+  const [severityFilter, setSeverityFilter] = useState<AuditSeverity | "ALL">(() => (searchParams.get("severity") as AuditSeverity | "ALL") || "ALL");
+  const [categoryFilter, setCategoryFilter] = useState<AuditCategory | "ALL">(() => (searchParams.get("category") as AuditCategory | "ALL") || "ALL");
   const [actorFilter, setActorFilter] = useState<string>(() => searchParams.get("actor") ?? "ALL");
-  const [dateRange, setDateRange] = useState<"24h" | "7d" | "30d" | "all">(() => searchParams.get("dateRange") as "24h" | "7d" | "30d" | "all" || "7d");
+  const [dateRange, setDateRange] = useState<"24h" | "7d" | "30d" | "all">(() => (searchParams.get("dateRange") as "24h" | "7d" | "30d" | "all") || "7d");
   const [currentPage, setCurrentPage] = useState(() => Number(searchParams.get("page") ?? "1") || 1);
   const [limitState, setLimitState] = useState(initialData.limit || 20);
 
@@ -129,6 +171,18 @@ export function MasterAuditWorkspace({
     void fetchFilteredAudit(newPage);
   }
 
+  function handleResetFilters() {
+    setSearchQuery("");
+    setSeverityFilter("ALL");
+    setCategoryFilter("ALL");
+    setActorFilter("ALL");
+    setDateRange("7d");
+    setCurrentPage(1);
+    void fetchFilteredAudit(1, limitState, "", "ALL", "ALL", "ALL", "7d");
+  }
+
+  const hasActiveCustomFilters = searchQuery !== "" || severityFilter !== "ALL" || categoryFilter !== "ALL" || actorFilter !== "ALL" || dateRange !== "7d";
+
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
     if (searchQuery) next.set("q", searchQuery); else next.delete("q");
@@ -155,15 +209,27 @@ export function MasterAuditWorkspace({
     };
   }, [searchQuery, severityFilter, categoryFilter, actorFilter, dateRange]);
 
+  function copyEventId(id: string) {
+    void navigator.clipboard.writeText(id);
+    setCopiedId(id);
+    window.setTimeout(() => setCopiedId(null), 2000);
+  }
+
   return (
-    <section className="admin-audit-workspace shell pb-10 flex flex-col gap-4">
+    <section className="admin-audit-workspace shell pb-12 flex flex-col gap-4">
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
       {/* HEADER & EXPORT TOOLBAR */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+      <div className="flex flex-wrap items-start sm:items-center justify-between gap-3 border-b border-line pb-3">
         <div>
-          <span className="eyebrow text-primary">IMMUTABLE APPEND LEDGER</span>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">Security &amp; audit trail</h1>
+          <div className="flex items-center gap-2">
+            <span className="eyebrow text-primary">AUDIT TRAIL &amp; FORENSICS</span>
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1">
+              <Lock className="w-3 h-3 text-slate-500" />
+              Append-only &amp; immutable
+            </span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-ink mt-0.5">Security &amp; audit</h1>
         </div>
 
         {canExportAudit && (
@@ -171,104 +237,130 @@ export function MasterAuditWorkspace({
             <a
               href={exportUrl.csv}
               download
-              className="btn btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5"
+              className="btn btn-secondary text-xs py-1.5 px-3 font-semibold flex items-center gap-1.5"
+              title="Export filtered records as CSV"
             >
-              Export CSV
+              <Download className="w-3.5 h-3.5 text-slate-600" />
+              <span>Export CSV</span>
             </a>
             <a
               href={exportUrl.json}
               download
-              className="btn btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5"
+              className="btn btn-secondary text-xs py-1.5 px-3 font-semibold flex items-center gap-1.5"
+              title="Export filtered records as JSON"
             >
-              Export JSON
+              <FileDown className="w-3.5 h-3.5 text-slate-600" />
+              <span>Export JSON</span>
             </a>
           </div>
         )}
       </div>
 
-      {/* 1. SECURITY & ANOMALY SIGNALS (Past 7 Days) */}
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-rose-900 text-[10px] font-bold">🔴 HIGH-RISK EVENTS</span>
-          <p className="text-2xl font-black text-rose-950 mt-1">
-            {data.metrics.highRisk} <span className="text-xs font-normal text-rose-800">events</span>
-          </p>
-          <span className="text-[11px] text-rose-700 font-semibold mt-1">Permissions &amp; GDPR</span>
-        </div>
+      {/* 1. ACTIONABLE RISK FILTER STRIP (Past 7 Days summary) */}
+      <div className="flex flex-wrap items-center gap-2 p-2 bg-surface-muted/60 rounded-xl border border-line text-xs">
+        <span className="text-[11px] font-bold text-slate-500 px-2 uppercase tracking-wider">
+          Quick filters (7d):
+        </span>
 
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-amber-900 text-[10px] font-bold">🟡 SENSITIVE EDITS</span>
-          <p className="text-2xl font-black text-amber-950 mt-1">
-            {data.metrics.sensitiveEdits} <span className="text-xs font-normal text-amber-800">edits</span>
-          </p>
-          <span className="text-[11px] text-amber-700 font-semibold mt-1">Price Overrides &amp; Refunds</span>
-        </div>
+        <button
+          type="button"
+          onClick={() => handleFilterChange({ severity: severityFilter === "HIGH" ? "ALL" : "HIGH" })}
+          className={`px-2.5 py-1 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+            severityFilter === "HIGH"
+              ? "bg-rose-100 text-rose-900 border-rose-300 ring-2 ring-rose-500/20"
+              : "bg-surface hover:bg-rose-50/50 text-rose-800 border-rose-200/70"
+          }`}
+        >
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+          <span>High risk</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-rose-200/70 text-rose-950 font-bold text-[10px]">
+            {data.metrics.highRisk}
+          </span>
+        </button>
 
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-muted text-[10px] font-bold">⚪ OPS ACTIONS</span>
-          <p className="text-2xl font-black text-ink mt-1">
-            {data.metrics.opsActions} <span className="text-xs font-normal muted">actions</span>
-          </p>
-          <span className="text-[11px] text-primary font-semibold mt-1">Order Status &amp; Notes</span>
-        </div>
+        <button
+          type="button"
+          onClick={() => handleFilterChange({ severity: severityFilter === "MEDIUM" ? "ALL" : "MEDIUM" })}
+          className={`px-2.5 py-1 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+            severityFilter === "MEDIUM"
+              ? "bg-amber-100 text-amber-900 border-amber-300 ring-2 ring-amber-500/20"
+              : "bg-surface hover:bg-amber-50/50 text-amber-800 border-amber-200/70"
+          }`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+          <span>Sensitive edits</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-amber-200/70 text-amber-950 font-bold text-[10px]">
+            {data.metrics.sensitiveEdits}
+          </span>
+        </button>
 
-        <div className="card p-3.5 flex flex-col justify-between border border-line bg-surface">
-          <span className="eyebrow text-blue-900 text-[10px] font-bold">🔑 FAILED LOGINS</span>
-          <p className="text-2xl font-black text-blue-950 mt-1">
-            {data.metrics.failedLogins} <span className="text-xs font-normal text-blue-800">fails</span>
-          </p>
-          <span className="text-[11px] text-blue-700 font-semibold mt-1">Clean Auth Status</span>
+        <button
+          type="button"
+          onClick={() => handleFilterChange({ severity: severityFilter === "STANDARD" ? "ALL" : "STANDARD" })}
+          className={`px-2.5 py-1 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+            severityFilter === "STANDARD"
+              ? "bg-slate-200 text-slate-900 border-slate-400 ring-2 ring-slate-500/20"
+              : "bg-surface hover:bg-slate-100 text-slate-700 border-slate-200"
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
+          <span>Ops actions</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-slate-200/80 text-slate-800 font-bold text-[10px]">
+            {data.metrics.opsActions}
+          </span>
+        </button>
+
+        <div className="ml-auto hidden sm:flex items-center gap-2 text-[11px] text-slate-500 px-2 font-mono">
+          <span>{data.metrics.total7Days} events logged past 7d</span>
         </div>
       </div>
 
-      {/* 2. FORENSIC MULTI-PARAMETER FILTER BAR */}
-      <div className="card p-4 flex flex-col gap-3 border border-line">
-        <span className="eyebrow text-[10px] muted">FORENSIC AUDIT FILTER ENGINE</span>
-
-        <div className="flex flex-wrap items-center gap-2.5">
+      {/* 2. FORENSIC MULTI-PARAMETER FILTER ENGINE */}
+      <div className="card p-3 sm:p-4 flex flex-col gap-2.5 border border-line bg-surface">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px]">
             <input
-              placeholder="Search audit logs by keyword, entity ID, or staff actor…"
+              placeholder="Search keyword, actor, entity ID, action…"
               value={searchQuery}
               onChange={(e) => handleFilterChange({ search: e.target.value })}
-              className="w-full text-xs py-1.5 px-3 pl-9 rounded-lg border border-line bg-surface"
+              className="w-full text-xs py-1.5 px-3 pl-8 rounded-lg border border-line bg-surface placeholder:text-muted"
             />
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted pointer-events-none" />
           </div>
 
           <select
-            aria-label="Risk Level"
+            aria-label="Filter by Risk Level"
             value={severityFilter}
             onChange={(e) => handleFilterChange({ severity: e.target.value as AuditSeverity | "ALL" })}
             className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface font-semibold"
           >
-            <option value="ALL">All Risk Levels</option>
-            <option value="HIGH">🔴 High Risk Only</option>
-            <option value="MEDIUM">🟡 Medium Risk (Financial)</option>
-            <option value="STANDARD">⚪ Standard Operational</option>
+            <option value="ALL">All risk levels</option>
+            <option value="HIGH">High risk only</option>
+            <option value="MEDIUM">Medium risk (Financial)</option>
+            <option value="STANDARD">Standard operational</option>
           </select>
 
           <select
-            aria-label="Category"
+            aria-label="Filter by Category"
             value={categoryFilter}
             onChange={(e) => handleFilterChange({ category: e.target.value as AuditCategory | "ALL" })}
             className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface font-semibold"
           >
-            <option value="ALL">All Categories</option>
-            <option value="ORDERS">Orders &amp; Payments</option>
-            <option value="USERS">Users &amp; Permissions</option>
+            <option value="ALL">All categories</option>
+            <option value="ORDERS">Orders &amp; payments</option>
+            <option value="USERS">Users &amp; permissions</option>
             <option value="CUSTOMERS">Customers &amp; CRM</option>
-            <option value="AVAILABILITY">Products &amp; Inventory</option>
-            <option value="SYSTEM">System &amp; Auth</option>
+            <option value="AVAILABILITY">Products &amp; availability</option>
+            <option value="SYSTEM">System &amp; authentication</option>
           </select>
 
           <select
-            aria-label="Actor"
+            aria-label="Filter by Actor"
             value={actorFilter}
             onChange={(e) => handleFilterChange({ actor: e.target.value })}
-            className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface font-semibold"
+            className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface font-semibold max-w-[180px]"
           >
-            <option value="ALL">All Actors</option>
+            <option value="ALL">All actors</option>
             {data.actors.map((act) => (
               <option key={act} value={act}>
                 {act}
@@ -277,39 +369,123 @@ export function MasterAuditWorkspace({
           </select>
 
           <select
-            aria-label="Date Range"
+            aria-label="Filter by Date Range"
             value={dateRange}
             onChange={(e) => handleFilterChange({ dateRange: e.target.value as "24h" | "7d" | "30d" | "all" })}
             className="text-xs py-1.5 px-2.5 rounded-lg border border-line bg-surface font-semibold"
           >
-            <option value="24h">Last 24 Hours</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="30d">Last 30 Days</option>
-            <option value="all">All Time</option>
+            <option value="24h">Last 24 hours</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+            <option value="all">All time</option>
           </select>
+
+          {hasActiveCustomFilters && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="text-xs text-rose-700 hover:text-rose-900 font-semibold px-2 py-1 hover:bg-rose-50 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              Reset filters
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 3. AUDIT EVENT STREAM MASTER TABLE */}
-      <div className="card p-4 overflow-x-auto border border-line flex flex-col gap-3">
+      {/* 3. AUDIT EVENT STREAM MASTER TABLE (Desktop) & CARD LIST (Mobile) */}
+      <div className="card p-3 sm:p-4 overflow-x-auto border border-line flex flex-col gap-3">
         <div className="flex items-center justify-between border-b border-line pb-2.5">
-          <h2 className="text-base font-bold text-ink">
-            Audit Event Stream ({data.total}) {loading && <span className="text-xs muted italic animate-pulse">Updating...</span>}
-          </h2>
-          <span className="text-xs muted font-semibold">
-            Showing Page {data.page} of {data.totalPages}
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-ink">
+              Audit event stream
+            </h2>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-surface-muted border border-line text-ink">
+              {data.total} {data.total === 1 ? "record" : "records"}
+            </span>
+            {loading && <span className="text-xs muted italic animate-pulse">Updating…</span>}
+          </div>
+
+          <span className="text-xs muted font-mono">
+            Page {data.page} of {data.totalPages}
           </span>
         </div>
 
-        <table className="w-full text-left text-xs border-collapse">
+        {/* MOBILE CARD VIEW (hidden on sm+) */}
+        <div className="flex flex-col gap-2.5 sm:hidden">
+          {data.items.map((item) => {
+            const targetLabel = item.targetInfo?.label ?? `${item.entityType}: ${item.entityId.slice(0, 8)}`;
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => setSelectedAuditId(item.id)}
+                className="p-3 bg-surface hover:bg-surface-muted/50 border border-line rounded-xl flex flex-col gap-2 cursor-pointer transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                        item.severity === "HIGH"
+                          ? "bg-rose-50 text-rose-800 border-rose-200"
+                          : item.severity === "MEDIUM"
+                          ? "bg-amber-50 text-amber-800 border-amber-200"
+                          : "bg-slate-50 text-slate-700 border-slate-200"
+                      }`}
+                    >
+                      {item.severity === "HIGH" ? "High risk" : item.severity === "MEDIUM" ? "Sensitive" : "Ops"}
+                    </span>
+                    <span className="text-xs font-bold text-ink truncate">
+                      {item.actionTitle ?? item.action}
+                    </span>
+                  </div>
+
+                  <span className="font-mono text-[10px] muted whitespace-nowrap">
+                    {item.createdAt.slice(0, 16).replace("T", " ")}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-ink">
+                  <span className="font-medium truncate">
+                    Actor: {item.actorInfo?.name ?? item.actorDisplayName ?? item.actor}
+                  </span>
+                  <span className="font-mono text-[11px] text-primary font-semibold truncate">
+                    {targetLabel}
+                  </span>
+                </div>
+
+                <p className="text-xs muted line-clamp-2 leading-relaxed">
+                  {item.diff.summary}
+                  {item.diff.reason && ` — "${item.diff.reason}"`}
+                </p>
+
+                <div className="flex items-center justify-end text-[11px] text-primary font-semibold pt-1 border-t border-line/60">
+                  <span className="inline-flex items-center gap-0.5">
+                    View details <ChevronRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+          {data.items.length === 0 && (
+            <AdminEmptyState
+              title="No audit events found"
+              description="No security audit records match the selected forensic filters."
+            />
+          )}
+        </div>
+
+        {/* DESKTOP TABLE VIEW (hidden on mobile) */}
+        <table className="hidden sm:table w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-line text-muted font-bold uppercase text-[10px] tracking-wider">
               <th className="pb-3 pt-1 px-3">Timestamp</th>
               <th className="pb-3 pt-1 px-3">Actor</th>
-              <th className="pb-3 pt-1 px-3">Severity &amp; Action</th>
-              <th className="pb-3 pt-1 px-3">Target Entity</th>
+              <th className="pb-3 pt-1 px-3">Action &amp; risk</th>
+              <th className="pb-3 pt-1 px-3">Target entity</th>
               <th className="pb-3 pt-1 px-3">Summary / Reason</th>
-              <th className="pb-3 pt-1 px-3 text-right">Action</th>
+              <th className="pb-3 pt-1 px-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -321,21 +497,23 @@ export function MasterAuditWorkspace({
               return (
                 <tr
                   key={item.id}
-                  className="hover:bg-surface-muted/60 transition-colors cursor-pointer"
+                  className="hover:bg-surface-muted/60 transition-colors cursor-pointer group"
                   onClick={() => setSelectedAuditId(item.id)}
                 >
                   <td className="py-3 px-3 font-mono text-[11px] muted whitespace-nowrap">
-                    {item.createdAt?.slice(0, 16).replace("T", " ")}
+                    {item.createdAt.slice(0, 16).replace("T", " ")}
                   </td>
 
                   <td className="py-3 px-3">
                     {actorType === "SYSTEM" ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-300">
-                        🤖 System / Webhook
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
+                        <Activity className="w-3 h-3 text-slate-500" />
+                        System / Webhook
                       </span>
                     ) : actorType === "PUBLIC" ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300">
-                        🌐 Online Customer
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200">
+                        <Users className="w-3 h-3 text-purple-600" />
+                        Online customer
                       </span>
                     ) : (
                       <div>
@@ -354,19 +532,28 @@ export function MasterAuditWorkspace({
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 inline-flex items-center gap-1 ${
                           item.severity === "HIGH"
-                            ? "bg-rose-100 text-rose-900 border-rose-300"
+                            ? "bg-rose-50 text-rose-800 border-rose-200"
                             : item.severity === "MEDIUM"
-                            ? "bg-amber-100 text-amber-900 border-amber-300"
-                            : "bg-surface-muted text-ink/80 border-line"
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : "bg-slate-50 text-slate-700 border-slate-200"
                         }`}
                       >
-                        {item.severity === "HIGH" ? "🔴 High Risk" : item.severity === "MEDIUM" ? "🟡 Sensitive" : "⚪ Ops"}
+                        {item.severity === "HIGH" ? (
+                          <ShieldAlert className="w-3 h-3 text-rose-600" />
+                        ) : item.severity === "MEDIUM" ? (
+                          <Shield className="w-3 h-3 text-amber-600" />
+                        ) : (
+                          <ShieldCheck className="w-3 h-3 text-slate-500" />
+                        )}
+                        {item.severity === "HIGH" ? "High risk" : item.severity === "MEDIUM" ? "Sensitive" : "Ops"}
                       </span>
+
                       <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-xs font-bold text-ink truncate">
-                          {item.actionIcon ?? "📋"} {item.actionTitle ?? item.action}
+                        <ActionTypeIcon name={item.actionIcon} />
+                        <span className="text-xs font-semibold text-ink truncate">
+                          {item.actionTitle ?? item.action}
                         </span>
                       </div>
                     </div>
@@ -376,10 +563,11 @@ export function MasterAuditWorkspace({
                     {targetHref ? (
                       <Link
                         href={targetHref}
-                        className="hover:underline font-bold text-primary flex items-center gap-1 truncate"
+                        className="hover:underline font-bold text-primary inline-flex items-center gap-1 truncate"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {targetLabel} ↗
+                        <span>{targetLabel}</span>
+                        <ExternalLink className="w-3 h-3 text-primary/70 shrink-0" />
                       </Link>
                     ) : (
                       <span className="text-ink/80 truncate font-mono text-[11px]">{targetLabel}</span>
@@ -389,46 +577,43 @@ export function MasterAuditWorkspace({
                   <td className="py-3 px-3 max-w-xs truncate">
                     <span className="text-ink font-medium">{item.diff.summary}</span>
                     {item.diff.reason && (
-                      <span className="block text-[11px] text-amber-900 italic truncate">
-                        &quot;{item.diff.reason}&quot;
+                      <span className="block text-[11px] text-amber-900 italic truncate mt-0.5">
+                        &ldquo;{item.diff.reason}&rdquo;
                       </span>
                     )}
                   </td>
 
                   <td className="py-3 px-3 text-right whitespace-nowrap">
-                    <AdminRowActionMenu
-                      items={[
-                        {
-                          id: "view-diff",
-                          label: "View Detailed Diff",
-                          icon: <IconEye />,
-                          onClick: () => {
-                            setSelectedAuditId(item.id);
+                    <div className="inline-flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+                      <AdminRowActionMenu
+                        items={[
+                          {
+                            id: "view-diff",
+                            label: "View details",
+                            icon: <IconEye />,
+                            onClick: () => setSelectedAuditId(item.id),
                           },
-                        },
-                        {
-                          id: "copy-id",
-                          label: "Copy Event ID",
-                          icon: <IconCopy />,
-                          onClick: () => {
-                            void navigator.clipboard.writeText(item.id);
-                            alert(`Copied Audit Event ID: ${item.id}`);
+                          {
+                            id: "copy-id",
+                            label: copiedId === item.id ? "ID Copied!" : "Copy event ID",
+                            icon: <IconCopy />,
+                            onClick: () => copyEventId(item.id),
                           },
-                        },
-                        ...(targetHref
-                          ? [
-                              {
-                                id: "jump-entity",
-                                label: "Jump to Entity",
-                                icon: <IconLink />,
-                                onClick: () => {
-                                  window.location.href = targetHref;
+                          ...(targetHref
+                            ? [
+                                {
+                                  id: "jump-entity",
+                                  label: "Jump to entity",
+                                  icon: <IconLink />,
+                                  onClick: () => {
+                                    window.location.href = targetHref;
+                                  },
                                 },
-                              },
-                            ]
-                          : []),
-                      ]}
-                    />
+                              ]
+                            : []),
+                        ]}
+                      />
+                    </div>
                   </td>
                 </tr>
               );
@@ -436,8 +621,11 @@ export function MasterAuditWorkspace({
 
             {data.items.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center muted italic">
-                  No security audit events match the selected forensic filters.
+                <td colSpan={6} className="py-10 text-center">
+                  <AdminEmptyState
+                    title="No audit events found"
+                    description="No security audit records match the selected forensic filters."
+                  />
                 </td>
               </tr>
             )}

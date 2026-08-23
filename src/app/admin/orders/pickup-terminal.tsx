@@ -1,278 +1,128 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Banknote, CircleCheck, CreditCard, PackageCheck, Phone, Search, Smartphone, X } from "lucide-react";
 import type { AdminOrder } from "../orders-listing";
-import { AdminStatusBadge, formatAdminMoney } from "../presentation";
+import { AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 
 function cleanLitres(ml: number) {
   return `${(ml / 1000).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} L`;
 }
 
-export function PickupTerminal({
-  orders,
-  canTransition,
-  onRefresh,
-}: {
+function todayInFinland() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Helsinki" }).format(new Date());
+}
+
+function paymentAmount(order: AdminOrder) {
+  return order.outstandingCents ?? order.finalTotalCents ?? order.itemSubtotalCents;
+}
+
+type PaymentMethod = "CASH" | "MOBILEPAY" | "CARD";
+type PendingAction = { type: "PICKUP"; order: AdminOrder } | { type: "PAYMENT"; order: AdminOrder; method: PaymentMethod };
+
+export function PickupTerminal({ orders, canTransition, canRecordPayment, onRefresh }: {
   orders: AdminOrder[];
   canTransition: boolean;
+  canRecordPayment: boolean;
   onRefresh: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [filterMode, setFilterMode] = useState<"ALL" | "READY_PAID" | "READY_UNPAID" | "PICKED_UP">("ALL");
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [filterMode, setFilterMode] = useState<"ALL" | "READY_PAID" | "READY_UNPAID" | "COMPLETED">("ALL");
+  const [pending, setPending] = useState<PendingAction | null>(null);
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const today = todayInFinland();
 
-  // Filter pickup orders for today
-  const pickupOrders = useMemo(() => {
-    return orders.filter((o) => o.fulfillmentMethod === "PICKUP");
-  }, [orders]);
+  const pickupOrders = useMemo(
+    () => orders.filter((order) => order.fulfillmentMethod === "PICKUP" && order.fulfillmentDate === today),
+    [orders, today],
+  );
 
-  const filteredOrders = useMemo(() => {
-    return pickupOrders.filter((order) => {
-      const text = `${order.customerName} ${order.publicReference} ${order.mobile ?? ""} ${order.packageLabelFi}`.toLowerCase();
-      const lastDigits = order.mobile ? order.mobile.slice(-4) : "";
-      const matchesSearch =
-        !query || text.includes(query.toLowerCase()) || lastDigits.includes(query.trim());
+  const filteredOrders = useMemo(() => pickupOrders.filter((order) => {
+    const value = query.trim().toLowerCase();
+    const text = `${order.customerName} ${order.publicReference} ${order.mobile ?? ""} ${order.packageLabelFi}`.toLowerCase();
+    const matchesSearch = !value || text.includes(value) || (order.mobile?.slice(-4) ?? "").includes(value);
+    const paid = (order.outstandingCents ?? 0) <= 0;
+    const matchesFilter = filterMode === "ALL"
+      || (filterMode === "READY_PAID" && order.status === "READY" && paid)
+      || (filterMode === "READY_UNPAID" && order.status === "READY" && !paid)
+      || (filterMode === "COMPLETED" && order.status === "PICKED_UP");
+    return matchesSearch && matchesFilter;
+  }), [filterMode, pickupOrders, query]);
 
-      const isPaid = (order.outstandingCents ?? 0) <= 0;
-      let matchesFilter = true;
-      if (filterMode === "READY_PAID") matchesFilter = order.status === "READY" && isPaid;
-      else if (filterMode === "READY_UNPAID") matchesFilter = order.status === "READY" && !isPaid;
-      else if (filterMode === "PICKED_UP") matchesFilter = order.status === "PICKED_UP";
-
-      return matchesSearch && matchesFilter;
-    });
-  }, [pickupOrders, query, filterMode]);
-
-  // 1-Tap Confirm Pickup
-  async function handleConfirmPickup(order: AdminOrder) {
-    setBusyId(order.id);
+  async function executePending() {
+    if (!pending) return;
+    setBusy(true);
     setError("");
     setNotice("");
-
-    const response = await fetch(`/api/admin/orders/${order.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "transition", status: "PICKED_UP" }),
-    });
-
-    const body = await response.json();
-    setBusyId(null);
-
-    if (!response.ok) {
-      return setError(body.message ?? "Could not confirm pickup.");
+    const { order } = pending;
+    try {
+      const response = pending.type === "PICKUP"
+        ? await fetch(`/api/admin/orders/${order.id}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "transition", status: "PICKED_UP", expectedVersion: order.version }),
+          })
+        : await fetch(`/api/admin/orders/${order.id}/payment`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ amountCents: paymentAmount(order), method: pending.method, reference: `Pickup desk ${pending.method} ${order.publicReference}` }),
+          });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message ?? (pending.type === "PICKUP" ? "Could not confirm pickup." : "Could not record payment."));
+      setNotice(pending.type === "PICKUP"
+        ? `Pickup confirmed for ${order.customerName} (${order.publicReference}).`
+        : `${formatAdminMoney(paymentAmount(order))} recorded via ${pending.method} for ${order.publicReference}.`);
+      setPending(null);
+      onRefresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Pickup action failed.");
+    } finally {
+      setBusy(false);
     }
-
-    setNotice(`✅ Pickup confirmed for ${order.customerName} (${order.publicReference}).`);
-    onRefresh();
   }
 
-  // 1-Tap Quick Payment Logging
-  async function handleRecordPayment(order: AdminOrder, method: "CASH" | "MOBILEPAY" | "CARD") {
-    setBusyId(order.id);
-    setError("");
-    setNotice("");
-
-    const amountCents = order.outstandingCents ?? order.finalTotalCents ?? order.itemSubtotalCents;
-
-    const response = await fetch(`/api/admin/orders/${order.id}/payments`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        amountCents,
-        method,
-        reference: `Terminal ${method} ${order.publicReference}`,
-      }),
-    });
-
-    const body = await response.json();
-    setBusyId(null);
-
-    if (!response.ok) {
-      return setError(body.message ?? "Could not record payment.");
-    }
-
-    setNotice(`💰 Recorded ${formatAdminMoney(amountCents)} via ${method} for ${order.customerName}.`);
-    onRefresh();
-  }
+  const completed = pickupOrders.filter((order) => order.status === "PICKED_UP").length;
 
   return (
-    <div className="card p-4 md:p-6 flex flex-col gap-4 bg-surface text-ink">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-primary">📱 EVENING PICKUP TERMINAL</span>
-          <h2 className="text-xl font-bold text-ink">Fast Pickup Check-In Mode</h2>
-          <p className="text-xs muted">
-            High-contrast, 1-tap check-in tool designed for mobile phones and tablets at market stalls.
-          </p>
-        </div>
+    <section className="pickup-terminal">
+      <header className="pickup-terminal-header">
+        <div><p className="eyebrow">Today&apos;s handovers</p><h2>Pickup desk</h2><p>Find the customer, resolve payment, then confirm exactly what is handed over.</p></div>
+        <div className="pickup-progress"><strong>{completed}/{pickupOrders.length}</strong><span>completed</span></div>
+      </header>
 
-        <div className="text-right">
-          <span className="text-2xl font-bold text-emerald-700 ops-tabular">
-            {pickupOrders.filter((o) => o.status === "PICKED_UP").length} / {pickupOrders.length}
-          </span>
-          <span className="text-xs text-muted block font-semibold">Pickups Completed</span>
-        </div>
+      {notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}
+      {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
+
+      <div className="pickup-search"><Search aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, reference, or phone" aria-label="Search today's pickups" /></div>
+      <div className="pickup-filters" role="tablist" aria-label="Pickup readiness">
+        {([ ["ALL", `All (${pickupOrders.length})`], ["READY_PAID", "Ready · paid"], ["READY_UNPAID", "Ready · unpaid"], ["COMPLETED", "Completed"] ] as const).map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={filterMode === key} className={filterMode === key ? "is-active" : ""} onClick={() => setFilterMode(key)}>{label}</button>)}
       </div>
 
-      {notice && <p className="text-xs font-bold text-emerald-800 bg-emerald-100 p-3 rounded-xl border border-emerald-300">{notice}</p>}
-      {error && <p className="text-xs font-bold text-danger bg-rose-50 p-3 rounded-xl border border-rose-200">{error}</p>}
-
-      {/* SEARCH BAR (High-Contrast Large Input) */}
-      <div className="flex flex-col gap-2 relative">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by customer name or last 4 phone digits (e.g. 4567)…"
-          className="w-full text-base font-medium py-3 px-4 pl-10 rounded-xl border-2 border-primary bg-surface shadow-sm focus:ring-2 focus:ring-primary/40"
-        />
-        <Search className="w-5 h-5 absolute left-3.5 top-3.5 text-muted pointer-events-none" />
-
-        {/* Quick Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-          {[
-            { key: "ALL", label: `All Pickups (${pickupOrders.length})` },
-            { key: "READY_PAID", label: "🟢 Ready & Paid" },
-            { key: "READY_UNPAID", label: "🟡 Ready & Unpaid" },
-            { key: "PICKED_UP", label: "✅ Completed" },
-          ].map((pill) => (
-            <button
-              key={pill.key}
-              type="button"
-              className={`px-3 py-1.5 rounded-lg font-bold whitespace-nowrap transition-colors ${
-                filterMode === pill.key
-                  ? "bg-primary text-on-primary shadow-sm"
-                  : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
-              }`}
-              onClick={() => setFilterMode(pill.key as typeof filterMode)}
-            >
-              {pill.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* LARGE PICKUP CARDS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1">
+      <div className="pickup-order-grid">
         {filteredOrders.map((order) => {
-          const isPaid = (order.outstandingCents ?? 0) <= 0;
-          const isPickedUp = order.status === "PICKED_UP";
-          const isBusy = busyId === order.id;
-
-          return (
-            <article
-              key={order.id}
-              className={`p-4 rounded-2xl border-2 flex flex-col justify-between gap-3 transition-shadow shadow-sm ${
-                isPickedUp
-                  ? "bg-slate-100/70 border-slate-300 opacity-80"
-                  : !isPaid
-                  ? "bg-amber-50/60 border-amber-300"
-                  : "bg-surface border-primary/40"
-              }`}
-            >
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-start justify-between gap-2 border-b border-line/60 pb-2">
-                  <div>
-                    <h3 className="text-lg font-bold text-ink">{order.customerName}</h3>
-                    <span className="text-xs font-mono font-bold text-primary">{order.publicReference}</span>
-                  </div>
-
-                  <AdminStatusBadge status={order.status} />
-                </div>
-
-                <div className="flex items-center justify-between text-xs my-1">
-                  <div>
-                    <strong className="text-sm font-bold text-ink block">{order.packageLabelFi}</strong>
-                    <span className="muted font-semibold">{cleanLitres(order.volumeMl)} · {order.productNameFi}</span>
-                  </div>
-
-                  <div className="text-right">
-                    <span className="text-base font-bold text-ink ops-tabular">
-                      {formatAdminMoney(order.finalTotalCents ?? order.itemSubtotalCents)}
-                    </span>
-                    <span
-                      className={`text-[11px] font-bold block ${
-                        isPaid ? "text-emerald-700" : "text-amber-800"
-                      }`}
-                    >
-                      {isPaid ? "🟢 Paid" : `🟡 Unpaid (${formatAdminMoney(order.outstandingCents ?? 0)})`}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-xs font-mono text-muted">
-                  📞 {order.mobile}
-                </div>
-              </div>
-
-              {/* 1-TAP ACTION BUTTONS */}
-              <div className="flex flex-col gap-2 pt-2 border-t border-line/60">
-                {!isPickedUp ? (
-                  <>
-                    {/* 1-Tap Confirm Pickup */}
-                    {canTransition && (
-                      <button
-                        type="button"
-                        className="btn w-full py-3.5 text-base font-bold bg-emerald-700 hover:bg-emerald-800 text-on-primary shadow-lg flex items-center justify-center gap-2"
-                        onClick={() => void handleConfirmPickup(order)}
-                        disabled={isBusy}
-                      >
-                        {isBusy ? "Processing…" : "✅ 1-TAP CONFIRM PICKUP (Noudettu)"}
-                      </button>
-                    )}
-
-                    {/* Quick Payment Buttons if Unpaid */}
-                    {!isPaid && (
-                      <div className="flex flex-col gap-1 text-center">
-                        <span className="text-[11px] font-bold text-amber-900 uppercase">Collect Payment:</span>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          <button
-                            type="button"
-                            className="btn btn-secondary text-xs py-2 font-bold"
-                            onClick={() => void handleRecordPayment(order, "CASH")}
-                            disabled={isBusy}
-                          >
-                            💵 Cash
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary text-xs py-2 font-bold text-blue-700"
-                            onClick={() => void handleRecordPayment(order, "MOBILEPAY")}
-                            disabled={isBusy}
-                          >
-                            📱 MobilePay
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary text-xs py-2 font-bold text-purple-700"
-                            onClick={() => void handleRecordPayment(order, "CARD")}
-                            disabled={isBusy}
-                          >
-                            💳 Card
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center py-2 text-xs font-bold text-slate-600 bg-slate-200/60 rounded-xl">
-                    ✓ Pickup Completed
-                  </div>
-                )}
-              </div>
-            </article>
-          );
+          const paid = (order.outstandingCents ?? 0) <= 0;
+          const completedOrder = order.status === "PICKED_UP";
+          const ready = order.status === "READY";
+          return <article className={`pickup-order-card${completedOrder ? " is-complete" : ""}${!paid ? " has-payment-due" : ""}`} key={order.id}>
+            <header><div><h3>{order.customerName}</h3><span>{order.publicReference}</span></div><AdminStatusBadge status={order.status} /></header>
+            <dl>
+              <div><dt>Order</dt><dd><strong>{order.packageLabelFi}</strong><span>{cleanLitres(order.volumeMl)} · {order.productNameFi}</span></dd></div>
+              <div><dt>Payment</dt><dd><strong>{formatAdminMoney(order.finalTotalCents ?? order.itemSubtotalCents)}</strong><span className={paid ? "is-paid" : "is-due"}>{paid ? "Paid" : `${formatAdminMoney(order.outstandingCents ?? 0)} due`}</span></dd></div>
+              <div><dt>Phone</dt><dd>{order.mobile ? <a href={`tel:${order.mobile}`}><Phone aria-hidden="true" />{order.mobile}</a> : <span>Not provided</span>}</dd></div>
+            </dl>
+            {!completedOrder && <div className="pickup-order-actions">
+              {!paid && canRecordPayment && <div><span>Record payment</span><div>{([ ["CASH", "Cash", Banknote], ["MOBILEPAY", "MobilePay", Smartphone], ["CARD", "Card", CreditCard] ] as const).map(([method, label, Icon]) => <button type="button" className="btn btn-secondary" key={method} onClick={() => setPending({ type: "PAYMENT", order, method })}><Icon aria-hidden="true" />{label}</button>)}</div></div>}
+              {ready && canTransition ? <button type="button" className="btn pickup-confirm" onClick={() => setPending({ type: "PICKUP", order })}><PackageCheck aria-hidden="true" />Review handover</button> : !ready ? <p>Complete packing before handover.</p> : null}
+            </div>}
+            {completedOrder && <div className="pickup-complete"><CircleCheck aria-hidden="true" />Pickup completed</div>}
+          </article>;
         })}
-
-        {filteredOrders.length === 0 && (
-          <div className="col-span-full py-8 text-center text-xs muted">
-            No pickup orders found matching your search or filter.
-          </div>
-        )}
+        {!filteredOrders.length && <div className="pickup-empty"><PackageCheck aria-hidden="true" /><strong>No matching pickups</strong><span>{query ? "Try a different name, reference, or phone number." : "No orders match this readiness filter for today."}</span></div>}
       </div>
-    </div>
+
+      {pending && <div className="admin-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setPending(null); }}><section className="admin-dialog card pickup-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="pickup-confirm-title"><header><div><p className="eyebrow">Review action</p><h3 id="pickup-confirm-title">{pending.type === "PICKUP" ? "Confirm handover" : "Record payment"}</h3></div><button type="button" className="admin-icon-button" disabled={busy} onClick={() => setPending(null)} aria-label="Close confirmation"><X aria-hidden="true" /></button></header><dl><div><dt>Customer</dt><dd>{pending.order.customerName}</dd></div><div><dt>Reference</dt><dd>{pending.order.publicReference}</dd></div><div><dt>Order</dt><dd>{pending.order.packageLabelFi} · {cleanLitres(pending.order.volumeMl)}</dd></div>{pending.type === "PAYMENT" && <><div><dt>Amount</dt><dd>{formatAdminMoney(paymentAmount(pending.order))}</dd></div><div><dt>Method</dt><dd>{pending.method}</dd></div></>}</dl>{pending.type === "PICKUP" && (pending.order.outstandingCents ?? 0) > 0 && <AdminNotice tone="warning">This order still has {formatAdminMoney(pending.order.outstandingCents ?? 0)} outstanding. Record payment before confirming handover unless payment is intentionally deferred.</AdminNotice>}<footer><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => setPending(null)}>Cancel</button><button type="button" className="btn" disabled={busy} onClick={() => void executePending()}>{busy ? "Saving…" : pending.type === "PICKUP" ? "Confirm pickup" : "Record payment"}</button></footer></section></div>}
+    </section>
   );
 }

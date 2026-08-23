@@ -45,6 +45,7 @@ export async function getReport(database: Database, filters: ReportFilters) {
   const paymentRows = orderIds.length
     ? await database.select().from(orderPayments).where(and(eq(orderPayments.shopId, shopId), inArray(orderPayments.orderId, orderIds)))
     : [];
+  const orderReferenceById = new Map(orderRows.map((row) => [row.id, row.publicReference]));
 
   const fulfilled = orderRows.filter((row) => isFulfilled(row.status) && (!filters.outcome || row.status === filters.outcome));
   const cancelled = orderRows.filter((row) => !isFulfilled(row.status) && (!filters.outcome || row.status === filters.outcome));
@@ -90,12 +91,21 @@ export async function getReport(database: Database, filters: ReportFilters) {
     meta: { from: filters.from, to: filters.to, groupBy: filters.groupBy ?? "day", currency: "EUR", timezone: "Europe/Helsinki", generatedAt: new Date().toISOString(), formulaVersion: "reporting-v1" },
     sales: { fulfilledOrders: fulfilled.length, fulfilledLitresMl: fulfilled.reduce((sum, row) => sum + row.volumeMl, 0), fulfilledSalesCents: fulfilled.reduce((sum, row) => sum + (row.finalTotalCents ?? row.itemSubtotalCents), 0), averageOrderValueCents: fulfilled.length ? Math.round(fulfilled.reduce((sum, row) => sum + (row.finalTotalCents ?? row.itemSubtotalCents), 0) / fulfilled.length) : 0, deliveryFeeCents: fulfilled.reduce((sum, row) => sum + (row.deliveryFeeCents ?? 0), 0), cancelledOrders: cancelled.length, timeline: [...grouped.values()].sort((a, b) => a.date.localeCompare(b.date)), productMix, methodMix, sourceMix },
     capacity: { rows: capacity, configuredMl: capacity.reduce((sum, row) => sum + row.configuredMl, 0), reservedMl: capacity.reduce((sum, row) => sum + row.reservedMl, 0), remainingMl: capacity.reduce((sum, row) => sum + row.remainingMl, 0), utilizationPercent: capacity.reduce((sum, row) => sum + row.configuredMl, 0) ? Math.round((capacity.reduce((sum, row) => sum + row.reservedMl, 0) / capacity.reduce((sum, row) => sum + row.configuredMl, 0)) * 100) : 0 },
-    payments: { recordedPaymentsCents: paymentsCents, refundsCents, netCashCents: paymentsCents - refundsCents, paymentCount: paymentRows.filter((row) => row.kind === "PAYMENT").length, refundCount: paymentRows.filter((row) => row.kind === "REFUND").length },
+    payments: {
+      recordedPaymentsCents: paymentsCents,
+      refundsCents,
+      netCashCents: paymentsCents - refundsCents,
+      paymentCount: paymentRows.filter((row) => row.kind === "PAYMENT").length,
+      refundCount: paymentRows.filter((row) => row.kind === "REFUND").length,
+      events: paymentRows
+        .map((row) => ({ id: row.id, orderId: row.orderId, orderReference: orderReferenceById.get(row.orderId) ?? row.orderId, kind: row.kind, method: row.method, amountCents: row.amountCents, recordedAt: row.recordedAt }))
+        .sort((a, b) => b.recordedAt.localeCompare(a.recordedAt)),
+    },
     customers: { fulfilledCustomers: customerRows.filter((row) => row.key !== "unlinked").length, repeatCustomers, repeatRatePercent: customerRows.length ? Math.round((repeatCustomers / customerRows.length) * 100) : 0, unlinkedOrders: customerRows.find((row) => row.key === "unlinked")?.orders ?? 0, groups: customerRows },
   };
 }
 
 export function reportCsv(report: Awaited<ReturnType<typeof getReport>>, key: ReportKey) {
-  const rows = key === "capacity" ? report.capacity.rows.map((row) => [row.date, row.productId, row.configuredMl, row.reservedMl, row.remainingMl, row.manualSoldOut ? "manual sold-out" : ""]) : key === "sales" ? report.sales.timeline.map((row) => [row.date, row.orders, row.litres, row.salesCents, row.deliveryCents]) : key === "payments" ? [[report.meta.from, report.meta.to, report.payments.recordedPaymentsCents, report.payments.refundsCents, report.payments.netCashCents]] : report.customers.groups.map((row) => [row.key, row.orders, row.litres, row.salesCents]);
+  const rows = key === "capacity" ? report.capacity.rows.map((row) => [row.date, row.productId, row.configuredMl, row.reservedMl, row.remainingMl, row.manualSoldOut ? "manual sold-out" : ""]) : key === "sales" ? report.sales.timeline.map((row) => [row.date, row.orders, row.litres, row.salesCents, row.deliveryCents]) : key === "payments" ? report.payments.events.map((row) => [row.recordedAt, row.orderReference, row.kind, row.method, row.amountCents]) : report.customers.groups.map((row) => [row.key, row.orders, row.litres, row.salesCents]);
   return rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
 }

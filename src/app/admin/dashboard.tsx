@@ -109,7 +109,7 @@ export function DashboardModule() {
     setAlertsModalOpen(true);
     setLoadingAlerts(true);
     try {
-      const response = await fetch("/api/admin/notifications", { cache: "no-store" });
+      const response = await fetch("/api/admin/notifications?view=recent&state=UNREAD", { cache: "no-store" });
       const body = await response.json();
       if (response.ok && body.data) setAlertsList(body.data);
     } catch {
@@ -124,7 +124,9 @@ export function DashboardModule() {
       await fetch("/api/admin/notifications", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(id ? { id } : {}),
+        body: JSON.stringify(id
+          ? { action: "read", id }
+          : { action: "mark-filtered-read", filters: { state: "UNREAD" } }),
       });
       if (id) {
         setAlertsList((prev) => prev.filter((a) => a.id !== id));

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ArrowRight, Check, Minus, Plus } from "lucide-react";
 import type { OrderReceipt } from "@/domain/orders";
 import { formatEuros, formatLitres, formatStorefrontDate, type Locale } from "@/lib/format";
 import { copy } from "@/lib/i18n";
@@ -199,8 +200,8 @@ export function OrderForm({
     <>
       <form className="reservation-form" onSubmit={submit} onChange={handleFormChange} noValidate>
       <div className="reservation-fields">
-      {contact.phone && <section className="message-booking-banner" aria-labelledby="message-booking-title"><div className="message-booking-copy"><span className="message-booking-kicker">{locale === "fi" ? "Nopea varaus" : "Quick booking"}</span><strong id="message-booking-title">{locale === "fi" ? "Varaa viestillä" : "Prefer to message us?"}</strong></div><div className="message-booking-actions"><a className="message-action" href={`sms:${smsNumber}`}><strong>SMS</strong><span aria-hidden="true">→</span></a><a className="message-action message-action-whatsapp" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer"><strong>WhatsApp</strong><span aria-hidden="true">→</span></a></div></section>}
-        <div className="senior-trust-strip" role="note"><span>✓ {locale === "fi" ? "Poimittu ja toimitettu saman päivän aikana" : "Picked and delivered the same day"}</span><span>✓ {locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</span></div>
+      {contact.phone && <section className="message-booking-banner" aria-labelledby="message-booking-title"><div className="message-booking-copy"><span className="message-booking-kicker">{locale === "fi" ? "Nopea varaus" : "Quick booking"}</span><strong id="message-booking-title">{locale === "fi" ? "Varaa viestillä" : "Prefer to message us?"}</strong></div><div className="message-booking-actions"><a className="message-action" href={`sms:${smsNumber}`}><strong>SMS</strong><ArrowRight aria-hidden="true" /></a><a className="message-action message-action-whatsapp" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer"><strong>WhatsApp</strong><ArrowRight aria-hidden="true" /></a></div></section>}
+        <div className="senior-trust-strip" role="note"><span><Check aria-hidden="true" /> {locale === "fi" ? "Poimittu ja toimitettu saman päivän aikana" : "Picked and delivered the same day"}</span><span><Check aria-hidden="true" /> {locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</span></div>
         <p className="required-note">{customerValidationCopy[locale].requiredNote}</p>
         {error && <div className="error form-error" role="alert" tabIndex={-1}>{error}</div>}
         <fieldset className="form-step">
@@ -210,9 +211,9 @@ export function OrderForm({
         <div className={`reserve-product-grid${fieldErrors.productId ? " field-invalid" : ""}`} data-field="productId" aria-invalid={Boolean(fieldErrors.productId)} aria-describedby={fieldErrors.productId ? "productId-error" : undefined}>
           {products.map((item) => {
             const available = item.packages.some((pkg) => item.dates.some((dateItem) => dateItem.acceptsOrders && !dateItem.soldOut && dateItem.remainingMl >= pkg.volumeMl));
-            return <label className={`reserve-product-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}><input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} required aria-describedby={fieldErrors.productId ? "productId-error" : undefined} /><span className="reserve-product-image">{item.media[0] ? <img src={item.media[0].url} alt="" /> : <span aria-hidden="true">M</span>}</span><span className="reserve-product-card-copy"><strong>{item.name}</strong><small className="whitespace-pre-line">{item.description?.trim() || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span><span className={`availability-badge reserve-product-status${available ? "" : " unavailable"}`}>{available ? (locale === "fi" ? "Saatavilla" : "Available") : (locale === "fi" ? "Ei saatavilla" : "Unavailable")}</span><span className="selection-check" aria-hidden="true">✓</span></label>;
+            return <label className={`reserve-product-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}><input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} required aria-describedby={fieldErrors.productId ? "productId-error" : undefined} /><span className="reserve-product-image">{item.media[0] ? <img src={item.media[0].url} alt="" /> : <span aria-hidden="true">M</span>}</span><span className="reserve-product-card-copy"><strong>{item.name}</strong><small className="whitespace-pre-line">{item.description?.trim() || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span><span className={`availability-badge reserve-product-status${available ? "" : " unavailable"}`}>{available ? (locale === "fi" ? "Saatavilla" : "Available") : (locale === "fi" ? "Ei saatavilla" : "Unavailable")}</span><span className="selection-check" aria-hidden="true"><Check /></span></label>;
           })}
-          {Array.from({ length: Math.max(0, 3 - products.length) }).map((_, index) => <div className="reserve-product-card reserve-coming-soon" aria-disabled="true" key={`coming-soon-${index}`}><span className="reserve-product-image"><span aria-hidden="true">+</span></span><span className="reserve-product-card-copy"><strong>{locale === "fi" ? "Tulossa pian" : "Coming soon"}</strong><small>{locale === "fi" ? "Uusi kauden sato lisätään pian." : "Another seasonal harvest will be added soon."}</small></span><span className="availability-badge reserve-product-status coming-soon-status">{locale === "fi" ? "Tulossa pian" : "Coming soon"}</span></div>)}
+          {Array.from({ length: Math.max(0, 3 - products.length) }).map((_, index) => <div className="reserve-product-card reserve-coming-soon" aria-disabled="true" key={`coming-soon-${index}`}><span className="reserve-product-image"><Plus aria-hidden="true" /></span><span className="reserve-product-card-copy"><strong>{locale === "fi" ? "Tulossa pian" : "Coming soon"}</strong><small>{locale === "fi" ? "Uusi kauden sato lisätään pian." : "Another seasonal harvest will be added soon."}</small></span><span className="availability-badge reserve-product-status coming-soon-status">{locale === "fi" ? "Tulossa pian" : "Coming soon"}</span></div>)}
         </div>
         <CustomerFieldError field="productId" error={fieldErrors.productId} />
         </div>
@@ -226,7 +227,7 @@ export function OrderForm({
               <input type="radio" name="packageId" value={item.id} checked={item.id === selectedPackage?.id} onChange={() => { setPackageId(item.id); setQuantity(1); setDate(""); }} required aria-describedby={fieldErrors.packageId ? "packageId-error" : undefined} />
               <span className="selection-card-copy"><strong>{item.label}</strong><small>{formatLitres(item.volumeMl, locale)} l · {formatEuros(unitPriceCents, locale)}/{locale === "fi" ? "l" : "L"}</small></span>
               <strong className="selection-price">{formatEuros(item.priceCents, locale)}</strong>
-              <span className="selection-check" aria-hidden="true">✓</span>
+              <span className="selection-check" aria-hidden="true"><Check /></span>
             </label>;
           })}
         </div>
@@ -235,7 +236,7 @@ export function OrderForm({
         {selectedPackage?.volumeMl === 10000 && (
           <label className="field">
             <span>{locale === "fi" ? "Määrä" : "Quantity"}</span>
-            <div className="quantity-control"><button className="stepper" type="button" aria-label={locale === "fi" ? "Vähennä määrää" : "Decrease quantity"} onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button><input type="number" name="quantity" min={1} max={100} step={1} value={quantity} onChange={(event) => setQuantity(Math.max(1, Math.min(100, Number(event.target.value) || 1)))} required /><button className="stepper" type="button" aria-label={locale === "fi" ? "Lisää määrää" : "Increase quantity"} onClick={() => setQuantity(Math.min(100, quantity + 1))}>+</button></div>
+            <div className="quantity-control"><button className="stepper" type="button" aria-label={locale === "fi" ? "Vähennä määrää" : "Decrease quantity"} onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus aria-hidden="true" /></button><input type="number" name="quantity" min={1} max={100} step={1} value={quantity} onChange={(event) => setQuantity(Math.max(1, Math.min(100, Number(event.target.value) || 1)))} required /><button className="stepper" type="button" aria-label={locale === "fi" ? "Lisää määrää" : "Increase quantity"} onClick={() => setQuantity(Math.min(100, quantity + 1))}><Plus aria-hidden="true" /></button></div>
             <small>{locale === "fi" ? "10 litran pakkaukselle voit valita määrän." : "Quantity can be selected for the 10 litre package."}</small>
           </label>
         )}
@@ -279,7 +280,7 @@ export function OrderForm({
         <div className="summary-selection"><span className="summary-kicker">{locale === "fi" ? "Varauksesi" : "Your reservation"}</span><strong>{product?.name ?? (locale === "fi" ? "Valitse tuote" : "Choose a product")}</strong><small>{selectedPackage?.label ?? t.package} · {quantity} {locale === "fi" ? "kpl" : quantity === 1 ? "item" : "items"} · {selectedDateLabel}</small></div>
         <div className="summary-meta"><span>{method === "PICKUP" ? t.pickup : t.delivery}</span><span>{formatLitres(totalLitres * 1000, locale)} l</span></div>
         <div className={`summary-total${method === "DELIVERY" ? " summary-total-delivery" : ""}`}><span>{method === "DELIVERY" ? t.productTotal : (locale === "fi" ? "Yhteensä" : "Total")}</span><strong>{formatEuros(subtotalCents, locale)}</strong>{method === "DELIVERY" && <small>{t.deliveryFeePending}<br />{t.excludesDeliveryFee}</small>}</div>
-        <button className="btn btn-accent submit-button" disabled={submitting} type="submit">{submitting ? "…" : t.submit}<span aria-hidden="true">→</span></button>
+      <button className="btn btn-accent submit-button" disabled={submitting} type="submit">{submitting ? "…" : t.submit}<ArrowRight aria-hidden="true" /></button>
       </div>
       </form>
     </>

@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Download, Filter, List, PackageCheck, Plus, Search, Store } from "lucide-react";
 import type { orders } from "@/db/schema";
-import type { Role } from "@/lib/permissions";
 import { getOrderTriageReasons, orderTriageScore } from "@/domain/order-triage";
 import { getLegalOrderTransitions, type OrderStatus } from "@/domain/order-transitions";
-import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge, formatAdminMoney } from "./presentation";
+import { AdminNotice, AdminPageHeader, AdminStatusBadge, formatAdminMoney } from "./presentation";
 import { OrderInspector } from "./order-inspector";
 import { PickupTerminal } from "./orders/pickup-terminal";
 import { PackingKanban } from "./orders/packing-kanban";
@@ -36,33 +36,25 @@ export type OrdersView =
 
 type WorkspaceMode = "TABLE" | "KANBAN" | "TERMINAL";
 type DatePreset = "TODAY" | "TOMORROW" | "YESTERDAY" | "THIS_WEEK" | "LAST_WEEK" | "LAST_7_DAYS" | "ALL" | "CUSTOM";
-type Column = "fulfillment" | "source" | "status" | "payment" | "updated";
 type SortField = "fulfillment" | "ref" | "customer" | "source" | "payment" | "status";
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
 type ArchiveScope = "ACTIVE_ONLY" | "ARCHIVED_ONLY" | "ALL";
 type EntryTypeFilter = "ALL" | "LIVE_ONLY" | "HISTORICAL_ONLY";
 
 function formatOrderSourceBadge(order: AdminOrder) {
-  const srcMap: Record<string, { label: string; icon: string }> = {
-    WEBSITE: { label: "Website", icon: "🌐" },
-    SMS: { label: "SMS", icon: "✉️" },
-    WHATSAPP: { label: "WhatsApp", icon: "💬" },
-    FACEBOOK_MESSAGE: { label: "Facebook", icon: "📘" },
-    FACEBOOK: { label: "Facebook", icon: "📘" },
-    MANUAL: { label: "Phone", icon: "📞" },
-    PHONE: { label: "Phone", icon: "📞" },
-    HISTORICAL: { label: "Phone", icon: "📞" },
+  const srcMap: Record<string, { label: string }> = {
+    WEBSITE: { label: "Website" }, SMS: { label: "SMS" }, WHATSAPP: { label: "WhatsApp" },
+    FACEBOOK_MESSAGE: { label: "Facebook" }, FACEBOOK: { label: "Facebook" },
+    MANUAL: { label: "Phone" }, PHONE: { label: "Phone" }, HISTORICAL: { label: "Phone" },
   };
 
   const info = srcMap[order.orderSource?.toUpperCase() ?? "WEBSITE"] ?? {
     label: order.orderSource ?? "Website",
-    icon: "📋",
   };
 
   return (
     <div className="inline-flex items-center gap-1">
       <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-muted border border-line inline-flex items-center gap-1 text-ink">
-        <span>{info.icon}</span>
         <span>{info.label}</span>
       </span>
       {order.historicalEntry && (
@@ -70,7 +62,7 @@ function formatOrderSourceBadge(order: AdminOrder) {
           className="text-xs cursor-help select-none"
           title="Imported from Historical CSV record"
         >
-          📜
+          Historical
         </span>
       )}
     </div>
@@ -85,15 +77,7 @@ const QUICK_VIEWS: Array<{ key: OrdersView; label: string }> = [
   { key: "DELIVERY_TODAY", label: "Delivery today" },
   { key: "UNPAID", label: "Unpaid" },
   { key: "ALL", label: "All orders" },
-  { key: "ARCHIVED", label: "📦 Archived" },
-];
-
-const ALL_COLUMNS: Array<{ key: Column; label: string }> = [
-  { key: "fulfillment", label: "Fulfillment" },
-  { key: "source", label: "Source" },
-  { key: "status", label: "Status" },
-  { key: "payment", label: "Payment" },
-  { key: "updated", label: "Updated" },
+  { key: "ARCHIVED", label: "Archived" },
 ];
 
 const statusLabel = (value: string) =>
@@ -145,7 +129,6 @@ function getInitialPresetDatesForView(targetView: OrdersView): { from: string; t
 }
 
 export function OrdersListing({
-  actorRole = "MANAGER",
   initialOrders,
   initialLoadedAt,
   initialView = "TODAY",
@@ -153,11 +136,11 @@ export function OrdersListing({
   canExport,
   canCreate,
   canTransition,
+  canRecordPayment = false,
   canUpdate = false,
   canDelete = false,
   canArchive = false,
 }: {
-  actorRole?: Role;
   initialOrders: AdminOrder[];
   initialLoadedAt?: string;
   initialView?: OrdersView;
@@ -165,6 +148,7 @@ export function OrdersListing({
   canExport: boolean;
   canCreate: boolean;
   canTransition: boolean;
+  canRecordPayment?: boolean;
   canUpdate?: boolean;
   canDelete?: boolean;
   canArchive?: boolean;
@@ -191,11 +175,11 @@ export function OrdersListing({
   const [source, setSource] = useState(() => searchParams.get("source") ?? "ALL");
   const [entryType, setEntryType] = useState<EntryTypeFilter>(() => searchParams.get("entry") as EntryTypeFilter || "ALL");
   const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([
-    { key: "WEBSITE", labelEn: "🌐 Website" },
-    { key: "SMS", labelEn: "✉️ SMS" },
-    { key: "WHATSAPP", labelEn: "💬 WhatsApp" },
-    { key: "FACEBOOK_MESSAGE", labelEn: "📘 Facebook Message" },
-    { key: "MANUAL", labelEn: "📞 Manual / Phone" },
+    { key: "WEBSITE", labelEn: "Website" },
+    { key: "SMS", labelEn: "SMS" },
+    { key: "WHATSAPP", labelEn: "WhatsApp" },
+    { key: "FACEBOOK_MESSAGE", labelEn: "Facebook Message" },
+    { key: "MANUAL", labelEn: "Manual / Phone" },
   ]);
 
   const [sortField, setSortField] = useState<SortField>("fulfillment");
@@ -221,7 +205,7 @@ export function OrdersListing({
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [lastUpdated, setLastUpdated] = useState<string | null>(initialLoadedAt ?? null);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [inspectingId, setInspectingId] = useState<string | null>(null);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -238,36 +222,16 @@ export function OrdersListing({
     if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [datePreset, entryType, from, method, router, search, searchParams, source, status, to, view, workspaceMode]);
 
-  useEffect(() => {
-    function handleDocClick(e: MouseEvent) {
-      if (!(e.target as HTMLElement).closest(".row-action-menu")) {
-        setActiveMenuId(null);
-      }
-    }
-    document.addEventListener("click", handleDocClick);
-    return () => document.removeEventListener("click", handleDocClick);
-  }, []);
-
-  function getNextQuickAction(order: AdminOrder): { target: OrderStatus; label: string; icon: string } | null {
-    if (["PICKED_UP", "DELIVERED", "CANCELLED", "REJECTED", "NO_SHOW"].includes(order.status)) {
-      return null;
-    }
-    switch (order.status) {
-      case "NEW":
-        return { target: "CONFIRMED", label: "✓ Confirm Order", icon: "✓" };
-      case "CONFIRMED":
-        return { target: "PICKING", label: "📦 Start Picking", icon: "📦" };
-      case "PICKING":
-        return { target: "READY", label: "🟢 Mark Ready", icon: "🟢" };
-      case "READY":
-        return order.fulfillmentMethod === "PICKUP"
-          ? { target: "PICKED_UP", label: "🤝 Confirm Pickup", icon: "🤝" }
-          : { target: "OUT_FOR_DELIVERY", label: "🚚 Out for Delivery", icon: "🚚" };
-      case "OUT_FOR_DELIVERY":
-        return { target: "DELIVERED", label: "🏁 Mark Delivered", icon: "🏁" };
-      default:
-        return null;
-    }
+  function getNextQuickAction(order: AdminOrder): { target: OrderStatus; label: string } | null {
+    const preferred: Partial<Record<OrderStatus, OrderStatus>> = {
+      NEW: "CONFIRMED", CONFIRMED: "PICKING", PICKING: "READY",
+      READY: order.fulfillmentMethod === "PICKUP" ? "PICKED_UP" : "OUT_FOR_DELIVERY",
+      OUT_FOR_DELIVERY: "DELIVERED",
+    };
+    const target = preferred[order.status as OrderStatus];
+    if (!target) return null;
+    const transition = getLegalOrderTransitions(order).find((item) => item.status === target && item.available);
+    return transition ? { target: transition.status, label: transition.label } : null;
   }
 
   useEffect(() => {
@@ -336,19 +300,6 @@ export function OrdersListing({
       setSource("ALL");
     }
   }, []);
-
-  // Sync state whenever initialView or initialStatus prop changes from URL navigation.
-  // Ignore echoes of this component's own router.replace writes, which would otherwise
-  // reset user-chosen filters right after applying them (e.g. a date preset change).
-  useEffect(() => {
-    if (!initialView && !(initialStatus && initialStatus !== "ALL")) return;
-    const nextView = initialView ?? "ALL";
-    const nextStatus = initialStatus ?? "ALL";
-    if (view === nextView && (nextStatus === "ALL" || status === nextStatus)) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- status/view are read as echo-guard only; adding them would re-run mid-URL-echo and revert the user's preset
-    selectQuickView(initialView ?? "ALL", initialStatus !== "ALL" ? initialStatus : undefined);
-  }, [initialView, initialStatus, selectQuickView]);
 
   useEffect(() => {
     async function loadSources() {
@@ -561,6 +512,14 @@ export function OrdersListing({
   const selectedOrders = useMemo(() => {
     return rows.filter((order) => selected.includes(order.id));
   }, [rows, selected]);
+  const commonBatchTransitions = useMemo(() => {
+    const operationalStatuses: OrderStatus[] = ["CONFIRMED", "PICKING", "READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED"];
+    if (!selectedOrders.length) return [];
+    return operationalStatuses.filter((target) => selectedOrders.every((order) =>
+      getLegalOrderTransitions(order).some((transition) => transition.status === target && transition.available)
+    ));
+  }, [selectedOrders]);
+  const inspectingOrder = rows.find((order) => order.id === inspectingId) ?? null;
 
   const allSelected = visibleRows.length > 0 && visibleRows.every((order) => selected.includes(order.id));
 
@@ -591,19 +550,6 @@ export function OrdersListing({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Batch transition failed.");
     }
-  }
-
-  function handleInitiateDeleteBatch() {
-    const selectedList = rows.filter((o) => selected.includes(o.id));
-    const paidOrders = selectedList.filter(
-      (o) => (o.outstandingCents ?? 0) <= 0 || o.paymentStatus === "PAID" || (o.paidCents ?? 0) > 0
-    );
-    const unpaidOrders = selectedList.filter((o) => !paidOrders.includes(o));
-
-    setPendingDelete({
-      deletable: unpaidOrders,
-      skippedPaid: paidOrders,
-    });
   }
 
   async function handleConfirmDeleteBatch() {
@@ -684,42 +630,36 @@ export function OrdersListing({
       {/* HEADER & SUB-VIEW WORKSPACE MODE SWITCHER */}
       <div className="admin-orders-header flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
         <AdminPageHeader
-          eyebrow="OPERATIONS WORKSPACE"
-          title="Orders &amp; Fulfillment Queue"
+          eyebrow="Operations"
+          title="Orders and fulfillment"
           description={lastUpdated ? `Last synced ${new Date(lastUpdated).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Helsinki" })}` : undefined}
         />
 
         <div className="flex flex-wrap items-center gap-2">
           {/* 3 SUB-VIEW SWITCHER PINS */}
-          <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-line text-xs font-bold">
+          <div className="orders-mode-switch" role="tablist" aria-label="Order workspace">
             <button
               type="button"
-              className={`px-3 py-1.5 rounded-lg transition-colors ${
-                workspaceMode === "TABLE" ? "bg-surface text-primary shadow-xs border border-line" : "text-ink/70 hover:text-ink"
-              }`}
+              role="tab" aria-selected={workspaceMode === "TABLE"} className={workspaceMode === "TABLE" ? "is-active" : ""}
               onClick={() => setWorkspaceMode("TABLE")}
             >
-              Queue
+              <List aria-hidden="true" />Queue
             </button>
 
             <button
               type="button"
-              className={`px-3 py-1.5 rounded-lg transition-colors ${
-                workspaceMode === "KANBAN" ? "bg-surface text-primary shadow-xs border border-line" : "text-ink/70 hover:text-ink"
-              }`}
+              role="tab" aria-selected={workspaceMode === "KANBAN"} className={workspaceMode === "KANBAN" ? "is-active" : ""}
               onClick={() => setWorkspaceMode("KANBAN")}
             >
-              Packing board
+              <PackageCheck aria-hidden="true" />Packing
             </button>
 
             <button
               type="button"
-              className={`px-3 py-1.5 rounded-lg transition-colors ${
-                workspaceMode === "TERMINAL" ? "bg-surface text-primary shadow-xs border border-line" : "text-ink/70 hover:text-ink"
-              }`}
+              role="tab" aria-selected={workspaceMode === "TERMINAL"} className={workspaceMode === "TERMINAL" ? "is-active" : ""}
               onClick={() => setWorkspaceMode("TERMINAL")}
             >
-              Pickup desk
+              <Store aria-hidden="true" />Pickup
             </button>
           </div>
 
@@ -728,12 +668,12 @@ export function OrdersListing({
             className="btn btn-secondary text-xs py-1.5 px-3 font-semibold"
             onClick={() => setShowPackingSlip(true)}
           >
-            Batch packing slip
+            <Download aria-hidden="true" />Packing slip
           </button>
 
           {canCreate && (
             <Link className="btn text-xs py-1.5 px-3 font-bold" href="/admin/manual-orders">
-              New order
+              <Plus aria-hidden="true" />New order
             </Link>
           )}
         </div>
@@ -748,13 +688,14 @@ export function OrdersListing({
       )}
 
       {workspaceMode === "TERMINAL" && (
-        <PickupTerminal orders={rows.filter((o) => !o.archived)} canTransition={canTransition} onRefresh={() => void refreshOrders()} />
+        <PickupTerminal orders={rows.filter((o) => !o.archived)} canTransition={canTransition} canRecordPayment={canRecordPayment} onRefresh={() => void refreshOrders()} />
       )}
 
       {workspaceMode === "TABLE" && (
         <div className="flex flex-col gap-3">
           {/* QUICK VIEW CHIPS WITH PROMINENT ACTIVE HIGHLIGHT & NO BORDER OVERLAP */}
-          <div className="flex items-center gap-2 overflow-x-auto p-1.5 text-xs">
+          <label className="orders-mobile-quick-view"><span>Queue view</span><select value={view} onChange={(event) => selectQuickView(event.target.value as OrdersView)}>{QUICK_VIEWS.map((item) => <option key={item.key} value={item.key}>{item.label} ({quickViewCounts[item.key] ?? 0})</option>)}</select></label>
+          <div className="orders-quick-views">
             {QUICK_VIEWS.map((chip) => {
               const isSelected = view === chip.key;
               const count = quickViewCounts[chip.key] ?? 0;
@@ -788,17 +729,17 @@ export function OrdersListing({
           </div>
 
           {/* PRIMARY FILTER BAR WITH DATE PRESETS & ADVANCED FILTERS TOGGLE */}
-          <div className="card p-3 flex flex-wrap items-center gap-3">
-            <input
+          <div className="card orders-filter-bar">
+            <label className="orders-search"><Search aria-hidden="true" /><input
               placeholder="Search reference, customer name, or phone…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="flex-1 min-w-[220px] text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
-            />
+            /></label>
 
             {/* DATE PRESETS DROPDOWN */}
             <label className="text-xs font-bold text-ink flex items-center gap-1.5 bg-surface-muted px-2.5 py-1.5 rounded-lg border border-line">
-              <span>📅 Date:</span>
+              <span>Date</span>
               <select
                 value={datePreset}
                 onChange={(e) => handleDatePresetChange(e.target.value as DatePreset)}
@@ -825,7 +766,7 @@ export function OrdersListing({
               }`}
               onClick={() => setShowAdvancedFilters((open) => !open)}
             >
-              ⚙️ Advanced Filters
+              <Filter aria-hidden="true" />Filters
               {activeFilterCount > 0 && (
                 <span className="text-[10px] bg-surface text-primary px-1.5 py-0.2 rounded-full font-mono">
                   {activeFilterCount}
@@ -835,7 +776,7 @@ export function OrdersListing({
 
             {canExport && (
               <a className="btn btn-secondary text-xs py-1.5 px-3" href="/api/admin/orders/export" download>
-                📥 Export CSV
+                <Download aria-hidden="true" />Export CSV
               </a>
             )}
           </div>
@@ -936,8 +877,8 @@ export function OrdersListing({
                   <span>Method Filter</span>
                   <select value={method} onChange={(e) => handleMethodChange(e.target.value)}>
                     <option value="ALL">All Methods</option>
-                    <option value="PICKUP">📍 Pickup</option>
-                    <option value="DELIVERY">🚚 Delivery</option>
+                    <option value="PICKUP">Pickup</option>
+                    <option value="DELIVERY">Delivery</option>
                   </select>
                 </label>
 
@@ -959,8 +900,8 @@ export function OrdersListing({
                   <span>Entry Type Filter</span>
                   <select value={entryType} onChange={(e) => handleEntryTypeChange(e.target.value as EntryTypeFilter)}>
                     <option value="ALL">All Entries (Live &amp; Historical)</option>
-                    <option value="LIVE_ONLY">⚡ Live Real-Time Orders Only</option>
-                    <option value="HISTORICAL_ONLY">📜 Historical Entries Only</option>
+                    <option value="LIVE_ONLY">Live orders only</option>
+                    <option value="HISTORICAL_ONLY">Historical entries only</option>
                   </select>
                 </label>
 
@@ -971,9 +912,9 @@ export function OrdersListing({
                     value={archiveScope}
                     onChange={(e) => handleArchiveScopeChange(e.target.value as ArchiveScope)}
                   >
-                    <option value="ACTIVE_ONLY">🟢 Active Orders Only (Default)</option>
-                    <option value="ARCHIVED_ONLY">📦 Archived Orders Only</option>
-                    <option value="ALL">🌐 All Orders (Include Archived)</option>
+                    <option value="ACTIVE_ONLY">Active orders only</option>
+                    <option value="ARCHIVED_ONLY">Archived orders only</option>
+                    <option value="ALL">All orders including archived</option>
                   </select>
                 </label>
               </div>
@@ -981,8 +922,8 @@ export function OrdersListing({
           )}
 
           {/* TABLE DATA DISPLAY */}
-          <div className="card overflow-x-auto border border-line rounded-2xl">
-            <table className="w-full text-left text-xs">
+          <div className="card admin-orders-table-wrap overflow-x-auto border border-line rounded-2xl">
+            <table className="admin-orders-table w-full text-left text-xs">
               <thead className="bg-surface-muted border-b border-line text-muted uppercase font-bold text-[11px] tracking-wider">
                 <tr>
                   <th className="p-3 w-10">
@@ -1044,7 +985,7 @@ export function OrdersListing({
 
                   return (
                     <tr key={order.id} className="hover:bg-surface-muted/40 transition-colors">
-                      <td className="p-3">
+                      <td data-label="Select" className="p-3">
                         <input
                           type="checkbox"
                           checked={selected.includes(order.id)}
@@ -1056,7 +997,7 @@ export function OrdersListing({
                         />
                       </td>
 
-                      <td className="p-3 font-bold">
+                      <td data-label="Order" className="p-3 font-bold">
                         <div className="inline-flex items-center gap-1.5">
                           <Link className="text-primary hover:underline font-mono" href={`/admin/orders/${order.id}`}>
                             {order.publicReference}
@@ -1077,7 +1018,7 @@ export function OrdersListing({
                         <span className="muted block text-[11px] font-normal">{order.createdAt.slice(0, 10)}</span>
                       </td>
 
-                      <td className="p-3">
+                      <td data-label="Customer" className="p-3">
                         {order.customerId ? (
                           <Link
                             className="text-primary hover:underline font-bold block w-fit"
@@ -1091,7 +1032,7 @@ export function OrdersListing({
                           <strong className="text-ink block font-bold">{order.customerName}</strong>
                         )}
                         <div className="inline-flex items-center gap-1">
-                          <span className="muted text-[11px]">📞 {order.mobile}</span>
+                          <span className="muted text-[11px]">{order.mobile}</span>
                           {order.mobile && (
                             <button
                               type="button"
@@ -1111,9 +1052,9 @@ export function OrdersListing({
                         </div>
                       </td>
 
-                      <td className="p-3">
+                      <td data-label="Fulfillment" className="p-3">
                         <span className="font-bold block text-ink">
-                          {order.fulfillmentMethod === "PICKUP" ? "📍 Pickup" : "🚚 Delivery"}
+                          {order.fulfillmentMethod === "PICKUP" ? "Pickup" : "Delivery"}
                         </span>
                         <span className="muted text-[11px] block">{order.fulfillmentDate}</span>
                         {isDelivery && mapsUrl && (
@@ -1123,48 +1064,46 @@ export function OrdersListing({
                             rel="noopener noreferrer"
                             className="text-[10px] font-bold text-blue-700 hover:underline inline-flex items-center gap-1 mt-0.5"
                           >
-                            🗺️ Route Maps
+                            Open route
                           </a>
                         )}
                       </td>
 
-                      <td className="p-3">
+                      <td data-label="Source" className="p-3">
                         {formatOrderSourceBadge(order)}
                       </td>
 
-                      <td className="p-3">
+                      <td data-label="Order" className="p-3">
                         <span className="font-bold text-ink block">{order.packageLabelFi}</span>
                         <span className="muted text-[11px] block font-mono">{(order.volumeMl / 1000).toFixed(1)} L</span>
                       </td>
 
-                      <td className="p-3">
+                      <td data-label="Payment" className="p-3">
                         <span className={`font-bold block ${isPaid ? "text-emerald-700" : "text-amber-800"}`}>
                           {formatAdminMoney(order.finalTotalCents ?? order.itemSubtotalCents)}
                         </span>
-                        <span className="muted text-[11px] block">{isPaid ? "🟢 Paid" : "🟡 Unpaid"}</span>
+                        <span className="muted text-[11px] block">{isPaid ? "Paid" : "Unpaid"}</span>
                       </td>
 
-                      <td className="p-3">
+                      <td data-label="Status" className="p-3">
                         <div className="flex flex-col items-start gap-1">
                           <AdminStatusBadge status={order.status} />
                           {order.archived && (
                             <span className="text-[10px] font-bold text-purple-900 bg-purple-100 px-1.5 py-0.2 rounded border border-purple-300">
-                              📦 Archived
+                              Archived
                             </span>
                           )}
                         </div>
                       </td>
 
-                      <td className="p-3 text-right">
+                      <td data-label="Actions" className="p-3 text-right">
                         <AdminRowActionMenu
                           items={[
                             {
                               id: "view-details",
                               label: "View Details",
                               icon: <IconEye />,
-                              onClick: () => {
-                                window.location.href = `/admin/orders/${order.id}`;
-                              },
+                              onClick: () => setInspectingId(order.id),
                             },
                             ...(canUpdate
                               ? [
@@ -1172,9 +1111,7 @@ export function OrdersListing({
                                     id: "edit-order",
                                     label: "Edit Order",
                                     icon: <IconPencil />,
-                                    onClick: () => {
-                                      window.location.href = `/admin/orders/${order.id}/edit`;
-                                    },
+                                    onClick: () => router.push(`/admin/orders/${order.id}/edit`),
                                   },
                                 ]
                               : []),
@@ -1183,7 +1120,7 @@ export function OrdersListing({
                                   {
                                     id: "quick-transition",
                                     label: getNextQuickAction(order)!.label,
-                                    icon: <span className="text-emerald-600 font-bold">{getNextQuickAction(order)!.icon}</span>,
+                                    icon: <span className="text-emerald-600 font-bold">→</span>,
                                     onClick: () => {
                                       const quick = getNextQuickAction(order)!;
                                       setPending({ target: quick.target, orders: [order] });
@@ -1237,6 +1174,22 @@ export function OrdersListing({
         </div>
       )}
 
+      {inspectingOrder && <OrderInspector
+        order={inspectingOrder}
+        canTransition={canTransition}
+        canUpdate={canUpdate}
+        onClose={() => setInspectingId(null)}
+        onPrevious={visibleRows.findIndex((order) => order.id === inspectingOrder.id) > 0 ? () => {
+          const index = visibleRows.findIndex((order) => order.id === inspectingOrder.id);
+          setInspectingId(visibleRows[index - 1]?.id ?? inspectingOrder.id);
+        } : undefined}
+        onNext={visibleRows.findIndex((order) => order.id === inspectingOrder.id) < visibleRows.length - 1 ? () => {
+          const index = visibleRows.findIndex((order) => order.id === inspectingOrder.id);
+          setInspectingId(visibleRows[index + 1]?.id ?? inspectingOrder.id);
+        } : undefined}
+        onOrderUpdated={(updated) => setRows((current) => current.map((order) => order.id === updated.id ? { ...order, ...updated } : order))}
+      />}
+
       {/* STICKY FLOATING BULK SELECTION TOOLBAR */}
       {selected.length > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-forest text-on-primary p-3.5 px-5 rounded-2xl shadow-2xl border border-emerald-700/50 flex flex-wrap items-center gap-3 text-xs animate-in slide-in-from-bottom-5">
@@ -1247,55 +1200,18 @@ export function OrdersListing({
             <span>order(s) selected</span>
           </div>
 
-          {canTransition && view !== "ARCHIVED" && (
+          {canTransition && view !== "ARCHIVED" && commonBatchTransitions.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
-                onClick={() => setPending({ target: "CONFIRMED", orders: selectedOrders })}
-              >
-                ✓ Confirm ({selected.length})
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
-                onClick={() => setPending({ target: "PICKING", orders: selectedOrders })}
-              >
-                📦 Start Picking ({selected.length})
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
-                onClick={() => setPending({ target: "READY", orders: selectedOrders })}
-              >
-                🟢 Mark Ready ({selected.length})
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
-                onClick={() => setPending({ target: "OUT_FOR_DELIVERY", orders: selectedOrders })}
-              >
-                🚚 Out for Delivery ({selected.length})
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
-                onClick={() => setPending({ target: "PICKED_UP", orders: selectedOrders })}
-              >
-                🤝 Mark Picked Up ({selected.length})
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
-                onClick={() => setPending({ target: "DELIVERED", orders: selectedOrders })}
-              >
-                🏁 Delivered ({selected.length})
-              </button>
+              {commonBatchTransitions.map((target) => (
+                <button
+                  key={target}
+                  type="button"
+                  className="btn btn-secondary text-xs py-1.5 px-3 font-bold bg-emerald-800 text-white border-emerald-600 hover:bg-emerald-700"
+                  onClick={() => setPending({ target, orders: selectedOrders })}
+                >
+                  {statusLabel(target)} ({selected.length})
+                </button>
+              ))}
             </div>
           )}
 
@@ -1316,18 +1232,9 @@ export function OrdersListing({
               onClick={() => void handleBatchArchive("archive")}
               disabled={archiving}
             >
-              {archiving ? "Archiving…" : `📦 Archive (${selected.length})`}
+              {archiving ? "Archiving…" : `Archive (${selected.length})`}
             </button>
-          ) : (
-            <button
-              type="button"
-              disabled
-              title="🔒 Requires Archive permission (orders.archive). Contact Store Owner to grant access."
-              className="btn text-xs py-1.5 px-3 font-semibold bg-emerald-950/40 text-emerald-300/40 border border-emerald-800/40 cursor-not-allowed opacity-60 flex items-center gap-1"
-            >
-              🔒 📦 Archive ({selected.length})
-            </button>
-          )}
+          ) : null}
 
           {canExport && (
             <button
@@ -1338,27 +1245,7 @@ export function OrdersListing({
                 window.open(`/api/admin/orders/export?ids=${encodeURIComponent(ids)}`, "_blank");
               }}
             >
-              📥 Export Selected CSV
-            </button>
-          )}
-
-          {/* PERMANENT DELETE SAFE-GUARD BUTTON (GRANULAR RBAC LOCK UX) */}
-          {canDelete ? (
-            <button
-              type="button"
-              className="btn text-xs py-1.5 px-3 font-bold bg-rose-950 text-rose-200 border border-rose-800 hover:bg-rose-900 shadow-sm"
-              onClick={handleInitiateDeleteBatch}
-            >
-              🗑️ Delete ({selected.length})
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled
-              title="🔒 Requires Permanent Delete permission (orders.delete). Contact Store Owner to grant access."
-              className="btn text-xs py-1.5 px-3 font-semibold bg-emerald-950/40 text-emerald-300/40 border border-emerald-800/40 cursor-not-allowed opacity-60 flex items-center gap-1"
-            >
-              🔒 🗑️ Delete ({selected.length})
+              Export selected CSV
             </button>
           )}
 
@@ -1367,7 +1254,7 @@ export function OrdersListing({
             className="text-emerald-300 hover:text-white font-bold ml-2 text-xs"
             onClick={() => setSelected([])}
           >
-            ✕ Clear Selection
+            Clear selection
           </button>
         </div>
       )}

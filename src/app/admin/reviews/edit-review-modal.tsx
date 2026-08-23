@@ -253,9 +253,9 @@ export function EditReviewModal({
           <button
             type="submit"
             disabled={loading}
-            className="btn text-xs font-bold py-2 px-4 shadow-xs"
+            className="btn text-xs font-semibold py-2 px-4 shadow-xs"
           >
-            {loading ? "⏳ Saving Changes..." : "💾 Save Audit Changes"}
+            {loading ? "Saving changes…" : "Save changes"}
           </button>
         </div>
       </form>
