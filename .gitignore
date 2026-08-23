@@ -10,3 +10,4 @@ playwright-report
 storybook-static
 *.tsbuildinfo
 skills-lock.json
+/requirements
