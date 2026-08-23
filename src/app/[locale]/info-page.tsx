@@ -199,22 +199,26 @@ export function InfoPage({
             <div className="info-contact-actions">
               {whatsappNumber && (
                 <a className="btn btn-secondary" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">
-                  WhatsApp
+                  <MessageSquare className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                  <span>WhatsApp</span>
                 </a>
               )}
               {contactPhone && (
                 <>
                   <a className="btn btn-secondary" href={`sms:${contactPhone}`}>
-                    {locale === "fi" ? "Lähetä tekstiviesti" : "Send SMS"}
+                    <MessageSquare className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                    <span>{locale === "fi" ? "Lähetä tekstiviesti" : "Send SMS"}</span>
                   </a>
                   <a className="btn btn-secondary" href={`tel:${contactPhone}`}>
-                    {locale === "fi" ? "Soita meille" : "Call us"}
+                    <Phone className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                    <span>{locale === "fi" ? "Soita meille" : "Call us"}</span>
                   </a>
                 </>
               )}
               {contactEmail && (
                 <a className="text-link" href={`mailto:${contactEmail}`}>
-                  {contactEmail}
+                  <Mail className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                  <span>{contactEmail}</span>
                 </a>
               )}
             </div>

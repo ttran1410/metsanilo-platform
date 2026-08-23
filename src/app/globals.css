@@ -1316,23 +1316,26 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .review-form-note { margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
 .review-form .btn { width: 100%; }
 .review-form-success { margin: 0; border-radius: .7rem; background: #edf8ef; color: var(--moss); padding: .8rem; font-size: .82rem; font-weight: 700; }
-.info-contact-card { display: grid; justify-items: start; gap: .65rem; margin-bottom: clamp(4rem, 8vw, 7rem); border: 1px solid #b8d8c0; border-radius: 1.5rem; background: #edf8ef; padding: clamp(1.5rem, 4vw, 2.5rem); }
+.info-contact-card { display: grid; justify-items: start; gap: .65rem; margin-bottom: clamp(4rem, 8vw, 7rem); border: 1px solid var(--store-line, var(--line)); border-radius: 1.5rem; background: var(--store-surface-muted, var(--oat)); padding: clamp(1.5rem, 4vw, 2.5rem); }
 .info-contact-card h2 { margin: 0; color: var(--forest); font-family: var(--serif); font-size: clamp(1.8rem, 3vw, 2.5rem); font-weight: 500; }
-.info-contact-card > p:not(.eyebrow) { max-width: 42rem; margin: 0; color: #315540; line-height: 1.6; }
-.info-contact-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: .35rem; }
-.info-contact-actions .text-link { color: var(--forest); border-color: var(--forest); }
+.info-contact-card > p:not(.eyebrow) { max-width: 42rem; margin: 0; color: var(--store-muted, var(--muted)); line-height: 1.6; font-size: 1rem; }
+.info-contact-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: .65rem; }
+.info-contact-actions .btn { border-radius: 999px; }
+.info-contact-actions .btn-secondary { background: var(--paper); border: 1px solid var(--store-line, var(--line)); color: var(--forest); }
+.info-contact-actions .btn-secondary:hover { background: var(--store-surface-muted, var(--oat)); border-color: var(--forest); }
+.info-contact-actions .text-link { color: var(--forest); border-color: var(--forest); font-weight: 700; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-.story-card { margin-bottom: clamp(4rem, 8vw, 7rem); border: 1px solid var(--line); border-radius: 1.5rem; background: var(--paper); padding: clamp(2rem, 6vw, 4.8rem); box-shadow: 0 8px 20px rgb(23 55 43 / 6%); }
+.story-card { margin-bottom: clamp(3rem, 6vw, 5rem); border: 1px solid var(--store-line, var(--line)); border-radius: 1.5rem; background: var(--store-surface, var(--paper)); padding: clamp(2rem, 6vw, 4.8rem); box-shadow: 0 8px 20px rgb(23 55 43 / 6%); }
 .story-quote { margin: 0; color: var(--forest); font-family: var(--serif); font-size: clamp(1.65rem, 3vw, 2.35rem); font-style: italic; font-weight: 600; line-height: 1.3; }
-.story-body { max-width: 62rem; margin: 2.2rem 0 0; color: var(--muted); font-size: 1.1rem; line-height: 1.75; }
+.story-body { max-width: 62rem; margin: 2.2rem 0 0; color: var(--store-muted, var(--muted)); font-size: 1.1rem; line-height: 1.75; }
 .value-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; margin-top: 3rem; }
-.value-card { border: 1px solid; border-radius: 1.2rem; padding: 1.8rem 2rem; }
-.value-card h2 { margin: 0 0 .65rem; font-size: 1.25rem; }
-.value-card p { margin: 0; color: var(--muted); line-height: 1.6; }
-.value-card-green { border-color: #b8efd4; background: #effcf4; }
-.value-card-green h2 { color: var(--moss); }
-.value-card-gold { border-color: #f3dfa5; background: #fff9e8; }
-.value-card-gold h2 { color: #8b4312; }
+.value-card { border: 1px solid var(--store-line, var(--line)); border-radius: 1.2rem; padding: 1.8rem 2rem; background: var(--store-surface-muted, var(--oat)); }
+.value-card h2 { margin: 0 0 .65rem; font-size: 1.25rem; color: var(--forest); font-family: var(--serif); font-weight: 600; }
+.value-card p { margin: 0; color: var(--store-muted, var(--muted)); line-height: 1.6; font-size: .95rem; }
+.value-card-green { border-color: var(--store-line, var(--line)); background: var(--store-surface-muted, var(--oat)); }
+.value-card-green h2 { color: var(--forest); }
+.value-card-gold { border-color: var(--store-line, var(--line)); background: var(--store-surface-muted, var(--oat)); }
+.value-card-gold h2 { color: var(--forest); }
 
 @media (max-width: 960px) {
   .nav-season { display: none; }
