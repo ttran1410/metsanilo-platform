@@ -243,8 +243,8 @@ export function OrderForm({
         <fieldset className="form-step">
         <legend><span>01</span> {locale === "fi" ? "Valitse marja ja pakkaus" : "Choose berries and package"}</legend>
         <div className="form-field">
-        <div className="selection-label">{locale === "fi" ? "Tuote" : "Product"}</div>
-        <div className={`reserve-product-grid${fieldErrors.productId ? " field-invalid" : ""}`} data-field="productId" aria-invalid={Boolean(fieldErrors.productId)} aria-describedby={fieldErrors.productId ? "productId-error" : undefined}>
+        <div className="selection-label" id="product-selection-label">{locale === "fi" ? "Tuote" : "Product"}</div>
+        <div className={`reserve-product-grid${fieldErrors.productId ? " field-invalid" : ""}`} role="radiogroup" aria-labelledby="product-selection-label" data-field="productId" aria-invalid={Boolean(fieldErrors.productId)} aria-describedby={fieldErrors.productId ? "productId-error" : undefined}>
           {products.map((item) => {
             const available = item.packages.some((pkg) => item.dates.some((dateItem) => dateItem.acceptsOrders && !dateItem.soldOut && dateItem.remainingMl >= pkg.volumeMl));
             return <label className={`reserve-product-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}><input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} required aria-describedby={fieldErrors.productId ? "productId-error" : undefined} /><span className="reserve-product-image">{item.media[0] ? <img src={item.media[0].url} alt="" /> : <span aria-hidden="true">M</span>}</span><span className="reserve-product-card-copy"><strong>{item.name}</strong><small className="whitespace-pre-line">{item.description?.trim() || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span><span className={`availability-badge reserve-product-status${available ? "" : " unavailable"}`}>{available ? (locale === "fi" ? "Saatavilla" : "Available") : (locale === "fi" ? "Ei saatavilla" : "Unavailable")}</span><span className="selection-check" aria-hidden="true"><Check /></span></label>;
@@ -254,8 +254,8 @@ export function OrderForm({
         <CustomerFieldError field="productId" error={fieldErrors.productId} />
         </div>
         <div className="form-field">
-        <div className="selection-label">{t.package}</div>
-        <div className={`selection-grid package-selection${fieldErrors.packageId ? " field-invalid" : ""}`} data-field="packageId" aria-invalid={Boolean(fieldErrors.packageId)} aria-describedby={fieldErrors.packageId ? "packageId-error" : undefined}>
+        <div className="selection-label" id="package-selection-label">{t.package}</div>
+        <div className={`selection-grid package-selection${fieldErrors.packageId ? " field-invalid" : ""}`} role="radiogroup" aria-labelledby="package-selection-label" data-field="packageId" aria-invalid={Boolean(fieldErrors.packageId)} aria-describedby={fieldErrors.packageId ? "packageId-error" : undefined}>
           {product?.packages.map((item) => {
             const litres = item.volumeMl / 1000;
             const unitPriceCents = litres > 0 ? Math.round(item.priceCents / litres) : item.priceCents;
