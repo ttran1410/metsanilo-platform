@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Phone, MessageSquare, Share2, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, MessageSquare, Pencil, Phone, Share2, X } from "lucide-react";
 import type { orders } from "@/db/schema";
 import { AdminLoadingState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "./presentation";
 import { OrderActionBar } from "./order-action-bar";
@@ -129,12 +129,12 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
               className="btn btn-secondary text-xs py-1 px-2.5"
               href={`/admin/orders/${order.id}/edit?from=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : `/admin/orders`)}`}
             >
-              Edit order ✏️
+              <Pencil aria-hidden="true" />Edit order
             </a>
           )}
-          <button type="button" onClick={onPrevious} disabled={!onPrevious} aria-label="Previous order">↑</button>
-          <button type="button" onClick={onNext} disabled={!onNext} aria-label="Next order">↓</button>
-          <button ref={closeRef} type="button" onClick={onClose} aria-label="Close inspector">×</button>
+          <button type="button" onClick={onPrevious} disabled={!onPrevious} aria-label="Previous order"><ChevronUp aria-hidden="true" /></button>
+          <button type="button" onClick={onNext} disabled={!onNext} aria-label="Next order"><ChevronDown aria-hidden="true" /></button>
+          <button ref={closeRef} type="button" onClick={onClose} aria-label="Close inspector"><X aria-hidden="true" /></button>
         </div>
       </header>
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
@@ -219,11 +219,11 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
               className="btn"
               href={`/admin/orders/${order.id}/edit?from=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : `/admin/orders`)}`}
             >
-              Edit order ✏️
+              <Pencil aria-hidden="true" />Edit order
             </a>
           )}
           <a className="btn btn-secondary" href={`/admin/orders/${order.id}`}>
-            Open full detail ↗
+            Open full detail<ExternalLink aria-hidden="true" />
           </a>
         </div>
         <span>Esc closes · ↑/↓ moves</span>

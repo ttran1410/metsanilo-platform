@@ -31,6 +31,14 @@ describe("order transition domain", () => {
     expect(actions.find((action) => action.status === "CANCELLED")?.requiresReason).toBe(true);
   });
 
+  it("requires confirmation before an order can enter packing", () => {
+    const newOrder = getLegalOrderTransitions({ status: "NEW", fulfillmentMethod: "PICKUP", finalTotalCents: 1000 });
+    const confirmedOrder = getLegalOrderTransitions({ status: "CONFIRMED", fulfillmentMethod: "PICKUP", finalTotalCents: 1000 });
+
+    expect(newOrder.map((action) => action.status)).not.toContain("PICKING");
+    expect(confirmedOrder.find((action) => action.status === "PICKING")?.available).toBe(true);
+  });
+
   it("returns a method-specific lifecycle and shared exception branches", () => {
     expect(getLifecycleSteps("PICKUP")).toEqual(["NEW", "CONFIRMED", "PICKING", "READY", "PICKED_UP"]);
     expect(getLifecycleSteps("DELIVERY")).toContain("OUT_FOR_DELIVERY");

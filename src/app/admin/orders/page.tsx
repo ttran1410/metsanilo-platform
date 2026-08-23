@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export default async function OrdersPage({ searchParams }: { searchParams?: Promise<{ view?: string; status?: string }> }) {
-  const { actor, request } = await adminContext();
+  const { request } = await adminContext();
   const allowed = await hasAdminPermission(request, "orders.read");
   if (!allowed) return <AdminRouteFrame><main className="shell py-10"><p className="card" role="alert">You do not have access to orders.</p></main></AdminRouteFrame>;
   const query = await searchParams;
@@ -20,7 +20,7 @@ export default async function OrdersPage({ searchParams }: { searchParams?: Prom
   return (
     <AdminRouteFrame>
       <OrdersListing
-        actorRole={actor.role}
+        key={`${initialView ?? "TODAY"}:${query?.status?.toUpperCase() ?? "ALL"}`}
         initialOrders={initialOrders}
         initialLoadedAt={loadedAt}
         initialView={initialView}
@@ -28,6 +28,7 @@ export default async function OrdersPage({ searchParams }: { searchParams?: Prom
         canExport={await hasAdminPermission(request, "orders.export")}
         canCreate={await hasAdminPermission(request, "orders.create")}
         canTransition={await hasAdminPermission(request, "orders.transition")}
+        canRecordPayment={await hasAdminPermission(request, "orders.payment.write")}
         canUpdate={await hasAdminPermission(request, "orders.update")}
         canDelete={await hasAdminPermission(request, "orders.delete")}
         canArchive={await hasAdminPermission(request, "orders.archive")}

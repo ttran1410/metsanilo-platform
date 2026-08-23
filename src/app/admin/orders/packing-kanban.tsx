@@ -2,121 +2,64 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { ArrowRight, CircleCheck, MapPin, PackageCheck, Play, Truck } from "lucide-react";
 import type { AdminOrder } from "../orders-listing";
-import { AdminStatusBadge, formatAdminMoney } from "../presentation";
+import { AdminNotice } from "../presentation";
 
 function cleanLitres(ml: number) {
   return `${(ml / 1000).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} L`;
 }
 
-export function PackingKanban({
-  orders,
-  canTransition,
-  onRefresh,
-}: {
+export function PackingKanban({ orders, canTransition, onRefresh }: {
   orders: AdminOrder[];
   canTransition: boolean;
   onRefresh: () => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
 
-  const columns = useMemo(() => {
-    const confirmed = orders.filter((o) => o.status === "CONFIRMED" || o.status === "NEW");
-    const picking = orders.filter((o) => o.status === "PICKING");
-    const ready = orders.filter((o) => o.status === "READY" || o.status === "OUT_FOR_DELIVERY");
-    const fulfilled = orders.filter((o) => o.status === "PICKED_UP" || o.status === "DELIVERED");
+  const columns = useMemo(() => [
+    { key: "CONFIRMED", title: "To pack", description: "Confirmed and waiting", orders: orders.filter((order) => order.status === "CONFIRMED"), nextStatus: "PICKING", nextLabel: "Start packing", icon: Play },
+    { key: "PICKING", title: "Packing", description: "Work in progress", orders: orders.filter((order) => order.status === "PICKING"), nextStatus: "READY", nextLabel: "Mark ready", icon: PackageCheck },
+    { key: "READY", title: "Ready", description: "Move to pickup or delivery", orders: orders.filter((order) => order.status === "READY" || order.status === "OUT_FOR_DELIVERY"), nextStatus: null, nextLabel: null, icon: CircleCheck },
+  ], [orders]);
 
-    return [
-      { key: "CONFIRMED", title: "🟡 CONFIRMED (To Pack)", orders: confirmed, nextStatus: "PICKING", nextLabel: "⚙️ Start Packing" },
-      { key: "PICKING", title: "⚙️ PICKING (In Progress)", orders: picking, nextStatus: "READY", nextLabel: "📦 Mark Packed & Ready" },
-      { key: "READY", title: "📦 READY (Staged)", orders: ready, nextStatus: "PICKED_UP", nextLabel: "✅ Mark Fulfilled" },
-      { key: "FULFILLED", title: "⚪ FULFILLED (Completed)", orders: fulfilled, nextStatus: null, nextLabel: null },
-    ];
-  }, [orders]);
-
-  async function handleTransition(orderId: string, nextStatus: string) {
-    setBusyId(orderId);
-    const response = await fetch(`/api/admin/orders/${orderId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "transition", status: nextStatus }),
-    });
-    setBusyId(null);
-    if (response.ok) onRefresh();
+  async function handleTransition(order: AdminOrder, nextStatus: string) {
+    setBusyId(order.id);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "transition", status: nextStatus, expectedVersion: order.version }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message ?? "Could not update packing state.");
+      setNotice(`${order.publicReference} moved to ${nextStatus === "PICKING" ? "Packing" : "Ready"}.`);
+      onRefresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update packing state.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
-    <div className="card p-4 md:p-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between border-b border-line pb-3">
-        <div>
-          <span className="eyebrow text-primary">PACKING SHED TABLET BOARD</span>
-          <h2 className="text-xl font-bold text-ink">Fulfillment Packing Kanban</h2>
-        </div>
+    <section className="packing-board">
+      <header><div><p className="eyebrow">Fulfillment workflow</p><h2>Packing board</h2><p>Move confirmed orders through packing. Ready orders continue at Pickup desk or Delivery.</p></div><div className="packing-total"><strong>{columns.reduce((sum, column) => sum + column.orders.length, 0)}</strong><span>active</span></div></header>
+      {notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}
+      {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
+      <div className="packing-columns">
+        {columns.map((column) => {
+          const ColumnIcon = column.icon;
+          return <section className="packing-column" key={column.key}><header><div><ColumnIcon aria-hidden="true" /><span><strong>{column.title}</strong><small>{column.description}</small></span></div><b>{column.orders.length}</b></header><div className="packing-order-list">
+            {column.orders.map((order) => <article className="packing-order-card" key={order.id}><header><Link href={`/admin/orders/${order.id}`}>{order.publicReference}</Link><span>{order.fulfillmentMethod === "PICKUP" ? <MapPin aria-hidden="true" /> : <Truck aria-hidden="true" />}{order.fulfillmentMethod === "PICKUP" ? "Pickup" : "Delivery"}</span></header><div><strong>{order.customerName}</strong><span>{order.packageLabelFi} · {cleanLitres(order.volumeMl)}</span><small>{order.fulfillmentDate}</small></div>{canTransition && column.nextStatus && <button type="button" className="btn btn-secondary" disabled={busyId === order.id} onClick={() => void handleTransition(order, column.nextStatus!)}>{busyId === order.id ? "Updating…" : <>{column.nextLabel}<ArrowRight aria-hidden="true" /></>}</button>}{column.key === "READY" && <p>Continue in {order.fulfillmentMethod === "PICKUP" ? "Pickup desk" : "order delivery"}.</p>}</article>)}
+            {!column.orders.length && <div className="packing-empty"><ColumnIcon aria-hidden="true" /><span>No orders in this stage</span></div>}
+          </div></section>;
+        })}
       </div>
-
-      {/* KANBAN 4-COLUMN GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
-        {columns.map((col) => (
-          <div key={col.key} className="flex flex-col gap-3 bg-surface-muted/40 p-3 rounded-2xl border border-line">
-            <div className="flex items-center justify-between border-b border-line pb-2">
-              <h3 className="text-xs font-bold uppercase text-ink">{col.title}</h3>
-              <span className="text-xs font-bold text-primary bg-surface px-2 py-0.5 rounded border border-line ops-tabular">
-                {col.orders.length}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-2.5 min-h-[400px]">
-              {col.orders.map((order) => {
-                const isBusy = busyId === order.id;
-
-                return (
-                  <div
-                    key={order.id}
-                    className="card p-3 flex flex-col justify-between gap-2 border hover:border-primary transition-colors shadow-xs"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-1 border-b border-line/60 pb-1.5">
-                        <Link
-                          className="font-bold text-primary text-xs hover:underline ops-tabular"
-                          href={`/admin/orders/${order.id}`}
-                        >
-                          {order.publicReference}
-                        </Link>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface border border-line text-ink">
-                          {order.fulfillmentMethod === "PICKUP" ? "📍 Pickup" : "🚚 Delivery"}
-                        </span>
-                      </div>
-
-                      <strong className="text-sm font-bold text-ink block mt-1">{order.customerName}</strong>
-                      <span className="text-xs muted block">
-                        {order.packageLabelFi} ({cleanLitres(order.volumeMl)})
-                      </span>
-                      <span className="text-[11px] text-ink/80 block mt-0.5">
-                        📅 {order.fulfillmentDate}
-                      </span>
-                    </div>
-
-                    {canTransition && col.nextStatus && col.nextLabel && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary text-xs py-1.5 w-full justify-center font-bold mt-1"
-                        onClick={() => void handleTransition(order.id, col.nextStatus!)}
-                        disabled={isBusy}
-                      >
-                        {isBusy ? "Updating…" : col.nextLabel}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-
-              {col.orders.length === 0 && (
-                <div className="py-8 text-center text-xs muted italic">No orders in this column</div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    </section>
   );
 }
