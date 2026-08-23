@@ -427,12 +427,14 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .summary-card dl div { display: flex; justify-content: space-between; gap: 1rem; font-size: .78rem; }
 .summary-card dt { color: #b9c8be; }
 .summary-card dd { margin: 0; font-weight: 700; text-align: right; }
-.summary-card > p:not(.summary-label) { margin: 0; color: #cbd7cf; font-size: .76rem; line-height: 1.55; }
-.submit-button { width: 100%; margin-top: .5rem; background: var(--berry); }
+.submit-button { width: 100%; margin-top: .5rem; background: var(--moss); color: white; }
+.submit-button:hover { background: var(--forest); }
+.reservation-summary-bar .submit-button { width: auto; margin-top: 0; background: var(--paper); color: var(--forest); font-weight: 800; border: 1px solid rgba(255, 255, 255, 0.2); }
+.reservation-summary-bar .submit-button:hover { background: #eef5f0; }
 .help-card { display: grid; gap: .55rem; padding: 1.5rem; border: 1px solid var(--line); border-radius: 1.25rem; background: var(--paper); }
-.help-card > span { color: var(--berry); font-size: .68rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+.help-card > span { color: var(--moss); font-size: .68rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
 .help-card > div { display: flex; gap: 1rem; margin-top: .35rem; }
-.help-card a { font-size: .82rem; font-weight: 700; text-decoration: underline; text-underline-offset: .25rem; }
+.help-card a { font-size: .82rem; font-weight: 700; text-decoration: underline; text-underline-offset: .25rem; color: var(--forest); }
 
 .storefront-footer { background: #0c1f19; color: white; padding-block: 2.5rem 2rem; border-top: 1px solid rgb(255 255 255 / 10%); }
 .footer-tier-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem; padding-bottom: 1.75rem; border-bottom: 1px solid rgb(255 255 255 / 12%); }
