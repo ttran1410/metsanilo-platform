@@ -52,7 +52,7 @@ export function InfoPage({
   const navLink = (href: string, label: string, active: boolean) => <Link className={active ? "nav-link-active" : ""} href={href}>{label}</Link>;
 
   return (
-    <main className="storefront info-page">
+    <main className="storefront info-page" data-theme="forest-harvest">
       <LocaleDocument locale={locale} />
       <header className="storefront-header">
         <div className="shell storefront-nav">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Menu } from "lucide-react";
 import type { Locale } from "@/lib/format";
 
 const labels = {
@@ -31,7 +32,7 @@ export function MobileNav({
   return (
     <details className="mobile-nav-menu">
       <summary>
-        <span className="mobile-nav-icon" aria-hidden="true"><i /><i /><i /></span>
+        <Menu className="mobile-nav-icon" aria-hidden="true" />
         <span>{t.menu}</span>
       </summary>
       <nav aria-label={t.menu}>
@@ -46,4 +47,3 @@ export function MobileNav({
     </details>
   );
 }
-

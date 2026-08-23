@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowDown, ArrowRight, ArrowUpRight, BadgeCheck, CalendarDays, CreditCard, Leaf, Mail, PackageOpen, Phone, Truck } from "lucide-react";
 import { db } from "@/db/client";
 import { getPublicCatalog } from "@/domain/availability";
 import { formatEuros, formatLitres, formatStorefrontDate, isLocale, type Locale } from "@/lib/format";
@@ -122,8 +123,13 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
   const nextPickupCapacityLabel = nextPickupDate ? `${formatLitres(nextPickupRemainingMl, locale)} l ${locale === "fi" ? "jäljellä" : "remaining"}` : "";
   const heroImage = products.flatMap((product) => product.media).find((image) => image.isPrimary) ?? products[0]?.media[0];
   const seasonYear = new Date().getFullYear();
+  const promiseItems = [
+    { Icon: Leaf, label: locale === "fi" ? "Suoraan Satakunnan metsistä" : "Direct from Satakunta forests" },
+    { Icon: Truck, label: locale === "fi" ? "Poimittu ja toimitettu samana päivänä" : "Picked and delivered the same day" },
+    { Icon: CreditCard, label: locale === "fi" ? "Ei ennakkomaksua" : "No prepayment" },
+  ];
   return (
-    <main className="storefront">
+    <main className="storefront" data-theme="forest-harvest">
       <LocaleDocument locale={locale} />
       <header className="storefront-header">
         <div className="shell storefront-nav">
@@ -140,7 +146,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           </nav>
           <MobileNav locale={locale} active="home" />
           <Link className="locale-switch" href={`/${otherLocale}`} hrefLang={otherLocale}>
-            {t.switchLocale}<span aria-hidden="true">↗</span>
+            {t.switchLocale}<ArrowUpRight aria-hidden="true" />
           </Link>
         </div>
       </header>
@@ -153,14 +159,14 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
 
           <div className="hero-highlights" aria-label={locale === "fi" ? "Tärkeät tiedot" : "Key information"}>
             <span className="highlight-chip"><span>100%</span><strong>{locale === "fi" ? "Kotimaista" : "Finnish"}</strong></span>
-            <span className="highlight-chip"><span>▣</span>{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: <strong>{nextPickupLabel}</strong></span>
-            {nextPickupCapacityLabel && <span className="highlight-chip"><span>🫐</span><strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong> {locale === "fi" ? "jäljellä" : "remaining"}</span>}
-            <span className="highlight-chip"><span>✓</span>{locale === "fi" ? "Maksu noudettaessa tai toimitettaessa" : "Pay at pickup or delivery"}</span>
+            <span className="highlight-chip"><CalendarDays aria-hidden="true" />{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: <strong>{nextPickupLabel}</strong></span>
+            {nextPickupCapacityLabel && <span className="highlight-chip"><PackageOpen aria-hidden="true" /><strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong> {locale === "fi" ? "jäljellä" : "remaining"}</span>}
+            <span className="highlight-chip"><BadgeCheck aria-hidden="true" />{locale === "fi" ? "Maksu noudettaessa tai toimitettaessa" : "Pay at pickup or delivery"}</span>
           </div>
 
           <div className="hero-actions">
-            <Link className="btn btn-light hero-primary-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve products"}<span aria-hidden="true">→</span></Link>
-            <a className="btn btn-hero-secondary" href="#catalog">{locale === "fi" ? "Katso valikoima" : "Explore harvest"}<span aria-hidden="true">↓</span></a>
+            <Link className="btn btn-light hero-primary-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve products"}<ArrowRight aria-hidden="true" /></Link>
+            <a className="btn btn-hero-secondary" href="#catalog">{locale === "fi" ? "Katso valikoima" : "Explore harvest"}<ArrowDown aria-hidden="true" /></a>
           </div>
         </div>
 
@@ -173,7 +179,7 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
 
       <section className="promise-strip" aria-label={locale === "fi" ? "Metsänilon lupaus" : "The Metsänilo promise"}>
         <div className="shell">
-          {[locale === "fi" ? "Suoraan Satakunnan metsistä" : "Direct from Satakunta forests", locale === "fi" ? "Poimittu ja toimitettu samana päivänä" : "Picked and delivered the same day", locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"].map((item, index) => <p key={item}><span>0{index + 1}</span>{item}</p>)}
+          {promiseItems.map(({ Icon, label }) => <p key={label}><Icon aria-hidden="true" />{label}</p>)}
         </div>
       </section>
 
@@ -228,12 +234,12 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
             <div className="footer-contact-links">
               {data.shop.contactPhone && (
                 <a className="footer-contact-item" href={`tel:${data.shop.contactPhone}`}>
-                  <span>📞</span> {data.shop.contactPhone}
+                  <Phone aria-hidden="true" /> {data.shop.contactPhone}
                 </a>
               )}
               {data.shop.contactEmail && (
                 <a className="footer-contact-item" href={`mailto:${data.shop.contactEmail}`}>
-                  <span>✉️</span> {data.shop.contactEmail}
+                  <Mail aria-hidden="true" /> {data.shop.contactEmail}
                 </a>
               )}
             </div>
@@ -252,7 +258,6 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
           </div>
         </div>
       </footer>
-      <a className="mobile-reserve-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}<span aria-hidden="true">→</span></a>
     </main>
   );
 }

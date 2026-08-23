@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Copy, Languages } from "lucide-react";
 
 export function BilingualEditor({
   nameFi,
@@ -34,13 +35,13 @@ export function BilingualEditor({
     <div className="card p-4 md:p-5 flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
         <div>
-          <span className="eyebrow">SYNCHRONIZED BILINGUAL CONTENT</span>
+          <span className="eyebrow">Storefront copy</span>
           <h3 className="text-base font-bold text-ink flex items-center gap-2">
-            Finnish &amp; English Storefront Copy
+            Finnish and English
             {missingEn && (
               <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
                 <span className="w-2 h-2 rounded-full bg-amber-500" />
-                English Copy Needed
+                English copy needed
               </span>
             )}
           </h3>
@@ -52,17 +53,25 @@ export function BilingualEditor({
           onClick={copyFiToEn}
           title="Seed English inputs from Finnish text"
         >
-          📋 Copy FI ➔ EN
+          <Copy aria-hidden="true" /> Copy Finnish text
         </button>
       </div>
 
-      {/* Side-by-Side Dual Pane for Large Screens, Tabbed for Mobile */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="admin-language-switch" role="tablist" aria-label="Storefront copy language">
+        <button type="button" role="tab" aria-selected={activeLangTab === "fi"} className={activeLangTab === "fi" ? "is-active" : ""} onClick={() => setActiveLangTab("fi")}>
+          <Languages aria-hidden="true" /> Finnish
+        </button>
+        <button type="button" role="tab" aria-selected={activeLangTab === "en"} className={activeLangTab === "en" ? "is-active" : ""} onClick={() => setActiveLangTab("en")}>
+          <Languages aria-hidden="true" /> English {missingEn && <span className="admin-status-dot is-warning" aria-label="Copy incomplete" />}
+        </button>
+      </div>
+
+      <div className="admin-bilingual-grid grid gap-4 md:grid-cols-2">
         {/* FINNISH COLUMN */}
-        <div className="flex flex-col gap-3 p-3.5 bg-surface-muted/40 rounded-xl border border-line">
+        <div className={`admin-language-pane${activeLangTab === "fi" ? " is-mobile-active" : ""} flex flex-col gap-3 p-3.5 bg-surface-muted/40 rounded-xl border border-line`} role="tabpanel">
           <div className="flex items-center justify-between border-b border-line pb-2">
             <span className="text-xs font-bold text-primary flex items-center gap-1.5">
-              🇫🇮 Finnish (Primary Storefront Copy)
+              Finnish (primary storefront copy)
             </span>
             <span className="text-[11px] muted font-medium">FI</span>
           </div>
@@ -91,10 +100,10 @@ export function BilingualEditor({
         </div>
 
         {/* ENGLISH COLUMN */}
-        <div className="flex flex-col gap-3 p-3.5 bg-surface-muted/40 rounded-xl border border-line">
+        <div className={`admin-language-pane${activeLangTab === "en" ? " is-mobile-active" : ""} flex flex-col gap-3 p-3.5 bg-surface-muted/40 rounded-xl border border-line`} role="tabpanel">
           <div className="flex items-center justify-between border-b border-line pb-2">
             <span className="text-xs font-bold text-blue-700 flex items-center gap-1.5">
-              🇬🇧 English (International Customer Copy)
+              English (international storefront copy)
               {(!nameEn.trim() || !descEn.trim()) && <span className="text-amber-600">●</span>}
             </span>
             <span className="text-[11px] muted font-medium">EN</span>

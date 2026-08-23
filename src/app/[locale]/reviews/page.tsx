@@ -30,7 +30,7 @@ export default async function ReviewsPage({ params }: { params: Promise<{ locale
   const other = locale === "fi" ? "en" : "fi";
 
   return (
-    <main className="storefront min-h-screen bg-[#FAF8F5]">
+    <main className="storefront min-h-screen bg-[#FAF8F5]" data-theme="forest-harvest">
       <LocaleDocument locale={locale} />
       
       {/* Navigation Header */}

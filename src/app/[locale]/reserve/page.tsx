@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
+import { ArrowUpRight, Mail, Phone } from "lucide-react";
 import { db } from "@/db/client";
 import { getPublicCatalog } from "@/domain/availability";
 import { isLocale, type Locale } from "@/lib/format";
@@ -140,7 +141,7 @@ export default async function ReservePage({
   const rollup = await getReviewRollup(db());
 
   return (
-    <main className="storefront">
+    <main className="storefront" data-theme="forest-harvest">
       <LocaleDocument locale={locale} />
       <header className="storefront-header">
         <div className="shell storefront-nav">
@@ -178,7 +179,7 @@ export default async function ReservePage({
             href={`/${locale === "fi" ? "en" : "fi"}/reserve`}
           >
             {t.switchLocale}
-            <span aria-hidden="true">↗</span>
+            <ArrowUpRight aria-hidden="true" />
           </a>
         </div>
       </header>
@@ -262,7 +263,7 @@ export default async function ReservePage({
                   className="footer-contact-item"
                   href={`tel:${data.shop.contactPhone}`}
                 >
-                  <span>📞</span> {data.shop.contactPhone}
+                  <Phone aria-hidden="true" /> {data.shop.contactPhone}
                 </a>
               )}
               {data.shop.contactEmail && (
@@ -270,7 +271,7 @@ export default async function ReservePage({
                   className="footer-contact-item"
                   href={`mailto:${data.shop.contactEmail}`}
                 >
-                  <span>✉️</span> {data.shop.contactEmail}
+                  <Mail aria-hidden="true" /> {data.shop.contactEmail}
                 </a>
               )}
             </div>

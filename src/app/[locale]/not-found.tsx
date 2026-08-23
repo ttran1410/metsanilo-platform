@@ -10,7 +10,7 @@ export default function StorefrontNotFound() {
     ? { eyebrow: "404 · SIVUA EI LÖYTYNYT", title: "Etsimääsi sivua ei löytynyt", text: "Sivu saattaa olla siirretty, poistettu tai tilapäisesti pois käytöstä.", home: "Palaa etusivulle" }
     : { eyebrow: "404 · PAGE NOT FOUND", title: "We couldn't find that page", text: "The page may have moved, been removed, or be temporarily unavailable.", home: "Return to homepage" };
   return (
-    <main className="storefront min-h-screen bg-[#FAF8F5] flex flex-col items-center justify-center p-6 text-center">
+    <main className="storefront min-h-screen bg-[#FAF8F5] flex flex-col items-center justify-center p-6 text-center" data-theme="forest-harvest">
       <div className="max-w-md w-full card p-8 border border-line shadow-lg bg-surface rounded-3xl flex flex-col items-center gap-5 animate-in fade-in zoom-in-95">
         {/* Brand Logo & Mark */}
         <div className="flex items-center gap-2">
