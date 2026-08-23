@@ -113,7 +113,7 @@ export function ReviewsHub({
           </p>
           <button
             type="button"
-            className="btn bg-[#1E6B34] hover:bg-[#144A23] text-white font-extrabold text-sm px-5 py-2.5 rounded-xl shadow-xs transition-all mt-2"
+            className="btn btn-accent text-white font-extrabold text-sm px-5 py-2.5 rounded-full shadow-xs transition-all mt-2"
             onClick={() => setIsModalOpen(true)}
           >
             {copy.writeBtn}
