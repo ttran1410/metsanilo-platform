@@ -159,10 +159,10 @@ export function ReviewModal({
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 text-left">
               {/* Star Rating Selection */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-ink mb-1.5">
                   {copy.step1}
                 </label>
                 <div className="flex items-center gap-2">
@@ -178,41 +178,46 @@ export function ReviewModal({
                       ★
                     </button>
                   ))}
-                  <span className="text-xs font-bold text-slate-700 ml-2">
+                  <span className="text-xs font-bold text-ink ml-2">
                      {rating}/5 ({copy.ratingLabels[rating]})
                   </span>
                 </div>
               </div>
 
               {/* Name */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-ink">
                   {copy.step2}
                 </label>
                 <input
                   type="text"
-                   required={!isAnonymous}
-                   minLength={isAnonymous ? undefined : 2}
+                  required={!isAnonymous}
+                  minLength={isAnonymous ? undefined : 2}
                   maxLength={80}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-sm border border-line bg-surface rounded-xl p-3 text-ink focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] transition-all"
                   placeholder={copy.placeholderName}
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                 />
-                <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
-                  <input type="checkbox" checked={isAnonymous} onChange={(e) => setIsAnonymous(e.target.checked)} />
-                  {copy.anonymous}
+                <label className="flex items-center gap-2.5 text-xs text-ink cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={isAnonymous}
+                    onChange={(e) => setIsAnonymous(e.target.checked)}
+                    className="w-4 h-4 rounded accent-[var(--forest)] cursor-pointer"
+                  />
+                  <span>{copy.anonymous}</span>
                 </label>
               </div>
 
               {/* Phone / Reference */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-ink">
                   {copy.step3}
                 </label>
                 <input
                   type="text"
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-sm border border-line bg-surface rounded-xl p-3 text-ink focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] transition-all"
                   placeholder={copy.placeholderContact}
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
@@ -220,8 +225,8 @@ export function ReviewModal({
               </div>
 
               {/* Review Text */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-ink">
                   {copy.step4}
                 </label>
                 <textarea
@@ -229,37 +234,39 @@ export function ReviewModal({
                   minLength={10}
                   maxLength={2000}
                   rows={4}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-sm border border-line bg-surface rounded-xl p-3 text-ink focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] transition-all leading-relaxed"
                   placeholder={copy.placeholderReview}
                   value={reviewText}
                   onChange={(e) => setReviewText(e.target.value)}
                 />
               </div>
 
-              {/* Consent Checkbox */}
-              <label className="flex items-start gap-2 text-xs text-slate-700 font-medium">
-                <input
-                  type="checkbox"
-                  checked={consent}
-                  onChange={(e) => setConsent(e.target.checked)}
-                  className="mt-0.5 rounded text-emerald-600"
-                />
-                <span>{copy.consentText}</span>
-              </label>
-              <label className="flex items-start gap-2 text-xs text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={crmConsent}
-                  onChange={(e) => setCrmConsent(e.target.checked)}
-                  className="mt-0.5 rounded text-emerald-600"
-                />
-                <span>{copy.crmConsent}</span>
-              </label>
+              {/* Consent Checkboxes */}
+              <div className="space-y-2.5 pt-1">
+                <label className="flex items-start gap-2.5 text-xs text-ink cursor-pointer leading-snug">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded accent-[var(--forest)] flex-shrink-0 cursor-pointer"
+                  />
+                  <span className="font-semibold">{copy.consentText}</span>
+                </label>
+                <label className="flex items-start gap-2.5 text-xs text-ink cursor-pointer leading-snug">
+                  <input
+                    type="checkbox"
+                    checked={crmConsent}
+                    onChange={(e) => setCrmConsent(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded accent-[var(--forest)] flex-shrink-0 cursor-pointer"
+                  />
+                  <span>{copy.crmConsent}</span>
+                </label>
+              </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-line">
                 <button
                   type="button"
-                  className="btn btn-secondary text-sm px-4 py-2"
+                  className="btn btn-secondary text-xs font-bold px-5 py-2.5 rounded-full"
                   onClick={onClose}
                   disabled={isSubmitting}
                 >
@@ -268,7 +275,7 @@ export function ReviewModal({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="btn bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-sm transition-all"
+                  className="btn btn-accent text-white font-bold text-xs px-6 py-2.5 rounded-full shadow-sm transition-all"
                 >
                   {isSubmitting ? copy.submitting : copy.submit}
                 </button>
