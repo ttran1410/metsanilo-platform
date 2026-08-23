@@ -140,7 +140,8 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .btn:hover { transform: translateY(-2px); }
 .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 .btn-light { background: var(--paper); color: var(--forest); }
-.btn-accent { background: var(--berry); color: white; }
+.btn-accent { background: var(--moss); color: white; }
+.btn-accent:hover { background: var(--forest); }
 .btn-secondary { background: var(--primary-soft, #dce8df); color: var(--forest); }
 .text-link { display: inline-flex; min-height: 3rem; align-items: center; gap: 1.25rem; border-bottom: 1px solid rgb(255 255 255 / 45%); color: white; font-size: .95rem; font-weight: 700; text-decoration: none; }
 .hero-facts { display: grid; margin: auto 0 0; padding-top: 2.25rem; grid-template-columns: repeat(3, 1fr); border-top: 1px solid rgb(255 255 255 / 20%); }
@@ -1283,7 +1284,6 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .info-step-card:nth-child(4) .info-number { background: #b86b14; }
 .info-step-card h2 { margin: 1.35rem 0 .65rem; color: var(--forest); font-family: var(--serif); font-size: clamp(1.25rem, 1.8vw, 1.45rem); font-weight: 600; line-height: 1.2; }
 .info-step-card p { max-width: 19rem; margin: 0; color: var(--ink); font-size: 1.025rem; line-height: 1.6; }
-.info-cta { display: grid; justify-items: center; margin-bottom: clamp(4rem, 8vw, 7rem); border-radius: 1.5rem; background: var(--forest); color: white; padding: clamp(3rem, 6vw, 4.5rem) 1.5rem; text-align: center; }
 .info-faq { display: grid; gap: .85rem; margin-bottom: clamp(3rem, 6vw, 5rem); }
 .info-faq h2 { margin: 0 0 .5rem; color: var(--forest); font-family: var(--serif); font-size: clamp(1.8rem, 3vw, 2.5rem); font-weight: 500; }
 .info-faq details { border: 1px solid var(--line); border-radius: 1rem; background: var(--paper); padding: 0 1.35rem; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
@@ -1293,8 +1293,11 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .info-faq .faq-icon { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 50%; background: #edf8ef; color: var(--forest); font-size: 1.05rem; font-weight: 800; transition: transform 0.25s ease, background 0.2s ease; flex-shrink: 0; }
 .info-faq details[open] .faq-icon { transform: rotate(180deg); background: #a8d6b8; }
 .info-faq details p { margin: 0 0 1.25rem; color: var(--ink); font-size: 1.025rem; line-height: 1.65; border-top: 1px solid #e7eee9; padding-top: .85rem; }
+.info-cta { display: grid; justify-items: center; margin-bottom: clamp(4rem, 8vw, 7rem); border-radius: 1.5rem; background: var(--forest); color: white; padding: clamp(3rem, 6vw, 4.5rem) 1.5rem; text-align: center; }
 .info-cta h2 { margin: 0; font-family: var(--serif); font-size: clamp(2rem, 4vw, 3rem); font-weight: 500; }
 .info-cta p { margin: .85rem 0 1.5rem; color: #a9d8be; }
+.info-cta .btn { background: var(--paper); color: var(--forest); font-weight: 800; border: 1px solid rgba(255, 255, 255, 0.2); }
+.info-cta .btn:hover { background: #eef5f0; }
 .review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; padding-bottom: 4rem; }
 .review-card { min-height: 16rem; border: 1px solid var(--line); border-radius: 1.5rem; background: var(--paper); padding: 2rem; box-shadow: 0 8px 20px rgb(23 55 43 / 6%); }
 .review-card-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
