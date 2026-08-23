@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowRight, ArrowUpRight, Mail, MessageSquare, Phone, ShieldCheck } from "lucide-react";
 import { formatDecimal, isLocale, type Locale } from "@/lib/format";
 import { LocaleDocument } from "./locale-document";
 import { ReviewForm } from "./review-form";
@@ -94,7 +95,7 @@ export function InfoPage({
             <p>{content[locale]["how-it-works"].intro}</p>
           </section>
           <section className="shell info-trust-banner" aria-label={locale === "fi" ? "Maksutiedot" : "Payment information"}>
-            <span className="trust-badge-icon" aria-hidden="true">🛡️</span>
+            <span className="trust-badge-icon" aria-hidden="true"><ShieldCheck className="w-6 h-6 text-[#1e6b34]" /></span>
             <div className="trust-banner-copy">
               <strong>{locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</strong>
               <span>{locale === "fi" ? "Maksat vasta kun saat marjat noudon tai toimituksen yhteydessä." : "You pay when you receive your berries at pickup or delivery."}</span>
@@ -230,12 +231,12 @@ export function InfoPage({
             <div className="footer-contact-links">
               {contactPhone && (
                 <a className="footer-contact-item" href={`tel:${contactPhone}`}>
-                  <span>📞</span> {contactPhone}
+                  <Phone aria-hidden="true" /> {contactPhone}
                 </a>
               )}
               {contactEmail && (
                 <a className="footer-contact-item" href={`mailto:${contactEmail}`}>
-                  <span>✉️</span> {contactEmail}
+                  <Mail aria-hidden="true" /> {contactEmail}
                 </a>
               )}
             </div>
