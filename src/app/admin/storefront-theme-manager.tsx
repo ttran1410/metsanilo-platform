@@ -33,10 +33,10 @@ const themes: Array<{
   {
     key: "forest-harvest",
     name: "Forest harvest",
-    description: "Spruce, oat and bilberry for the core Satakunta harvest identity.",
-    canvas: "#F3F0E8",
-    ink: "#18392D",
-    accent: "#2F5D48",
+    description: "Default warm Finnish harvest with spruce, oat, and bilberry accents.",
+    canvas: "#F7F7F2",
+    ink: "#17201B",
+    accent: "#14532D",
     seasonal: "#343A75",
   },
   {

@@ -144,7 +144,7 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
           </Link>
           <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
             <Link className="nav-link-active" href={`/${locale}`}>{locale === "fi" ? "Etusivu" : "Home"}</Link>
-            <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link>
+            <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}</Link>
             <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
             {data.shop.reviewsVisible && <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>}
             <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
@@ -170,7 +170,7 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
           </div>
 
           <div className="hero-actions">
-            <Link className="btn btn-light hero-primary-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve products"}<ArrowRight aria-hidden="true" /></Link>
+            <Link className="btn btn-light hero-primary-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}<ArrowRight aria-hidden="true" /></Link>
             <a className="btn btn-hero-secondary" href="#catalog">{locale === "fi" ? "Katso valikoima" : "Explore harvest"}<ArrowDown aria-hidden="true" /></a>
           </div>
         </div>
@@ -253,7 +253,7 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
           <div className="footer-tier-bottom">
             <nav className="footer-inline-nav" aria-label={locale === "fi" ? "Alatunnisteen valikko" : "Footer links"}>
               <Link href={`/${locale}`}>{locale === "fi" ? "Etusivu" : "Home"}</Link>
-              <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link>
+              <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}</Link>
               <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
               {data.shop.reviewsVisible && <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>}
               <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>

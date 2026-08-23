@@ -12,8 +12,8 @@ import { resolveStorefrontTheme } from "@/domain/storefront-themes";
 export const dynamic = "force-dynamic";
 
 const navCopy = {
-  fi: { home: "Etusivu", how: "Miten varaus toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjat", contact: "Yhteys" },
-  en: { home: "Home", how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve products", contact: "Contact" },
+  fi: { home: "Etusivu", how: "Miten toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjoja", contact: "Yhteys" },
+  en: { home: "Home", how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve berries", contact: "Contact" },
 };
 
 export default async function ReviewsPage({ params }: { params: Promise<{ locale: string }> }) {
