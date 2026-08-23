@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import { getPublicCatalog } from "@/domain/availability";
 import { isLocale, type Locale } from "@/lib/format";
 import { InfoPage } from "../info-page";
+import { resolveStorefrontTheme } from "@/domain/storefront-themes";
 
 export default async function HowItWorksPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale: rawLocale } = await params;
@@ -19,7 +20,7 @@ export default async function HowItWorksPage({ params }: { params: Promise<{ loc
       howItWorksVisible={data?.shop.howItWorksVisible ?? true}
       aboutUsVisible={data?.shop.aboutUsVisible ?? true}
       logoUrl={data?.shop.logoUrl}
+      theme={resolveStorefrontTheme(data?.shop.storefrontTheme)}
     />
   );
 }
-

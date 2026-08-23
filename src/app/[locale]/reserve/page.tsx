@@ -10,6 +10,7 @@ import { LocaleDocument } from "../locale-document";
 import { MobileNav } from "../mobile-nav";
 import { getReviewRollup, listFeaturedReviews } from "@/domain/reviews";
 import { HighlightReviews, type FeaturedReviewItem } from "../reviews/highlight-reviews";
+import { isStorefrontThemeKey, resolveStorefrontTheme } from "@/domain/storefront-themes";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,6 +24,7 @@ export default async function ReservePage({
     product?: string;
     package?: string;
     notice?: string;
+    "theme-preview"?: string;
   }>;
 }) {
   const { locale: rawLocale } = await params;
@@ -84,6 +86,9 @@ export default async function ReservePage({
       }));
   const products = [...productMap.values()];
   const query = await searchParams;
+  const theme = isStorefrontThemeKey(query["theme-preview"])
+    ? query["theme-preview"]
+    : resolveStorefrontTheme(data.shop.storefrontTheme);
   const requestedProduct = query.product
     ? products.find((item) => item.id === query.product)
     : undefined;
@@ -141,7 +146,7 @@ export default async function ReservePage({
   const rollup = await getReviewRollup(db());
 
   return (
-    <main className="storefront" data-theme="forest-harvest">
+    <main className="storefront" data-theme={theme}>
       <LocaleDocument locale={locale} />
       <header className="storefront-header">
         <div className="shell storefront-nav">

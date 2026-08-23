@@ -2,7 +2,9 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { Building2, CreditCard, ExternalLink, Image, Inbox, MapPin, Palette, ShieldAlert, type LucideIcon } from "lucide-react";
 import { AdminNotice, AdminPageHeader } from "./presentation";
+import { StorefrontThemeManager } from "./storefront-theme-manager";
 
 type Method = {
   id?: string;
@@ -58,7 +60,7 @@ type MediaItem = {
   attachmentId?: string;
 };
 
-type Section = "identity" | "fulfillment" | "payments" | "channels" | "storefront" | "danger";
+type Section = "identity" | "fulfillment" | "payments" | "channels" | "storefront" | "themes" | "danger";
 
 function ImageDropzone({
   label,
@@ -161,7 +163,7 @@ function ImageDropzone({
   );
 }
 
-export function OperationsSettings({ canManageSettings }: { canManageSettings: boolean }) {
+export function OperationsSettings({ canManageSettings, canManageTheme }: { canManageSettings: boolean; canManageTheme: boolean }) {
   const [activeSection, setActiveSection] = useState<Section>("identity");
 
   const [shopData, setShopData] = useState<ShopIdentity>({
@@ -450,13 +452,14 @@ export function OperationsSettings({ canManageSettings }: { canManageSettings: b
     }
   }
 
-  const sections: { id: Section; label: string; icon: string; desc: string }[] = [
-    { id: "identity", label: "Shop Identity", icon: "🏢", desc: "Branding, Logo & Care lines" },
-    { id: "fulfillment", label: "Fulfillment Hubs", icon: "📍", desc: "Pickup locations & directions" },
-    { id: "payments", label: "Payment Methods", icon: "💳", desc: "Payment guidance & instructions" },
-    { id: "channels", label: "Order Channels", icon: "📥", desc: "Intake sources & attribution" },
-    { id: "storefront", label: "Storefront & Media", icon: "🌐", desc: "Page visibility & CMS graphics" },
-    { id: "danger", label: "System & Safety", icon: "🛡️", desc: "Emergency intake lock & overrides" },
+  const sections: { id: Section; label: string; icon: LucideIcon; desc: string }[] = [
+    { id: "identity", label: "Shop identity", icon: Building2, desc: "Branding, logo and contact details" },
+    { id: "fulfillment", label: "Fulfillment hubs", icon: MapPin, desc: "Pickup locations and directions" },
+    { id: "payments", label: "Payment methods", icon: CreditCard, desc: "Payment guidance and instructions" },
+    { id: "channels", label: "Order channels", icon: Inbox, desc: "Intake sources and attribution" },
+    { id: "storefront", label: "Storefront & media", icon: Image, desc: "Page visibility and managed imagery" },
+    { id: "themes", label: "Frontstore themes", icon: Palette, desc: "Draft, preview and publish" },
+    { id: "danger", label: "System & safety", icon: ShieldAlert, desc: "Emergency intake controls" },
   ];
 
   return (
@@ -473,7 +476,7 @@ export function OperationsSettings({ canManageSettings }: { canManageSettings: b
           className="btn btn-secondary text-xs font-bold flex items-center gap-1.5 shadow-2xs"
         >
            <span>View live storefront</span>
-          <span aria-hidden="true">↗</span>
+          <ExternalLink aria-hidden="true" />
         </Link>
       </div>
 
@@ -488,6 +491,7 @@ export function OperationsSettings({ canManageSettings }: { canManageSettings: b
       <nav className="flex items-center gap-1 overflow-x-auto p-1 bg-surface-muted/60 border border-line rounded-2xl">
         {sections.map((sec) => {
           const active = activeSection === sec.id;
+          const Icon = sec.icon;
           return (
             <button
               key={sec.id}
@@ -499,7 +503,7 @@ export function OperationsSettings({ canManageSettings }: { canManageSettings: b
                   : "text-muted hover:text-ink hover:bg-surface/50"
               }`}
             >
-              <span>{sec.icon}</span>
+              <Icon aria-hidden="true" />
               <span>{sec.label}</span>
             </button>
           );
@@ -1101,6 +1105,8 @@ export function OperationsSettings({ canManageSettings }: { canManageSettings: b
             </div>
           </div>
         )}
+
+        {activeSection === "themes" && <StorefrontThemeManager canManageTheme={canManageTheme} />}
 
         {/* DOMAIN 6: DANGER ZONE & SAFETY */}
         {activeSection === "danger" && (

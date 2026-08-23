@@ -11,6 +11,7 @@ import { ProductGallery } from "./product-gallery";
 import { LocaleDocument } from "./locale-document";
 import { MobileNav } from "./mobile-nav";
 import { getReviewRollup, listFeaturedReviews } from "@/domain/reviews";
+import { resolveStorefrontTheme, isStorefrontThemeKey } from "@/domain/storefront-themes";
 import { HighlightReviews, type FeaturedReviewItem } from "./reviews/highlight-reviews";
 
 export const dynamic = "force-dynamic";
@@ -57,12 +58,13 @@ function getAvailabilityStatus(product: PublicProduct, locale: Locale, volumeMl?
   return { status: "batches_updating" };
 }
 
-export default async function ShopPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function ShopPage({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ "theme-preview"?: string }> }) {
   const { locale: rawLocale } = await params;
   if (!isLocale(rawLocale)) notFound();
   const locale: Locale = rawLocale;
   const t = copy[locale];
   const data = await getPublicCatalog(db());
+  const query = await searchParams;
   const otherLocale = locale === "fi" ? "en" : "fi";
 
   if (!data) {
@@ -128,8 +130,11 @@ export default async function ShopPage({ params }: { params: Promise<{ locale: s
     { Icon: Truck, label: locale === "fi" ? "Poimittu ja toimitettu samana päivänä" : "Picked and delivered the same day" },
     { Icon: CreditCard, label: locale === "fi" ? "Ei ennakkomaksua" : "No prepayment" },
   ];
+  const theme = isStorefrontThemeKey(query["theme-preview"])
+    ? query["theme-preview"]
+    : resolveStorefrontTheme(data.shop.storefrontTheme);
   return (
-    <main className="storefront" data-theme="forest-harvest">
+    <main className="storefront" data-theme={theme}>
       <LocaleDocument locale={locale} />
       <header className="storefront-header">
         <div className="shell storefront-nav">

@@ -3,6 +3,7 @@ import { formatDecimal, isLocale, type Locale } from "@/lib/format";
 import { LocaleDocument } from "./locale-document";
 import { ReviewForm } from "./review-form";
 import { MobileNav } from "./mobile-nav";
+import type { StorefrontThemeKey } from "@/domain/storefront-themes";
 
 type InfoKind = "how-it-works" | "reviews" | "about";
 
@@ -34,6 +35,7 @@ export function InfoPage({
   howItWorksVisible = true,
   aboutUsVisible = true,
   logoUrl,
+  theme = "forest-harvest",
 }: {
   locale: Locale;
   kind: InfoKind;
@@ -44,6 +46,7 @@ export function InfoPage({
   howItWorksVisible?: boolean;
   aboutUsVisible?: boolean;
   logoUrl?: string | null;
+  theme?: StorefrontThemeKey;
 }) {
   const t = content[locale][kind];
   const nav = navCopy[locale];
@@ -52,7 +55,7 @@ export function InfoPage({
   const navLink = (href: string, label: string, active: boolean) => <Link className={active ? "nav-link-active" : ""} href={href}>{label}</Link>;
 
   return (
-    <main className="storefront info-page" data-theme="forest-harvest">
+    <main className="storefront info-page" data-theme={theme}>
       <LocaleDocument locale={locale} />
       <header className="storefront-header">
         <div className="shell storefront-nav">

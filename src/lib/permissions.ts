@@ -6,7 +6,7 @@ export const PERMISSIONS = [
   "catalog.product.read", "catalog.product.write", "catalog.product.delete", "catalog.package.read", "catalog.package.write",
   "availability.read", "availability.write", "availability.sold_out",
   "delivery.read", "delivery.write", "delivery.override",
-  "cms.read", "cms.edit", "cms.publish",
+  "cms.read", "cms.edit", "cms.publish", "theme.manage",
   "media.read", "media.write",
   "customers.read", "customers.write", "customers.anonymize", "customers.identity.resolve", "customers.consent.read", "customers.consent.write",
   "reviews.read", "reviews.create", "reviews.write", "reviews.moderate", "reviews.feature", "reviews.visibility",

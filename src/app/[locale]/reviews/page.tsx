@@ -7,6 +7,7 @@ import { isLocale, type Locale } from "@/lib/format";
 import { LocaleDocument } from "../locale-document";
 import { MobileNav } from "../mobile-nav";
 import { ReviewsHub } from "./reviews-hub";
+import { resolveStorefrontTheme } from "@/domain/storefront-themes";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function ReviewsPage({ params }: { params: Promise<{ locale
   const other = locale === "fi" ? "en" : "fi";
 
   return (
-    <main className="storefront min-h-screen bg-[#FAF8F5]" data-theme="forest-harvest">
+    <main className="storefront min-h-screen" data-theme={resolveStorefrontTheme(data?.shop.storefrontTheme)}>
       <LocaleDocument locale={locale} />
       
       {/* Navigation Header */}
