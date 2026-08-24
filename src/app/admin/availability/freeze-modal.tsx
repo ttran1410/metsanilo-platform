@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { LockKeyhole, X } from "lucide-react";
+import { useAdminDialogFocus } from "../presentation";
 
 const REASON_PRESETS = [
   "Unsafe weather / Sääeste",
@@ -23,6 +24,7 @@ export function FreezeModal({
   onClose: () => void;
   onConfirm: (reason: string) => void;
 }) {
+  const dialogRef = useAdminDialogFocus(true, onClose);
   const [reason, setReason] = useState(initialReason ?? REASON_PRESETS[0]);
   const [customReason, setCustomReason] = useState("");
   const [useCustom, setUseCustom] = useState(false);
@@ -36,7 +38,7 @@ export function FreezeModal({
 
   return (
     <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="admin-dialog card availability-freeze-dialog" role="dialog" aria-modal="true" aria-labelledby="availability-freeze-title">
+      <div ref={dialogRef} className="admin-dialog card availability-freeze-dialog" role="dialog" aria-modal="true" aria-labelledby="availability-freeze-title">
         <div className="flex items-center justify-between border-b border-line pb-3 mb-4">
           <div>
             <p className="eyebrow text-danger">Reservation intake</p>
