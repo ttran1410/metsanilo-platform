@@ -157,6 +157,9 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .storefront .btn-accent { background: var(--forest); }
 .storefront .btn-accent:hover { background: var(--moss); }
 .btn-secondary { background: var(--primary-soft, #dce8df); color: var(--forest); }
+.storefront .btn-secondary { gap: .55rem; border: 1px solid var(--store-line); background: var(--store-surface); color: var(--store-ink); }
+.storefront .btn-secondary:hover { border-color: var(--forest); background: var(--store-primary-soft); color: var(--forest); }
+.storefront .btn-secondary svg { width: 1rem; height: 1rem; flex: 0 0 1rem; stroke-width: 1.8; }
 .text-link { display: inline-flex; min-height: 3rem; align-items: center; gap: 1.25rem; border-bottom: 1px solid rgb(255 255 255 / 45%); color: white; font-size: .95rem; font-weight: 700; text-decoration: none; }
 .hero-facts { display: grid; margin: auto 0 0; padding-top: 2.25rem; grid-template-columns: repeat(3, 1fr); border-top: 1px solid rgb(255 255 255 / 20%); }
 .hero-facts div { display: grid; gap: .35rem; padding-right: 1rem; }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowRight, MessageSquare } from "lucide-react";
 import { formatDecimal, type Locale } from "@/lib/format";
 
 export type FeaturedReviewItem = {
@@ -27,20 +28,20 @@ export function HighlightReviews({
 
   const copy = {
     fi: {
-      eyebrow: "🌲 MITÄ ASIAKKAAMME SANOVAT",
+      eyebrow: "MITÄ ASIAKKAAMME SANOVAT",
       heading: "Aitoja asiakaskokemuksia Satakunnasta",
        score: `${formatDecimal(ratingAvg, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${formatDecimal(5, locale, { minimumFractionDigits: 1 })} Tyytyväisyys`,
       countNote: `${reviewCount}+ Vahvistettua satakuntalaista varausta`,
       verifiedBadge: "✓ Vahvistettu tilaus",
-      readAll: "💬 Lue kaikki arvostelut",
+      readAll: "Lue kaikki arvostelut",
     },
     en: {
-      eyebrow: "🌲 WHAT OUR CUSTOMERS SAY",
+      eyebrow: "WHAT OUR CUSTOMERS SAY",
       heading: "Real customer experiences from Satakunta",
        score: `${formatDecimal(ratingAvg, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${formatDecimal(5, locale, { minimumFractionDigits: 1 })} Rating`,
       countNote: `${reviewCount}+ Verified Satakunta reservations`,
       verifiedBadge: "✓ Verified Order",
-      readAll: "💬 Read all reviews",
+      readAll: "Read all reviews",
     },
   }[locale];
 
@@ -94,7 +95,7 @@ export function HighlightReviews({
           href={`/${locale}/reviews`}
           className="btn btn-secondary rounded-full px-6 py-2.5 text-sm font-extrabold gap-2 inline-flex items-center shadow-xs hover:shadow-sm"
         >
-          {copy.readAll} <span aria-hidden="true">→</span>
+          <MessageSquare aria-hidden="true" />{copy.readAll}<ArrowRight aria-hidden="true" />
         </Link>
       </div>
     </section>
