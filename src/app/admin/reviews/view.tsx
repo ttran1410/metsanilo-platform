@@ -641,7 +641,7 @@ export function ReviewsManager({
       {/* Manual Import Modal */}
       {showManualModal && (
         <div className="admin-dialog-backdrop">
-          <div className="admin-dialog card manual-review-dialog space-y-4 animate-in fade-in zoom-in-95">
+          <div className="admin-dialog card manual-review-dialog space-y-4 animate-in fade-in zoom-in-95" role="dialog" aria-modal="true" aria-label="Import review">
             <div className="manual-review-dialog-header flex items-center justify-between gap-4 border-b border-line">
               <div>
                 <span className="eyebrow">Offline feedback</span>
