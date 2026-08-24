@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useAdminDialogFocus } from "../presentation";
 
 export type CustomerModalProps = {
   editingCustomer?: {
@@ -27,6 +28,7 @@ export function CustomerModal({
   onSaved,
 }: CustomerModalProps) {
   const isEditing = Boolean(editingCustomer);
+  const dialogRef = useAdminDialogFocus(true, onClose);
   const [name, setName] = useState(editingCustomer?.name ?? "");
   const [mobile, setMobile] = useState(editingCustomer?.mobile ?? "");
   const [email, setEmail] = useState(editingCustomer?.email ?? "");
@@ -92,7 +94,7 @@ export function CustomerModal({
 
   return (
     <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="admin-dialog card max-w-xl w-full p-6 shadow-2xl rounded-2xl bg-surface border border-line flex flex-col gap-4">
+      <div ref={dialogRef} className="admin-dialog card max-w-xl w-full p-6 shadow-2xl rounded-2xl bg-surface border border-line flex flex-col gap-4" role="dialog" aria-modal="true" aria-label={isEditing ? "Edit customer" : "Create customer"}>
         <div className="flex items-center justify-between border-b border-line pb-3">
           <div>
             <p className="eyebrow">{isEditing ? "EDIT CUSTOMER PROFILE" : "NEW CUSTOMER PROFILE"}</p>

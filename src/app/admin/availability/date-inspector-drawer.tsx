@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { LockKeyhole, MapPin, Pencil, Truck, UnlockKeyhole, X } from "lucide-react";
-import { AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
+import { AdminNotice, AdminStatusBadge, formatAdminMoney, useAdminDialogFocus } from "../presentation";
 
 type OrderItem = {
   id: string;
@@ -58,6 +58,7 @@ export function DateInspectorDrawer({
   onEditCapacity?: () => void;
   onFreeze: () => void;
 }) {
+  const dialogRef = useAdminDialogFocus(true, onClose);
   const remainingMl = Math.max(0, capacityMl - reservedMl);
   const utilization = capacityMl > 0 ? Math.round((reservedMl / capacityMl) * 100) : 0;
 
@@ -74,7 +75,7 @@ export function DateInspectorDrawer({
       className="availability-inspector-backdrop"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <aside className="availability-inspector" role="dialog" aria-modal="true" aria-labelledby="availability-inspector-title">
+      <aside ref={dialogRef} className="availability-inspector" role="dialog" aria-modal="true" aria-labelledby="availability-inspector-title">
         {/* Drawer Header */}
         <div className="availability-inspector-header">
           <div>

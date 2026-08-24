@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Building2, CreditCard, ExternalLink, Image as ImageIcon, Inbox, LoaderCircle, LockKeyhole, MapPin, Palette, Pause, Phone, Play, Plus, Save, ShieldAlert, Store, Trash2, UploadCloud, type LucideIcon } from "lucide-react";
-import { AdminNotice, AdminPageHeader } from "./presentation";
+import { AdminConfirmDialog, AdminNotice, AdminPageHeader } from "./presentation";
 import { StorefrontThemeManager } from "./storefront-theme-manager";
 
 type Method = {
@@ -208,6 +208,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState<"success" | "error">("success");
   const [uploadingPageKey, setUploadingPageKey] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<{ title: string; description: string; confirmLabel?: string; destructive?: boolean; onConfirm: () => Promise<void> } | null>(null);
 
   const feedback = (text: string, nextTone: "success" | "error") => {
     setMessage(text);
@@ -334,14 +335,10 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
   }
 
   async function deleteLocationItem(id: string) {
-    if (!confirm("Are you sure you want to delete this fulfillment location?")) return;
-    try {
-      await request(`/api/admin/fulfillment-locations?id=${id}`, { method: "DELETE" });
-      feedback("Fulfillment location deleted.", "success");
-      await loadAll();
-    } catch (error) {
-      feedback(error instanceof Error ? error.message : "Could not delete location", "error");
-    }
+    setConfirmation({ title: "Delete fulfillment location?", description: "This can affect pickup and delivery operations. Review dependencies before continuing.", confirmLabel: "Delete location", destructive: true, onConfirm: async () => {
+      try { await request(`/api/admin/fulfillment-locations?id=${id}`, { method: "DELETE" }); feedback("Fulfillment location deleted.", "success"); await loadAll(); }
+      catch (error) { feedback(error instanceof Error ? error.message : "Could not delete location", "error"); }
+    } });
   }
 
   // Save Payment Method
@@ -360,14 +357,10 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
   }
 
   async function deletePaymentMethodItem(methodKey: string) {
-    if (!confirm(`Are you sure you want to delete custom payment method '${methodKey}'?`)) return;
-    try {
-      await request(`/api/admin/payment-methods?method=${methodKey}`, { method: "DELETE" });
-      feedback("Payment method deleted.", "success");
-      await loadAll();
-    } catch (error) {
-      feedback(error instanceof Error ? error.message : "Could not delete payment method", "error");
-    }
+    setConfirmation({ title: "Delete custom payment method?", description: `Remove '${methodKey}' from the shop configuration? Existing orders and audit history are preserved.`, confirmLabel: "Delete method", destructive: true, onConfirm: async () => {
+      try { await request(`/api/admin/payment-methods?method=${methodKey}`, { method: "DELETE" }); feedback("Payment method deleted.", "success"); await loadAll(); }
+      catch (error) { feedback(error instanceof Error ? error.message : "Could not delete payment method", "error"); }
+    } });
   }
 
   // Save Order Source
@@ -417,14 +410,10 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
   }
 
   async function deleteOrderSourceItem(id: string) {
-    if (!confirm("Are you sure you want to delete this intake channel?")) return;
-    try {
-      await request(`/api/admin/order-sources?id=${id}`, { method: "DELETE" });
-      feedback("Order intake channel deleted.", "success");
-      await loadAll();
-    } catch (error) {
-      feedback(error instanceof Error ? error.message : "Could not delete channel", "error");
-    }
+    setConfirmation({ title: "Delete intake channel?", description: "New orders will no longer be able to use this channel. Existing orders are not changed.", confirmLabel: "Delete channel", destructive: true, onConfirm: async () => {
+      try { await request(`/api/admin/order-sources?id=${id}`, { method: "DELETE" }); feedback("Order intake channel deleted.", "success"); await loadAll(); }
+      catch (error) { feedback(error instanceof Error ? error.message : "Could not delete channel", "error"); }
+    } });
   }
 
   // Upload Page Media Asset
@@ -1145,15 +1134,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
                     className={`btn text-xs font-bold ${shopData.active ? "btn-danger" : "btn-primary"}`}
                     onClick={() => {
                       const nextState = !shopData.active;
-                      if (
-                        window.confirm(
-                          `Are you sure you want to ${nextState ? "RESUME" : "PAUSE"} storefront web reservations?`,
-                        )
-                      ) {
-                        const nextShopData = { ...shopData, active: nextState };
-                        setShopData(nextShopData);
-                        void saveShopIdentity(undefined, nextShopData);
-                      }
+                      setConfirmation({ title: `${nextState ? "Resume" : "Pause"} public reservations?`, description: nextState ? "Customers will be able to submit new reservations again." : "Customers will no longer be able to submit new storefront reservations until intake is resumed.", confirmLabel: nextState ? "Resume reservations" : "Pause reservations", destructive: !nextState, onConfirm: async () => { const nextShopData = { ...shopData, active: nextState }; setShopData(nextShopData); await saveShopIdentity(undefined, nextShopData); } });
                     }}
                   >
                     {shopData.active ? <><Pause aria-hidden="true" />Pause public reservations</> : <><Play aria-hidden="true" />Resume public reservations</>}
@@ -1164,6 +1145,16 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
           </div>
         )}
       </main>
+
+      <AdminConfirmDialog
+        open={confirmation !== null}
+        title={confirmation?.title ?? "Confirm action"}
+        description={confirmation?.description}
+        confirmLabel={confirmation?.confirmLabel}
+        destructive={confirmation?.destructive}
+        onCancel={() => setConfirmation(null)}
+        onConfirm={async () => { const action = confirmation?.onConfirm; setConfirmation(null); if (action) await action(); }}
+      />
 
       {/* Floating Dirty-State Save Bar */}
       {shopDirty && (

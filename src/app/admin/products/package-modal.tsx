@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { packages } from "@/db/schema";
-import { AdminNotice } from "../presentation";
+import { AdminNotice, useAdminDialogFocus } from "../presentation";
 
 type PackageRow = typeof packages.$inferSelect;
 
@@ -18,6 +18,7 @@ export function PackageModal({
   onSaved: () => void;
 }) {
   const isEditing = Boolean(editingPackage);
+  const dialogRef = useAdminDialogFocus(true, onClose);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -90,11 +91,11 @@ export function PackageModal({
 
   return (
     <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="admin-dialog card max-w-lg w-full p-6 shadow-2xl rounded-2xl bg-surface border border-line">
+      <div ref={dialogRef} className="admin-dialog card max-w-lg w-full p-6 shadow-2xl rounded-2xl bg-surface border border-line" role="dialog" aria-modal="true" aria-labelledby="package-modal-title">
         <div className="flex items-center justify-between border-b border-line pb-3 mb-4">
           <div>
             <p className="eyebrow">{isEditing ? "EDIT PACKAGE" : "NEW PACKAGE"}</p>
-            <h2 className="text-xl font-bold tracking-tight text-ink">
+            <h2 id="package-modal-title" className="text-xl font-bold tracking-tight text-ink">
               {isEditing && editingPackage ? `Edit ${editingPackage.labelFi}` : "Add New Package"}
             </h2>
           </div>

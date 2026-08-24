@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import type { Role } from "@/lib/permissions";
 import type { CreatedUser } from "./master-detail-workspace";
+import { useAdminDialogFocus } from "../presentation";
 
 const ROLE_PRESETS: Array<{ key: Role; label: string; description: string }> = [
   {
@@ -43,6 +44,7 @@ export function OnboardingModal({
   onClose: () => void;
   onCreated: (createdUser: CreatedUser, tempPassword: string) => void;
 }) {
+  const dialogRef = useAdminDialogFocus(true, onClose);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("STAFF");
@@ -90,7 +92,7 @@ export function OnboardingModal({
 
   return (
     <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="admin-dialog card max-w-lg w-full p-6 shadow-2xl rounded-2xl bg-surface border border-line flex flex-col gap-4">
+      <div ref={dialogRef} className="admin-dialog card max-w-lg w-full p-6 shadow-2xl rounded-2xl bg-surface border border-line flex flex-col gap-4" role="dialog" aria-modal="true" aria-label="Create user onboarding">
         <div className="flex items-center justify-between border-b border-line pb-3">
           <div>
             <p className="eyebrow text-primary">60-SECOND STAFF ONBOARDING WIZARD</p>

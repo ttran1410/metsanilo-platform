@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getFulfillmentActions, type OrderTransition } from "@/domain/order-transitions";
+import { AdminConfirmDialog } from "./presentation";
 
 type ActionOrder = { id: string; publicReference: string; status: string; fulfillmentMethod: string; finalTotalCents: number | null; version: number };
 
@@ -41,6 +42,8 @@ export function OrderActionBar({ order, onTransition, compact = false, confirmAl
       {available.length === 0 && <span className="order-action-bar-empty">No fulfillment actions available.</span>}
     </div>
     {blocked.map((action) => <p className="order-action-blocked" key={action.status}>{action.label} unavailable: {action.blockedReason}</p>)}
-    {pending && <div className="admin-dialog-backdrop"><form className="admin-dialog card" onSubmit={(event) => { event.preventDefault(); void confirm(); }}><p className="eyebrow">ORDER ACTION</p><h2>{pending.label}?</h2><p>Confirm this action for {order.publicReference}.</p>{pending.requiresReason && <label className="field"><span>Reason</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} minLength={2} required /></label>}<div className="profile-actions"><button className="btn btn-secondary" type="button" onClick={() => setPending(null)}>Cancel</button><button className={pending.requiresReason ? "btn btn-danger" : "btn"} type="submit">Confirm</button></div></form></div>}
+    <AdminConfirmDialog open={pending !== null} title={`${pending?.label ?? "Confirm action"}?`} description={`Confirm this action for ${order.publicReference}.`} confirmLabel={pending?.label ?? "Confirm"} destructive={pending?.requiresReason} onCancel={() => setPending(null)} onConfirm={confirm}>
+      {pending?.requiresReason && <label className="field"><span>Reason</span><textarea value={reason} onChange={(event) => setReason(event.target.value)} minLength={2} required /></label>}
+    </AdminConfirmDialog>
   </>;
 }

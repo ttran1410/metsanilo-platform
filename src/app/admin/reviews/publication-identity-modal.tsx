@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { ReviewItem } from "./edit-review-modal";
+import { useAdminDialogFocus } from "../presentation";
 
 export function PublicationIdentityModal({
   review,
@@ -14,6 +15,7 @@ export function PublicationIdentityModal({
   onClose: () => void;
   onSaved: (updated: ReviewItem) => void;
 }) {
+  const dialogRef = useAdminDialogFocus<HTMLFormElement>(true, onClose);
   const makeAnonymous = !(review.isAnonymous ?? false);
   const [reviewerName, setReviewerName] = useState(review.reviewerName || (review.isAnonymous ? "" : review.displayName));
   const [consentSource, setConsentSource] = useState(review.acknowledgementSource || sources[0]?.key || "OTHER");
@@ -55,7 +57,7 @@ export function PublicationIdentityModal({
 
   return (
     <div className="admin-dialog-backdrop">
-      <form className="admin-dialog card space-y-4 p-6" onSubmit={(event) => void handleSubmit(event)}>
+      <form ref={dialogRef} className="admin-dialog card space-y-4 p-6" role="dialog" aria-modal="true" aria-label="Publication identity" onSubmit={(event) => void handleSubmit(event)}>
         <div className="flex items-start justify-between gap-4 border-b border-line pb-3">
           <div>
             <span className="eyebrow">PUBLICATION IDENTITY</span>

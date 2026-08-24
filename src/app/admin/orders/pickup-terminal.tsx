@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Banknote, CircleCheck, CreditCard, PackageCheck, Phone, Search, Smartphone, X } from "lucide-react";
+import { Banknote, CircleCheck, CreditCard, PackageCheck, Phone, Search, Smartphone } from "lucide-react";
 import type { AdminOrder } from "../orders-listing";
-import { AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
+import { AdminConfirmDialog, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 
 function cleanLitres(ml: number) {
   return `${(ml / 1000).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} L`;
@@ -122,7 +122,10 @@ export function PickupTerminal({ orders, canTransition, canRecordPayment, onRefr
         {!filteredOrders.length && <div className="pickup-empty"><PackageCheck aria-hidden="true" /><strong>No matching pickups</strong><span>{query ? "Try a different name, reference, or phone number." : "No orders match this readiness filter for today."}</span></div>}
       </div>
 
-      {pending && <div className="admin-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setPending(null); }}><section className="admin-dialog card pickup-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="pickup-confirm-title"><header><div><p className="eyebrow">Review action</p><h3 id="pickup-confirm-title">{pending.type === "PICKUP" ? "Confirm handover" : "Record payment"}</h3></div><button type="button" className="admin-icon-button" disabled={busy} onClick={() => setPending(null)} aria-label="Close confirmation"><X aria-hidden="true" /></button></header><dl><div><dt>Customer</dt><dd>{pending.order.customerName}</dd></div><div><dt>Reference</dt><dd>{pending.order.publicReference}</dd></div><div><dt>Order</dt><dd>{pending.order.packageLabelFi} · {cleanLitres(pending.order.volumeMl)}</dd></div>{pending.type === "PAYMENT" && <><div><dt>Amount</dt><dd>{formatAdminMoney(paymentAmount(pending.order))}</dd></div><div><dt>Method</dt><dd>{pending.method}</dd></div></>}</dl>{pending.type === "PICKUP" && (pending.order.outstandingCents ?? 0) > 0 && <AdminNotice tone="warning">This order still has {formatAdminMoney(pending.order.outstandingCents ?? 0)} outstanding. Record payment before confirming handover unless payment is intentionally deferred.</AdminNotice>}<footer><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => setPending(null)}>Cancel</button><button type="button" className="btn" disabled={busy} onClick={() => void executePending()}>{busy ? "Saving…" : pending.type === "PICKUP" ? "Confirm pickup" : "Record payment"}</button></footer></section></div>}
+      <AdminConfirmDialog open={pending !== null} title={pending?.type === "PICKUP" ? "Confirm handover" : "Record payment"} description="Review the order details before completing this pickup desk action." confirmLabel={pending?.type === "PICKUP" ? "Confirm pickup" : "Record payment"} onCancel={() => { if (!busy) setPending(null); }} onConfirm={executePending}>
+        {pending && <dl className="pickup-confirm-details"><div><dt>Customer</dt><dd>{pending.order.customerName}</dd></div><div><dt>Reference</dt><dd>{pending.order.publicReference}</dd></div><div><dt>Order</dt><dd>{pending.order.packageLabelFi} · {cleanLitres(pending.order.volumeMl)}</dd></div>{pending.type === "PAYMENT" && <><div><dt>Amount</dt><dd>{formatAdminMoney(paymentAmount(pending.order))}</dd></div><div><dt>Method</dt><dd>{pending.method}</dd></div></>}</dl>}
+        {pending?.type === "PICKUP" && (pending.order.outstandingCents ?? 0) > 0 && <AdminNotice tone="warning">This order still has {formatAdminMoney(pending.order.outstandingCents ?? 0)} outstanding. Record payment before confirming handover unless payment is intentionally deferred.</AdminNotice>}
+      </AdminConfirmDialog>
     </section>
   );
 }

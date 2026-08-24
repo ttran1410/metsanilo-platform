@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AdminNotice, AdminStatusBadge } from "../../presentation";
+import { AdminNotice, AdminStatusBadge, useAdminDialogFocus } from "../../presentation";
 import { getLifecycleSteps } from "@/domain/order-transitions";
 import { IconCopy } from "../../ui/admin-row-action-menu";
 
@@ -99,6 +99,9 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
   const [pendingDelete, setPendingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [activeModal, setActiveModal] = useState<null | "pricing" | "payment" | "exception">(null);
+  const financialDialogRef = useAdminDialogFocus(activeModal !== null, () => setActiveModal(null));
+  const cancelDialogRef = useAdminDialogFocus<HTMLFormElement>(pendingCancel, () => setPendingCancel(false));
+  const deleteDialogRef = useAdminDialogFocus(pendingDelete, () => setPendingDelete(false));
   const [recordTab, setRecordTab] = useState<"notes" | "audit">("notes");
 
   const lifecycle: string[] = getLifecycleSteps(detail.order.fulfillmentMethod);
@@ -641,7 +644,7 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
       {/* FINANCIAL MODALS (Record Payment / Adjust Price / Delivery Exception) */}
       {activeModal && (
         <div className="admin-dialog-backdrop">
-          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-4">
+          <div ref={financialDialogRef} className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-4" role="dialog" aria-modal="true" aria-label="Order financial action">
             <div className="flex items-center justify-between border-b border-line pb-2">
               <h3 className="text-base font-bold text-ink">
                 {activeModal === "payment" && "💵 Record Payment"}
@@ -810,7 +813,7 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
       {pendingCancel && (
         <div className="admin-dialog-backdrop">
           <form
-            className="admin-dialog card space-y-3 p-5 max-w-md w-full"
+            ref={cancelDialogRef} className="admin-dialog card space-y-3 p-5 max-w-md w-full" role="dialog" aria-modal="true" aria-label="Cancel order"
             onSubmit={(event) => {
               event.preventDefault();
               const values = new FormData(event.currentTarget);
@@ -837,7 +840,7 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
       {/* Delete Order Safe-Guard Dialog */}
       {pendingDelete && (
         <div className="admin-dialog-backdrop">
-          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-4">
+          <div ref={deleteDialogRef} className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-4" role="alertdialog" aria-modal="true" aria-label="Delete order safeguard">
             <div className="flex items-center gap-2 text-danger border-b border-line pb-2">
               <span className="text-xl">⚠️</span>
               <h3 className="text-lg font-bold text-ink">Delete Order {detail.order.publicReference}</h3>

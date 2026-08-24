@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Ban, CheckCircle2, Eye, EyeOff, MessageSquare, Plus, Search, ShieldCheck, Star, Trash2, X } from "lucide-react";
-import { AdminEmptyState, AdminNotice, AdminPageHeader } from "../presentation";
+import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminPageHeader, useAdminDialogFocus } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconLink, IconLock, IconPencil, IconTrash, IconUser } from "../ui/admin-row-action-menu";
 import { LinkIdentityModal } from "./link-identity-modal";
@@ -75,6 +75,7 @@ export function ReviewsManager({
   const [pageSize, setPageSize] = useState(20);
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
+  const manualReviewDialogRef = useAdminDialogFocus(showManualModal, () => setShowManualModal(false));
   const [modalVerifiedChecked, setModalVerifiedChecked] = useState(true);
   const [modalAnonymousChecked, setModalAnonymousChecked] = useState(false);
 
@@ -626,36 +627,22 @@ export function ReviewsManager({
         itemLabel="reviews"
       />}
 
-      {approvingReview && (
-        <div className="admin-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && busyReviewId !== approvingReview.id) setApprovingReview(null); }}>
-          <section className="admin-dialog card review-approval-dialog" role="dialog" aria-modal="true" aria-labelledby="review-approval-title">
-            <header><div><p className="eyebrow">Publication review</p><h2 id="review-approval-title">Approve this review?</h2></div><button type="button" className="admin-icon-button" aria-label="Close approval review" disabled={busyReviewId === approvingReview.id} onClick={() => setApprovingReview(null)}><X aria-hidden="true" /></button></header>
+      {approvingReview && <AdminConfirmDialog open title="Approve this review?" description="Approval publishes this review according to the selected identity when storefront reviews are visible." confirmLabel="Approve and publish" onCancel={() => setApprovingReview(null)} onConfirm={confirmApproval}>
             <dl>
               <div><dt>Identity</dt><dd>{approvingReview.isAnonymous ? "Anonymous publication" : approvingReview.reviewerName || approvingReview.displayName}</dd></div>
               <div><dt>Consent</dt><dd>{approvingReview.publicationAcknowledgement ? `Recorded${approvingReview.acknowledgementSource ? ` via ${approvingReview.acknowledgementSource}` : ""}` : "Missing"}</dd></div>
               <div><dt>Verification</dt><dd>{approvingReview.verifiedBuyer ? `Verified · ${approvingReview.verificationType}` : "Unverified"}</dd></div>
               <div><dt>Storefront text</dt><dd>&quot;{approvingReview.displayText || approvingReview.originalText}&quot;</dd></div>
             </dl>
-            <AdminNotice tone="warning">Approval publishes this review according to the selected identity when storefront reviews are visible.</AdminNotice>
-            <footer><button type="button" className="btn btn-secondary" disabled={busyReviewId === approvingReview.id} onClick={() => setApprovingReview(null)}>Cancel</button><button type="button" className="btn" disabled={!approvingReview.publicationAcknowledgement || busyReviewId === approvingReview.id} onClick={() => void confirmApproval()}>{busyReviewId === approvingReview.id ? "Publishing…" : "Approve and publish"}</button></footer>
-          </section>
-        </div>
-      )}
+            <AdminNotice tone="warning">Publication requires recorded customer acknowledgement.</AdminNotice>
+      </AdminConfirmDialog>}
 
-      {deletingReview && (
-        <div className="admin-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && busyReviewId !== deletingReview.id) setDeletingReview(null); }}>
-          <section className="admin-dialog card review-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="review-delete-title">
-            <header><Trash2 aria-hidden="true" /><div><p className="eyebrow">Permanent deletion</p><h2 id="review-delete-title">Delete review permanently?</h2></div></header>
-            <p>This permanently removes the review by <strong>{deletingReview.reviewerName || deletingReview.displayName}</strong>. Use rejection or hiding when the moderation history should remain available.</p>
-            <footer><button type="button" className="btn btn-secondary" disabled={busyReviewId === deletingReview.id} onClick={() => setDeletingReview(null)}>Cancel</button><button type="button" className="btn btn-danger" disabled={busyReviewId === deletingReview.id} onClick={() => void handleDeleteReview(deletingReview.id)}>{busyReviewId === deletingReview.id ? "Deleting…" : "Delete permanently"}</button></footer>
-          </section>
-        </div>
-      )}
+      {deletingReview && <AdminConfirmDialog open title="Delete review permanently?" description={`This permanently removes the review by ${deletingReview.reviewerName || deletingReview.displayName}. Use rejection or hiding when moderation history should remain available.`} confirmLabel="Delete permanently" destructive onCancel={() => setDeletingReview(null)} onConfirm={async () => { await handleDeleteReview(deletingReview.id); }} />}
 
       {/* Manual Import Modal */}
       {showManualModal && (
         <div className="admin-dialog-backdrop">
-          <div className="admin-dialog card manual-review-dialog space-y-4 animate-in fade-in zoom-in-95">
+          <div ref={manualReviewDialogRef} className="admin-dialog card manual-review-dialog space-y-4 animate-in fade-in zoom-in-95" role="dialog" aria-modal="true" aria-label="Import review">
             <div className="manual-review-dialog-header flex items-center justify-between gap-4 border-b border-line">
               <div>
                 <span className="eyebrow">Offline feedback</span>

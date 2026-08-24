@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Bell, CheckCheck, Circle, CircleCheck, Clock3, ExternalLink, Inbox, Info, Search } from "lucide-react";
 import type { NotificationFilters, NotificationSeverity, NotificationStateFilter } from "@/domain/notifications";
-import { AdminNotice, AdminPageHeader } from "../presentation";
+import { AdminConfirmDialog, AdminNotice, AdminPageHeader } from "../presentation";
 
 type NotificationItem = {
   id: string;
@@ -72,6 +72,7 @@ export function NotificationsInbox({
   initialFilters: InboxFilters;
   permissions: { canReadOrders: boolean; canReadAvailability: boolean; canReadReviews: boolean };
 }) {
+  const [confirmMarkAll, setConfirmMarkAll] = useState(false);
   const router = useRouter();
   const [data, setData] = useState(initialData);
   const [filters, setFilters] = useState<InboxFilters>(initialFilters);
@@ -162,7 +163,7 @@ export function NotificationsInbox({
   }
 
   async function markFilteredRead() {
-    if (!window.confirm("Mark every unread notification matching the current filters as read?")) return;
+    setConfirmMarkAll(false);
     setLoading(true);
     try {
       const response = await fetch("/api/admin/notifications", {
@@ -187,6 +188,7 @@ export function NotificationsInbox({
   const pageCount = Math.max(1, Math.ceil(data.total / data.pageSize));
 
   return (
+    <>
     <main className="shell notification-inbox-shell">
       <AdminPageHeader
         eyebrow="Operations inbox"
@@ -210,7 +212,7 @@ export function NotificationsInbox({
         </form>
         <label><span>Category</span><select value={filters.category ?? "ALL"} onChange={(event) => void load({ ...filters, category: event.target.value === "ALL" ? undefined : event.target.value })}><option value="ALL">All categories</option>{data.categories.map((category) => <option value={category} key={category}>{labelCategory(category)}</option>)}</select></label>
         <label><span>Severity</span><select value={filters.severity ?? ""} onChange={(event) => void load({ ...filters, severity: event.target.value ? event.target.value as NotificationSeverity : undefined })}><option value="">All severities</option><option value="HIGH">High</option><option value="STANDARD">Standard</option><option value="INFO">Info</option></select></label>
-        {data.matchingUnreadCount > 0 && <button type="button" className="btn btn-secondary notification-mark-filtered" disabled={loading} onClick={() => void markFilteredRead()}><CheckCheck aria-hidden="true" />Mark filtered read ({data.matchingUnreadCount})</button>}
+        {data.matchingUnreadCount > 0 && <button type="button" className="btn btn-secondary notification-mark-filtered" disabled={loading} onClick={() => setConfirmMarkAll(true)}><CheckCheck aria-hidden="true" />Mark filtered read ({data.matchingUnreadCount})</button>}
       </section>
 
       <div className={`notification-workspace${detailOpen ? " is-detail-open" : ""}`} aria-busy={loading}>
@@ -257,6 +259,8 @@ export function NotificationsInbox({
           )}
         </aside>
       </div>
-    </main>
+      </main>
+      <AdminConfirmDialog open={confirmMarkAll} title="Mark filtered notifications as read?" description={`Mark ${data.matchingUnreadCount} matching unread notification${data.matchingUnreadCount === 1 ? "" : "s"} as read?`} confirmLabel="Mark as read" onCancel={() => setConfirmMarkAll(false)} onConfirm={markFilteredRead} />
+    </>
   );
 }

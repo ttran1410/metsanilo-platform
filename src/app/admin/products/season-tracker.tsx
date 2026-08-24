@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Plus, Calendar, Trash2 } from "lucide-react";
+import { AdminConfirmDialog } from "../presentation";
 
 export type SeasonItem = {
   id: string;
@@ -55,6 +56,7 @@ export function SeasonTracker({
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [summary, setSummary] = useState<SeasonSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [deleteSeasonId, setDeleteSeasonId] = useState<string | null>(null);
 
   // New Season Form State
   const currentYear = new Date().getFullYear();
@@ -199,21 +201,27 @@ export function SeasonTracker({
   }
 
   async function handleDeleteSeason(seasonId: string) {
-    if (!productId || !confirm("Delete this harvest season?")) return;
+    if (!productId) return;
+    setDeleteSeasonId(seasonId);
+  }
+
+  async function confirmDeleteSeason() {
+    if (!productId || !deleteSeasonId) return;
     setBusy(true);
 
     try {
-      const response = await fetch(`/api/admin/products/${productId}/seasons/${seasonId}`, {
+      const response = await fetch(`/api/admin/products/${productId}/seasons/${deleteSeasonId}`, {
         method: "DELETE",
       });
       setBusy(false);
 
       if (response.ok) {
-        setSeasons((prev) => prev.filter((s) => s.id !== seasonId));
+        setSeasons((prev) => prev.filter((s) => s.id !== deleteSeasonId));
       }
     } catch {
       setBusy(false);
     }
+    setDeleteSeasonId(null);
   }
 
   // Active or fallback single season calculation
@@ -533,6 +541,15 @@ export function SeasonTracker({
           </div>
         </div>
       )}
+      <AdminConfirmDialog
+        open={deleteSeasonId !== null}
+        title="Delete harvest season?"
+        description="This removes the season configuration from this product. Existing order records and audit history are preserved."
+        confirmLabel="Delete season"
+        destructive
+        onCancel={() => setDeleteSeasonId(null)}
+        onConfirm={confirmDeleteSeason}
+      />
     </div>
   );
 }

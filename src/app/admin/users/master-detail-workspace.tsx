@@ -9,7 +9,7 @@ import {
   type Permission,
   type Role,
 } from "@/lib/permissions";
-import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
+import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { OnboardingModal } from "./onboarding-modal";
@@ -227,6 +227,8 @@ export function MasterDetailUserWorkspace({
   const [savingPermissions, setSavingPermissions] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [createdInfo, setCreatedInfo] = useState<{ user: CreatedUser; tempPassword: string } | null>(null);
+  const passwordDialogRef = useAdminDialogFocus(Boolean(createdInfo), () => setCreatedInfo(null));
+  const [confirmation, setConfirmation] = useState<{ title: string; description: string; confirmLabel: string; destructive?: boolean; onConfirm: () => Promise<void> } | null>(null);
 
   const metrics = useMemo(() => {
     const total = usersList.length;
@@ -378,79 +380,25 @@ export function MasterDetailUserWorkspace({
   // Reset to Role Defaults
   async function handleResetToDefaults() {
     if (!selectedUser) return;
-    if (!window.confirm(`Reset all custom permission overrides for ${selectedUser.displayName}?`)) return;
-    setError("");
-    setMessage("");
-
-    const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "reset_permissions" }),
-    });
-
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not reset permissions.");
-
-    setMessage(`Permissions for ${selectedUser.displayName} reset to ${selectedUser.role} defaults.`);
-    void refreshUsersList(selectedUser.id);
+    setConfirmation({ title: "Reset custom permissions?", description: `Remove all custom permission overrides for ${selectedUser.displayName} and restore ${selectedUser.role} defaults?`, confirmLabel: "Reset permissions", destructive: true, onConfirm: async () => { setError(""); setMessage(""); const response = await fetch(`/api/admin/users/${selectedUser.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reset_permissions" }) }); const body = await response.json(); if (!response.ok) return setError(body.message ?? "Could not reset permissions."); setMessage(`Permissions for ${selectedUser.displayName} reset to ${selectedUser.role} defaults.`); void refreshUsersList(selectedUser.id); } });
   }
 
   // Toggle Active/Suspended
   async function handleToggleActive(active: boolean) {
     if (!selectedUser) return;
-    if (!window.confirm(`${active ? "Activate" : "Suspend"} ${selectedUser.displayName}?${active ? "" : " Their active sessions will no longer be valid."}`)) return;
-    setError("");
-    setMessage("");
-
-    const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "active", active }),
-    });
-
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not toggle account status.");
-
-    setMessage(active ? `${selectedUser.displayName} account activated.` : `${selectedUser.displayName} account suspended.`);
-    void refreshUsersList(selectedUser.id);
+    setConfirmation({ title: `${active ? "Activate" : "Suspend"} user account?`, description: `${active ? "Activate" : "Suspend"} ${selectedUser.displayName}.${active ? "" : " Their active sessions will no longer be valid."}`, confirmLabel: active ? "Activate account" : "Suspend account", destructive: !active, onConfirm: async () => { setError(""); setMessage(""); const response = await fetch(`/api/admin/users/${selectedUser.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "active", active }) }); const body = await response.json(); if (!response.ok) return setError(body.message ?? "Could not toggle account status."); setMessage(active ? `${selectedUser.displayName} account activated.` : `${selectedUser.displayName} account suspended.`); void refreshUsersList(selectedUser.id); } });
   }
 
   // Reset Password
   async function handleResetPassword(target: UserRow | undefined = selectedUser) {
     if (!target) return;
-    if (!window.confirm(`Reset password for ${target.displayName}?`)) return;
-    setError("");
-    setMessage("");
-
-    const response = await fetch(`/api/admin/users/${target.id}/password`, { method: "POST" });
-    const body = await response.json();
-
-    if (!response.ok) return setError(body.message ?? "Password reset failed.");
-
-    setCreatedInfo({
-      user: target,
-      tempPassword: body.data.temporaryPassword,
-    });
+    setConfirmation({ title: "Reset user password?", description: `Generate a new temporary password for ${target.displayName}? Their current password will stop working.`, confirmLabel: "Reset password", destructive: true, onConfirm: async () => { setError(""); setMessage(""); const response = await fetch(`/api/admin/users/${target.id}/password`, { method: "POST" }); const body = await response.json(); if (!response.ok) return setError(body.message ?? "Password reset failed."); setCreatedInfo({ user: target, tempPassword: body.data.temporaryPassword }); } });
   }
 
   // Revoke All Active Sessions
   async function handleRevokeSessions() {
     if (!selectedUser) return;
-    if (!window.confirm(`Revoke every active session for ${selectedUser.displayName}?`)) return;
-    setError("");
-    setMessage("");
-
-    const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "revoke_sessions" }),
-    });
-
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not revoke sessions.");
-
-    setMessage(`All active sessions revoked for ${selectedUser.displayName}.`);
-    void loadUserExtras(selectedUser.id);
+    setConfirmation({ title: "Revoke active sessions?", description: `Sign out ${selectedUser.displayName} from every active session?`, confirmLabel: "Revoke sessions", destructive: true, onConfirm: async () => { setError(""); setMessage(""); const response = await fetch(`/api/admin/users/${selectedUser.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke_sessions" }) }); const body = await response.json(); if (!response.ok) return setError(body.message ?? "Could not revoke sessions."); setMessage(`All active sessions revoked for ${selectedUser.displayName}.`); void loadUserExtras(selectedUser.id); } });
   }
 
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
@@ -1151,9 +1099,19 @@ export function MasterDetailUserWorkspace({
       )}
 
       {/* TEMPORARY PASSWORD COPY MODAL */}
+      <AdminConfirmDialog
+        open={confirmation !== null}
+        title={confirmation?.title ?? "Confirm action"}
+        description={confirmation?.description}
+        confirmLabel={confirmation?.confirmLabel}
+        destructive={confirmation?.destructive}
+        onCancel={() => setConfirmation(null)}
+        onConfirm={async () => { const action = confirmation?.onConfirm; setConfirmation(null); if (action) await action(); }}
+      />
+
       {createdInfo && (
         <div className="admin-dialog-backdrop">
-          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3">
+          <div ref={passwordDialogRef} className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3" role="dialog" aria-modal="true" aria-label="Temporary access password">
             <p className="eyebrow text-emerald-700">ACCOUNT CREATED / PASSWORD RESET</p>
             <h3 className="text-lg font-bold text-ink">Temporary Access Password</h3>
             <p className="text-xs muted leading-relaxed">

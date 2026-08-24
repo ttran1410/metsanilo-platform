@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { packages, products } from "@/db/schema";
-import { AdminStatusBadge } from "../presentation";
+import { AdminStatusBadge, useAdminDialogFocus } from "../presentation";
 
 type ProductRow = {
   product: typeof products.$inferSelect;
@@ -11,6 +11,7 @@ type ProductRow = {
 };
 
 export function ProductPreviewModal({ row, onClose }: { row: ProductRow; onClose: () => void }) {
+  const dialogRef = useAdminDialogFocus(true, onClose);
   const activePackages = row.packages
     .filter((pkg) => pkg.active)
     .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.sortOrder - b.sortOrder);
@@ -24,12 +25,12 @@ export function ProductPreviewModal({ row, onClose }: { row: ProductRow; onClose
 
   return (
     <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="admin-dialog card max-w-md w-full p-0 overflow-hidden shadow-2xl rounded-2xl bg-surface border border-line">
+      <div ref={dialogRef} className="admin-dialog card max-w-md w-full p-0 overflow-hidden shadow-2xl rounded-2xl bg-surface border border-line" role="dialog" aria-modal="true" aria-labelledby="product-preview-title">
         {/* Modal Header */}
         <div className="flex items-center justify-between p-4 border-b border-line bg-surface-muted">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-muted">LIVE STOREFRONT PREVIEW</span>
-            <h3 className="text-sm font-semibold text-ink">Customer View</h3>
+            <h3 id="product-preview-title" className="text-sm font-semibold text-ink">Customer View</h3>
           </div>
           <button type="button" className="btn btn-secondary text-xs py-1 px-2.5" onClick={onClose}>
             ✕ Close
