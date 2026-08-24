@@ -9,7 +9,7 @@ import {
   type Permission,
   type Role,
 } from "@/lib/permissions";
-import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
+import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { OnboardingModal } from "./onboarding-modal";
@@ -227,6 +227,7 @@ export function MasterDetailUserWorkspace({
   const [savingPermissions, setSavingPermissions] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [createdInfo, setCreatedInfo] = useState<{ user: CreatedUser; tempPassword: string } | null>(null);
+  const passwordDialogRef = useAdminDialogFocus(Boolean(createdInfo), () => setCreatedInfo(null));
   const [confirmation, setConfirmation] = useState<{ title: string; description: string; confirmLabel: string; destructive?: boolean; onConfirm: () => Promise<void> } | null>(null);
 
   const metrics = useMemo(() => {
@@ -1110,7 +1111,7 @@ export function MasterDetailUserWorkspace({
 
       {createdInfo && (
         <div className="admin-dialog-backdrop">
-          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3">
+          <div ref={passwordDialogRef} className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3" role="dialog" aria-modal="true" aria-label="Temporary access password">
             <p className="eyebrow text-emerald-700">ACCOUNT CREATED / PASSWORD RESET</p>
             <h3 className="text-lg font-bold text-ink">Temporary Access Password</h3>
             <p className="text-xs muted leading-relaxed">
