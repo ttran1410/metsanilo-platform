@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { packages } from "@/db/schema";
 import { PackageModal } from "./package-modal";
+import { AdminConfirmDialog } from "../presentation";
 
 type PackageRow = typeof packages.$inferSelect;
 
@@ -301,25 +302,7 @@ export function PricingLadder({
       )}
 
       {/* Delete Confirmation Modal */}
-      {deletingId && (
-        <div className="admin-dialog-backdrop">
-          <div className="admin-dialog card max-w-sm w-full p-5 flex flex-col gap-3">
-            <p className="eyebrow text-danger">CONFIRM DELETE</p>
-            <h3 className="text-lg font-bold text-ink">Delete Package?</h3>
-            <p className="text-xs muted">
-              Are you sure you want to delete this package? If the package is referenced by existing orders, it cannot be deleted and should be archived instead.
-            </p>
-            <div className="profile-actions justify-end gap-2 mt-2">
-              <button className="btn btn-secondary text-xs" type="button" onClick={() => setDeletingId(null)}>
-                Cancel
-              </button>
-              <button className="btn btn-danger text-xs" type="button" onClick={() => void deletePackage(deletingId)}>
-                Delete Package
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AdminConfirmDialog open={deletingId !== null} title="Delete package?" description="If this package is referenced by existing orders, deletion will be rejected and it should be archived instead." confirmLabel="Delete package" destructive onCancel={() => setDeletingId(null)} onConfirm={async () => { if (deletingId) await deletePackage(deletingId); }} />
     </div>
   );
 }
