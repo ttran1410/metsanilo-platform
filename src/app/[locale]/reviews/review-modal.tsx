@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { PenLine, Rocket, CheckCircle2, X } from "lucide-react";
 import type { Locale } from "@/lib/format";
+import { useAdminDialogFocus } from "@/app/admin/ui/primitives";
 
 export function ReviewModal({
   locale,
@@ -25,6 +26,7 @@ export function ReviewModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const dialogRef = useAdminDialogFocus(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -125,7 +127,7 @@ export function ReviewModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" role="presentation" onKeyDown={(event) => { if (event.key === "Escape" && !isSubmitting) onClose(); }}>
-      <div className="bg-[var(--store-surface)] text-[var(--store-ink)] border border-[var(--store-line)] rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 relative animate-in fade-in zoom-in-95" role="dialog" aria-modal="true" aria-labelledby="storefront-review-title" tabIndex={-1}>
+      <div ref={dialogRef} className="bg-[var(--store-surface)] text-[var(--store-ink)] border border-[var(--store-line)] rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 relative animate-in fade-in zoom-in-95" role="dialog" aria-modal="true" aria-labelledby="storefront-review-title" tabIndex={-1}>
         <button
           type="button"
           className="absolute top-4 right-4 text-[var(--store-muted)] hover:text-[var(--store-ink)] p-1 rounded-full hover:bg-[var(--store-surface-muted)] transition-colors cursor-pointer"
