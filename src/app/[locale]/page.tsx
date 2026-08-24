@@ -164,8 +164,8 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
 
           <div className="hero-highlights" aria-label={locale === "fi" ? "Tärkeät tiedot" : "Key information"}>
             <span className="highlight-chip"><span>100%</span><strong>{locale === "fi" ? "Kotimaista" : "Finnish"}</strong></span>
-            <span className="highlight-chip"><CalendarDays aria-hidden="true" />{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: <strong>{nextPickupLabel}</strong></span>
-            {nextPickupCapacityLabel && <span className="highlight-chip"><PackageOpen aria-hidden="true" /><strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong> {locale === "fi" ? "jäljellä" : "remaining"}</span>}
+            <span className="highlight-chip highlight-chip-availability"><CalendarDays aria-hidden="true" />{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: <strong>{nextPickupLabel}</strong></span>
+            {nextPickupCapacityLabel && <span className="highlight-chip highlight-chip-availability"><PackageOpen aria-hidden="true" /><strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong> {locale === "fi" ? "jäljellä" : "remaining"}</span>}
             <span className="highlight-chip"><BadgeCheck aria-hidden="true" />{locale === "fi" ? "Maksu noudettaessa tai toimitettaessa" : "Pay at pickup or delivery"}</span>
           </div>
 
