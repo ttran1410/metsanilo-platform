@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useAdminDialogFocus } from "../presentation";
 
 export type ReviewItem = {
   id: string;
@@ -37,6 +38,7 @@ export function EditReviewModal({
   onClose: () => void;
   onSaved: (updated: ReviewItem) => void;
 }) {
+  const dialogRef = useAdminDialogFocus<HTMLFormElement>(true, onClose);
   const initialReviewerName = review.reviewerName || (review.isAnonymous ? "" : review.displayName);
   const [displayName, setDisplayName] = useState(initialReviewerName);
   const [isAnonymous, setIsAnonymous] = useState(review.isAnonymous ?? false);
@@ -109,6 +111,8 @@ export function EditReviewModal({
   return (
     <div className="admin-dialog-backdrop">
       <form
+        ref={dialogRef}
+        role="dialog" aria-modal="true" aria-label="Edit review"
         className="admin-dialog card space-y-4 max-w-xl w-full p-6 animate-in fade-in zoom-in-95"
         onSubmit={(e) => void handleSubmit(e)}
       >

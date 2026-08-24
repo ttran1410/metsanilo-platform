@@ -86,8 +86,8 @@ export function AdminConfirmDialog({ open, title, description, confirmLabel = "C
 }
 
 /** Focus and keyboard contract for bespoke workflow dialogs and drawers. */
-export function useAdminDialogFocus(open: boolean, onClose: () => void) {
-  const dialogRef = useRef<HTMLDivElement>(null);
+export function useAdminDialogFocus<T extends HTMLElement = HTMLDivElement>(open: boolean, onClose: () => void) {
+  const dialogRef = useRef<T>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAdminDialogFocus } from "../presentation";
 
 type CustomerConflict = {
   id: string;
@@ -22,6 +23,7 @@ export function MergeModal({
   onClose: () => void;
   onMerged: () => void;
 }) {
+  const dialogRef = useAdminDialogFocus(true, onClose);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -50,7 +52,7 @@ export function MergeModal({
 
   return (
     <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="admin-dialog card max-w-xl w-full p-6 shadow-2xl rounded-2xl bg-surface border border-line flex flex-col gap-4">
+      <div ref={dialogRef} className="admin-dialog card max-w-xl w-full p-6 shadow-2xl rounded-2xl bg-surface border border-line flex flex-col gap-4" role="dialog" aria-modal="true" aria-label="Merge customers">
         <div className="flex items-center justify-between border-b border-line pb-3">
           <div>
             <p className="eyebrow text-amber-900">IDENTITY CONFLICT ASSISTANT</p>
