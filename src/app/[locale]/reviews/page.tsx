@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Mail, Phone } from "lucide-react";
+import { ArrowRight, Mail, Phone } from "lucide-react";
 import { db } from "@/db/client";
 import { getPublicCatalog } from "@/domain/availability";
 import { getReviewRollup, getReviewsVisibility, listPublishedReviews } from "@/domain/reviews";
@@ -105,6 +105,9 @@ export default async function ReviewsPage({ params }: { params: Promise<{ locale
           </div>
         </div>
       </footer>
+      <Link className="mobile-reserve-cta" href={`/${locale}/reserve`}>
+        {nav.reserve}<ArrowRight aria-hidden="true" />
+      </Link>
     </main>
   );
 }

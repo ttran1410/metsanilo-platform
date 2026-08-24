@@ -1521,7 +1521,7 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
   .footer-grid { grid-template-columns: 1fr; gap: 2.5rem; }
   .footer-grid > div:first-child { grid-column: auto; }
   .storefront { padding-bottom: 12rem; }
-  .mobile-reserve-cta { position: fixed; right: .75rem; bottom: .75rem; left: .75rem; z-index: 30; display: flex; min-height: 3.25rem; align-items: center; justify-content: center; gap: .75rem; border-radius: 999px; background: var(--berry); color: white; box-shadow: 0 8px 24px rgb(93 43 70 / 35%); font-size: 1rem; font-weight: 800; text-decoration: none; }
+  .mobile-reserve-cta { position: fixed; right: .75rem; bottom: .75rem; left: .75rem; z-index: 30; display: flex; min-height: 3.25rem; align-items: center; justify-content: center; gap: .75rem; border-radius: 999px; background: var(--forest); color: var(--store-on-primary); box-shadow: 0 8px 24px var(--store-shadow); font-size: 1rem; font-weight: 800; text-decoration: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
