@@ -97,6 +97,8 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   --store-accent-soft: color-mix(in srgb, var(--berry) 10%, var(--store-surface));
   --store-control-border: color-mix(in srgb, var(--store-ink) 32%, var(--store-surface));
   --store-shadow: color-mix(in srgb, var(--store-ink) 10%, transparent);
+  --store-on-primary: #ffffff;
+  --store-on-primary-muted: rgb(255 255 255 / 72%);
   --store-footer: #0c1f19;
   --store-footer-ink: #ffffff;
   --store-footer-muted: rgb(255 255 255 / 68%);
@@ -1313,9 +1315,9 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .info-faq .faq-icon svg { width: 1rem; height: 1rem; stroke-width: 1.8; }
 .info-faq details[open] .faq-icon { transform: rotate(180deg); background: var(--store-primary-soft-strong); }
 .info-faq details p { margin: 0 0 1.25rem; color: var(--store-ink); font-size: 1.025rem; line-height: 1.65; border-top: 1px solid var(--store-line); padding-top: .85rem; }
-.info-cta { display: grid; justify-items: center; margin-bottom: clamp(4rem, 8vw, 7rem); border-radius: 1.5rem; background: var(--forest); color: white; padding: clamp(3rem, 6vw, 4.5rem) 1.5rem; text-align: center; }
+.info-cta { display: grid; justify-items: center; margin-bottom: clamp(4rem, 8vw, 7rem); border-radius: 1.5rem; background: var(--forest); color: var(--store-on-primary); padding: clamp(3rem, 6vw, 4.5rem) 1.5rem; text-align: center; }
 .info-cta h2 { margin: 0; font-family: var(--serif); font-size: clamp(2rem, 4vw, 3rem); font-weight: 500; }
-.info-cta p { margin: .85rem 0 1.5rem; color: #a9d8be; }
+.info-cta p { margin: .85rem 0 1.5rem; color: var(--store-on-primary-muted); }
 .info-cta .btn { background: var(--store-surface); color: var(--forest); font-weight: 800; border: 1px solid rgba(255, 255, 255, 0.2); }
 .info-cta .btn:hover { background: var(--store-surface-muted); }
 .review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; padding-bottom: 4rem; }
