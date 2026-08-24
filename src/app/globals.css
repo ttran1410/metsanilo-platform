@@ -669,8 +669,12 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .order-edit-preview small { color: var(--ops-ink-muted); }
 .detail-form .field { flex: 1 1 10rem; }
 .btn-danger { background: var(--berry); }
-.admin-dialog-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgb(15 23 42 / 45%); padding: 1rem; }
-.admin-dialog { width: min(100%, 30rem); max-width: 30rem; }
+.admin-dialog-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgb(15 23 42 / 52%); padding: 1rem; }
+.admin-dialog { width: min(100%, 32rem); max-width: 32rem; padding: 1.5rem; }
+.admin-dialog h2 { margin: .45rem 0 .65rem; color: var(--admin-ink, var(--ink)); font-size: 1.35rem; line-height: 1.2; }
+.admin-dialog > p:not(.eyebrow) { margin: 0; color: var(--admin-ink-muted, var(--muted)); line-height: 1.5; }
+.admin-dialog .profile-actions { display: flex; justify-content: flex-end; gap: .65rem; margin-top: 1.5rem; }
+.admin-dialog button:focus-visible { outline: 3px solid var(--admin-focus, var(--focus)); outline-offset: 3px; }
 .field-checkbox { display: flex; min-height: auto !important; align-items: flex-start; gap: .65rem; line-height: 1.4; }
 .field-checkbox input[type="checkbox"], .field-checkbox input[type="radio"] { margin-top: .05rem; }
 .manual-review-dialog { width: min(100%, 42rem); max-width: 42rem; max-height: calc(100dvh - 2rem); overflow-y: auto; padding: 1.25rem; }

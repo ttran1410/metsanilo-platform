@@ -1,4 +1,6 @@
-import type { ElementType, ReactNode } from "react";
+"use client";
+
+import { useEffect, useId, useRef, useState, type ElementType, type ReactNode } from "react";
 import Link from "next/link";
 
 /** Small, domain-neutral building blocks shared by Operations workspaces. */
@@ -52,9 +54,35 @@ export function AdminSelectionToolbar({ count, total, children }: { count: numbe
   return <div className={`admin-selection-toolbar card${count > 0 ? " is-active" : ""}`} role="region" aria-label="Selected records actions"><strong>{count} selected{total != null ? ` of ${total}` : ""}</strong>{count > 0 && children}</div>;
 }
 
-export function AdminConfirmDialog({ open, title, description, confirmLabel = "Confirm", destructive = false, onCancel, onConfirm, children }: { open: boolean; title: string; description?: string; confirmLabel?: string; destructive?: boolean; onCancel: () => void; onConfirm: () => void; children?: ReactNode }) {
+export function AdminConfirmDialog({ open, title, description, confirmLabel = "Confirm", cancelLabel = "Cancel", eyebrow = "Confirm action", destructive = false, onCancel, onConfirm, children }: { open: boolean; title: string; description?: string; confirmLabel?: string; cancelLabel?: string; eyebrow?: string; destructive?: boolean; onCancel: () => void; onConfirm: () => void | Promise<void>; children?: ReactNode }) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const dialogRef = useRef<HTMLElement>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])") ?? []).filter((element) => !element.hasAttribute("disabled"));
+    focusable()[0]?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) { event.preventDefault(); onCancel(); return; }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0]; const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("keydown", onKeyDown); previous?.focus(); };
+  }, [open, busy, onCancel]);
+  async function handleConfirm() {
+    setBusy(true);
+    try { await onConfirm(); } finally { setBusy(false); }
+  }
   if (!open) return null;
-  return <div className="admin-dialog-backdrop"><section className="admin-dialog card" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title"><p className="eyebrow">Confirm action</p><h2 id="admin-dialog-title">{title}</h2>{description && <p>{description}</p>}{children}<div className="profile-actions"><button className="btn btn-secondary" type="button" onClick={onCancel}>Cancel</button><button className={`btn${destructive ? " btn-danger" : ""}`} type="button" onClick={onConfirm}>{confirmLabel}</button></div></section></div>;
+  return <div className="admin-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onCancel(); }}><section ref={dialogRef} className="admin-dialog card" role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined}><p className="eyebrow">{eyebrow}</p><h2 id={titleId}>{title}</h2>{description && <p id={descriptionId}>{description}</p>}{children}<div className="profile-actions"><button className="btn btn-secondary" type="button" onClick={onCancel} disabled={busy}>{cancelLabel}</button><button className={`btn${destructive ? " btn-danger" : ""}`} type="button" onClick={() => void handleConfirm()} disabled={busy}>{busy ? "Saving…" : confirmLabel}</button></div></section></div>;
 }
 
 export function AdminTimeline({ events, emptyLabel = "No activity recorded." }: { events: Array<{ id: string; title: string; actor?: string; at: string; detail?: string }>; emptyLabel?: string }) {

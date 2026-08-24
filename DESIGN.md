@@ -1111,6 +1111,17 @@ These approvals do not change the visual direction, but they gate the affected p
 
 ## Appendix — Audit baseline
 
+## Shared confirmation dialog system
+
+All confirmation actions across Admin Portal and any authenticated/operational surface use the shared confirmation contract rather than the browser-native `window.confirm` or a one-off modal.
+
+- **Anatomy:** eyebrow identifies the action family; title states the decision in plain language; description explains the immediate consequence; optional children contain only the minimum impact/reason field; footer keeps Cancel secondary and the action-specific confirm label primary.
+- **Variants:** default for reversible workflow actions; warning for actions with operational impact; destructive for archive, anonymize, revoke, or conditional permanent delete. Destructive actions must name the record and consequence, and require the permission/dependency rules enforced by the server.
+- **Behavior:** `role="alertdialog"`, `aria-modal`, labelled title/description, initial focus on the safe Cancel action, Escape and backdrop dismiss when not busy, focus trap while open, focus return to the invoking control, and disabled actions with a progress label during mutation.
+- **Copy:** use the verb that will happen (`Publish theme`, `Archive product`, `Revoke sessions`, `Confirm pickup`) rather than generic `OK` or `Confirm`. Do not introduce a second confirmation after the dialog unless the risk or dependency result changed.
+- **Responsive rules:** one-column bottom sheet presentation on narrow screens, full-width action buttons when needed, minimum 44px touch targets, and no horizontally clipped content.
+- **Migration rule:** new confirmations must use `AdminConfirmDialog`; existing direct `window.confirm` and bespoke confirmation markup are migration targets and should be replaced module-by-module without changing domain authorization or audit behavior.
+
 The current product has a recognizable local identity and several sound primitives, but it needs structural redesign before a full theme refresh. The main issue is not a single color or component; storefront storytelling, Admin operations, and shared behaviors are coupled inside one expanding style layer.
 
 ### Necessary corrections
