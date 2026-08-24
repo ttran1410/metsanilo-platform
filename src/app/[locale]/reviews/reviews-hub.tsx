@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PenLine, Star, CheckCircle2, MessageSquare, ChevronDown } from "lucide-react";
+import { PenLine, Star } from "lucide-react";
 import { formatDecimal, formatStorefrontDate, type Locale } from "@/lib/format";
 import { ReviewModal } from "./review-modal";
 
@@ -98,16 +98,16 @@ export function ReviewsHub({
   return (
     <div className="space-y-8">
       {/* 1. Rating Summary & Scorecard */}
-      <section className="p-6 md:p-8 rounded-2xl bg-surface border border-line shadow-sm grid gap-6 md:grid-cols-12 items-center">
-        <div className="md:col-span-5 space-y-3 text-center md:text-left border-b md:border-b-0 md:border-r border-line pb-6 md:pb-0 md:pr-6">
-          <div className="inline-block px-3 py-1 bg-surface-muted text-ink text-xs font-extrabold uppercase tracking-wider rounded-full">
+      <section className="p-6 md:p-8 rounded-2xl bg-[var(--store-surface)] border border-[var(--store-line)] shadow-sm grid gap-6 md:grid-cols-12 items-center">
+        <div className="md:col-span-5 space-y-3 text-center md:text-left border-b md:border-b-0 md:border-r border-[var(--store-line)] pb-6 md:pb-0 md:pr-6">
+          <div className="inline-block px-3 py-1 bg-[var(--store-surface-muted)] text-[var(--store-ink)] text-xs font-extrabold uppercase tracking-wider rounded-full">
             {copy.eyebrow}
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-ink">{copy.title}</h1>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-[var(--store-ink)]">{copy.title}</h1>
           <div className="flex items-center justify-center md:justify-start gap-2">
             <span className="text-3xl font-extrabold text-[var(--forest)]">{formatDecimal(avgRating, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
             <span className="muted font-semibold text-lg">/ {formatDecimal(5, locale, { minimumFractionDigits: 1 })}</span>
-            <span className="text-amber-500 text-xl ml-1">⭐⭐⭐⭐⭐</span>
+            <span className="inline-flex text-amber-500 ml-1" aria-hidden="true">{Array.from({ length: 5 }, (_, index) => <Star key={index} className="w-4 h-4 fill-current" />)}</span>
           </div>
           <p className="text-xs muted font-medium">
             {totalReviewsCount} {copy.scoreSubtitle}
@@ -129,8 +129,8 @@ export function ReviewsHub({
             const pct = totalReviewsCount > 0 ? Math.round((count / totalReviewsCount) * 100) : 0;
             return (
               <div key={star} className="flex items-center text-xs gap-3">
-                <span className="w-12 font-bold text-ink">{star} ★</span>
-                <div className="flex-1 h-3 bg-surface-muted rounded-full overflow-hidden">
+                <span className="w-12 font-bold text-[var(--store-ink)]">{star} ★</span>
+                <div className="flex-1 h-3 bg-[var(--store-surface-muted)] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-amber-400 rounded-full transition-all duration-500"
                     style={{ width: `${pct}%` }}
@@ -146,12 +146,12 @@ export function ReviewsHub({
       </section>
 
       {/* 2. Filter & Sort Bar */}
-      <section className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-surface-muted border border-line">
+      <section className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-[var(--store-surface-muted)] border border-[var(--store-line)]">
         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
           <button
             type="button"
             className={`px-3.5 py-1.5 rounded-full transition ${
-              starFilter === "all" ? "bg-[var(--forest)] text-white" : "bg-surface text-ink border border-line"
+              starFilter === "all" ? "bg-[var(--forest)] text-white" : "bg-[var(--store-surface)] text-[var(--store-ink)] border border-[var(--store-line)]"
             }`}
             onClick={() => setStarFilter("all")}
           >
@@ -163,7 +163,7 @@ export function ReviewsHub({
               key={star}
               type="button"
               className={`px-3.5 py-1.5 rounded-full transition ${
-                starFilter === star ? "bg-[var(--forest)] text-white" : "bg-surface text-ink border border-line"
+                starFilter === star ? "bg-[var(--forest)] text-white" : "bg-[var(--store-surface)] text-[var(--store-ink)] border border-[var(--store-line)]"
               }`}
               onClick={() => setStarFilter(star)}
             >
@@ -175,7 +175,7 @@ export function ReviewsHub({
         <div className="flex items-center gap-2 text-xs font-semibold">
           <label className="muted">{copy.sortLabel}</label>
           <select
-            className="bg-surface border border-line rounded-lg px-3 py-1.5 text-xs text-ink cursor-pointer"
+            className="bg-[var(--store-surface)] border border-[var(--store-line)] rounded-lg px-3 py-1.5 text-xs text-[var(--store-ink)] cursor-pointer"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value === "highest" ? "highest" : "newest")}
           >
@@ -188,7 +188,7 @@ export function ReviewsHub({
       {/* 3. Reviews Feed */}
       <section className="space-y-4">
         {sorted.length === 0 && (
-          <div className="p-8 text-center text-xs font-medium muted bg-surface rounded-xl border border-line">
+          <div className="p-8 text-center text-xs font-medium muted bg-[var(--store-surface)] rounded-xl border border-[var(--store-line)]">
             {copy.noReviews}
           </div>
         )}
@@ -196,22 +196,22 @@ export function ReviewsHub({
         {visibleReviews.map((review) => (
           <article
             key={review.id}
-            className="p-6 rounded-2xl bg-surface border border-line shadow-xs space-y-3"
+            className="p-6 rounded-2xl bg-[var(--store-surface)] border border-[var(--store-line)] shadow-xs space-y-3"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--store-line)] pb-3">
               <div className="flex items-center gap-2">
                 <span className="text-amber-500 text-sm font-bold">
                   {"★".repeat(review.rating)}
                   {"☆".repeat(5 - review.rating)}
                 </span>
-                <span className="font-extrabold text-ink text-base">{review.displayName}</span>
+                <span className="font-extrabold text-[var(--store-ink)] text-base">{review.displayName}</span>
 
                 {review.verifiedBuyer ? (
-                  <span className="bg-surface-muted text-[var(--forest)] text-xs font-semibold px-2.5 py-0.5 rounded-full border border-line">
+                  <span className="bg-[var(--store-surface-muted)] text-[var(--forest)] text-xs font-semibold px-2.5 py-0.5 rounded-full border border-[var(--store-line)]">
                     {copy.verifiedOrder}
                   </span>
                 ) : (
-                  <span className="bg-surface-muted muted text-xs font-medium px-2 py-0.5 rounded">
+                  <span className="bg-[var(--store-surface-muted)] muted text-xs font-medium px-2 py-0.5 rounded">
                     {copy.publicReview}
                   </span>
                 )}
@@ -222,15 +222,15 @@ export function ReviewsHub({
               </span>
             </div>
 
-            <p className="text-sm text-ink leading-relaxed">
+            <p className="text-sm text-[var(--store-ink)] leading-relaxed">
               &quot;{review.displayText}&quot;
             </p>
 
             {/* Seller Reply */}
             {review.sellerReplyText && (
-              <div className="mt-3 p-4 rounded-xl bg-surface-muted border border-line text-xs space-y-1">
+              <div className="mt-3 p-4 rounded-xl bg-[var(--store-surface-muted)] border border-[var(--store-line)] text-xs space-y-1">
                 <p className="font-extrabold text-[var(--forest)]">{copy.sellerReplyTitle}</p>
-                <p className="text-ink font-medium italic">&quot;{review.sellerReplyText}&quot;</p>
+                <p className="text-[var(--store-ink)] font-medium italic">&quot;{review.sellerReplyText}&quot;</p>
               </div>
             )}
           </article>

@@ -125,10 +125,10 @@ export function ReviewModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 relative animate-in fade-in zoom-in-95">
+      <div className="bg-[var(--store-surface)] text-[var(--store-ink)] border border-[var(--store-line)] rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 relative animate-in fade-in zoom-in-95">
         <button
           type="button"
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-surface-muted transition-colors cursor-pointer"
+          className="absolute top-4 right-4 text-[var(--store-muted)] hover:text-[var(--store-ink)] p-1 rounded-full hover:bg-[var(--store-surface-muted)] transition-colors cursor-pointer"
           onClick={onClose}
           aria-label={copy.close}
         >
@@ -137,10 +137,10 @@ export function ReviewModal({
 
         {submittedSuccess ? (
           <div className="py-6 text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 text-[var(--forest)] mx-auto flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-[var(--store-primary-soft)] text-[var(--forest)] mx-auto flex items-center justify-center">
               <CheckCircle2 className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-extrabold text-ink">{copy.successTitle}</h2>
+            <h2 className="text-xl font-extrabold text-[var(--store-ink)]">{copy.successTitle}</h2>
             <p className="text-sm muted max-w-xs mx-auto">{copy.successBody}</p>
             <button
               type="button"
@@ -155,7 +155,7 @@ export function ReviewModal({
             <div>
               <div className="flex items-center gap-2">
                 <PenLine className="w-5 h-5 text-[var(--forest)]" />
-                <h2 className="text-xl font-extrabold text-ink">{copy.title}</h2>
+                <h2 className="text-xl font-extrabold text-[var(--store-ink)]">{copy.title}</h2>
               </div>
               <p className="text-xs muted mt-1">{copy.subtitle}</p>
             </div>
@@ -169,7 +169,7 @@ export function ReviewModal({
             <form onSubmit={handleSubmit} className="space-y-4 text-left">
               {/* Star Rating Selection */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-ink mb-1.5">
+                <label className="block text-xs font-bold text-[var(--store-ink)] mb-1.5">
                   {copy.step1}
                 </label>
                 <div className="flex items-center gap-2">
@@ -185,7 +185,7 @@ export function ReviewModal({
                       ★
                     </button>
                   ))}
-                  <span className="text-xs font-bold text-ink ml-2">
+                  <span className="text-xs font-bold text-[var(--store-ink)] ml-2">
                      {rating}/5 ({copy.ratingLabels[rating]})
                   </span>
                 </div>
@@ -193,7 +193,7 @@ export function ReviewModal({
 
               {/* Name */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-ink">
+                <label className="block text-xs font-bold text-[var(--store-ink)]">
                   {copy.step2}
                 </label>
                 <input
@@ -201,12 +201,12 @@ export function ReviewModal({
                   required={!isAnonymous}
                   minLength={isAnonymous ? undefined : 2}
                   maxLength={80}
-                  className="w-full text-sm border border-line bg-surface rounded-xl p-3 text-ink focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] transition-all"
+                  className="w-full text-sm border border-[var(--store-line)] bg-[var(--store-surface)] rounded-xl p-3 text-[var(--store-ink)] focus:outline-none focus:border-[var(--store-focus)] focus:ring-1 focus:ring-[var(--store-focus)] transition-all"
                   placeholder={copy.placeholderName}
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                 />
-                <label className="flex items-center gap-2.5 text-xs text-ink cursor-pointer pt-1">
+                <label className="flex items-center gap-2.5 text-xs text-[var(--store-ink)] cursor-pointer pt-1">
                   <input
                     type="checkbox"
                     checked={isAnonymous}
@@ -219,12 +219,12 @@ export function ReviewModal({
 
               {/* Phone / Reference */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-ink">
+                <label className="block text-xs font-bold text-[var(--store-ink)]">
                   {copy.step3}
                 </label>
                 <input
                   type="text"
-                  className="w-full text-sm border border-line bg-surface rounded-xl p-3 text-ink focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] transition-all"
+                  className="w-full text-sm border border-[var(--store-line)] bg-[var(--store-surface)] rounded-xl p-3 text-[var(--store-ink)] focus:outline-none focus:border-[var(--store-focus)] focus:ring-1 focus:ring-[var(--store-focus)] transition-all"
                   placeholder={copy.placeholderContact}
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
@@ -233,7 +233,7 @@ export function ReviewModal({
 
               {/* Review Text */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-ink">
+                <label className="block text-xs font-bold text-[var(--store-ink)]">
                   {copy.step4}
                 </label>
                 <textarea
@@ -241,7 +241,7 @@ export function ReviewModal({
                   minLength={10}
                   maxLength={2000}
                   rows={4}
-                  className="w-full text-sm border border-line bg-surface rounded-xl p-3 text-ink focus:outline-none focus:border-[var(--forest)] focus:ring-1 focus:ring-[var(--forest)] transition-all leading-relaxed"
+                  className="w-full text-sm border border-[var(--store-line)] bg-[var(--store-surface)] rounded-xl p-3 text-[var(--store-ink)] focus:outline-none focus:border-[var(--store-focus)] focus:ring-1 focus:ring-[var(--store-focus)] transition-all leading-relaxed"
                   placeholder={copy.placeholderReview}
                   value={reviewText}
                   onChange={(e) => setReviewText(e.target.value)}
@@ -250,7 +250,7 @@ export function ReviewModal({
 
               {/* Consent Checkboxes */}
               <div className="space-y-2.5 pt-1">
-                <label className="flex items-start gap-2.5 text-xs text-ink cursor-pointer leading-snug">
+                <label className="flex items-start gap-2.5 text-xs text-[var(--store-ink)] cursor-pointer leading-snug">
                   <input
                     type="checkbox"
                     checked={consent}
@@ -259,7 +259,7 @@ export function ReviewModal({
                   />
                   <span className="font-semibold">{copy.consentText}</span>
                 </label>
-                <label className="flex items-start gap-2.5 text-xs text-ink cursor-pointer leading-snug">
+                <label className="flex items-start gap-2.5 text-xs text-[var(--store-ink)] cursor-pointer leading-snug">
                   <input
                     type="checkbox"
                     checked={crmConsent}
@@ -270,7 +270,7 @@ export function ReviewModal({
                 </label>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-line">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--store-line)]">
                 <button
                   type="button"
                   className="btn btn-secondary text-xs font-bold px-5 py-2.5 rounded-full"

@@ -435,6 +435,10 @@ Spruce is not the success color. Bilberry is not the error, price, selected, and
 
 A Frontstore theme may change brand color, seasonal narrative color, media treatment, and chapter contrast. It may not change component behavior, state meaning, control geometry, focus visibility, typography accessibility, or information order.
 
+| Must follow the active theme | Must remain semantic or invariant |
+|---|---|
+| Header, canvas, section and card surfaces, footer, borders, primary/secondary actions, selected controls, form focus, navigation active state, media placeholders, trust/FAQ treatments, review chrome, and reservation receipt surfaces | Error, warning, success and destructive meaning; availability lifecycle; rating gold; external-channel brand identity; photography/content imagery; readable inverse ink and neutral scrims; control geometry, interaction behavior, copy, locale, and information order |
+
 Every approved Frontstore theme must provide:
 
 - Canvas, panel, and chapter surfaces.

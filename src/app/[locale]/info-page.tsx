@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Mail, MessageSquare, Phone, ShieldCheck } from "lucide-react";
+import { ChevronDown, Mail, MessageSquare, Phone, ShieldCheck } from "lucide-react";
 import { formatDecimal, isLocale, type Locale } from "@/lib/format";
 import { LocaleDocument } from "./locale-document";
 import { ReviewForm } from "./review-form";
@@ -95,7 +95,7 @@ export function InfoPage({
             <p>{content[locale]["how-it-works"].intro}</p>
           </section>
           <section className="shell info-trust-banner" aria-label={locale === "fi" ? "Maksutiedot" : "Payment information"}>
-            <span className="trust-badge-icon" aria-hidden="true"><ShieldCheck className="w-6 h-6 text-[#1e6b34]" /></span>
+            <span className="trust-badge-icon" aria-hidden="true"><ShieldCheck className="w-6 h-6 text-[var(--forest)]" /></span>
             <div className="trust-banner-copy">
               <strong>{locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</strong>
               <span>{locale === "fi" ? "Maksat vasta kun saat marjat noudon tai toimituksen yhteydessä." : "You pay when you receive your berries at pickup or delivery."}</span>
@@ -115,14 +115,14 @@ export function InfoPage({
             <details>
               <summary>
                 <span>{locale === "fi" ? "Voinko maksaa käteisellä?" : "Can I pay with cash?"}</span>
-                <span className="faq-icon" aria-hidden="true">↓</span>
+                <span className="faq-icon" aria-hidden="true"><ChevronDown /></span>
               </summary>
               <p>{locale === "fi" ? "Maksutavasta sovitaan noudon tai toimituksen yhteydessä." : "Payment is arranged at pickup or delivery."}</p>
             </details>
             <details>
               <summary>
                 <span>{locale === "fi" ? "Mitä jos sää muuttaa poimintaa?" : "What if weather changes the harvest?"}</span>
-                <span className="faq-icon" aria-hidden="true">↓</span>
+                <span className="faq-icon" aria-hidden="true"><ChevronDown /></span>
               </summary>
               <p>{locale === "fi" ? "Ilmoitamme mahdollisesta päivämäärän muutoksesta viestillä." : "We will message you if the fulfillment date needs to change."}</p>
             </details>

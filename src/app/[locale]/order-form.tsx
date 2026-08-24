@@ -177,53 +177,53 @@ export function OrderForm({
 
   if (receipt) {
     return (
-      <section className="p-6 md:p-10 rounded-2xl bg-white border border-[#2f6b4f]/30 shadow-md my-8 space-y-6 animate-in fade-in" aria-live="polite">
+      <section className="p-6 md:p-10 rounded-2xl bg-[var(--store-surface)] border border-[var(--store-primary-soft-strong)] shadow-md my-8 space-y-6 animate-in fade-in" aria-live="polite">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#edf5ef] border border-[#a9c3b0] flex items-center justify-center text-[#14532d]">
+          <div className="w-10 h-10 rounded-full bg-[var(--store-primary-soft)] border border-[var(--store-primary-soft-strong)] flex items-center justify-center text-[var(--forest)]">
             <Check className="w-5 h-5 stroke-[2.5]" />
           </div>
           <div>
-            <span className="text-xs font-extrabold uppercase tracking-widest text-[#1e6b34]">{locale === "fi" ? "Kiitos varauksesta" : "Thank you"}</span>
-            <h2 className="text-2xl md:text-3xl font-serif font-semibold text-[#17201b] tracking-tight">{t.success}</h2>
+            <span className="text-xs font-extrabold uppercase tracking-widest text-[var(--moss)]">{locale === "fi" ? "Kiitos varauksesta" : "Thank you"}</span>
+            <h2 className="text-2xl md:text-3xl font-serif font-semibold text-[var(--store-ink)] tracking-tight">{t.success}</h2>
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#f7f7f2] border border-[#d8d5cd] flex flex-wrap items-center justify-between gap-3">
+        <div className="p-4 rounded-xl bg-[var(--store-surface-muted)] border border-[var(--store-line)] flex flex-wrap items-center justify-between gap-3">
           <div>
-            <span className="text-xs text-[#5f6c63] uppercase tracking-wider block font-bold">{t.reference}</span>
-            <strong className="text-xl md:text-2xl font-mono text-[#14532d] tracking-wide">{receipt.publicReference}</strong>
+            <span className="text-xs text-[var(--store-muted)] uppercase tracking-wider block font-bold">{t.reference}</span>
+            <strong className="text-xl md:text-2xl font-mono text-[var(--forest)] tracking-wide">{receipt.publicReference}</strong>
           </div>
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#edf5ef] text-[#14532d] border border-[#a9c3b0]">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[var(--store-primary-soft)] text-[var(--forest)] border border-[var(--store-primary-soft-strong)]">
             {locale === "fi" ? "Odottaa vahvistusta" : "Pending confirmation"}
           </span>
         </div>
 
-        <div className="space-y-2 text-sm text-[#17201b]">
+        <div className="space-y-2 text-sm text-[var(--store-ink)]">
           <p className="font-semibold text-base">
             {receipt.productName} — {receipt.packageLabel} ({formatLitres(receipt.volumeMl, locale)} l)
           </p>
-          <p className="text-[#5f6c63]">
-            {locale === "fi" ? "Toimituspäivä" : "Fulfillment date"}: <strong className="text-[#17201b]">{formatStorefrontDate(receipt.fulfillmentDate, locale)}</strong>
+          <p className="text-[var(--store-muted)]">
+            {locale === "fi" ? "Toimituspäivä" : "Fulfillment date"}: <strong className="text-[var(--store-ink)]">{formatStorefrontDate(receipt.fulfillmentDate, locale)}</strong>
           </p>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#edf5ef] border border-[#a9c3b0] text-sm leading-relaxed text-[#17201b]">
-          <strong className="block mb-1 text-[#14532d]">{locale === "fi" ? "Mitä tapahtuu seuraavaksi?" : "What happens next?"}</strong>
+        <div className="p-4 rounded-xl bg-[var(--store-primary-soft)] border border-[var(--store-primary-soft-strong)] text-sm leading-relaxed text-[var(--store-ink)]">
+          <strong className="block mb-1 text-[var(--forest)]">{locale === "fi" ? "Mitä tapahtuu seuraavaksi?" : "What happens next?"}</strong>
           <p>{t.pending}</p>
         </div>
 
         {receipt.pickup ? (
-          <div className="p-4 rounded-xl bg-white border border-[#d8d5cd] space-y-1 text-sm">
-            <h3 className="font-bold text-[#14532d]">{t.pickupDetails}</h3>
-            <p className="font-medium text-[#17201b]">{receipt.pickup.name}</p>
-            <p className="text-[#5f6c63] whitespace-pre-line">{receipt.pickup.address}</p>
-            <p className="text-[#5f6c63]">{receipt.pickup.instructions}</p>
-            <p className="text-[#5f6c63] font-semibold">{receipt.pickup.time}</p>
+          <div className="p-4 rounded-xl bg-[var(--store-surface)] border border-[var(--store-line)] space-y-1 text-sm">
+            <h3 className="font-bold text-[var(--forest)]">{t.pickupDetails}</h3>
+            <p className="font-medium text-[var(--store-ink)]">{receipt.pickup.name}</p>
+            <p className="text-[var(--store-muted)] whitespace-pre-line">{receipt.pickup.address}</p>
+            <p className="text-[var(--store-muted)]">{receipt.pickup.instructions}</p>
+            <p className="text-[var(--store-muted)] font-semibold">{receipt.pickup.time}</p>
           </div>
         ) : (
-          <div className="p-4 rounded-xl bg-white border border-[#d8d5cd] space-y-1 text-sm">
-            <strong className="text-[#14532d]">{t.deliveryPending}</strong>
-            <p className="text-[#5f6c63]">{receipt.delivery?.streetAddress}, {receipt.delivery?.postalCode} {receipt.delivery?.city}</p>
+          <div className="p-4 rounded-xl bg-[var(--store-surface)] border border-[var(--store-line)] space-y-1 text-sm">
+            <strong className="text-[var(--forest)]">{t.deliveryPending}</strong>
+            <p className="text-[var(--store-muted)]">{receipt.delivery?.streetAddress}, {receipt.delivery?.postalCode} {receipt.delivery?.city}</p>
           </div>
         )}
       </section>
