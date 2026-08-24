@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Ban, CheckCircle2, Eye, EyeOff, MessageSquare, Plus, Search, ShieldCheck, Star, Trash2, X } from "lucide-react";
-import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminPageHeader } from "../presentation";
+import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminPageHeader, useAdminDialogFocus } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconLink, IconLock, IconPencil, IconTrash, IconUser } from "../ui/admin-row-action-menu";
 import { LinkIdentityModal } from "./link-identity-modal";
@@ -75,6 +75,7 @@ export function ReviewsManager({
   const [pageSize, setPageSize] = useState(20);
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
+  const manualReviewDialogRef = useAdminDialogFocus(showManualModal, () => setShowManualModal(false));
   const [modalVerifiedChecked, setModalVerifiedChecked] = useState(true);
   const [modalAnonymousChecked, setModalAnonymousChecked] = useState(false);
 
@@ -641,7 +642,7 @@ export function ReviewsManager({
       {/* Manual Import Modal */}
       {showManualModal && (
         <div className="admin-dialog-backdrop">
-          <div className="admin-dialog card manual-review-dialog space-y-4 animate-in fade-in zoom-in-95" role="dialog" aria-modal="true" aria-label="Import review">
+          <div ref={manualReviewDialogRef} className="admin-dialog card manual-review-dialog space-y-4 animate-in fade-in zoom-in-95" role="dialog" aria-modal="true" aria-label="Import review">
             <div className="manual-review-dialog-header flex items-center justify-between gap-4 border-b border-line">
               <div>
                 <span className="eyebrow">Offline feedback</span>

@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { CalendarRange, ChevronLeft, ChevronRight, Eye, LockKeyhole, Pencil, UnlockKeyhole } from "lucide-react";
 import type { AvailabilityWorkspace } from "@/domain/availability";
-import { AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
+import { AdminNotice, AdminPageHeader, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { BatchPlannerPanel } from "./batch-planner-panel";
@@ -107,6 +107,7 @@ export function AvailabilityWorkspace({
   const [freezingRow, setFreezingRow] = useState<AvailabilityRow | null>(null);
 
   const [editing, setEditing] = useState<AvailabilityRow | null>(null);
+  const availabilityDialogRef = useAdminDialogFocus<HTMLFormElement>(editing !== null, () => setEditing(null));
   const [batchPanelOpen, setBatchPanelOpen] = useState(false);
 
   const [capacityDraftLitres, setCapacityDraftLitres] = useState(0);
@@ -765,7 +766,7 @@ export function AvailabilityWorkspace({
       {/* EDIT AVAILABILITY MODAL */}
       {editing && (
         <div className="admin-dialog-backdrop">
-          <form className="admin-dialog card availability-dialog" role="dialog" aria-modal="true" aria-labelledby="availability-edit-title" onSubmit={(event) => void saveAvailability(event)}>
+          <form ref={availabilityDialogRef} className="admin-dialog card availability-dialog" role="dialog" aria-modal="true" aria-labelledby="availability-edit-title" onSubmit={(event) => void saveAvailability(event)}>
             <p className="eyebrow">Capacity change</p>
             <h2 id="availability-edit-title">{editing.product.nameFi} · {editing.availability.businessDate}</h2>
             <p className="muted text-xs">Review the effect before saving. This record is currently version {editing.availability.version}.</p>
