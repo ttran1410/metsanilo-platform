@@ -57,6 +57,24 @@ const themes: Array<{
     accent: "#694055",
     seasonal: "#343A75",
   },
+  {
+    key: "arctic-mist",
+    name: "Arctic mist",
+    description: "A cool coastal canvas with pale blue-grey and spruce accents.",
+    canvas: "#F3F7F8",
+    ink: "#172A30",
+    accent: "#24596A",
+    seasonal: "#8DAEBA",
+  },
+  {
+    key: "midnight-spruce",
+    name: "Midnight spruce",
+    description: "A calm dark Nordic storefront with spruce and warm berry light.",
+    canvas: "#101715",
+    ink: "#F2F5F1",
+    accent: "#A6C6B2",
+    seasonal: "#D7AA63",
+  },
 ];
 
 function themeName(themeKey: StorefrontThemeKey) {

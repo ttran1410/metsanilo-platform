@@ -449,13 +449,13 @@ Every approved Frontstore theme must provide:
 - Accessible hover, pressed, focus, disabled, and semantic-state mappings.
 - A product-image crop policy and fallback treatment.
 
-The redesign ships three controlled themes that share typography, components, semantics, layout order, and accessibility behavior.
+The redesign ships five controlled themes that share typography, components, semantics, layout order, and accessibility behavior.
 
 | Theme | Canvas | Brand primary | Seasonal | Character |
 |---|---:|---:|---:|---|
 | `forest-harvest` | `#F7F7F2` | `#14532D` | `#343A75` | Default warm Finnish harvest |
-| `lake-bilberry` | `#F6F8FA` | `#123B5D` | `#343A75` | Cool and clear |
-| `birch-lingonberry` | `#FFFFFF` | `#111111` | `#7D2444` | Restrained high-contrast seasonal |
+| `arctic-mist` | `#F3F7F8` | `#24596A` | `#8DAEBA` | Cool coastal blue-grey |
+| `midnight-spruce` | `#101715` | `#A6C6B2` | `#D7AA63` | Dark spruce with warm seasonal light |
 
 These are prototype seed values. Validate text, icons, controls, focus, hover, and disabled combinations before a theme becomes publishable.
 
@@ -996,7 +996,7 @@ The redesign release uses actual implementation status instead of treating every
 | Storefront and media settings | Partial | Refine the existing Settings/media workflow; do not add full fixed-page CMS revisions in this release |
 | Order packing/picking workflow | Implemented with UI gaps | Redesign the existing order fulfillment workflow; do not add independent picker production or earnings records |
 | Notifications | Partial | Keep durable notifications and recent-alert popover; add a filterable inbox with read/unread, deep links, and history |
-| Frontstore themes | Missing | Add three controlled themes and Admin `Draft → Preview → Publish` management |
+| Frontstore themes | Missing | Add five controlled themes and Admin `Draft → Preview → Publish` management |
 | MFA | Missing | Excluded from UI redesign and assigned to a separate security-hardening decision; it remains a production security gate unless a later risk decision changes that gate |
 | Invoice and Order Summary documents | Missing | Excluded from UI redesign and retained for a later finance/document release |
 | Admin Finnish and Vietnamese | Missing | Keep Admin English-only now and preserve externalizable resources for a later i18n release |
@@ -1066,7 +1066,7 @@ Implement the redesign in layers so visual work does not weaken order, capacity,
 | 1. Inventory and contract | Map current token consumers, raw colors, component states, stories, routes, capability status, and destructive paths | Every existing visual role has a target semantic token or explicit exception; unsafe current behavior is recorded rather than copied |
 | 2. Prototype validation | Test Finnish civic harvest and Nordic commerce utility on the same Frontstore/Admin tasks | Target participants select a direction through comprehension, trust, completion, error, and accessibility evidence |
 | 3. Shared foundation | Add type roles, spacing, focus, icon, button, field, feedback, status, save, deletion, overlay, and table contracts | Foundation Storybook gallery passes all states without storefront/Admin brand coupling |
-| 4. Theme separation | Create Frontstore and Admin roots, three controlled theme configurations, and publishing versions | Preview never changes the published theme; switching Frontstore theme cannot restyle Admin |
+| 4. Theme separation | Create Frontstore and Admin roots, five controlled theme configurations, and publishing versions | Preview never changes the published theme; switching Frontstore theme cannot restyle Admin |
 | 5. Frontstore mobile path | Redesign navigation, home product block, reservation flow, result, footer, and FI/EN switching | A customer can send a valid reservation at `390px` in either locale without overflow or competing primary actions |
 | 6. Admin shell | Redesign login, header, rail/drawer, page header, toolbar, inspector, action tray | Global and module actions remain clear at desktop and mobile sizes |
 | 7. Priority Admin modules | Redesign Orders, Pickup, Packing, and Availability for full mobile task completion | Each primary operational workflow completes at `390px` and preserves domain/audit safeguards |
@@ -1095,7 +1095,7 @@ The following decisions are ready to guide implementation.
 - Orders, Pickup, Packing, and Availability provide full mobile task completion. Settings and Users remain desktop-first while preserving a safe mobile baseline.
 - The redesign refines existing Storefront/Media settings and order packing. It does not add a fixed-page CMS or independent picker records.
 - Notifications expands from the existing popover into an inbox with filters, read/unread, deep links, and retained history.
-- Frontstore theme publication uses three controlled themes and `Draft → Preview → Publish` with version, audit, and rollback.
+- Frontstore theme publication uses five controlled themes and `Draft → Preview → Publish` with version, audit, and rollback.
 - Reservation-request wording is canonical in Finnish and English.
 - Preferences and versioned drafts may autosave. Business mutations, publication, permissions, and destructive actions require explicit save or confirmation.
 - Permanent deletion remains conditional on a server-side dependency check, dedicated permission, impact preview, reason, confirmation, and tombstone audit.
