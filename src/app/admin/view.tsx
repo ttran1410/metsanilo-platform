@@ -11,7 +11,7 @@ import type {
   products,
 } from "@/db/schema";
 import type { AvailabilityWorkspace } from "@/domain/availability";
-import { AdminEmptyState, AdminNotice, AdminPageHeader } from "./presentation";
+import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminPageHeader } from "./presentation";
 import { OrdersListing } from "./orders-listing";
 
 type Order = typeof orders.$inferSelect;
@@ -1027,6 +1027,7 @@ export function ManagerView({
   const [methodFilter, setMethodFilter] = useState("ALL");
   const [sourceFilter, setSourceFilter] = useState("ALL");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [pendingBulk, setPendingBulk] = useState<"CONFIRMED" | "PICKING" | "READY" | "OUT_FOR_DELIVERY" | "PICKED_UP" | "DELIVERED" | null>(null);
   const [sourceOptions, setSourceOptions] = useState<
     Array<{ key: string; labelEn: string; active: boolean }>
   >([]);
@@ -1132,12 +1133,14 @@ export function ManagerView({
       selectedIds.includes(order.id),
     );
     if (!selected.length) return;
-    if (
-      !window.confirm(
-        `Apply ${next} to ${selected.length} order(s)? Orders with an invalid status will be skipped.`,
-      )
-    )
-      return;
+    setPendingBulk(next);
+  }
+
+  async function confirmBulkTransition() {
+    const next = pendingBulk;
+    if (!next) return;
+    setPendingBulk(null);
+    const selected = orderRows.filter((order) => selectedIds.includes(order.id));
     const updated: Order[] = [];
     let skipped = 0;
     for (const order of selected) {
@@ -2259,6 +2262,7 @@ export function ManagerView({
           )}
         </section>
       )}
+      <AdminConfirmDialog open={pendingBulk !== null} title="Apply order status change?" description={`Apply ${pendingBulk ?? "this status"} to ${selectedIds.length} selected order${selectedIds.length === 1 ? "" : "s"}? Orders with an invalid status will be skipped.`} confirmLabel="Apply status" onCancel={() => setPendingBulk(null)} onConfirm={confirmBulkTransition} />
     </main>
   );
 }
