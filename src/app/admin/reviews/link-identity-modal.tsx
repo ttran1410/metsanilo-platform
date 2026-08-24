@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import type { ReviewItem } from "./edit-review-modal";
+import { useAdminDialogFocus } from "../presentation";
 
 type OrderItem = {
   id: string;
@@ -35,6 +36,7 @@ export function LinkIdentityModal({
   onClose: () => void;
   onLinked: (updated: ReviewItem) => void;
 }) {
+  const dialogRef = useAdminDialogFocus(true, onClose);
   const [query, setQuery] = useState(review.contact || review.displayName || "");
   const [ordersList, setOrdersList] = useState<OrderItem[]>([]);
   const [customersList, setCustomersList] = useState<CustomerItem[]>([]);
@@ -118,7 +120,7 @@ export function LinkIdentityModal({
       className="admin-command-backdrop"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="card p-5 max-w-lg w-full bg-surface shadow-2xl rounded-2xl flex flex-col gap-4 max-h-[85vh] overflow-y-auto text-xs">
+      <div ref={dialogRef} className="admin-dialog card p-5 max-w-lg w-full bg-surface shadow-2xl rounded-2xl flex flex-col gap-4 max-h-[85vh] overflow-y-auto text-xs" role="dialog" aria-modal="true" aria-label="Link review identity">
         <div className="flex items-center justify-between border-b border-line pb-3">
           <div>
             <span className="eyebrow text-primary">CRM IDENTITY RESOLVER</span>
