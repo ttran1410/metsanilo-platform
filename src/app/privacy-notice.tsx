@@ -120,27 +120,38 @@ const content = {
 export function PrivacyNotice({ locale }: { locale: Locale }) {
   const notice = content[locale];
   return (
-    <main className="shell py-8">
-      <article className="card mx-auto max-w-3xl">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <main className="storefront min-h-screen py-10 md:py-16" data-theme="forest-harvest">
+      <article className="shell max-w-3xl bg-white border border-[#d8d5cd] rounded-2xl p-6 md:p-12 shadow-sm space-y-8">
+        <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-[#eef2ec]">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[.2em] text-[var(--forest)]">METSÄNILO</div>
-            <h1 className="mt-2 text-3xl font-bold text-[var(--forest)]">{notice.title}</h1>
-            <p className="mt-1 text-sm text-slate-600">{notice.updated}</p>
+            <span className="text-xs font-bold uppercase tracking-[.2em] text-[#1e6b34]">METSÄNILO</span>
+            <h1 className="mt-2 text-3xl md:text-4xl font-serif font-semibold text-[#17201b] tracking-tight">{notice.title}</h1>
+            <p className="mt-1 text-xs text-[#5f6c63] font-medium">{notice.updated}</p>
           </div>
-          <Link className="btn btn-secondary" href={notice.switchHref} hrefLang={locale === "fi" ? "en" : "fi"}>
-            {notice.switchLabel}
+          <Link className="btn btn-secondary rounded-full text-xs font-bold px-4 py-2" href={notice.switchHref} hrefLang={locale === "fi" ? "en" : "fi"}>
+            {notice.switchLabel} <span aria-hidden="true">↗</span>
           </Link>
         </div>
-        <div className="mt-8 grid gap-7">
+
+        <div className="space-y-8 text-sm md:text-base text-[#17201b] leading-relaxed">
           {notice.sections.map((section) => (
-            <section key={section.heading}>
-              <h2 className="text-xl font-bold text-[var(--forest)]">{section.heading}</h2>
-              {section.paragraphs.map((paragraph) => <p className="mt-2 leading-7" key={paragraph}>{paragraph}</p>)}
+            <section key={section.heading} className="space-y-2">
+              <h2 className="text-lg md:text-xl font-serif font-bold text-[#14532d]">{section.heading}</h2>
+              {section.paragraphs.map((paragraph) => (
+                <p className="text-[#3b4740] leading-relaxed" key={paragraph}>{paragraph}</p>
+              ))}
             </section>
           ))}
         </div>
-        <Link className="btn mt-8 inline-flex" href={`/${locale}`}>{notice.back}</Link>
+
+        <div className="pt-6 border-t border-[#eef2ec] flex items-center justify-between">
+          <Link className="btn btn-light border border-[#d8d5cd] rounded-full text-sm font-bold px-6 py-2.5" href={`/${locale}`}>
+            ← {locale === "fi" ? "Etusivulle" : "To home"}
+          </Link>
+          <Link className="btn btn-accent rounded-full text-sm font-bold px-6 py-2.5" href={`/${locale}/reserve`}>
+            {notice.back} →
+          </Link>
+        </div>
       </article>
     </main>
   );

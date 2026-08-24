@@ -166,10 +166,10 @@ export default async function ReservePage({
           >
             <a href={`/${locale}`}>{locale === "fi" ? "Etusivu" : "Home"}</a>
             <a className="nav-link-active" href={`/${locale}/reserve`}>
-              {locale === "fi" ? "Varaa marjat" : "Reserve products"}
+              {locale === "fi" ? "Varaa marjoja" : "Reserve berries"}
             </a>
             <a href={`/${locale}/how-it-works`}>
-              {locale === "fi" ? "Miten varaus toimii" : "How it works"}
+              {locale === "fi" ? "Miten toimii" : "How it works"}
             </a>
             <a href={`/${locale}/reviews`}>
               {locale === "fi" ? "Arvostelut" : "Reviews"}
@@ -290,10 +290,10 @@ export default async function ReservePage({
             >
               <a href={`/${locale}`}>{locale === "fi" ? "Etusivu" : "Home"}</a>
               <a href={`/${locale}/reserve`}>
-                {locale === "fi" ? "Varaa marjat" : "Reserve products"}
+                {locale === "fi" ? "Varaa marjoja" : "Reserve berries"}
               </a>
               <a href={`/${locale}/how-it-works`}>
-                {locale === "fi" ? "Miten varaus toimii" : "How it works"}
+                {locale === "fi" ? "Miten toimii" : "How it works"}
               </a>
               {data.shop.reviewsVisible && (
                 <a href={`/${locale}/reviews`}>

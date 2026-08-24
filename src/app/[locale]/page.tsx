@@ -144,7 +144,7 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
           </Link>
           <nav className="storefront-nav-links" aria-label={locale === "fi" ? "Päävalikko" : "Main navigation"}>
             <Link className="nav-link-active" href={`/${locale}`}>{locale === "fi" ? "Etusivu" : "Home"}</Link>
-            <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link>
+            <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}</Link>
             <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
             {data.shop.reviewsVisible && <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>}
             <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>
@@ -164,13 +164,13 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
 
           <div className="hero-highlights" aria-label={locale === "fi" ? "Tärkeät tiedot" : "Key information"}>
             <span className="highlight-chip"><span>100%</span><strong>{locale === "fi" ? "Kotimaista" : "Finnish"}</strong></span>
-            <span className="highlight-chip"><CalendarDays aria-hidden="true" />{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: <strong>{nextPickupLabel}</strong></span>
-            {nextPickupCapacityLabel && <span className="highlight-chip"><PackageOpen aria-hidden="true" /><strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong> {locale === "fi" ? "jäljellä" : "remaining"}</span>}
+            <span className="highlight-chip highlight-chip-availability"><CalendarDays aria-hidden="true" />{locale === "fi" ? "Seuraava nouto" : "Next pickup"}: <strong>{nextPickupLabel}</strong></span>
+            {nextPickupCapacityLabel && <span className="highlight-chip highlight-chip-availability"><PackageOpen aria-hidden="true" /><strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong> {locale === "fi" ? "jäljellä" : "remaining"}</span>}
             <span className="highlight-chip"><BadgeCheck aria-hidden="true" />{locale === "fi" ? "Maksu noudettaessa tai toimitettaessa" : "Pay at pickup or delivery"}</span>
           </div>
 
           <div className="hero-actions">
-            <Link className="btn btn-light hero-primary-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve products"}<ArrowRight aria-hidden="true" /></Link>
+            <Link className="btn btn-light hero-primary-cta" href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}<ArrowRight aria-hidden="true" /></Link>
             <a className="btn btn-hero-secondary" href="#catalog">{locale === "fi" ? "Katso valikoima" : "Explore harvest"}<ArrowDown aria-hidden="true" /></a>
           </div>
         </div>
@@ -179,6 +179,25 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
           {heroImage ? <Image src={heroImage.url} alt={heroImage.alt || (locale === "fi" ? "Tuoreita puhdistettuja metsämarjoja Satakunnasta" : "Fresh cleaned wild berries from Satakunta")} fill priority unoptimized sizes="(max-width: 960px) 100vw, 48vw" /> : <div className="hero-placeholder"><span>M</span></div>}
           <div className="harvest-seal"><span>{locale === "fi" ? "Kauden" : "Seasonal"}</span><strong>{locale === "fi" ? "SATO" : "HARVEST"}</strong><span>{seasonYear}</span></div>
           <p className="hero-caption">{locale === "fi" ? "Puhdistettu ja valmis pakastettavaksi" : "Cleaned and ready for freezing"}</p>
+          <div className="harvest-band" role="region" aria-label={locale === "fi" ? "Satotilanne" : "Harvest status"}>
+            <div className="harvest-band-edge" aria-hidden="true" />
+            <div className="harvest-band-item">
+              <span>{locale === "fi" ? "Poimittu" : "Harvested"}:</span>
+              <strong>{locale === "fi" ? "Päivittäin Satakunnasta" : "Daily from Satakunta"}</strong>
+            </div>
+            {nextPickupDate && (
+              <div className="harvest-band-item">
+                <span>{locale === "fi" ? "Nouto" : "Pickup"}:</span>
+                <strong>{nextPickupLabel}</strong>
+              </div>
+            )}
+            {nextPickupRemainingMl > 0 && (
+              <div className="harvest-band-item">
+                <span>{locale === "fi" ? "Jäljellä" : "Remaining"}:</span>
+                <strong>{formatLitres(nextPickupRemainingMl, locale)} l</strong>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -253,7 +272,7 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
           <div className="footer-tier-bottom">
             <nav className="footer-inline-nav" aria-label={locale === "fi" ? "Alatunnisteen valikko" : "Footer links"}>
               <Link href={`/${locale}`}>{locale === "fi" ? "Etusivu" : "Home"}</Link>
-              <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjat" : "Reserve products"}</Link>
+              <Link href={`/${locale}/reserve`}>{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}</Link>
               <Link href={`/${locale}/how-it-works`}>{locale === "fi" ? "Miten toimii" : "How it works"}</Link>
               {data.shop.reviewsVisible && <Link href={`/${locale}/reviews`}>{locale === "fi" ? "Arvostelut" : "Reviews"}</Link>}
               <Link href={`/${locale}/about`}>{locale === "fi" ? "Meistä" : "About us"}</Link>

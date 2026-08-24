@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronDown, Mail, MessageSquare, Phone, ShieldCheck } from "lucide-react";
 import { formatDecimal, isLocale, type Locale } from "@/lib/format";
 import { LocaleDocument } from "./locale-document";
 import { ReviewForm } from "./review-form";
@@ -8,18 +9,18 @@ import type { StorefrontThemeKey } from "@/domain/storefront-themes";
 type InfoKind = "how-it-works" | "reviews" | "about";
 
 const navCopy = {
-  fi: { home: "Etusivu", how: "Miten varaus toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjat", contact: "Yhteys" },
-  en: { home: "Home", how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve products", contact: "Contact" },
+  fi: { home: "Etusivu", how: "Miten toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjoja", contact: "Yhteys" },
+  en: { home: "Home", how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve berries", contact: "Contact" },
 } satisfies Record<Locale, Record<string, string>>;
 
 const content = {
   fi: {
-    "how-it-works": { eyebrow: "Näin se toimii", title: "Miten varaus toimii", intro: "Metsänilo yhdistää Satakunnan metsien puhtaan sadon helppoon paikalliseen toimitukseen.", ctaTitle: "Valmis nauttimaan tuoreesta sadosta?", cta: "Tee varaus nyt", steps: [["1", "Valitse marjat ja varaa", "Valitse marja, pakkauskoko ja nouto tai kotiinkuljetus."], ["2", "Saat vahvistusviestin", "Vahvistamme varauksesi WhatsAppilla, tekstiviestillä tai puhelimitse."], ["3", "Poimimme ja puhdistamme", "Oma poimijatiimimme poimii, puhdistaa ja pakkaa marjat saman päivän aikana."], ["4", "Nouda ja maksa", "Nouda sovittuna aikana tai vastaanota toimitus. Maksat vasta kun saat marjat."]] },
+    "how-it-works": { eyebrow: "Näin se toimii", title: "Miten varaus toimii", intro: "Metsänilo yhdistää Satakunnan metsien puhtaan sadon helppoon paikalliseen toimitukseen.", ctaTitle: "Valmis nauttimaan tuoreesta sadosta?", cta: "Varaa marjoja", steps: [["1", "Valitse marjat ja varaa", "Valitse marja, pakkauskoko ja nouto tai kotiinkuljetus."], ["2", "Saat vahvistusviestin", "Vahvistamme varauksesi WhatsAppilla, tekstiviestillä tai puhelimitse."], ["3", "Poimimme ja puhdistamme", "Oma poimijatiimimme poimii, puhdistaa ja pakkaa marjat saman päivän aikana."], ["4", "Nouda ja maksa", "Nouda sovittuna aikana tai vastaanota toimitus. Maksat vasta kun saat marjat."]] },
     reviews: { eyebrow: "Asiakasarvostelut", title: "Mitä asiakkaamme sanovat", intro: "Aito palaute auttaa meitä pitämään sadon ja palvelun hyvänä.", formTitle: "Jaa oma kokemuksesi", formText: "Otamme mielellämme palautetta vastaan. Lähetä meille viesti, niin voimme lisätä kokemuksesi seuraavaan arvostelukokoelmaan.", cta: "Varaa marjoja", reviews: [["Liisa K.", "Aivan mahtavan puhdasta ja makeaa mustikkaa! Pakastimeen meni heti 10 litraa.", "Puhdistettu metsämustikka"], ["Tero M.", "Kotiinkuljetus Porin keskustaan toimi täydellisesti ja marjat olivat ensiluokkaisia.", "Villivadelma"]] },
     about: { eyebrow: "Meidän tarinamme", title: "METSÄNILO — Satakunnan luonto & sato", quote: "METSÄNILO syntyi halusta tuoda Satakunnan metsien tuoreet marjat suoraan pöytään — saman päivän aikana poimittuina ja toimitettuina.", body: "Oma poimijatiimimme lähtee joka päivä Satakunnan metsiin. Poimimme marjat, puhdistamme ja pakkaamme ne huolellisesti ja toimitamme ne saman päivän aikana, jotta tuoreus säilyy matkalla metsästä asiakkaalle.", values: [["100 % kotimainen", "Poimimme marjat Satakunnan lähimetsistä ja toimitamme ne saman päivän aikana."], ["Valmiiksi perattu", "Marjat puhdistetaan ja tarkistetaan käsin lehtien ja roskien poistamiseksi, valmiina tuoreena tai pakkaseen."], ["Rehti ja luotettava", "Hinnat ovat selkeät ja maksat vasta noudon tai toimituksen yhteydessä."]] },
   },
   en: {
-    "how-it-works": { eyebrow: "Simple steps", title: "How ordering works", intro: "METSÄNILO connects fresh forest berries with smooth local delivery in Satakunta.", ctaTitle: "Ready to enjoy fresh wild berries?", cta: "Make a reservation", steps: [["1", "Select berries & reserve", "Choose your berries, package size and pickup or local delivery."], ["2", "Get a confirmation message", "We confirm your reservation by WhatsApp, SMS or phone."], ["3", "Picked and cleaned the same day", "Our own picking team picks, cleans and packs the berries on the same day."], ["4", "Pickup and payment", "Collect your berries or receive delivery. Pay when you receive them."]] },
+    "how-it-works": { eyebrow: "Simple steps", title: "How ordering works", intro: "METSÄNILO connects fresh forest berries with smooth local delivery in Satakunta.", ctaTitle: "Ready to enjoy fresh wild berries?", cta: "Reserve berries", steps: [["1", "Select berries & reserve", "Choose your berries, package size and pickup or local delivery."], ["2", "Get a confirmation message", "We confirm your reservation by WhatsApp, SMS or phone."], ["3", "Picked and cleaned the same day", "Our own picking team picks, cleans and packs the berries on the same day."], ["4", "Pickup and payment", "Collect your berries or receive delivery. Pay when you receive them."]] },
     reviews: { eyebrow: "Customer reviews", title: "What our customers say", intro: "Real feedback helps us keep both the harvest and service at their best.", formTitle: "Share your experience", formText: "We would love to hear from you. Send us a message and we can include your experience in our next review collection.", cta: "Reserve berries", reviews: [["Liisa K.", "Incredibly clean and sweet blueberries. Ten litres went straight into the freezer.", "Cleaned wild blueberries"], ["Tero M.", "Home delivery in central Pori worked perfectly and the berries were excellent.", "Wild raspberries"]] },
     about: { eyebrow: "Our story", title: "METSÄNILO — Satakunnan nature & harvest", quote: "METSÄNILO was born from a desire to bring fresh berries from Satakunta's forests straight to the table — picked and delivered on the very same day.", body: "Our own picking team heads into the forests of Satakunta every day. We pick, carefully clean and pack the berries, then deliver them on the same day so they stay fresh from the forest to your home.", values: [["100% Finnish harvest", "We pick from local forests in Satakunta and deliver on the same day."], ["Ready and cleaned", "Berries are cleaned and hand inspected, ready to enjoy fresh or freeze."], ["Fair and reliable", "Prices are clear and payment is made when you receive your berries."]] },
   },
@@ -94,7 +95,7 @@ export function InfoPage({
             <p>{content[locale]["how-it-works"].intro}</p>
           </section>
           <section className="shell info-trust-banner" aria-label={locale === "fi" ? "Maksutiedot" : "Payment information"}>
-            <span className="trust-badge-icon" aria-hidden="true">🛡️</span>
+            <span className="trust-badge-icon" aria-hidden="true"><ShieldCheck className="w-6 h-6 text-[var(--forest)]" /></span>
             <div className="trust-banner-copy">
               <strong>{locale === "fi" ? "Ei ennakkomaksua" : "No prepayment"}</strong>
               <span>{locale === "fi" ? "Maksat vasta kun saat marjat noudon tai toimituksen yhteydessä." : "You pay when you receive your berries at pickup or delivery."}</span>
@@ -114,14 +115,14 @@ export function InfoPage({
             <details>
               <summary>
                 <span>{locale === "fi" ? "Voinko maksaa käteisellä?" : "Can I pay with cash?"}</span>
-                <span className="faq-icon" aria-hidden="true">↓</span>
+                <span className="faq-icon" aria-hidden="true"><ChevronDown /></span>
               </summary>
               <p>{locale === "fi" ? "Maksutavasta sovitaan noudon tai toimituksen yhteydessä." : "Payment is arranged at pickup or delivery."}</p>
             </details>
             <details>
               <summary>
                 <span>{locale === "fi" ? "Mitä jos sää muuttaa poimintaa?" : "What if weather changes the harvest?"}</span>
-                <span className="faq-icon" aria-hidden="true">↓</span>
+                <span className="faq-icon" aria-hidden="true"><ChevronDown /></span>
               </summary>
               <p>{locale === "fi" ? "Ilmoitamme mahdollisesta päivämäärän muutoksesta viestillä." : "We will message you if the fulfillment date needs to change."}</p>
             </details>
@@ -198,22 +199,26 @@ export function InfoPage({
             <div className="info-contact-actions">
               {whatsappNumber && (
                 <a className="btn btn-secondary" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">
-                  WhatsApp
+                  <MessageSquare className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                  <span>WhatsApp</span>
                 </a>
               )}
               {contactPhone && (
                 <>
                   <a className="btn btn-secondary" href={`sms:${contactPhone}`}>
-                    {locale === "fi" ? "Lähetä tekstiviesti" : "Send SMS"}
+                    <MessageSquare className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                    <span>{locale === "fi" ? "Lähetä tekstiviesti" : "Send SMS"}</span>
                   </a>
                   <a className="btn btn-secondary" href={`tel:${contactPhone}`}>
-                    {locale === "fi" ? "Soita meille" : "Call us"}
+                    <Phone className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                    <span>{locale === "fi" ? "Soita meille" : "Call us"}</span>
                   </a>
                 </>
               )}
               {contactEmail && (
                 <a className="text-link" href={`mailto:${contactEmail}`}>
-                  {contactEmail}
+                  <Mail className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                  <span>{contactEmail}</span>
                 </a>
               )}
             </div>
@@ -230,12 +235,12 @@ export function InfoPage({
             <div className="footer-contact-links">
               {contactPhone && (
                 <a className="footer-contact-item" href={`tel:${contactPhone}`}>
-                  <span>📞</span> {contactPhone}
+                  <Phone aria-hidden="true" /> {contactPhone}
                 </a>
               )}
               {contactEmail && (
                 <a className="footer-contact-item" href={`mailto:${contactEmail}`}>
-                  <span>✉️</span> {contactEmail}
+                  <Mail aria-hidden="true" /> {contactEmail}
                 </a>
               )}
             </div>

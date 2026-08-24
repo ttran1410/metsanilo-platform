@@ -177,18 +177,54 @@ export function OrderForm({
 
   if (receipt) {
     return (
-      <section className="card success mt-6" aria-live="polite">
-        <h3 className="text-2xl font-bold">{t.success}</h3>
-        <p className="mt-3"><strong>{t.reference}:</strong> {receipt.publicReference}</p>
-        <p className="mt-2">{receipt.productName} — {receipt.packageLabel} ({formatLitres(receipt.volumeMl, locale)} l), {formatStorefrontDate(receipt.fulfillmentDate, locale)}</p>
-        <p className="mt-3 font-bold">{t.pending}</p>
+      <section className="p-6 md:p-10 rounded-2xl bg-[var(--store-surface)] border border-[var(--store-primary-soft-strong)] shadow-md my-8 space-y-6 animate-in fade-in" aria-live="polite">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[var(--store-primary-soft)] border border-[var(--store-primary-soft-strong)] flex items-center justify-center text-[var(--forest)]">
+            <Check className="w-5 h-5 stroke-[2.5]" />
+          </div>
+          <div>
+            <span className="text-xs font-extrabold uppercase tracking-widest text-[var(--moss)]">{locale === "fi" ? "Kiitos varauksesta" : "Thank you"}</span>
+            <h2 className="text-2xl md:text-3xl font-serif font-semibold text-[var(--store-ink)] tracking-tight">{t.success}</h2>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-[var(--store-surface-muted)] border border-[var(--store-line)] flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span className="text-xs text-[var(--store-muted)] uppercase tracking-wider block font-bold">{t.reference}</span>
+            <strong className="text-xl md:text-2xl font-mono text-[var(--forest)] tracking-wide">{receipt.publicReference}</strong>
+          </div>
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[var(--store-primary-soft)] text-[var(--forest)] border border-[var(--store-primary-soft-strong)]">
+            {locale === "fi" ? "Odottaa vahvistusta" : "Pending confirmation"}
+          </span>
+        </div>
+
+        <div className="space-y-2 text-sm text-[var(--store-ink)]">
+          <p className="font-semibold text-base">
+            {receipt.productName} — {receipt.packageLabel} ({formatLitres(receipt.volumeMl, locale)} l)
+          </p>
+          <p className="text-[var(--store-muted)]">
+            {locale === "fi" ? "Toimituspäivä" : "Fulfillment date"}: <strong className="text-[var(--store-ink)]">{formatStorefrontDate(receipt.fulfillmentDate, locale)}</strong>
+          </p>
+        </div>
+
+        <div className="p-4 rounded-xl bg-[var(--store-primary-soft)] border border-[var(--store-primary-soft-strong)] text-sm leading-relaxed text-[var(--store-ink)]">
+          <strong className="block mb-1 text-[var(--forest)]">{locale === "fi" ? "Mitä tapahtuu seuraavaksi?" : "What happens next?"}</strong>
+          <p>{t.pending}</p>
+        </div>
+
         {receipt.pickup ? (
-          <div className="mt-4 rounded-lg bg-white p-4">
-            <h4 className="font-bold">{t.pickupDetails}</h4>
-            <p>{receipt.pickup.name}<br />{receipt.pickup.address}<br />{receipt.pickup.instructions}<br />{receipt.pickup.time}</p>
+          <div className="p-4 rounded-xl bg-[var(--store-surface)] border border-[var(--store-line)] space-y-1 text-sm">
+            <h3 className="font-bold text-[var(--forest)]">{t.pickupDetails}</h3>
+            <p className="font-medium text-[var(--store-ink)]">{receipt.pickup.name}</p>
+            <p className="text-[var(--store-muted)] whitespace-pre-line">{receipt.pickup.address}</p>
+            <p className="text-[var(--store-muted)]">{receipt.pickup.instructions}</p>
+            <p className="text-[var(--store-muted)] font-semibold">{receipt.pickup.time}</p>
           </div>
         ) : (
-          <div className="mt-4"><strong>{t.deliveryPending}</strong><br />{receipt.delivery?.streetAddress}, {receipt.delivery?.postalCode} {receipt.delivery?.city}</div>
+          <div className="p-4 rounded-xl bg-[var(--store-surface)] border border-[var(--store-line)] space-y-1 text-sm">
+            <strong className="text-[var(--forest)]">{t.deliveryPending}</strong>
+            <p className="text-[var(--store-muted)]">{receipt.delivery?.streetAddress}, {receipt.delivery?.postalCode} {receipt.delivery?.city}</p>
+          </div>
         )}
       </section>
     );
@@ -207,8 +243,8 @@ export function OrderForm({
         <fieldset className="form-step">
         <legend><span>01</span> {locale === "fi" ? "Valitse marja ja pakkaus" : "Choose berries and package"}</legend>
         <div className="form-field">
-        <div className="selection-label">{locale === "fi" ? "Tuote" : "Product"}</div>
-        <div className={`reserve-product-grid${fieldErrors.productId ? " field-invalid" : ""}`} data-field="productId" aria-invalid={Boolean(fieldErrors.productId)} aria-describedby={fieldErrors.productId ? "productId-error" : undefined}>
+        <div className="selection-label" id="product-selection-label">{locale === "fi" ? "Tuote" : "Product"}</div>
+        <div className={`reserve-product-grid${fieldErrors.productId ? " field-invalid" : ""}`} role="radiogroup" aria-labelledby="product-selection-label" data-field="productId" aria-invalid={Boolean(fieldErrors.productId)} aria-describedby={fieldErrors.productId ? "productId-error" : undefined}>
           {products.map((item) => {
             const available = item.packages.some((pkg) => item.dates.some((dateItem) => dateItem.acceptsOrders && !dateItem.soldOut && dateItem.remainingMl >= pkg.volumeMl));
             return <label className={`reserve-product-card${item.id === productId ? " selected" : ""}${available ? "" : " unavailable"}`} key={item.id}><input type="radio" name="productId" value={item.id} checked={item.id === productId} onChange={() => changeProduct(item.id)} disabled={!available} required aria-describedby={fieldErrors.productId ? "productId-error" : undefined} /><span className="reserve-product-image">{item.media[0] ? <img src={item.media[0].url} alt="" /> : <span aria-hidden="true">M</span>}</span><span className="reserve-product-card-copy"><strong>{item.name}</strong><small className="whitespace-pre-line">{item.description?.trim() || (locale === "fi" ? "Satakunnan kauden sato" : "Seasonal harvest from Satakunta")}</small></span><span className={`availability-badge reserve-product-status${available ? "" : " unavailable"}`}>{available ? (locale === "fi" ? "Saatavilla" : "Available") : (locale === "fi" ? "Ei saatavilla" : "Unavailable")}</span><span className="selection-check" aria-hidden="true"><Check /></span></label>;
@@ -218,8 +254,8 @@ export function OrderForm({
         <CustomerFieldError field="productId" error={fieldErrors.productId} />
         </div>
         <div className="form-field">
-        <div className="selection-label">{t.package}</div>
-        <div className={`selection-grid package-selection${fieldErrors.packageId ? " field-invalid" : ""}`} data-field="packageId" aria-invalid={Boolean(fieldErrors.packageId)} aria-describedby={fieldErrors.packageId ? "packageId-error" : undefined}>
+        <div className="selection-label" id="package-selection-label">{t.package}</div>
+        <div className={`selection-grid package-selection${fieldErrors.packageId ? " field-invalid" : ""}`} role="radiogroup" aria-labelledby="package-selection-label" data-field="packageId" aria-invalid={Boolean(fieldErrors.packageId)} aria-describedby={fieldErrors.packageId ? "packageId-error" : undefined}>
           {product?.packages.map((item) => {
             const litres = item.volumeMl / 1000;
             const unitPriceCents = litres > 0 ? Math.round(item.priceCents / litres) : item.priceCents;

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { ArrowRight, Mail, Phone } from "lucide-react";
 import { db } from "@/db/client";
 import { getPublicCatalog } from "@/domain/availability";
 import { getReviewRollup, getReviewsVisibility, listPublishedReviews } from "@/domain/reviews";
@@ -12,8 +13,8 @@ import { resolveStorefrontTheme } from "@/domain/storefront-themes";
 export const dynamic = "force-dynamic";
 
 const navCopy = {
-  fi: { home: "Etusivu", how: "Miten varaus toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjat", contact: "Yhteys" },
-  en: { home: "Home", how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve products", contact: "Contact" },
+  fi: { home: "Etusivu", how: "Miten toimii", reviews: "Arvostelut", about: "Meistä", reserve: "Varaa marjoja", contact: "Yhteys" },
+  en: { home: "Home", how: "How it works", reviews: "Reviews", about: "About us", reserve: "Reserve berries", contact: "Contact" },
 };
 
 export default async function ReviewsPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -71,29 +72,42 @@ export default async function ReviewsPage({ params }: { params: Promise<{ locale
 
       {/* Footer */}
       <footer className="storefront-footer mt-16">
-        <div className="shell footer-grid">
-          <div>
-            <strong>METSÄNILO</strong>
-            <p>
-              {locale === "fi"
-                ? `Satakunnan metsästä pöytään · Kausi ${new Date().getFullYear()}`
-                : `From Satakunta forest to table · Season ${new Date().getFullYear()}`}
-            </p>
+        <div className="shell">
+          <div className="footer-tier-top">
+            <div className="footer-brand-summary">
+              <strong>METSÄNILO</strong>
+              <p>{locale === "fi" ? `Satakunnan metsästä pöytään · Kausi ${new Date().getFullYear()}` : `From Satakunta forest to table · Season ${new Date().getFullYear()}`}</p>
+            </div>
+            <div className="footer-contact-links">
+              {data?.shop.contactPhone && (
+                <a className="footer-contact-item" href={`tel:${data.shop.contactPhone}`}>
+                  <Phone aria-hidden="true" /> {data.shop.contactPhone}
+                </a>
+              )}
+              {data?.shop.contactEmail && (
+                <a className="footer-contact-item" href={`mailto:${data.shop.contactEmail}`}>
+                  <Mail aria-hidden="true" /> {data.shop.contactEmail}
+                </a>
+              )}
+            </div>
           </div>
-          <div>
-            <span>{locale === "fi" ? "Tutustu" : "Explore"}</span>
-            <Link href={`/${locale}/reserve`}>{nav.reserve}</Link>
-            <Link href={`/${locale}/how-it-works`}>{nav.how}</Link>
-            <Link href={`/${locale}/reviews`}>{nav.reviews}</Link>
-            <Link href={`/${locale}/about`}>{nav.about}</Link>
-          </div>
-          <div>
-            <span>{nav.contact}</span>
-            {data?.shop.contactPhone && <a href={`tel:${data.shop.contactPhone}`}>{data.shop.contactPhone}</a>}
-            {data?.shop.contactEmail && <a href={`mailto:${data.shop.contactEmail}`}>{data.shop.contactEmail}</a>}
+
+          <div className="footer-tier-bottom">
+            <nav className="footer-inline-nav" aria-label={locale === "fi" ? "Alatunnisteen valikko" : "Footer links"}>
+              <Link href={`/${locale}`}>{nav.home}</Link>
+              <Link href={`/${locale}/reserve`}>{nav.reserve}</Link>
+              <Link href={`/${locale}/how-it-works`}>{nav.how}</Link>
+              <Link href={`/${locale}/reviews`}>{nav.reviews}</Link>
+              <Link href={`/${locale}/about`}>{nav.about}</Link>
+              <Link href={locale === "fi" ? "/fi/tietosuoja" : "/en/privacy"}>{locale === "fi" ? "Tietosuojaseloste" : "Privacy notice"}</Link>
+            </nav>
+            <span className="footer-copy-note">© {new Date().getFullYear()} METSÄNILO</span>
           </div>
         </div>
       </footer>
+      <Link className="mobile-reserve-cta" href={`/${locale}/reserve`}>
+        {nav.reserve}<ArrowRight aria-hidden="true" />
+      </Link>
     </main>
   );
 }

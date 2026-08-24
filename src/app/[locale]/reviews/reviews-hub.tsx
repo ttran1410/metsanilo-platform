@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PenLine, Star } from "lucide-react";
 import { formatDecimal, formatStorefrontDate, type Locale } from "@/lib/format";
 import { ReviewModal } from "./review-modal";
 
@@ -38,40 +39,40 @@ export function ReviewsHub({
       eyebrow: "ASIAKASKOKEMUKSET",
       title: "Aitoja kokemuksia Satakunnan tuoreista metsämarjoista.",
       scoreSubtitle: "Vahvistettua asiakasarvostelua • 100% Suosittelee",
-      writeBtn: "✍️ Kirjoita arvostelu",
+      writeBtn: "Kirjoita arvostelu",
       all: "Kaikki",
       stars: "tähteä",
-      blueberry: "🫐 Mustikka",
-      lingonberry: "🔴 Puolukka",
+      blueberry: "Mustikka",
+      lingonberry: "Puolukka",
       sortNewest: "Uusimmat ensin",
       sortHighest: "Korkein arvio",
       sortLabel: "Järjestä:",
-      verifiedOrder: "✓ Vahvistettu tilaus",
-      verifiedCustomer: "✓ Vahvistettu asiakas",
+      verifiedOrder: "Vahvistettu tilaus",
+      verifiedCustomer: "Vahvistettu asiakas",
       publicReview: "Julkinen arvostelu",
-      sellerReplyTitle: "↳ 🌲 Vastaus myyjältä (Metsänilo):",
+      sellerReplyTitle: "Vastaus myyjältä (Metsänilo):",
       noReviews: "Ei arvosteluja valitulla suodattimella.",
-      loadMore: "💬 Lataa lisää arvosteluja",
+      loadMore: "Lataa lisää arvosteluja",
       showingCount: (visible: number, total: number) => `Näytetään ${Math.min(visible, total)} / ${total} arvostelusta`,
     },
     en: {
       eyebrow: "CUSTOMER EXPERIENCES",
       title: "Genuine reviews from Satakunta fresh forest berries.",
       scoreSubtitle: "Verified customer reviews • 100% Recommended",
-      writeBtn: "✍️ Write a Review",
+      writeBtn: "Write a Review",
       all: "All",
       stars: "stars",
-      blueberry: "🫐 Blueberry",
-      lingonberry: "🔴 Lingonberry",
-      sortNewest: "Newest First",
-      sortHighest: "Highest Rating",
-      sortLabel: "Sort:",
-      verifiedOrder: "✓ Verified Order",
-      verifiedCustomer: "✓ Verified Customer",
-      publicReview: "Public Review",
-      sellerReplyTitle: "↳ 🌲 Seller Reply (Metsänilo):",
-      noReviews: "No reviews found for selected filter.",
-      loadMore: "💬 Load More Reviews",
+      blueberry: "Blueberry",
+      lingonberry: "Lingonberry",
+      sortNewest: "Newest first",
+      sortHighest: "Highest rated",
+      sortLabel: "Sort by:",
+      verifiedOrder: "Verified order",
+      verifiedCustomer: "Verified customer",
+      publicReview: "Public review",
+      sellerReplyTitle: "Seller reply (Metsänilo):",
+      noReviews: "No reviews found matching the filter.",
+      loadMore: "Load more reviews",
       showingCount: (visible: number, total: number) => `Showing ${Math.min(visible, total)} of ${total} reviews`,
     },
   }[locale];
@@ -97,25 +98,26 @@ export function ReviewsHub({
   return (
     <div className="space-y-8">
       {/* 1. Rating Summary & Scorecard */}
-      <section className="p-6 md:p-8 rounded-2xl bg-white border border-[#E7E2D7] shadow-sm grid gap-6 md:grid-cols-12 items-center">
-        <div className="md:col-span-5 space-y-3 text-center md:text-left border-b md:border-b-0 md:border-r border-[#EFEBE4] pb-6 md:pb-0 md:pr-6">
-          <div className="inline-block px-3 py-1 bg-[#F5F0E6] text-[#635A4B] text-xs font-extrabold uppercase tracking-wider rounded-full">
+      <section className="p-6 md:p-8 rounded-2xl bg-[var(--store-surface)] border border-[var(--store-line)] shadow-sm grid gap-6 md:grid-cols-12 items-center">
+        <div className="md:col-span-5 space-y-3 text-center md:text-left border-b md:border-b-0 md:border-r border-[var(--store-line)] pb-6 md:pb-0 md:pr-6">
+          <div className="inline-block px-3 py-1 bg-[var(--store-surface-muted)] text-[var(--store-ink)] text-xs font-extrabold uppercase tracking-wider rounded-full">
             {copy.eyebrow}
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-[#2C261E]">{copy.title}</h1>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-[var(--store-ink)]">{copy.title}</h1>
           <div className="flex items-center justify-center md:justify-start gap-2">
-            <span className="text-3xl font-extrabold text-[#1E6B34]">{formatDecimal(avgRating, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
-            <span className="text-[#8C8375] font-semibold text-lg">/ {formatDecimal(5, locale, { minimumFractionDigits: 1 })}</span>
-            <span className="text-amber-500 text-xl ml-1">⭐⭐⭐⭐⭐</span>
+            <span className="text-3xl font-extrabold text-[var(--forest)]">{formatDecimal(avgRating, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
+            <span className="muted font-semibold text-lg">/ {formatDecimal(5, locale, { minimumFractionDigits: 1 })}</span>
+            <span className="inline-flex text-amber-500 ml-1" aria-hidden="true">{Array.from({ length: 5 }, (_, index) => <Star key={index} className="w-4 h-4 fill-current" />)}</span>
           </div>
-          <p className="text-xs text-[#6E6658] font-medium">
+          <p className="text-xs muted font-medium">
             {totalReviewsCount} {copy.scoreSubtitle}
           </p>
           <button
             type="button"
-            className="btn bg-[#1E6B34] hover:bg-[#144A23] text-white font-extrabold text-sm px-5 py-2.5 rounded-xl shadow-xs transition-all mt-2"
+            className="btn btn-accent text-white font-extrabold text-sm px-5 py-2.5 rounded-full shadow-xs transition-all mt-2 flex items-center justify-center md:justify-start gap-2 cursor-pointer"
             onClick={() => setIsModalOpen(true)}
           >
+            <PenLine className="w-4 h-4" />
             {copy.writeBtn}
           </button>
         </div>
@@ -127,14 +129,14 @@ export function ReviewsHub({
             const pct = totalReviewsCount > 0 ? Math.round((count / totalReviewsCount) * 100) : 0;
             return (
               <div key={star} className="flex items-center text-xs gap-3">
-                <span className="w-12 font-bold text-[#3B342A]">{star} ★</span>
-                <div className="flex-1 h-3 bg-[#F2ECE1] rounded-full overflow-hidden">
+                <span className="w-12 font-bold text-[var(--store-ink)]">{star} ★</span>
+                <div className="flex-1 h-3 bg-[var(--store-surface-muted)] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-amber-400 rounded-full transition-all duration-500"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <span className="w-12 text-right font-mono font-semibold text-[#6E6658]">
+                <span className="w-12 text-right font-mono font-semibold muted ops-tabular">
                   {pct}% ({count})
                 </span>
               </div>
@@ -144,12 +146,12 @@ export function ReviewsHub({
       </section>
 
       {/* 2. Filter & Sort Bar */}
-      <section className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-[#FAF6F0] border border-[#E8E3D8]">
+      <section className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-[var(--store-surface-muted)] border border-[var(--store-line)]">
         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
           <button
             type="button"
-            className={`px-3 py-1.5 rounded-lg transition ${
-              starFilter === "all" ? "bg-[#2C261E] text-white" : "bg-white text-[#5C5446] border border-[#DCD6C9]"
+            className={`px-3.5 py-1.5 rounded-full transition ${
+              starFilter === "all" ? "bg-[var(--forest)] text-white" : "bg-[var(--store-surface)] text-[var(--store-ink)] border border-[var(--store-line)]"
             }`}
             onClick={() => setStarFilter("all")}
           >
@@ -160,8 +162,8 @@ export function ReviewsHub({
             <button
               key={star}
               type="button"
-              className={`px-3 py-1.5 rounded-lg transition ${
-                starFilter === star ? "bg-[#2C261E] text-white" : "bg-white text-[#5C5446] border border-[#DCD6C9]"
+              className={`px-3.5 py-1.5 rounded-full transition ${
+                starFilter === star ? "bg-[var(--forest)] text-white" : "bg-[var(--store-surface)] text-[var(--store-ink)] border border-[var(--store-line)]"
               }`}
               onClick={() => setStarFilter(star)}
             >
@@ -171,9 +173,9 @@ export function ReviewsHub({
         </div>
 
         <div className="flex items-center gap-2 text-xs font-semibold">
-          <label className="text-[#6E6658]">{copy.sortLabel}</label>
+          <label className="muted">{copy.sortLabel}</label>
           <select
-            className="bg-white border border-[#DCD6C9] rounded-lg px-3 py-1.5 text-xs text-[#2C261E]"
+            className="bg-[var(--store-surface)] border border-[var(--store-line)] rounded-lg px-3 py-1.5 text-xs text-[var(--store-ink)] cursor-pointer"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value === "highest" ? "highest" : "newest")}
           >
@@ -186,7 +188,7 @@ export function ReviewsHub({
       {/* 3. Reviews Feed */}
       <section className="space-y-4">
         {sorted.length === 0 && (
-          <div className="p-8 text-center text-xs font-medium text-[#7C7364] bg-white rounded-xl border border-[#E7E2D7]">
+          <div className="p-8 text-center text-xs font-medium muted bg-[var(--store-surface)] rounded-xl border border-[var(--store-line)]">
             {copy.noReviews}
           </div>
         )}
@@ -194,41 +196,41 @@ export function ReviewsHub({
         {visibleReviews.map((review) => (
           <article
             key={review.id}
-            className="p-6 rounded-2xl bg-white border border-[#E7E2D7] shadow-xs space-y-3"
+            className="p-6 rounded-2xl bg-[var(--store-surface)] border border-[var(--store-line)] shadow-xs space-y-3"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F2ECE1] pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--store-line)] pb-3">
               <div className="flex items-center gap-2">
                 <span className="text-amber-500 text-sm font-bold">
                   {"★".repeat(review.rating)}
                   {"☆".repeat(5 - review.rating)}
                 </span>
-                <span className="font-extrabold text-[#2C261E] text-base">{review.displayName}</span>
+                <span className="font-extrabold text-[var(--store-ink)] text-base">{review.displayName}</span>
 
                 {review.verifiedBuyer ? (
-                  <span className="bg-[#EAF5EC] text-[#1E6B34] text-xs font-semibold px-2.5 py-0.5 rounded-full border border-[#C5E5CC]">
+                  <span className="bg-[var(--store-surface-muted)] text-[var(--forest)] text-xs font-semibold px-2.5 py-0.5 rounded-full border border-[var(--store-line)]">
                     {copy.verifiedOrder}
                   </span>
                 ) : (
-                  <span className="bg-[#F5F0E6] text-[#6E6658] text-xs font-medium px-2 py-0.5 rounded">
+                  <span className="bg-[var(--store-surface-muted)] muted text-xs font-medium px-2 py-0.5 rounded">
                     {copy.publicReview}
                   </span>
                 )}
               </div>
 
-              <span className="text-xs text-[#8C8375] font-medium">
+              <span className="text-xs muted font-medium ops-tabular">
                  {formatStorefrontDate(review.createdAt, locale)}
               </span>
             </div>
 
-            <p className="text-sm text-[#383228] leading-relaxed">
+            <p className="text-sm text-[var(--store-ink)] leading-relaxed">
               &quot;{review.displayText}&quot;
             </p>
 
             {/* Seller Reply */}
             {review.sellerReplyText && (
-              <div className="mt-3 p-4 rounded-xl bg-[#F4F9F5] border border-[#D1EADB] text-xs space-y-1">
-                <p className="font-extrabold text-[#1E6B34]">{copy.sellerReplyTitle}</p>
-                <p className="text-[#24452C] font-medium italic">&quot;{review.sellerReplyText}&quot;</p>
+              <div className="mt-3 p-4 rounded-xl bg-[var(--store-surface-muted)] border border-[var(--store-line)] text-xs space-y-1">
+                <p className="font-extrabold text-[var(--forest)]">{copy.sellerReplyTitle}</p>
+                <p className="text-[var(--store-ink)] font-medium italic">&quot;{review.sellerReplyText}&quot;</p>
               </div>
             )}
           </article>
@@ -236,12 +238,12 @@ export function ReviewsHub({
 
         {sorted.length > visibleCount && (
           <div className="pt-4 text-center space-y-2">
-            <p className="text-xs font-semibold text-[#8C8375]">
+            <p className="text-xs font-semibold muted ops-tabular">
               {copy.showingCount(visibleCount, sorted.length)}
             </p>
             <button
               type="button"
-              className="btn bg-[#1E6B34] hover:bg-[#144A23] text-white font-extrabold text-xs px-6 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer"
+              className="btn btn-accent text-white font-extrabold text-xs px-6 py-2.5 rounded-full shadow-xs transition-all cursor-pointer"
               onClick={() => setVisibleCount((prev) => prev + 10)}
             >
               {copy.loadMore}

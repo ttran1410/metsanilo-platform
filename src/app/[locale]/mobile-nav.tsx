@@ -3,8 +3,8 @@ import { Menu } from "lucide-react";
 import type { Locale } from "@/lib/format";
 
 const labels = {
-  fi: { menu: "Valikko", home: "Etusivu", reserve: "Varaa tuotteet", how: "Miten toimii", reviews: "Arvostelut", about: "Meistä" },
-  en: { menu: "Menu", home: "Home", reserve: "Reserve products", how: "How it works", reviews: "Reviews", about: "About us" },
+  fi: { menu: "Valikko", home: "Etusivu", reserve: "Varaa marjoja", how: "Miten toimii", reviews: "Arvostelut", about: "Meistä" },
+  en: { menu: "Menu", home: "Home", reserve: "Reserve berries", how: "How it works", reviews: "Reviews", about: "About us" },
 } satisfies Record<Locale, Record<string, string>>;
 
 export function MobileNav({

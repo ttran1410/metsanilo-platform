@@ -5,7 +5,13 @@ import { auditEntries, shops, storefrontThemeVersions } from "@/db/schema";
 import { DomainError } from "./errors";
 import { env } from "@/lib/env";
 
-export const STOREFRONT_THEME_KEYS = ["forest-harvest", "nordic-ink", "berry-season"] as const;
+export const STOREFRONT_THEME_KEYS = [
+  "forest-harvest",
+  "nordic-ink",
+  "berry-season",
+  "arctic-mist",
+  "midnight-spruce",
+] as const;
 export type StorefrontThemeKey = (typeof STOREFRONT_THEME_KEYS)[number];
 
 export function isStorefrontThemeKey(value: unknown): value is StorefrontThemeKey {

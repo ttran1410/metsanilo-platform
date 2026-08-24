@@ -54,10 +54,16 @@ export default function StorefrontNotFound() {
           </p>
         </div>
 
-        <div className="pt-3 w-full border-t border-line">
+        <div className="pt-3 w-full border-t border-line flex flex-col gap-2">
+          <Link
+            href={`/${locale}/reserve`}
+            className="btn w-full text-xs font-bold py-3 px-6 rounded-xl shadow-sm text-center flex items-center justify-center gap-2"
+          >
+            <span>{locale === "fi" ? "Varaa marjoja" : "Reserve berries"}</span>
+          </Link>
           <Link
             href={`/${locale}`}
-            className="btn w-full text-xs font-bold py-3 px-6 rounded-xl shadow-sm text-center flex items-center justify-center gap-2"
+            className="btn btn-secondary w-full text-xs font-bold py-3 px-6 rounded-xl text-center flex items-center justify-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>{copy.home}</span>
