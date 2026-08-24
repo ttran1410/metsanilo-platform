@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, ExternalLink, History, Palette, RotateCcw, Trash2 } from "lucide-react";
-import { AdminNotice } from "./presentation";
+import { AdminConfirmDialog, AdminNotice } from "./presentation";
 import type { StorefrontThemeKey } from "@/domain/storefront-themes";
 
 type ThemeVersion = {
@@ -77,6 +77,7 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
   const [busy, setBusy] = useState<"load" | "draft" | "publish" | "discard" | "rollback" | null>("load");
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState<"success" | "error">("success");
+  const [confirmation, setConfirmation] = useState<{ kind: "publish" | "rollback"; version?: ThemeVersion } | null>(null);
 
   const selectedTheme = state?.draft?.themeKey ?? state?.publishedTheme ?? "forest-harvest";
   const selectedDefinition = useMemo(
@@ -132,7 +133,6 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
 
   async function publishDraft() {
     if (!state?.draft || !canManageTheme || busy) return;
-    if (!window.confirm(`Publish ${themeName(state.draft.themeKey)} to the customer storefront?`)) return;
     try {
       setBusy("publish");
       const next = await request("/api/admin/storefront-theme", {
@@ -171,7 +171,6 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
 
   async function restoreVersion(version: ThemeVersion) {
     if (!canManageTheme || busy) return;
-    if (!window.confirm(`Restore ${themeName(version.themeKey)} from version ${version.version}? This publishes a new version.`)) return;
     try {
       setBusy("rollback");
       const next = await request("/api/admin/storefront-theme", {
@@ -188,6 +187,24 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
     } finally {
       setBusy(null);
     }
+  }
+
+  function requestPublish() {
+    if (!state?.draft || !canManageTheme || busy) return;
+    setConfirmation({ kind: "publish" });
+  }
+
+  function requestRestore(version: ThemeVersion) {
+    if (!canManageTheme || busy) return;
+    setConfirmation({ kind: "rollback", version });
+  }
+
+  async function confirmThemeAction() {
+    const action = confirmation;
+    setConfirmation(null);
+    if (!action) return;
+    if (action.kind === "publish") await publishDraft();
+    else if (action.version) await restoreVersion(action.version);
   }
 
   if (!state && busy === "load") {
@@ -287,7 +304,7 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
                 <button type="button" className="btn btn-secondary" disabled={Boolean(busy)} onClick={() => void discardDraft()}>
                   <Trash2 aria-hidden="true" /> Discard
                 </button>
-                <button type="button" className="btn" disabled={Boolean(busy)} onClick={() => void publishDraft()}>
+                <button type="button" className="btn" disabled={Boolean(busy)} onClick={requestPublish}>
                   {busy === "publish" ? "Publishing…" : "Publish theme"}
                 </button>
               </div>
@@ -308,7 +325,7 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
                 <div><strong>Version {version.version} · {themeName(version.themeKey)}</strong><span>{formatPublishedAt(version.publishedAt)}{version.publishedBy ? ` · ${version.publishedBy}` : ""}</span></div>
                 <span className={`admin-status-badge ${version.status === "PUBLISHED" ? "admin-status-success" : "admin-status-neutral"}`}>{version.status === "PUBLISHED" ? "Published" : "Previous"}</span>
                 {version.status === "SUPERSEDED" && canManageTheme && (
-                  <button type="button" className="btn btn-secondary" disabled={Boolean(busy)} onClick={() => void restoreVersion(version)}>
+                  <button type="button" className="btn btn-secondary" disabled={Boolean(busy)} onClick={() => requestRestore(version)}>
                     <RotateCcw aria-hidden="true" /> Restore
                   </button>
                 )}
@@ -319,6 +336,16 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
           <p className="theme-history-empty">The first publication will appear here.</p>
         )}
       </section>
+
+      <AdminConfirmDialog
+        open={confirmation !== null}
+        eyebrow={confirmation?.kind === "rollback" ? "Restore theme" : "Publish theme"}
+        title={confirmation?.kind === "rollback" ? `Restore ${confirmation.version ? themeName(confirmation.version.themeKey) : "theme"}?` : `Publish ${state.draft ? themeName(state.draft.themeKey) : "this theme"}?`}
+        description={confirmation?.kind === "rollback" ? `Version ${confirmation.version?.version} will be published as a new live version.` : "This changes the customer-facing storefront immediately."}
+        confirmLabel={confirmation?.kind === "rollback" ? "Restore and publish" : "Publish theme"}
+        onCancel={() => setConfirmation(null)}
+        onConfirm={confirmThemeAction}
+      />
     </div>
   );
 }
