@@ -689,7 +689,10 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .detail-form .field { flex: 1 1 10rem; }
 .btn-danger { background: var(--berry); }
 .admin-dialog-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgb(15 23 42 / 52%); padding: 1rem; }
-.admin-dialog { width: min(100%, 32rem); max-width: 32rem; padding: 1.5rem; }
+.admin-dialog { width: min(100%, 32rem); max-width: 32rem; max-height: calc(100dvh - 2rem); overflow-y: auto; overscroll-behavior: contain; padding: 1.5rem; }
+.admin-dialog :is(button, a, input, select, textarea):focus-visible { outline: 3px solid var(--admin-focus, var(--focus)); outline-offset: 3px; }
+.admin-dialog > header, .admin-dialog > .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.admin-dialog > footer, .admin-dialog > .modal-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .65rem; margin-top: 1rem; }
 .admin-dialog h2 { margin: .45rem 0 .65rem; color: var(--admin-ink, var(--ink)); font-size: 1.35rem; line-height: 1.2; }
 .admin-dialog > p:not(.eyebrow) { margin: 0; color: var(--admin-ink-muted, var(--muted)); line-height: 1.5; }
 .admin-dialog .profile-actions { display: flex; justify-content: flex-end; gap: .65rem; margin-top: 1.5rem; }
@@ -1448,6 +1451,8 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
   .admin-app { --form-control-min-height: var(--ops-control-height-mobile); --form-control-padding-block: .65rem; }
   .admin-app .shell { width: min(100% - 1.25rem, 76rem); }
   .admin-app .btn { min-height: 3rem; }
+  .admin-dialog-backdrop { align-items: end; padding: .5rem; }
+  .admin-dialog { width: 100%; max-height: calc(100dvh - 1rem); border-radius: 1rem 1rem .75rem .75rem; padding: 1.15rem; }
   .admin-shell-header { padding-inline: .7rem; }
   .admin-brand small { display: none; }
   .admin-brand strong { font-size: .78rem; }
