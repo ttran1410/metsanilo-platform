@@ -89,7 +89,7 @@ export function AdminConfirmDialog({ open, title, description, confirmLabel = "C
 export function useAdminDialogFocus<T extends HTMLElement = HTMLDivElement>(open: boolean, onClose: () => void) {
   const dialogRef = useRef<T>(null);
   const closeRef = useRef(onClose);
-  closeRef.current = onClose;
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
