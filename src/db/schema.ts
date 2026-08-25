@@ -350,6 +350,7 @@ export const availability = sqliteTable(
     capacityMl: integer("capacity_ml").notNull(),
     reservedMl: integer("reserved_ml").notNull().default(0),
     acceptsOrders: integer("accepts_orders", { mode: "boolean" }).notNull().default(true),
+    cutoffOverride: text("cutoff_override", { enum: ["OPEN", "CLOSED"] }),
     manualSoldOut: integer("manual_sold_out", { mode: "boolean" }).notNull().default(false),
     manualSoldOutReason: text("manual_sold_out_reason"),
     version: integer("version").notNull().default(1),

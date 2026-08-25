@@ -44,6 +44,8 @@ export function DateInspectorDrawer({
   onClose,
   onEditCapacity,
   onFreeze,
+  cutoffOverride,
+  onCutoffOverride,
 }: {
   date: string;
   capacityMl: number;
@@ -57,6 +59,8 @@ export function DateInspectorDrawer({
   onClose: () => void;
   onEditCapacity?: () => void;
   onFreeze: () => void;
+  cutoffOverride?: "OPEN" | "CLOSED" | null;
+  onCutoffOverride?: (value: "OPEN" | "CLOSED" | null) => void;
 }) {
   const dialogRef = useAdminDialogFocus(true, onClose);
   const remainingMl = Math.max(0, capacityMl - reservedMl);
@@ -144,6 +148,13 @@ export function DateInspectorDrawer({
             {soldOutReason && (
               <div className="text-xs p-2.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 font-medium">
                 Lock reason: <strong>{soldOutReason}</strong>
+              </div>
+            )}
+            {onCutoffOverride && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                <span className="text-xs muted mr-auto">Same-day cutoff override: {cutoffOverride ?? "Global setting"}</span>
+                {cutoffOverride !== "OPEN" && <button type="button" className="btn btn-secondary text-xs" onClick={() => onCutoffOverride("OPEN")}>Allow today</button>}
+                {cutoffOverride === "OPEN" && <button type="button" className="btn btn-secondary text-xs" onClick={() => onCutoffOverride(null)}>Use global cutoff</button>}
               </div>
             )}
           </section>
