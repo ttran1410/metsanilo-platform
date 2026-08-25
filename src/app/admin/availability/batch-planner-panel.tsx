@@ -26,6 +26,7 @@ export function BatchPlannerPanel({
   initialStartDate,
   initialEndDate,
   products,
+  capacityDefaults,
   initialProductId,
   seasonId,
   onClose,
@@ -34,6 +35,7 @@ export function BatchPlannerPanel({
   initialStartDate: string;
   initialEndDate: string;
   products: Array<{ id: string; nameFi: string }>;
+  capacityDefaults?: Record<string, number>;
   initialProductId?: string;
   seasonId?: string;
   onClose: () => void;
@@ -42,7 +44,9 @@ export function BatchPlannerPanel({
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
   const [selectedProductId, setSelectedProductId] = useState<string>(initialProductId ?? "ALL");
-  const [capacityLitres, setCapacityLitres] = useState<number>(50);
+  const [capacityLitres, setCapacityLitres] = useState<number>(
+    initialProductId && capacityDefaults?.[initialProductId] !== undefined ? capacityDefaults[initialProductId] : 50,
+  );
   const [preset, setPreset] = useState<"ALL" | "WEEKDAYS" | "WEEKENDS">("ALL");
 
   const [loading, setLoading] = useState(false);
@@ -202,7 +206,12 @@ export function BatchPlannerPanel({
             <span className="font-semibold text-xs text-ink">Target Product</span>
             <select
               value={selectedProductId}
-              onChange={(e) => { setSelectedProductId(e.target.value); invalidatePreview(); }}
+              onChange={(e) => {
+                const nextProductId = e.target.value;
+                setSelectedProductId(nextProductId);
+                setCapacityLitres(nextProductId === "ALL" ? 50 : capacityDefaults?.[nextProductId] ?? 50);
+                invalidatePreview();
+              }}
               className="text-xs font-bold"
             >
               <option value="ALL">All Active Products ({products.length})</option>
@@ -225,6 +234,11 @@ export function BatchPlannerPanel({
               required
               className="text-xs font-bold"
             />
+            <span className="muted text-[11px]">
+              {selectedProductId !== "ALL" && capacityDefaults?.[selectedProductId] !== undefined
+                ? "Existing capacity loaded."
+                : "50 L is the recommendation when no capacity exists."}
+            </span>
           </label>
         </div>
 

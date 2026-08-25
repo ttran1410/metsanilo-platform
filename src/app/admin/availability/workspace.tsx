@@ -114,6 +114,7 @@ export function AvailabilityWorkspace({
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -128,12 +129,13 @@ export function AvailabilityWorkspace({
   const selectedProduct = workspace.products.find((product) => product.id === productFilter);
   const selectedSeasons = selectedProduct?.seasons ?? [];
 
-  async function fetchWorkspaceForDates(start: string, days = 7) {
+  async function fetchWorkspaceForDates(start: string, days = 7, requestedProductId = productFilter) {
+    setWorkspaceLoading(true);
     try {
       const query = new URLSearchParams({
         startDate: start,
         days: days.toString(),
-        productId: productFilter,
+        productId: requestedProductId,
         ...(seasonFilter !== "ALL" ? { seasonId: seasonFilter } : {}),
       });
       const response = await fetch(`/api/admin/availability?${query}`);
@@ -142,7 +144,9 @@ export function AvailabilityWorkspace({
         setWorkspace(body.data);
       }
     } catch {
-      /* ignore */
+      setError("Could not refresh availability data.");
+    } finally {
+      setWorkspaceLoading(false);
     }
   }
 
@@ -164,11 +168,14 @@ export function AvailabilityWorkspace({
   }
 
   function handleProductFilterChange(productId: string) {
+    setTablePage(1);
     setProductFilter(productId);
     setSeasonFilter("ALL");
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30, productId);
   }
 
   function handleSeasonFilterChange(seasonId: string) {
+    setTablePage(1);
     setSeasonFilter(seasonId);
     void fetchWorkspaceForDates(currentStartDate, viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30);
   }
@@ -212,7 +219,8 @@ export function AvailabilityWorkspace({
       const capacity = dayRows.reduce((sum, row) => sum + row.availability.capacityMl, 0);
       const reserved = dayRows.reduce((sum, row) => sum + row.availability.reservedMl, 0);
       const utilization = capacity ? Math.round((reserved / capacity) * 100) : 0;
-      const soldOut = dayRows.some((row) => row.soldOut);
+      const soldOut = dayRows.length > 0 && dayRows.every((row) => row.soldOut);
+      const mixedAvailability = dayRows.some((row) => row.soldOut) && !soldOut;
       const freezeReason = dayRows.find((r) => r.availability.manualSoldOutReason)?.availability.manualSoldOutReason;
       const isPast = date < today;
       const isUnplanned = dayRows.length === 0;
@@ -224,7 +232,7 @@ export function AvailabilityWorkspace({
           (selectedProduct.availableThrough && date > selectedProduct.availableThrough)
         : false;
 
-      return { date, dayRows, capacity, reserved, utilization, soldOut, freezeReason, isPast, isUnplanned, isOffSeason };
+      return { date, dayRows, capacity, reserved, utilization, soldOut, mixedAvailability, freezeReason, isPast, isUnplanned, isOffSeason };
     });
   }, [workspace.dates, rows, today, productFilter, workspace.products]);
 
@@ -246,6 +254,10 @@ export function AvailabilityWorkspace({
     setError("");
     setMessage("");
     const isLocking = !freezingRow.soldOut;
+    if (!isLocking && freezingRow.availability.capacityMl <= freezingRow.availability.reservedMl) {
+      setFreezingRow(null);
+      return setError("Increase capacity before reopening this date. Remaining capacity must fit at least one active package.");
+    }
 
     const response = await fetch(`/api/admin/availability/${freezingRow.availability.id}`, {
       method: "PUT",
@@ -254,6 +266,7 @@ export function AvailabilityWorkspace({
         expectedVersion: freezingRow.availability.version,
         capacityMl: freezingRow.availability.capacityMl,
         manualSoldOut: isLocking,
+        acceptsOrders: !isLocking,
         soldOutReason: isLocking ? reason : undefined,
       }),
     });
@@ -296,10 +309,18 @@ export function AvailabilityWorkspace({
   const inspectedOrdersData = inspectingDate && workspace.ordersByDate
     ? (workspace.ordersByDate as OrdersByDate)[inspectingDate]
     : undefined;
-  const inspectedProductName = inspectedDayRow?.product.nameFi ?? "All Products";
+  const inspectedProductName = productFilter === "ALL" ? "All products" : inspectedDayRow?.product.nameFi ?? "Selected product";
+  const batchCapacityDefaults = useMemo(() => {
+    if (productFilter === "ALL") return {};
+    const capacities = rows
+      .filter((row) => row.product.id === productFilter && row.availability.capacityMl > 0)
+      .map((row) => row.availability.capacityMl / 1000);
+    if (!capacities.length || capacities.some((capacity) => capacity !== capacities[0])) return {};
+    return { [productFilter]: capacities[0] };
+  }, [productFilter, rows]);
 
   return (
-    <main className="shell py-8 availability-workspace availability-planner flex flex-col gap-4">
+    <main className="shell py-8 availability-workspace availability-planner flex flex-col gap-4" aria-busy={workspaceLoading}>
       <AdminPageHeader
         eyebrow="Operations"
         title="Harvest availability"
@@ -315,6 +336,7 @@ export function AvailabilityWorkspace({
 
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
+      {workspaceLoading && <AdminNotice tone="neutral" live>Refreshing availability…</AdminNotice>}
 
       {/* EXPANDABLE IN-PAGE BATCH PLANNER PANEL */}
       {batchPanelOpen && canManage && (
@@ -322,6 +344,7 @@ export function AvailabilityWorkspace({
           initialStartDate={workspace.startDate < workspace.today ? workspace.today : workspace.startDate}
           initialEndDate={workspace.endDate < workspace.today ? workspace.today : workspace.endDate}
           products={workspace.products}
+          capacityDefaults={batchCapacityDefaults}
           initialProductId={productFilter !== "ALL" ? productFilter : undefined}
           seasonId={productFilter !== "ALL" && seasonFilter !== "ALL" ? seasonFilter : undefined}
           onClose={() => setBatchPanelOpen(false)}
@@ -445,6 +468,8 @@ export function AvailabilityWorkspace({
                           ? "NEW"
                           : day.soldOut
                           ? "CANCELLED"
+                          : day.mixedAvailability
+                          ? "CAPACITY_NEAR_LIMIT"
                           : day.utilization >= 75
                           ? "CAPACITY_NEAR_LIMIT"
                           : "CONFIRMED"
@@ -458,6 +483,8 @@ export function AvailabilityWorkspace({
                           ? "Unplanned"
                           : day.soldOut
                           ? "Sold Out"
+                          : day.mixedAvailability
+                          ? "Mixed availability"
                           : day.utilization >= 75
                           ? `${day.utilization}% Near`
                           : `${day.utilization}%`
@@ -590,6 +617,9 @@ export function AvailabilityWorkspace({
                   <span className="text-lg font-bold ops-tabular block">{litres(remainingLitres)}</span>
                   <span className="text-[10px] font-semibold opacity-90 block">
                     {day.isPast ? "Past Date" : day.isUnplanned ? "Unplanned" : day.soldOut ? "Locked" : `${day.utilization}% Reserved`}
+                  </span>
+                  <span className="text-[10px] font-medium opacity-80 block">
+                    {litres(day.capacity)} capacity · {litres(day.reserved)} reserved
                   </span>
                 </button>
               );
@@ -757,6 +787,7 @@ export function AvailabilityWorkspace({
         <FreezeModal
           date={freezingRow.availability.businessDate}
           productName={freezingRow.product.nameFi}
+          mode={freezingRow.soldOut ? "reopen" : "freeze"}
           initialReason={freezingRow.availability.manualSoldOutReason ?? undefined}
           onClose={() => setFreezingRow(null)}
           onConfirm={(reason) => void handleConfirmFreeze(reason)}
