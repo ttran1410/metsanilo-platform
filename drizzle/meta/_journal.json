@@ -253,6 +253,13 @@
       "when": 1787498241695,
       "tag": "0035_rare_wolfsbane",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1787675181067,
+      "tag": "0036_misty_legion",
+      "breakpoints": true
     }
   ]
 }
