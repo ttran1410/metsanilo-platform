@@ -21,6 +21,8 @@ const command = z.object({
   aboutUsVisible: z.boolean().optional(),
   reviewsVisible: z.boolean().optional(),
   active: z.boolean().optional(),
+  sameDayCutoffEnabled: z.boolean().optional(),
+  sameDayCutoffTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
 });
 
 export async function GET(request: Request) {
@@ -39,6 +41,8 @@ export async function GET(request: Request) {
       aboutUsVisible: shop?.aboutUsVisible ?? true,
       reviewsVisible: shop?.reviewsVisible ?? true,
       active: shop?.active ?? true,
+      sameDayCutoffEnabled: shop?.sameDayCutoffEnabled ?? false,
+      sameDayCutoffTime: shop?.sameDayCutoffTime ?? "15:00",
     });
   } catch (error) {
     return failure(error);
@@ -63,6 +67,8 @@ export async function PUT(request: Request) {
     if (parsed.data.aboutUsVisible !== undefined) updateData.aboutUsVisible = parsed.data.aboutUsVisible;
     if (parsed.data.reviewsVisible !== undefined) updateData.reviewsVisible = parsed.data.reviewsVisible;
     if (parsed.data.active !== undefined) updateData.active = parsed.data.active;
+    if (parsed.data.sameDayCutoffEnabled !== undefined) updateData.sameDayCutoffEnabled = parsed.data.sameDayCutoffEnabled;
+    if (parsed.data.sameDayCutoffTime !== undefined) updateData.sameDayCutoffTime = parsed.data.sameDayCutoffTime;
 
     const [shop] = await db().update(shops).set(updateData).where(eq(shops.id, env().SHOP_ID)).returning();
     if (!shop) throw new DomainError("NOT_FOUND", "Shop not found", 404);
@@ -79,10 +85,11 @@ export async function PUT(request: Request) {
       aboutUsVisible: shop.aboutUsVisible,
       reviewsVisible: shop.reviewsVisible,
       active: shop.active,
+      sameDayCutoffEnabled: shop.sameDayCutoffEnabled,
+      sameDayCutoffTime: shop.sameDayCutoffTime,
       updatedBy: actor.email ?? actor.id,
     });
   } catch (error) {
     return failure(error);
   }
 }
-

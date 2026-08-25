@@ -212,6 +212,10 @@ export function AvailabilityWorkspace({
     return rows.slice((tablePage - 1) * tableLimit, tablePage * tableLimit);
   }, [rows, tablePage, tableLimit]);
 
+  function editableRow(dayRows: AvailabilityRow[]) {
+    return dayRows.find((row) => row.availability.capacityMl > 0 || row.availability.reservedMl > 0) ?? dayRows[0];
+  }
+
   // Daily cards calculation
   const dateCards = useMemo(() => {
     return workspace.dates.map((date) => {
@@ -305,7 +309,7 @@ export function AvailabilityWorkspace({
     void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
   }
 
-  const inspectedDayRow = inspectingDate ? rows.find((r) => r.availability.businessDate === inspectingDate) : null;
+  const inspectedDayRow = inspectingDate ? editableRow(rows.filter((r) => r.availability.businessDate === inspectingDate)) : null;
   const inspectedOrdersData = inspectingDate && workspace.ordersByDate
     ? (workspace.ordersByDate as OrdersByDate)[inspectingDate]
     : undefined;
@@ -539,7 +543,7 @@ export function AvailabilityWorkspace({
                     <>
                       <button type="button" className="btn btn-secondary" onClick={() => setInspectingDate(day.date)}><Eye aria-hidden="true" />Inspect</button>
                       {productFilter !== "ALL" && canManage && (
-                        <button type="button" className="btn btn-secondary" onClick={() => openCapacityEditor(day.dayRows[0])}><Pencil aria-hidden="true" />Edit capacity</button>
+                        <button type="button" className="btn btn-secondary" onClick={() => { const row = editableRow(day.dayRows); if (row) openCapacityEditor(row); }}><Pencil aria-hidden="true" />Edit capacity</button>
                       )}
                       {productFilter !== "ALL" && canSoldOut && (
                         <button
