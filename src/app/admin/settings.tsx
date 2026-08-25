@@ -27,6 +27,8 @@ type ShopIdentity = {
   aboutUsVisible: boolean;
   reviewsVisible: boolean;
   active: boolean;
+  sameDayCutoffEnabled: boolean;
+  sameDayCutoffTime: string;
   logoUrl?: string | null;
   faviconUrl?: string | null;
 };
@@ -189,6 +191,8 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
     aboutUsVisible: true,
     reviewsVisible: true,
     active: true,
+    sameDayCutoffEnabled: false,
+    sameDayCutoffTime: "15:00",
     logoUrl: null,
     faviconUrl: null,
   });
@@ -1115,6 +1119,15 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
             </div>
 
             <div className="rounded-xl border border-rose-200 bg-surface p-4 flex flex-col gap-3">
+              <div className="rounded-xl border border-line bg-surface-muted p-4 flex flex-col gap-3">
+                <div>
+                  <h4 className="font-bold text-sm text-ink">Same-day reservation cutoff</h4>
+                  <p className="text-xs muted">Apply one local cutoff to pickup and home delivery. Future dates remain available.</p>
+                </div>
+                <label className="field-checkbox"><input type="checkbox" checked={shopData.sameDayCutoffEnabled} disabled={!canManageSettings} onChange={(e) => setShopData({ ...shopData, sameDayCutoffEnabled: e.target.checked })} /><span>Enable same-day reservation cutoff</span></label>
+                <label className="field"><span>Cutoff time (Europe/Helsinki)</span><input type="time" value={shopData.sameDayCutoffTime} disabled={!canManageSettings || !shopData.sameDayCutoffEnabled} onChange={(e) => setShopData({ ...shopData, sameDayCutoffTime: e.target.value })} /></label>
+                {canManageSettings && <button type="button" className="btn btn-secondary self-start" onClick={() => void saveShopIdentity()}><Save aria-hidden="true" />Save cutoff setting</button>}
+              </div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="font-bold text-sm text-ink">Public reservation intake</h4>

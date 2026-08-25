@@ -14,6 +14,8 @@ export const shops = sqliteTable("shops", {
   pickupInstructionsFi: text("pickup_instructions_fi").notNull(),
   pickupInstructionsEn: text("pickup_instructions_en").notNull(),
   pickupTime: text("pickup_time").notNull().default("20:00"),
+  sameDayCutoffEnabled: integer("same_day_cutoff_enabled", { mode: "boolean" }).notNull().default(false),
+  sameDayCutoffTime: text("same_day_cutoff_time").notNull().default("15:00"),
   contactPhone: text("contact_phone").notNull().default(""),
   contactEmail: text("contact_email").notNull().default(""),
   contactHours: text("contact_hours").notNull().default(""),
