@@ -114,6 +114,7 @@ export function AvailabilityWorkspace({
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -129,6 +130,7 @@ export function AvailabilityWorkspace({
   const selectedSeasons = selectedProduct?.seasons ?? [];
 
   async function fetchWorkspaceForDates(start: string, days = 7, requestedProductId = productFilter) {
+    setWorkspaceLoading(true);
     try {
       const query = new URLSearchParams({
         startDate: start,
@@ -142,7 +144,9 @@ export function AvailabilityWorkspace({
         setWorkspace(body.data);
       }
     } catch {
-      /* ignore */
+      setError("Could not refresh availability data.");
+    } finally {
+      setWorkspaceLoading(false);
     }
   }
 
@@ -164,12 +168,14 @@ export function AvailabilityWorkspace({
   }
 
   function handleProductFilterChange(productId: string) {
+    setTablePage(1);
     setProductFilter(productId);
     setSeasonFilter("ALL");
     void fetchWorkspaceForDates(currentStartDate, viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30, productId);
   }
 
   function handleSeasonFilterChange(seasonId: string) {
+    setTablePage(1);
     setSeasonFilter(seasonId);
     void fetchWorkspaceForDates(currentStartDate, viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30);
   }
@@ -248,6 +254,10 @@ export function AvailabilityWorkspace({
     setError("");
     setMessage("");
     const isLocking = !freezingRow.soldOut;
+    if (!isLocking && freezingRow.availability.capacityMl <= freezingRow.availability.reservedMl) {
+      setFreezingRow(null);
+      return setError("Increase capacity before reopening this date. Remaining capacity must fit at least one active package.");
+    }
 
     const response = await fetch(`/api/admin/availability/${freezingRow.availability.id}`, {
       method: "PUT",
@@ -256,6 +266,7 @@ export function AvailabilityWorkspace({
         expectedVersion: freezingRow.availability.version,
         capacityMl: freezingRow.availability.capacityMl,
         manualSoldOut: isLocking,
+        acceptsOrders: !isLocking,
         soldOutReason: isLocking ? reason : undefined,
       }),
     });
@@ -309,7 +320,7 @@ export function AvailabilityWorkspace({
   }, [productFilter, rows]);
 
   return (
-    <main className="shell py-8 availability-workspace availability-planner flex flex-col gap-4">
+    <main className="shell py-8 availability-workspace availability-planner flex flex-col gap-4" aria-busy={workspaceLoading}>
       <AdminPageHeader
         eyebrow="Operations"
         title="Harvest availability"
@@ -325,6 +336,7 @@ export function AvailabilityWorkspace({
 
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
+      {workspaceLoading && <AdminNotice tone="neutral" live>Refreshing availability…</AdminNotice>}
 
       {/* EXPANDABLE IN-PAGE BATCH PLANNER PANEL */}
       {batchPanelOpen && canManage && (
@@ -606,6 +618,9 @@ export function AvailabilityWorkspace({
                   <span className="text-[10px] font-semibold opacity-90 block">
                     {day.isPast ? "Past Date" : day.isUnplanned ? "Unplanned" : day.soldOut ? "Locked" : `${day.utilization}% Reserved`}
                   </span>
+                  <span className="text-[10px] font-medium opacity-80 block">
+                    {litres(day.capacity)} capacity · {litres(day.reserved)} reserved
+                  </span>
                 </button>
               );
             })}
@@ -772,6 +787,7 @@ export function AvailabilityWorkspace({
         <FreezeModal
           date={freezingRow.availability.businessDate}
           productName={freezingRow.product.nameFi}
+          mode={freezingRow.soldOut ? "reopen" : "freeze"}
           initialReason={freezingRow.availability.manualSoldOutReason ?? undefined}
           onClose={() => setFreezingRow(null)}
           onConfirm={(reason) => void handleConfirmFreeze(reason)}

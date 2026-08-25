@@ -14,12 +14,14 @@ const REASON_PRESETS = [
 export function FreezeModal({
   date,
   productName,
+  mode = "freeze",
   initialReason,
   onClose,
   onConfirm,
 }: {
   date: string;
   productName: string;
+  mode?: "freeze" | "reopen";
   initialReason?: string;
   onClose: () => void;
   onConfirm: (reason: string) => void;
@@ -31,6 +33,10 @@ export function FreezeModal({
 
   function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "reopen") {
+      onConfirm("");
+      return;
+    }
     const finalReason = useCustom ? customReason.trim() : reason;
     if (!finalReason || finalReason.length < 2) return;
     onConfirm(finalReason);
@@ -41,8 +47,8 @@ export function FreezeModal({
       <div ref={dialogRef} className="admin-dialog card availability-freeze-dialog" role="dialog" aria-modal="true" aria-labelledby="availability-freeze-title">
         <div className="flex items-center justify-between border-b border-line pb-3 mb-4">
           <div>
-            <p className="eyebrow text-danger">Reservation intake</p>
-            <h3 id="availability-freeze-title" className="text-lg font-bold text-ink">Freeze {date}?</h3>
+            <p className={`eyebrow ${mode === "reopen" ? "text-primary" : "text-danger"}`}>Reservation intake</p>
+            <h3 id="availability-freeze-title" className="text-lg font-bold text-ink">{mode === "reopen" ? `Reopen ${date}?` : `Freeze ${date}?`}</h3>
             <span className="text-xs muted font-semibold block">{productName}</span>
           </div>
           <button type="button" className="admin-icon-button" onClick={onClose} aria-label="Close freeze dialog">
@@ -51,10 +57,13 @@ export function FreezeModal({
         </div>
 
         <p className="text-xs muted leading-relaxed mb-4">
-          Freezing stops new customer reservations for this product and date. Existing reservations remain protected. Select the reason recorded in the audit trail.
+          {mode === "reopen"
+            ? "Reopening allows new customer reservations again when remaining capacity can fit an active package. Existing reservations remain protected."
+            : "Freezing stops new customer reservations for this product and date. Existing reservations remain protected. Select the reason recorded in the audit trail."}
         </p>
 
         <form className="flex flex-col gap-4" onSubmit={handleFormSubmit}>
+          {mode === "reopen" ? null : (
           <div className="flex flex-col gap-2">
             <span className="text-xs font-bold text-muted">Reason</span>
             {REASON_PRESETS.map((preset) => (
@@ -105,13 +114,14 @@ export function FreezeModal({
               />
             )}
           </div>
+          )}
 
           <div className="profile-actions justify-end gap-2 border-t border-line pt-4">
             <button className="btn btn-secondary text-xs" type="button" onClick={onClose}>
               Cancel
             </button>
-            <button className="btn btn-danger text-xs font-bold py-2 px-4 shadow-md" type="submit">
-              <LockKeyhole aria-hidden="true" />Confirm freeze
+            <button className={`btn text-xs font-bold py-2 px-4 shadow-md ${mode === "reopen" ? "" : "btn-danger"}`} type="submit">
+              <LockKeyhole aria-hidden="true" />{mode === "reopen" ? "Reopen date" : "Confirm freeze"}
             </button>
           </div>
         </form>
