@@ -76,10 +76,12 @@ export function AvailabilityWorkspace({
   initialWorkspace,
   canManage,
   canSoldOut,
+  canCutoffOverride,
 }: {
   initialWorkspace: Workspace;
   canManage: boolean;
   canSoldOut: boolean;
+  canCutoffOverride: boolean;
 }) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const searchParams = useSearchParams();
@@ -212,6 +214,10 @@ export function AvailabilityWorkspace({
     return rows.slice((tablePage - 1) * tableLimit, tablePage * tableLimit);
   }, [rows, tablePage, tableLimit]);
 
+  function editableRow(dayRows: AvailabilityRow[]) {
+    return dayRows.find((row) => row.availability.capacityMl > 0 || row.availability.reservedMl > 0) ?? dayRows[0];
+  }
+
   // Daily cards calculation
   const dateCards = useMemo(() => {
     return workspace.dates.map((date) => {
@@ -277,6 +283,14 @@ export function AvailabilityWorkspace({
     void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
   }
 
+  async function handleCutoffOverride(row: AvailabilityRow, value: "OPEN" | "CLOSED" | null) {
+    const response = await fetch(`/api/admin/availability/${row.availability.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: row.availability.version, capacityMl: row.availability.capacityMl, manualSoldOut: row.availability.manualSoldOut, acceptsOrders: row.availability.acceptsOrders, cutoffOverride: value, soldOutReason: row.availability.manualSoldOutReason ?? undefined }) });
+    const body = await response.json();
+    if (!response.ok) return setError(body.message ?? "Could not update cutoff override.");
+    setMessage(value === "OPEN" ? "Same-day cutoff override enabled for this date." : "Same-day cutoff override cleared.");
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7);
+  }
+
   async function saveAvailability(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editing) return;
@@ -305,7 +319,7 @@ export function AvailabilityWorkspace({
     void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
   }
 
-  const inspectedDayRow = inspectingDate ? rows.find((r) => r.availability.businessDate === inspectingDate) : null;
+  const inspectedDayRow = inspectingDate ? editableRow(rows.filter((r) => r.availability.businessDate === inspectingDate)) : null;
   const inspectedOrdersData = inspectingDate && workspace.ordersByDate
     ? (workspace.ordersByDate as OrdersByDate)[inspectingDate]
     : undefined;
@@ -539,7 +553,7 @@ export function AvailabilityWorkspace({
                     <>
                       <button type="button" className="btn btn-secondary" onClick={() => setInspectingDate(day.date)}><Eye aria-hidden="true" />Inspect</button>
                       {productFilter !== "ALL" && canManage && (
-                        <button type="button" className="btn btn-secondary" onClick={() => openCapacityEditor(day.dayRows[0])}><Pencil aria-hidden="true" />Edit capacity</button>
+                        <button type="button" className="btn btn-secondary" onClick={() => { const row = editableRow(day.dayRows); if (row) openCapacityEditor(row); }}><Pencil aria-hidden="true" />Edit capacity</button>
                       )}
                       {productFilter !== "ALL" && canSoldOut && (
                         <button
@@ -779,6 +793,8 @@ export function AvailabilityWorkspace({
           onFreeze={() => {
             if (inspectedDayRow) setFreezingRow(inspectedDayRow);
           }}
+          cutoffOverride={inspectedDayRow?.availability.cutoffOverride}
+          onCutoffOverride={canCutoffOverride && productFilter !== "ALL" && inspectedDayRow ? (value) => void handleCutoffOverride(inspectedDayRow, value) : undefined}
         />
       )}
 
