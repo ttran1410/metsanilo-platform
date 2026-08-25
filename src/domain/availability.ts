@@ -283,6 +283,7 @@ export async function updateAvailability(
     soldOutReason?: string;
     acceptsOrders?: boolean;
     cutoffOverride?: "OPEN" | "CLOSED" | null;
+    source?: "MANUAL_EDIT" | "QUICK_ADJUST";
     actor?: string;
   },
 ) {
@@ -349,7 +350,7 @@ export async function updateAvailability(
       {
         id: randomUUID(), shopId: SHOP_ID, actor: input.actor ?? "system", action: "capacity.updated",
         entityType: "availability", entityId: input.id,
-        detailsJson: JSON.stringify({ fromMl: current.availability.capacityMl, toMl: input.capacityMl }),
+        detailsJson: JSON.stringify({ fromMl: current.availability.capacityMl, toMl: input.capacityMl, deltaMl: input.capacityMl - current.availability.capacityMl, source: input.source ?? "MANUAL_EDIT" }),
         createdAt: updatedAt,
       },
     ];

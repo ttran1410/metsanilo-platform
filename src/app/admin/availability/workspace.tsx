@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { CalendarRange, ChevronLeft, ChevronRight, Eye, LockKeyhole, Minus, Pencil, Plus, UnlockKeyhole } from "lucide-react";
 import type { AvailabilityWorkspace } from "@/domain/availability";
-import { AdminNotice, AdminPageHeader, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
+import { AdminConfirmDialog, AdminNotice, AdminPageHeader, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { BatchPlannerPanel } from "./batch-planner-panel";
@@ -117,6 +117,7 @@ export function AvailabilityWorkspace({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [pendingAdjustment, setPendingAdjustment] = useState<{ row: AvailabilityRow; deltaMl: number } | null>(null);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -263,12 +264,17 @@ export function AvailabilityWorkspace({
     const response = await fetch(`/api/admin/availability/${row.availability.id}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ expectedVersion: row.availability.version, capacityMl: nextCapacityMl, manualSoldOut: row.availability.manualSoldOut, acceptsOrders: row.availability.acceptsOrders, cutoffOverride: row.availability.cutoffOverride, soldOutReason: row.availability.manualSoldOutReason ?? undefined }),
+      body: JSON.stringify({ expectedVersion: row.availability.version, capacityMl: nextCapacityMl, manualSoldOut: row.availability.manualSoldOut, acceptsOrders: row.availability.acceptsOrders, cutoffOverride: row.availability.cutoffOverride, soldOutReason: row.availability.manualSoldOutReason ?? undefined, source: "QUICK_ADJUST" }),
     });
     const body = await response.json();
     if (!response.ok) return setError(body.message ?? "Could not adjust capacity.");
     setMessage(`${deltaMl > 0 ? "Added" : "Removed"} 5 L for ${row.product.nameFi} on ${row.availability.businessDate}.`);
     void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7);
+  }
+
+  function requestCapacityAdjustment(row: AvailabilityRow, deltaMl: number) {
+    if (deltaMl < 0) return setPendingAdjustment({ row, deltaMl });
+    void adjustCapacity(row, deltaMl);
   }
 
   // Emergency Freeze Lock
@@ -368,6 +374,7 @@ export function AvailabilityWorkspace({
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
       {workspaceLoading && <AdminNotice tone="neutral" live>Refreshing availability…</AdminNotice>}
+      {productFilter === "ALL" && canManage && <AdminNotice tone="neutral">Capacity quick adjustments are product-specific. Select a product to add or remove 5 L.</AdminNotice>}
 
       {/* EXPANDABLE IN-PAGE BATCH PLANNER PANEL */}
       {batchPanelOpen && canManage && (
@@ -572,8 +579,8 @@ export function AvailabilityWorkspace({
                       {productFilter !== "ALL" && canManage && (
                         <>
                           {editableRow(day.dayRows) && <div className="availability-quick-adjust" aria-label="Quickly adjust capacity by 5 litres">
-                            <button type="button" className="btn btn-secondary" aria-label="Remove 5 litres" disabled={editableRow(day.dayRows)!.availability.capacityMl - 5000 < editableRow(day.dayRows)!.availability.reservedMl} onClick={() => void adjustCapacity(editableRow(day.dayRows)!, -5000)}><Minus aria-hidden="true" />5 L</button>
-                            <button type="button" className="btn btn-secondary" aria-label="Add 5 litres" onClick={() => void adjustCapacity(editableRow(day.dayRows)!, 5000)}><Plus aria-hidden="true" />5 L</button>
+                            <button type="button" className="btn btn-secondary" aria-label="Remove 5 litres" disabled={editableRow(day.dayRows)!.availability.capacityMl - 5000 < editableRow(day.dayRows)!.availability.reservedMl} onClick={() => requestCapacityAdjustment(editableRow(day.dayRows)!, -5000)}><Minus aria-hidden="true" />5 L</button>
+                            <button type="button" className="btn btn-secondary" aria-label="Add 5 litres" onClick={() => requestCapacityAdjustment(editableRow(day.dayRows)!, 5000)}><Plus aria-hidden="true" />5 L</button>
                           </div>}
                           <button type="button" className="btn btn-secondary" onClick={() => { const row = editableRow(day.dayRows); if (row) openCapacityEditor(row); }}><Pencil aria-hidden="true" />Edit capacity</button>
                         </>
@@ -715,15 +722,15 @@ export function AvailabilityWorkspace({
                             {
                               id: "add-five-litres",
                               label: "Add 5 L",
-                              icon: <IconPencil />,
-                              onClick: () => void adjustCapacity(row, 5000),
+                              icon: <Plus aria-hidden="true" />,
+                              onClick: () => requestCapacityAdjustment(row, 5000),
                             },
                             {
                               id: "remove-five-litres",
                               label: "Remove 5 L",
-                              icon: <IconPencil />,
+                              icon: <Minus aria-hidden="true" />,
                               disabled: row.availability.capacityMl - 5000 < row.availability.reservedMl,
-                              onClick: () => void adjustCapacity(row, -5000),
+                              onClick: () => requestCapacityAdjustment(row, -5000),
                             },
                             {
                               id: "edit-capacity",
@@ -831,6 +838,7 @@ export function AvailabilityWorkspace({
           }}
           cutoffOverride={inspectedDayRow?.availability.cutoffOverride}
           onCutoffOverride={canCutoffOverride && productFilter !== "ALL" && inspectedDayRow ? (value) => void handleCutoffOverride(inspectedDayRow, value) : undefined}
+          onQuickAdjust={canManage && productFilter !== "ALL" && inspectedDayRow ? (delta) => requestCapacityAdjustment(inspectedDayRow, delta) : undefined}
         />
       )}
 
@@ -843,6 +851,18 @@ export function AvailabilityWorkspace({
           initialReason={freezingRow.availability.manualSoldOutReason ?? undefined}
           onClose={() => setFreezingRow(null)}
           onConfirm={(reason) => void handleConfirmFreeze(reason)}
+        />
+      )}
+
+      {pendingAdjustment && (
+        <AdminConfirmDialog
+          open
+          title="Reduce capacity by 5 L?"
+          description={`${pendingAdjustment.row.product.nameFi} on ${pendingAdjustment.row.availability.businessDate} will change from ${litres(pendingAdjustment.row.availability.capacityMl)} to ${litres(pendingAdjustment.row.availability.capacityMl - 5000)}. ${litres(pendingAdjustment.row.availability.reservedMl)} is already reserved.`}
+          confirmLabel="Reduce capacity"
+          destructive
+          onCancel={() => setPendingAdjustment(null)}
+          onConfirm={() => { const request = pendingAdjustment; setPendingAdjustment(null); void adjustCapacity(request.row, request.deltaMl); }}
         />
       )}
 

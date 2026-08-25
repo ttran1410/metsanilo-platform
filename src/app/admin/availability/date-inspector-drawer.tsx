@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LockKeyhole, MapPin, Pencil, Truck, UnlockKeyhole, X } from "lucide-react";
+import { LockKeyhole, MapPin, Minus, Pencil, Plus, Truck, UnlockKeyhole, X } from "lucide-react";
 import { AdminNotice, AdminStatusBadge, formatAdminMoney, useAdminDialogFocus } from "../presentation";
 
 type OrderItem = {
@@ -46,6 +46,7 @@ export function DateInspectorDrawer({
   onFreeze,
   cutoffOverride,
   onCutoffOverride,
+  onQuickAdjust,
 }: {
   date: string;
   capacityMl: number;
@@ -61,6 +62,7 @@ export function DateInspectorDrawer({
   onFreeze: () => void;
   cutoffOverride?: "OPEN" | "CLOSED" | null;
   onCutoffOverride?: (value: "OPEN" | "CLOSED" | null) => void;
+  onQuickAdjust?: (deltaMl: number) => void;
 }) {
   const dialogRef = useAdminDialogFocus(true, onClose);
   const remainingMl = Math.max(0, capacityMl - reservedMl);
@@ -131,6 +133,10 @@ export function DateInspectorDrawer({
                   <Pencil aria-hidden="true" />Edit capacity
                 </button>
               )}
+              {canManage && onQuickAdjust && <>
+                <button type="button" className="btn btn-secondary" disabled={capacityMl - 5000 < reservedMl} onClick={() => onQuickAdjust(-5000)}><Minus aria-hidden="true" />5 L</button>
+                <button type="button" className="btn btn-secondary" onClick={() => onQuickAdjust(5000)}><Plus aria-hidden="true" />5 L</button>
+              </>}
 
               {canSoldOut && (
                 <button
