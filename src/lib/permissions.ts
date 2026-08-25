@@ -4,7 +4,7 @@ export const PERMISSIONS = [
   "reports.sales.read", "reports.capacity.read", "reports.payments.read", "reports.customers.read",
   "orders.read", "orders.create", "orders.update", "orders.transition", "orders.payment.read", "orders.payment.write", "orders.export", "orders.delete", "orders.archive", "orders.override_closed_date",
   "catalog.product.read", "catalog.product.write", "catalog.product.delete", "catalog.package.read", "catalog.package.write",
-  "availability.read", "availability.write", "availability.sold_out",
+  "availability.read", "availability.write", "availability.sold_out", "availability.cutoff.override",
   "delivery.read", "delivery.write", "delivery.override",
   "cms.read", "cms.edit", "cms.publish", "theme.manage",
   "media.read", "media.write",
