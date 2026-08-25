@@ -1575,6 +1575,8 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .availability-queue-card li span { color: var(--ink-muted); font-size: .85rem; }
 .availability-queue-card > .btn { margin-top: .5rem; }
 .availability-dialog { max-width: 34rem; }
+.availability-quick-adjust { display: inline-flex; gap: .35rem; }
+.availability-quick-adjust .btn { min-width: 3.5rem; padding: .35rem .55rem; font-size: .72rem; }
 @media (max-width: 640px) {
   .admin-dialog-actions { flex-direction: column-reverse; }
   .admin-dialog-actions .btn { width: 100%; justify-content: center; }

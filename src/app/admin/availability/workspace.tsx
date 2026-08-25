@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { CalendarRange, ChevronLeft, ChevronRight, Eye, LockKeyhole, Pencil, UnlockKeyhole } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, Eye, LockKeyhole, Minus, Pencil, Plus, UnlockKeyhole } from "lucide-react";
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminNotice, AdminPageHeader, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
@@ -252,6 +252,23 @@ export function AvailabilityWorkspace({
     setMessage("");
     setEditing(row);
     setCapacityDraftLitres(row.availability.capacityMl / 1000);
+  }
+
+  async function adjustCapacity(row: AvailabilityRow, deltaMl: number) {
+    const nextCapacityMl = row.availability.capacityMl + deltaMl;
+    if (nextCapacityMl < row.availability.reservedMl) {
+      return setError(`Cannot reduce below the ${litres(row.availability.reservedMl)} already reserved.`);
+    }
+    setError("");
+    const response = await fetch(`/api/admin/availability/${row.availability.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ expectedVersion: row.availability.version, capacityMl: nextCapacityMl, manualSoldOut: row.availability.manualSoldOut, acceptsOrders: row.availability.acceptsOrders, cutoffOverride: row.availability.cutoffOverride, soldOutReason: row.availability.manualSoldOutReason ?? undefined }),
+    });
+    const body = await response.json();
+    if (!response.ok) return setError(body.message ?? "Could not adjust capacity.");
+    setMessage(`${deltaMl > 0 ? "Added" : "Removed"} 5 L for ${row.product.nameFi} on ${row.availability.businessDate}.`);
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7);
   }
 
   // Emergency Freeze Lock
@@ -553,7 +570,13 @@ export function AvailabilityWorkspace({
                     <>
                       <button type="button" className="btn btn-secondary" onClick={() => setInspectingDate(day.date)}><Eye aria-hidden="true" />Inspect</button>
                       {productFilter !== "ALL" && canManage && (
-                        <button type="button" className="btn btn-secondary" onClick={() => { const row = editableRow(day.dayRows); if (row) openCapacityEditor(row); }}><Pencil aria-hidden="true" />Edit capacity</button>
+                        <>
+                          {editableRow(day.dayRows) && <div className="availability-quick-adjust" aria-label="Quickly adjust capacity by 5 litres">
+                            <button type="button" className="btn btn-secondary" aria-label="Remove 5 litres" disabled={editableRow(day.dayRows)!.availability.capacityMl - 5000 < editableRow(day.dayRows)!.availability.reservedMl} onClick={() => void adjustCapacity(editableRow(day.dayRows)!, -5000)}><Minus aria-hidden="true" />5 L</button>
+                            <button type="button" className="btn btn-secondary" aria-label="Add 5 litres" onClick={() => void adjustCapacity(editableRow(day.dayRows)!, 5000)}><Plus aria-hidden="true" />5 L</button>
+                          </div>}
+                          <button type="button" className="btn btn-secondary" onClick={() => { const row = editableRow(day.dayRows); if (row) openCapacityEditor(row); }}><Pencil aria-hidden="true" />Edit capacity</button>
+                        </>
                       )}
                       {productFilter !== "ALL" && canSoldOut && (
                         <button
@@ -689,6 +712,19 @@ export function AvailabilityWorkspace({
                       <td data-label="Actions" className="p-3 text-right">
                         <AdminRowActionMenu
                           items={[
+                            {
+                              id: "add-five-litres",
+                              label: "Add 5 L",
+                              icon: <IconPencil />,
+                              onClick: () => void adjustCapacity(row, 5000),
+                            },
+                            {
+                              id: "remove-five-litres",
+                              label: "Remove 5 L",
+                              icon: <IconPencil />,
+                              disabled: row.availability.capacityMl - 5000 < row.availability.reservedMl,
+                              onClick: () => void adjustCapacity(row, -5000),
+                            },
                             {
                               id: "edit-capacity",
                               label: "Edit Capacity",
