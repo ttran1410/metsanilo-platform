@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { migrate } from "drizzle-orm/libsql/migrator";
 import { db } from "@/db/client";
 import { availability, products, harvestSeasons, shops } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -21,6 +22,7 @@ describe("Multi-Harvest Seasons Domain Logic", () => {
   beforeEach(async () => {
     const { SHOP_ID } = env();
     const database = db();
+    await migrate(database, { migrationsFolder: "./drizzle" });
 
     await database.insert(shops).values({
       id: SHOP_ID,

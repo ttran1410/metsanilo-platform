@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { CalendarRange, ChevronLeft, ChevronRight, Eye, LockKeyhole, Minus, Pencil, Plus, UnlockKeyhole } from "lucide-react";
-import type { AvailabilityWorkspace } from "@/domain/availability";
+import { calculateCapacityAdjustment, type AvailabilityWorkspace } from "@/domain/availability";
 import { AdminConfirmDialog, AdminNotice, AdminPageHeader, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
@@ -256,10 +256,9 @@ export function AvailabilityWorkspace({
   }
 
   async function adjustCapacity(row: AvailabilityRow, deltaMl: number) {
-    const nextCapacityMl = row.availability.capacityMl + deltaMl;
-    if (nextCapacityMl < row.availability.reservedMl) {
-      return setError(`Cannot reduce below the ${litres(row.availability.reservedMl)} already reserved.`);
-    }
+    let nextCapacityMl: number;
+    try { nextCapacityMl = calculateCapacityAdjustment(row.availability.capacityMl, row.availability.reservedMl, deltaMl); }
+    catch { return setError(`Cannot reduce below the ${litres(row.availability.reservedMl)} already reserved.`); }
     setError("");
     const response = await fetch(`/api/admin/availability/${row.availability.id}`, {
       method: "PUT",
