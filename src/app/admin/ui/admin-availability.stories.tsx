@@ -20,7 +20,7 @@ const fixture = (soldOut = false): AvailabilityData => ({
 } as unknown as AvailabilityData);
 
 function AvailabilityStory({ soldOut = false, canManage = true }: { soldOut?: boolean; canManage?: boolean }) {
-  return <AvailabilityWorkspace initialWorkspace={fixture(soldOut)} canManage={canManage} canSoldOut={canManage} canCutoffOverride={canManage} />;
+  return <AvailabilityWorkspace initialWorkspace={fixture(soldOut)} canManage={canManage} canSoldOut={canManage} />;
 }
 
 const meta = { title: "Admin / Availability", component: AvailabilityStory, parameters: { layout: "fullscreen" }, argTypes: { soldOut: { control: "boolean" }, canManage: { control: "boolean" } } } satisfies Meta<typeof AvailabilityStory>;

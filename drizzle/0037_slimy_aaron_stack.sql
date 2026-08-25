@@ -1,1 +1,0 @@
-ALTER TABLE `availability` ADD `cutoff_override` text;

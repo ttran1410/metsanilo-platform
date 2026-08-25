@@ -90,13 +90,8 @@ export async function getPublicCatalog(database: Database) {
       ),
     )
     .orderBy(asc(products.sortOrder), asc(products.nameFi), asc(availability.businessDate));
-  const localTime = new Intl.DateTimeFormat("en-GB", { timeZone: shop.timezone, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
-  const cutoffActive = shop.sameDayCutoffEnabled && localTime >= shop.sameDayCutoffTime;
-  const publicRows = rows.map((row) => row.availability && row.availability.businessDate === today && cutoffActive && row.availability.cutoffOverride !== "OPEN"
-    ? { ...row, availability: { ...row.availability, acceptsOrders: false } }
-    : row);
   const media = await database.select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments).innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId)).where(and(eq(mediaAttachments.shopId, SHOP_ID), eq(mediaAssets.active, true))).orderBy(asc(mediaAttachments.sortOrder));
-  return { shop, rows: publicRows, media: media.map((row) => ({ ...row.asset, productId: row.attachment.productId, sortOrder: row.attachment.sortOrder, isPrimary: row.attachment.isPrimary })) };
+  return { shop, rows, media: media.map((row) => ({ ...row.asset, productId: row.attachment.productId, sortOrder: row.attachment.sortOrder, isPrimary: row.attachment.isPrimary })) };
 }
 
 export async function listManagerAvailability(database: Database) {
@@ -282,7 +277,6 @@ export async function updateAvailability(
     manualSoldOut: boolean;
     soldOutReason?: string;
     acceptsOrders?: boolean;
-    cutoffOverride?: "OPEN" | "CLOSED" | null;
     actor?: string;
   },
 ) {
@@ -329,7 +323,6 @@ export async function updateAvailability(
       .set({
         capacityMl: input.capacityMl,
         acceptsOrders: input.acceptsOrders ?? current.availability.acceptsOrders,
-        cutoffOverride: input.cutoffOverride === undefined ? current.availability.cutoffOverride : input.cutoffOverride,
         manualSoldOut: input.manualSoldOut,
         manualSoldOutReason: input.manualSoldOut ? input.soldOutReason!.trim() : null,
         version: sql`${availability.version} + 1`,
@@ -378,7 +371,6 @@ export async function updateAvailability(
       manualSoldOut: input.manualSoldOut,
       manualSoldOutReason: input.manualSoldOut ? input.soldOutReason!.trim() : null,
       acceptsOrders: input.acceptsOrders ?? current.availability.acceptsOrders,
-      cutoffOverride: input.cutoffOverride === undefined ? current.availability.cutoffOverride : input.cutoffOverride,
       version: current.availability.version + 1,
       updatedAt,
     };
