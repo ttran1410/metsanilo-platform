@@ -128,12 +128,12 @@ export function AvailabilityWorkspace({
   const selectedProduct = workspace.products.find((product) => product.id === productFilter);
   const selectedSeasons = selectedProduct?.seasons ?? [];
 
-  async function fetchWorkspaceForDates(start: string, days = 7) {
+  async function fetchWorkspaceForDates(start: string, days = 7, requestedProductId = productFilter) {
     try {
       const query = new URLSearchParams({
         startDate: start,
         days: days.toString(),
-        productId: productFilter,
+        productId: requestedProductId,
         ...(seasonFilter !== "ALL" ? { seasonId: seasonFilter } : {}),
       });
       const response = await fetch(`/api/admin/availability?${query}`);
@@ -166,6 +166,7 @@ export function AvailabilityWorkspace({
   function handleProductFilterChange(productId: string) {
     setProductFilter(productId);
     setSeasonFilter("ALL");
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30, productId);
   }
 
   function handleSeasonFilterChange(seasonId: string) {
@@ -212,7 +213,8 @@ export function AvailabilityWorkspace({
       const capacity = dayRows.reduce((sum, row) => sum + row.availability.capacityMl, 0);
       const reserved = dayRows.reduce((sum, row) => sum + row.availability.reservedMl, 0);
       const utilization = capacity ? Math.round((reserved / capacity) * 100) : 0;
-      const soldOut = dayRows.some((row) => row.soldOut);
+      const soldOut = dayRows.length > 0 && dayRows.every((row) => row.soldOut);
+      const mixedAvailability = dayRows.some((row) => row.soldOut) && !soldOut;
       const freezeReason = dayRows.find((r) => r.availability.manualSoldOutReason)?.availability.manualSoldOutReason;
       const isPast = date < today;
       const isUnplanned = dayRows.length === 0;
@@ -224,7 +226,7 @@ export function AvailabilityWorkspace({
           (selectedProduct.availableThrough && date > selectedProduct.availableThrough)
         : false;
 
-      return { date, dayRows, capacity, reserved, utilization, soldOut, freezeReason, isPast, isUnplanned, isOffSeason };
+      return { date, dayRows, capacity, reserved, utilization, soldOut, mixedAvailability, freezeReason, isPast, isUnplanned, isOffSeason };
     });
   }, [workspace.dates, rows, today, productFilter, workspace.products]);
 
@@ -296,7 +298,15 @@ export function AvailabilityWorkspace({
   const inspectedOrdersData = inspectingDate && workspace.ordersByDate
     ? (workspace.ordersByDate as OrdersByDate)[inspectingDate]
     : undefined;
-  const inspectedProductName = inspectedDayRow?.product.nameFi ?? "All Products";
+  const inspectedProductName = productFilter === "ALL" ? "All products" : inspectedDayRow?.product.nameFi ?? "Selected product";
+  const batchCapacityDefaults = useMemo(() => {
+    if (productFilter === "ALL") return {};
+    const capacities = rows
+      .filter((row) => row.product.id === productFilter && row.availability.capacityMl > 0)
+      .map((row) => row.availability.capacityMl / 1000);
+    if (!capacities.length || capacities.some((capacity) => capacity !== capacities[0])) return {};
+    return { [productFilter]: capacities[0] };
+  }, [productFilter, rows]);
 
   return (
     <main className="shell py-8 availability-workspace availability-planner flex flex-col gap-4">
@@ -322,6 +332,7 @@ export function AvailabilityWorkspace({
           initialStartDate={workspace.startDate < workspace.today ? workspace.today : workspace.startDate}
           initialEndDate={workspace.endDate < workspace.today ? workspace.today : workspace.endDate}
           products={workspace.products}
+          capacityDefaults={batchCapacityDefaults}
           initialProductId={productFilter !== "ALL" ? productFilter : undefined}
           seasonId={productFilter !== "ALL" && seasonFilter !== "ALL" ? seasonFilter : undefined}
           onClose={() => setBatchPanelOpen(false)}
@@ -445,6 +456,8 @@ export function AvailabilityWorkspace({
                           ? "NEW"
                           : day.soldOut
                           ? "CANCELLED"
+                          : day.mixedAvailability
+                          ? "CAPACITY_NEAR_LIMIT"
                           : day.utilization >= 75
                           ? "CAPACITY_NEAR_LIMIT"
                           : "CONFIRMED"
@@ -458,6 +471,8 @@ export function AvailabilityWorkspace({
                           ? "Unplanned"
                           : day.soldOut
                           ? "Sold Out"
+                          : day.mixedAvailability
+                          ? "Mixed availability"
                           : day.utilization >= 75
                           ? `${day.utilization}% Near`
                           : `${day.utilization}%`
