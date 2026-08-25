@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, gt, inArray, lt, or } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, lt, lte, or } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, availability, harvestSeasons, mediaAttachments, mediaAssets, orders, packages, products } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -154,10 +154,32 @@ export async function updateProduct(database: Database, id: string, input: Produ
   if (conflictingOrder) throw new DomainError("PRODUCT_WINDOW_CONFLICT", "Availability window would exclude an active order", 409, { orderId: conflictingOrder.id });
   const conflictingAvailability = await database.select({ id: availability.id, reservedMl: availability.reservedMl }).from(availability).where(and(eq(availability.productId, id), eq(availability.shopId, shopId), or(lt(availability.businessDate, product.availableFrom), gt(availability.businessDate, product.availableThrough)), gt(availability.reservedMl, 0))).limit(1);
   if (conflictingAvailability.length) throw new DomainError("PRODUCT_WINDOW_CONFLICT", "Availability window would exclude reserved harvest capacity", 409, { availabilityId: conflictingAvailability[0].id });
+  // Only reopen rows explicitly closed by a previous product-window contraction.
+  // Staff closures must remain closed when the product window is expanded.
+  const availabilityToReopen = await database.select({ id: availability.id }).from(availability).where(and(
+    eq(availability.productId, id),
+    eq(availability.shopId, shopId),
+    eq(availability.acceptsOrders, false),
+    eq(availability.manualSoldOut, true),
+    eq(availability.manualSoldOutReason, "Outside product availability window"),
+    gte(availability.businessDate, product.availableFrom),
+    lte(availability.businessDate, product.availableThrough),
+  ));
   try { await database.update(products).set(product).where(and(eq(products.id, id), eq(products.shopId, shopId))); }
   catch (error) { if (String(error).toLowerCase().includes("unique")) throw new DomainError("DUPLICATE_PRODUCT", "Product code or slug already exists", 409); throw error; }
   await database.update(availability).set({ acceptsOrders: false, manualSoldOut: true, manualSoldOutReason: "Outside product availability window" }).where(and(eq(availability.productId, id), eq(availability.shopId, shopId), or(lt(availability.businessDate, product.availableFrom), gt(availability.businessDate, product.availableThrough))));
-  await audit(database, "product.updated", "product", id, { changedFields: Object.keys(product).filter((field) => current[field as keyof typeof current] !== product[field as keyof typeof product]), from: { code: current.code, slug: current.slug, availableFrom: current.availableFrom, availableThrough: current.availableThrough, showOnHomepage: current.showOnHomepage, showOnReserve: current.showOnReserve }, to: { code: product.code, slug: product.slug, availableFrom: product.availableFrom, availableThrough: product.availableThrough, showOnHomepage: product.showOnHomepage, showOnReserve: product.showOnReserve }, impact: { activeOrdersChecked: activeOrders.length, reservedAvailabilityChecked: conflictingAvailability.length } });
+  if (availabilityToReopen.length) {
+    await database.update(availability).set({ acceptsOrders: true, manualSoldOut: false, manualSoldOutReason: null }).where(and(
+      eq(availability.productId, id),
+      eq(availability.shopId, shopId),
+      eq(availability.acceptsOrders, false),
+      eq(availability.manualSoldOut, true),
+      eq(availability.manualSoldOutReason, "Outside product availability window"),
+      gte(availability.businessDate, product.availableFrom),
+      lte(availability.businessDate, product.availableThrough),
+    ));
+  }
+  await audit(database, "product.updated", "product", id, { changedFields: Object.keys(product).filter((field) => current[field as keyof typeof current] !== product[field as keyof typeof product]), from: { code: current.code, slug: current.slug, availableFrom: current.availableFrom, availableThrough: current.availableThrough, showOnHomepage: current.showOnHomepage, showOnReserve: current.showOnReserve }, to: { code: product.code, slug: product.slug, availableFrom: product.availableFrom, availableThrough: product.availableThrough, showOnHomepage: product.showOnHomepage, showOnReserve: product.showOnReserve }, impact: { activeOrdersChecked: activeOrders.length, reservedAvailabilityChecked: conflictingAvailability.length, systemClosedDatesReopened: availabilityToReopen.length } });
   return (await listManagerProducts(database)).find((item) => item.product.id === id)!;
 }
 
