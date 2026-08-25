@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { CalendarRange, ChevronLeft, ChevronRight, Eye, LockKeyhole, Pencil, UnlockKeyhole } from "lucide-react";
-import type { AvailabilityWorkspace } from "@/domain/availability";
+import { CalendarRange, ChevronLeft, ChevronRight, Eye, Info, LoaderCircle, LockKeyhole, Minus, Pencil, Plus, UnlockKeyhole } from "lucide-react";
+import { calculateCapacityAdjustment, type AvailabilityWorkspace } from "@/domain/availability";
 import { AdminNotice, AdminPageHeader, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
@@ -93,15 +93,6 @@ export function AvailabilityWorkspace({
   const [productFilter, setProductFilter] = useState(() => searchParams.get("productId") ?? "ALL");
   const [seasonFilter, setSeasonFilter] = useState(() => searchParams.get("seasonId") ?? "ALL");
 
-  useEffect(() => {
-    const viewParam = searchParams.get("view")?.toUpperCase();
-    if (viewParam === "WEEK" || viewParam === "MONTH" || viewParam === "TABLE") {
-      // URL navigation owns the initial view; apply it after the client mounts.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setViewMode(viewParam as ViewMode);
-    }
-  }, [searchParams]);
-
   // The server anchors and snaps every view's start date (see page.tsx).
   // Adopt its answer instead of recomputing from the browser clock.
   const [currentStartDate, setCurrentStartDate] = useState(() => initialWorkspace.startDate ?? getStartOfWeek(todayStr()));
@@ -117,6 +108,8 @@ export function AvailabilityWorkspace({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [adjustingAvailabilityId, setAdjustingAvailabilityId] = useState<string | null>(null);
+  const workspaceRequestId = useRef(0);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -132,6 +125,7 @@ export function AvailabilityWorkspace({
   const selectedSeasons = selectedProduct?.seasons ?? [];
 
   async function fetchWorkspaceForDates(start: string, days = 7, requestedProductId = productFilter) {
+    const requestId = ++workspaceRequestId.current;
     setWorkspaceLoading(true);
     try {
       const query = new URLSearchParams({
@@ -142,13 +136,14 @@ export function AvailabilityWorkspace({
       });
       const response = await fetch(`/api/admin/availability?${query}`);
       const body = await response.json();
+      if (requestId !== workspaceRequestId.current) return;
       if (response.ok && body.data) {
         setWorkspace(body.data);
       }
     } catch {
-      setError("Could not refresh availability data.");
+      if (requestId === workspaceRequestId.current) setError("Could not refresh availability data.");
     } finally {
-      setWorkspaceLoading(false);
+      if (requestId === workspaceRequestId.current) setWorkspaceLoading(false);
     }
   }
 
@@ -254,6 +249,32 @@ export function AvailabilityWorkspace({
     setCapacityDraftLitres(row.availability.capacityMl / 1000);
   }
 
+  async function adjustCapacity(row: AvailabilityRow, deltaMl: number) {
+    if (adjustingAvailabilityId) return;
+    let nextCapacityMl: number;
+    try { nextCapacityMl = calculateCapacityAdjustment(row.availability.capacityMl, row.availability.reservedMl, deltaMl); }
+    catch { return setError(`Cannot reduce below the ${litres(row.availability.reservedMl)} already reserved.`); }
+    setError("");
+    setAdjustingAvailabilityId(row.availability.id);
+    try {
+      const response = await fetch(`/api/admin/availability/${row.availability.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ expectedVersion: row.availability.version, capacityMl: nextCapacityMl, manualSoldOut: row.availability.manualSoldOut, acceptsOrders: row.availability.acceptsOrders, cutoffOverride: row.availability.cutoffOverride, soldOutReason: row.availability.manualSoldOutReason ?? undefined, source: "QUICK_ADJUST" }),
+      });
+      const body = await response.json();
+      if (!response.ok) return setError(body.message ?? "Could not adjust capacity.");
+      setMessage(`${deltaMl > 0 ? "Added" : "Removed"} 5 L for ${row.product.nameFi} on ${row.availability.businessDate}.`);
+      await fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7);
+    } finally {
+      setAdjustingAvailabilityId(null);
+    }
+  }
+
+  function requestCapacityAdjustment(row: AvailabilityRow, deltaMl: number) {
+    void adjustCapacity(row, deltaMl);
+  }
+
   // Emergency Freeze Lock
   async function handleConfirmFreeze(reason: string) {
     if (!freezingRow) return;
@@ -350,7 +371,6 @@ export function AvailabilityWorkspace({
 
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
-      {workspaceLoading && <AdminNotice tone="neutral" live>Refreshing availability…</AdminNotice>}
 
       {/* EXPANDABLE IN-PAGE BATCH PLANNER PANEL */}
       {batchPanelOpen && canManage && (
@@ -393,7 +413,7 @@ export function AvailabilityWorkspace({
             ))}
           </div>
 
-          <label className="availability-filter-field"><span>Product</span><select value={productFilter} onChange={(event) => handleProductFilterChange(event.target.value)}><option value="ALL">All products</option>{workspace.products.map((product) => <option value={product.id} key={product.id}>{product.nameFi}</option>)}</select></label>
+          <label className="availability-filter-field"><span className="availability-product-label">Product {canManage && <span className="availability-product-hint" data-tooltip="Quick adjustments apply to one product. Select a product to add or remove 5 L." aria-label="Quick adjustments apply to one product. Select a product to add or remove 5 litres." role="img" tabIndex={0}><Info aria-hidden="true" /></span>}<LoaderCircle className={`availability-loading-icon ${workspaceLoading ? "is-visible" : ""}`} aria-label={workspaceLoading ? "Refreshing availability" : undefined} /></span><select value={productFilter} onChange={(event) => handleProductFilterChange(event.target.value)}><option value="ALL">All products</option>{workspace.products.map((product) => <option value={product.id} key={product.id}>{product.nameFi}</option>)}</select></label>
 
           {productFilter !== "ALL" && selectedSeasons.length > 0 && (
             <label className="availability-filter-field">
@@ -553,7 +573,13 @@ export function AvailabilityWorkspace({
                     <>
                       <button type="button" className="btn btn-secondary" onClick={() => setInspectingDate(day.date)}><Eye aria-hidden="true" />Inspect</button>
                       {productFilter !== "ALL" && canManage && (
-                        <button type="button" className="btn btn-secondary" onClick={() => { const row = editableRow(day.dayRows); if (row) openCapacityEditor(row); }}><Pencil aria-hidden="true" />Edit capacity</button>
+                        <>
+                          {editableRow(day.dayRows) && <div className="availability-quick-adjust" aria-label="Quickly adjust capacity by 5 litres">
+                            <button type="button" className="btn btn-secondary availability-quick-adjust-button" aria-label="Remove 5 litres" disabled={adjustingAvailabilityId !== null || editableRow(day.dayRows)!.availability.capacityMl - 5000 < editableRow(day.dayRows)!.availability.reservedMl} onClick={() => requestCapacityAdjustment(editableRow(day.dayRows)!, -5000)}><Minus aria-hidden="true" />5 L</button>
+                            <button type="button" className="btn btn-secondary availability-quick-adjust-button" aria-label="Add 5 litres" disabled={adjustingAvailabilityId !== null} onClick={() => requestCapacityAdjustment(editableRow(day.dayRows)!, 5000)}><Plus aria-hidden="true" />5 L</button>
+                          </div>}
+                          <button type="button" className="btn btn-secondary" onClick={() => { const row = editableRow(day.dayRows); if (row) openCapacityEditor(row); }}><Pencil aria-hidden="true" />Edit capacity</button>
+                        </>
                       )}
                       {productFilter !== "ALL" && canSoldOut && (
                         <button
@@ -690,6 +716,20 @@ export function AvailabilityWorkspace({
                         <AdminRowActionMenu
                           items={[
                             {
+                              id: "add-five-litres",
+                              label: "Add 5 L",
+                              icon: <Plus aria-hidden="true" />,
+                              disabled: adjustingAvailabilityId !== null,
+                              onClick: () => requestCapacityAdjustment(row, 5000),
+                            },
+                            {
+                              id: "remove-five-litres",
+                              label: "Remove 5 L",
+                              icon: <Minus aria-hidden="true" />,
+                              disabled: adjustingAvailabilityId !== null || row.availability.capacityMl - 5000 < row.availability.reservedMl,
+                              onClick: () => requestCapacityAdjustment(row, -5000),
+                            },
+                            {
                               id: "edit-capacity",
                               label: "Edit Capacity",
                               icon: <IconPencil />,
@@ -795,6 +835,8 @@ export function AvailabilityWorkspace({
           }}
           cutoffOverride={inspectedDayRow?.availability.cutoffOverride}
           onCutoffOverride={canCutoffOverride && productFilter !== "ALL" && inspectedDayRow ? (value) => void handleCutoffOverride(inspectedDayRow, value) : undefined}
+          onQuickAdjust={canManage && productFilter !== "ALL" && inspectedDayRow ? (delta) => requestCapacityAdjustment(inspectedDayRow, delta) : undefined}
+          quickAdjustDisabled={adjustingAvailabilityId !== null}
         />
       )}
 

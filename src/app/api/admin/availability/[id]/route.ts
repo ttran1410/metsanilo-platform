@@ -14,6 +14,7 @@ const command = z.object({
   soldOutReason: z.string().max(500).optional(),
   acceptsOrders: z.boolean().optional(),
   cutoffOverride: z.enum(["OPEN", "CLOSED"]).nullable().optional(),
+  source: z.enum(["MANUAL_EDIT", "QUICK_ADJUST"]).optional(),
 });
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {

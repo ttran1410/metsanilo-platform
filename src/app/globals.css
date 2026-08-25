@@ -1575,6 +1575,19 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .availability-queue-card li span { color: var(--ink-muted); font-size: .85rem; }
 .availability-queue-card > .btn { margin-top: .5rem; }
 .availability-dialog { max-width: 34rem; }
+.availability-quick-adjust { display: inline-flex; gap: .35rem; }
+.availability-quick-adjust .btn { min-width: 3.5rem; padding: .35rem .55rem; font-size: .72rem; }
+.availability-quick-adjust-button { display: inline-flex; align-items: center; justify-content: center; gap: .3rem; min-width: 4.25rem; min-height: 2.2rem; padding: .4rem .65rem; white-space: nowrap; line-height: 1; }
+.availability-quick-adjust-button svg { width: .9rem; height: .9rem; flex: 0 0 .9rem; }
+.availability-product-label { display: inline-flex; align-items: center; gap: .4rem; }
+.availability-product-hint { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; color: var(--admin-muted); border: 1px solid var(--admin-border); border-radius: 999px; cursor: help; }
+.availability-product-hint svg { width: 1rem; height: 1rem; }
+.availability-product-hint { position: relative; }
+.availability-product-hint::after { position: absolute; z-index: 20; top: calc(100% + .45rem); left: 50%; width: max-content; max-width: 17rem; padding: .5rem .65rem; border-radius: .45rem; background: var(--admin-ink); color: white; content: attr(data-tooltip); font-size: .72rem; font-weight: 500; line-height: 1.35; opacity: 0; pointer-events: none; transform: translate(-50%, -.2rem); transition: opacity .15s ease, transform .15s ease; }
+.availability-product-hint:hover::after, .availability-product-hint:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+.availability-loading-icon { width: .9rem; height: .9rem; opacity: 0; transition: opacity .15s ease; }
+.availability-loading-icon.is-visible { opacity: 1; animation: availability-spin .8s linear infinite; }
+@keyframes availability-spin { to { transform: rotate(360deg); } }
 @media (max-width: 640px) {
   .admin-dialog-actions { flex-direction: column-reverse; }
   .admin-dialog-actions .btn { width: 100%; justify-content: center; }
@@ -2452,6 +2465,7 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .availability-inspector-header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--admin-border); background: var(--admin-surface); padding: 1rem; }
 .availability-inspector-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; border-top: 1px solid var(--admin-border); padding-top: .7rem; }
 .availability-inspector-actions .btn { flex: 1 1 auto; justify-content: center; }
+.availability-inspector-actions .availability-quick-adjust-button { flex: 0 0 4.25rem; }
 .availability-inspector :is(.font-bold.text-emerald-900, .font-bold.text-blue-900) svg { width: 1rem; height: 1rem; stroke-width: 1.8; }
 .availability-batch-planner { display: grid; gap: 1rem; border: 1px solid #b8cdbf; background: #f4f8f5; padding: 1.25rem; }
 .availability-batch-planner > div:first-child { border-bottom-color: var(--admin-border); }
