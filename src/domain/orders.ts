@@ -12,9 +12,6 @@ import { getHarvestSeasonForDate } from "./seasons";
 
 const nowIso = () => new Date().toISOString();
 const publicReference = () => `R-${randomBytes(5).toString("hex").toUpperCase()}`;
-function localTimeInTimezone(timezone: string, now = new Date()) {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: false }).format(now);
-}
 
 export type OrderReceipt = {
   publicReference: string;
@@ -142,10 +139,6 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
           input.fulfillmentDate > row.product.availableThrough
         ) {
           throw new DomainError("DATE_CLOSED", "Date is not orderable", 409);
-        }
-
-        if (input.fulfillmentDate === today && row.shop.sameDayCutoffEnabled && localTimeInTimezone(row.shop.timezone) >= row.shop.sameDayCutoffTime) {
-          throw new DomainError("SAME_DAY_CUTOFF", "Same-day reservations are closed. Please choose another date.", 409);
         }
 
         if (!current || !current.acceptsOrders) {

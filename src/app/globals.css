@@ -696,8 +696,6 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .admin-dialog h2 { margin: .45rem 0 .65rem; color: var(--admin-ink, var(--ink)); font-size: 1.35rem; line-height: 1.2; }
 .admin-dialog > p:not(.eyebrow) { margin: 0; color: var(--admin-ink-muted, var(--muted)); line-height: 1.5; }
 .admin-dialog .profile-actions { display: flex; justify-content: flex-end; gap: .65rem; margin-top: 1.5rem; }
-.admin-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--admin-border, var(--line)); }
-.admin-dialog-actions .btn { flex: 0 0 auto; }
 .admin-dialog button:focus-visible { outline: 3px solid var(--admin-focus, var(--focus)); outline-offset: 3px; }
 .field-checkbox { display: flex; min-height: auto !important; align-items: flex-start; gap: .65rem; line-height: 1.4; }
 .field-checkbox input[type="checkbox"], .field-checkbox input[type="radio"] { margin-top: .05rem; }
@@ -1575,10 +1573,6 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .availability-queue-card li span { color: var(--ink-muted); font-size: .85rem; }
 .availability-queue-card > .btn { margin-top: .5rem; }
 .availability-dialog { max-width: 34rem; }
-@media (max-width: 640px) {
-  .admin-dialog-actions { flex-direction: column-reverse; }
-  .admin-dialog-actions .btn { width: 100%; justify-content: center; }
-}
 .weekday-picker { display: flex; flex-wrap: wrap; gap: .45rem .8rem; border: 0; padding: 0; }
 .weekday-picker legend { margin-bottom: .35rem; font-weight: 700; }
 .weekday-picker label { display: flex; min-height: 2.5rem; align-items: center; gap: .35rem; padding: .35rem .6rem; border: 1px solid var(--line); border-radius: .55rem; }

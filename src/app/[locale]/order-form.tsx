@@ -161,7 +161,7 @@ export function OrderForm({
       });
       const body = await response.json();
       if (!response.ok) {
-        setError(body.code === "SAME_DAY_CUTOFF" ? (locale === "fi" ? "Saman päivän varaukset ovat sulkeutuneet. Valitse toinen päivä." : "Same-day reservations are closed. Please choose another date.") : body.code === "SOLD_OUT" ? (locale === "fi" ? "Tälle päivälle ei ole enää riittävästi kapasiteettia. Valitse toinen päivä." : "There is no longer enough capacity for this date. Please choose another date.") : t.error);
+        setError(t.error);
         const serverErrors = localizeServerFieldErrors(body.fieldErrors, locale);
         showFieldErrors(serverErrors, form);
         return;
