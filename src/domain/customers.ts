@@ -63,6 +63,13 @@ export async function confirmCustomerContact(
   return { confirmedAt, expiresAt: expires.toISOString() };
 }
 
+export async function renewCustomerContact(database: Database, customerId: string, actor: string, now = new Date()) {
+  const current = await database.query.customers.findFirst({ where: and(eq(customers.id, customerId), eq(customers.shopId, env().SHOP_ID)) });
+  if (!current) throw new DomainError("NOT_FOUND", "Customer not found", 404);
+  if (!current.contactConfirmationChannel || current.contactConfirmationChannel === "MIGRATION") throw new DomainError("VALIDATION_ERROR", "A verified contact channel is required before renewal", 422);
+  return confirmCustomerContact(database, customerId, actor, current.contactConfirmationChannel as ContactConfirmationChannel, current.contactConfirmationNote, now);
+}
+
 export async function findRetentionEligibleCustomers(database: Database, now = new Date()) {
   const cutoff = new Date(now);
   cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 2);

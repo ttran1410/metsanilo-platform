@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { createDatabaseConnection, type Database } from "@/db/client";
 import { availability, customers, packages, products, shops } from "@/db/schema";
-import { confirmCustomerContact, createCustomer, getCustomerProfile, updateCustomer } from "@/domain/customers";
+import { confirmCustomerContact, createCustomer, getCustomerProfile, renewCustomerContact, updateCustomer } from "@/domain/customers";
 import { createExternalOrder, createHistoricalOrder } from "@/domain/operations";
 import { submitOrder } from "@/domain/orders";
 import { resetEnvForTests } from "@/lib/env";
@@ -288,5 +288,14 @@ describe("Customer Facebook Profile CRM & Order Sync", () => {
     const profile = await getCustomerProfile(database, customer.id);
     expect(profile?.customer.contactConfirmationChannel).toBe("WHATSAPP");
     expect(profile?.customer.contactConfirmationExpiresAt).toBe(result.expiresAt);
+  });
+
+  it("renews an existing operator confirmation without changing its channel", async () => {
+    const customer = await createCustomer(database, { name: "Aino Renewal", mobile: "+358401234568" });
+    await confirmCustomerContact(database, customer.id, "operator@test", "SMS", undefined, new Date("2026-08-27T10:00:00.000Z"));
+    const renewed = await renewCustomerContact(database, customer.id, "operator@test", new Date("2027-08-20T10:00:00.000Z"));
+    expect(renewed.expiresAt).toBe("2028-08-20T10:00:00.000Z");
+    const profile = await getCustomerProfile(database, customer.id);
+    expect(profile?.customer.contactConfirmationChannel).toBe("SMS");
   });
 });

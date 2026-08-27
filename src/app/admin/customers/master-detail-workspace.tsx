@@ -24,6 +24,9 @@ export type CustomerRow = {
   notes?: string | null;
   facebookProfile?: string | null;
   contactConfirmationExpiresAt?: string | null;
+  contactConfirmedAt?: string | null;
+  contactConfirmedBy?: string | null;
+  contactConfirmationChannel?: string | null;
   retentionHoldUntil?: string | null;
   retentionHoldReason?: string | null;
   updatedAt: string;
@@ -230,6 +233,7 @@ export function MasterDetailCustomerWorkspace({
   }, [customersList, searchQuery, filterChip, sortMode]);
   const emptyListTitle = "No customers found";
   const emptyListDescription = "Adjust search query or filter chips.";
+  const confirmationActive = Boolean(profile?.customer.contactConfirmationExpiresAt && new Date(profile.customer.contactConfirmationExpiresAt).getTime() > Date.now());
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -1206,12 +1210,13 @@ export function MasterDetailCustomerWorkspace({
                   <div className="flex flex-col gap-2 text-xs">
                     <span className="eyebrow customer-section-label">Contact confirmation <span className="customer-info-hint" data-tooltip="After speaking with the customer by phone, SMS or WhatsApp, choose the channel and confirm. The confirmation is valid for 12 months." role="img" tabIndex={0} aria-label="Contact confirmation is recorded after speaking with the customer and is valid for 12 months."><Info aria-hidden="true" /></span></span>
                     {profile.customer.contactConfirmationExpiresAt && <span className="text-emerald-800">Confirmed until {profile.customer.contactConfirmationExpiresAt.slice(0, 10)}</span>}
+                    {profile.customer.contactConfirmedBy && <span className="muted">By {profile.customer.contactConfirmedBy} · {profile.customer.contactConfirmationChannel ?? "unknown"} · {profile.customer.contactConfirmedAt?.slice(0, 10)}</span>}
                     <div className="flex flex-wrap items-center gap-2">
                     <label className="sr-only" htmlFor="contact-confirmation-channel">Confirmation channel</label>
                     <select id="contact-confirmation-channel" className="input text-xs" value={confirmationChannel} onChange={(event) => setConfirmationChannel(event.target.value as typeof confirmationChannel)} disabled={retentionBusy}>
                       <option value="PHONE">Phone</option><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option><option value="OTHER">Other</option>
                     </select>
-                    <button type="button" className="btn btn-secondary text-xs" onClick={() => void handleConfirmContact()} disabled={retentionBusy}><ShieldCheck aria-hidden="true" />{retentionBusy ? "Saving…" : "Confirm contact"}</button>
+                    {!confirmationActive ? <button type="button" className="btn btn-secondary text-xs" onClick={() => void handleConfirmContact()} disabled={retentionBusy}><ShieldCheck aria-hidden="true" />{retentionBusy ? "Saving…" : "Confirm contact"}</button> : <button type="button" className="btn btn-secondary text-xs" onClick={async () => { setRetentionBusy(true); const response = await fetch(`/api/admin/customers/${profile.customer.id}/contact-confirmation/renew`, { method: "POST" }); setRetentionBusy(false); if (!response.ok) return setError("Could not renew contact confirmation."); setMessage("Contact confirmation renewed."); void refreshList(profile.customer.id); }} disabled={retentionBusy}>Renew confirmation</button>}
                     </div>
                   </div>
                 )}
