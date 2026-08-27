@@ -373,11 +373,10 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
     event.preventDefault();
     try {
       const values = new FormData(event.currentTarget);
-      const data = await request("/api/admin/order-sources", {
+      const data = await request(`/api/admin/order-sources/${source.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          id: source.id,
           key: values.get("key"),
           labelFi: values.get("labelFi"),
           labelEn: values.get("labelEn"),
@@ -416,7 +415,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
 
   async function deleteOrderSourceItem(id: string) {
     setConfirmation({ title: "Delete intake channel?", description: "New orders will no longer be able to use this channel. Existing orders are not changed.", confirmLabel: "Delete channel", destructive: true, onConfirm: async () => {
-      try { await request(`/api/admin/order-sources?id=${id}`, { method: "DELETE" }); feedback("Order intake channel deleted.", "success"); await loadAll(); }
+      try { await request(`/api/admin/order-sources/${id}`, { method: "DELETE" }); feedback("Order intake channel deleted.", "success"); await loadAll(); }
       catch (error) { feedback(error instanceof Error ? error.message : "Could not delete channel", "error"); }
     } });
   }
