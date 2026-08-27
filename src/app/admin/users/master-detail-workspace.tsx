@@ -2,19 +2,21 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Boxes, ChevronDown, ClipboardList, Copy, Gauge, KeyRound, LockKeyhole, MapPinned, Pencil, Plus, RefreshCcw, Save, ShieldAlert, ShieldCheck, ShoppingBasket, Store, UserRoundX, UsersRound, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Boxes, ChevronDown, ClipboardList, Gauge, KeyRound, LockKeyhole, MapPinned, Pencil, Plus, RefreshCcw, Save, ShieldAlert, ShieldCheck, ShoppingBasket, Store, UserRoundX, UsersRound, type LucideIcon } from "lucide-react";
 import {
   defaultPermissionsForRole,
   isHighRiskPermission,
   type Permission,
   type Role,
 } from "@/lib/permissions";
-import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
+import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { UserQueryToolbar, type UserRoleFilter } from "./user-query-toolbar";
 import { UserWorkspaceProvider, useUserWorkspace } from "./user-workspace-provider";
 import { OnboardingModal } from "./onboarding-modal";
+import { UserConfirmationDialog } from "./user-confirmation-dialog";
+import { UserPasswordDialog } from "./user-password-dialog";
 
 export type UserRow = {
   id: string;
@@ -227,7 +229,6 @@ function UserWorkspaceContent({
   const [savingPermissions, setSavingPermissions] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [createdInfo, setCreatedInfo] = useState<{ user: CreatedUser; tempPassword: string } | null>(null);
-  const passwordDialogRef = useAdminDialogFocus(Boolean(createdInfo), () => setCreatedInfo(null));
   const [confirmation, setConfirmation] = useState<{ title: string; description: string; confirmLabel: string; destructive?: boolean; onConfirm: () => Promise<void> } | null>(null);
 
   const metrics = useMemo(() => {
@@ -1045,52 +1046,13 @@ function UserWorkspaceContent({
       )}
 
       {/* TEMPORARY PASSWORD COPY MODAL */}
-      <AdminConfirmDialog
-        open={confirmation !== null}
-        title={confirmation?.title ?? "Confirm action"}
-        description={confirmation?.description}
-        confirmLabel={confirmation?.confirmLabel}
-        destructive={confirmation?.destructive}
+      <UserConfirmationDialog
+        confirmation={confirmation}
         onCancel={() => setConfirmation(null)}
         onConfirm={async () => { const action = confirmation?.onConfirm; setConfirmation(null); if (action) await action(); }}
       />
 
-      {createdInfo && (
-        <div className="admin-dialog-backdrop">
-          <div ref={passwordDialogRef} className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3" role="dialog" aria-modal="true" aria-label="Temporary access password">
-            <p className="eyebrow text-emerald-700">ACCOUNT CREATED / PASSWORD RESET</p>
-            <h3 className="text-lg font-bold text-ink">Temporary Access Password</h3>
-            <p className="text-xs muted leading-relaxed">
-              Copy and share this temporary one-time password with <strong>{createdInfo.user.displayName}</strong> ({createdInfo.user.email}). User will be required to choose a new password on login.
-            </p>
-
-            <div className="p-3 bg-surface-muted border border-line rounded-xl flex items-center justify-between font-mono font-bold text-base text-primary">
-              <span>{createdInfo.tempPassword}</span>
-              <button
-                type="button"
-                className="btn btn-secondary text-xs py-1 px-2.5 inline-flex items-center gap-1 font-bold"
-                onClick={() => {
-                  void navigator.clipboard.writeText(createdInfo.tempPassword);
-                  setMessage("Temporary password copied to clipboard!");
-                }}
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>Copy</span>
-              </button>
-            </div>
-
-            <div className="profile-actions justify-end gap-2 mt-2">
-              <button
-                className="btn text-xs font-bold"
-                type="button"
-                onClick={() => setCreatedInfo(null)}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <UserPasswordDialog createdInfo={createdInfo} onDismiss={() => setCreatedInfo(null)} onCopy={(password) => { void navigator.clipboard.writeText(password); setMessage("Temporary password copied to clipboard!"); }} />
     </section>
   );
 }
