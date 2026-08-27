@@ -1,29 +1,22 @@
-import { db } from "@/db/client";
-
-import { requirePermission } from "@/domain/access";
 import { getAvailabilityWorkspace } from "@/domain/availability";
 import { failure, success } from "../../response";
+import { executeAdmin } from "../module";
 
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    await requirePermission(db(), request, "availability.read");
-    const { searchParams } = new URL(request.url);
-    const startDate = searchParams.get("startDate") ?? undefined;
-    const daysStr = searchParams.get("days");
-    const days = daysStr ? Number(daysStr) : 7;
-    const productId = searchParams.get("productId") ?? undefined;
-    const seasonId = searchParams.get("seasonId") ?? undefined;
-
-    const workspace = await getAvailabilityWorkspace(db(), {
-      startDate,
-      days,
-      productId,
-      seasonId,
+    const workspace = await executeAdmin(request, {
+      permission: "availability.read",
+      parse: async () => new URL(request.url).searchParams,
+      run: async (searchParams, { database }) => getAvailabilityWorkspace(database, {
+        startDate: searchParams.get("startDate") ?? undefined,
+        days: searchParams.has("days") ? Number(searchParams.get("days")) : 7,
+        productId: searchParams.get("productId") ?? undefined,
+        seasonId: searchParams.get("seasonId") ?? undefined,
+      }),
     });
-
     return success(workspace);
   } catch (error) {
     return failure(error);
