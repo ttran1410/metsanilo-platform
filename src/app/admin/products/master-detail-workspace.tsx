@@ -31,6 +31,7 @@ import { PreviewDrawer } from "./preview-drawer";
 import { PricingLadder } from "./pricing-ladder";
 import { SeasonTracker } from "./season-tracker";
 import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-toolbar";
+import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspace-provider";
 
 type ProductRow = {
   product: typeof products.$inferSelect;
@@ -53,7 +54,7 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function MasterDetailWorkspace({
+function ProductWorkspaceContent({
   initialProducts,
   canManageProducts,
 }: {
@@ -62,15 +63,8 @@ export function MasterDetailWorkspace({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterStatus, setFilterStatus, activeTab, setActiveTab, viewMode, setViewMode, mobileView, setMobileView, currentPage, setCurrentPage, pageSize, setPageSize, splitLimit, setSplitLimit } = useProductWorkspace();
   const [productsList, setProductsList] = useState(initialProducts);
-  const [selectedId, setSelectedId] = useState<string>(searchParams.get("product") ?? initialProducts[0]?.product.id ?? "");
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>(() => searchParams.get("status") as FilterStatus || "all");
-  const [activeTab, setActiveTab] = useState<ActiveTab>(() => searchParams.get("tab") as ActiveTab || "general");
-  const [viewMode, setViewMode] = useState<"split" | "table">(() => searchParams.get("view") === "table" ? "table" : "split");
-  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showUnarchiveConfirm, setShowUnarchiveConfirm] = useState(false);
@@ -228,7 +222,6 @@ export function MasterDetailWorkspace({
     return filteredMasterList.slice(start, start + pageSize);
   }, [filteredMasterList, currentPage, pageSize]);
 
-  const [splitLimit, setSplitLimit] = useState(20);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -997,4 +990,14 @@ export function MasterDetailWorkspace({
       )}
     </section>
   );
+}
+
+export function MasterDetailWorkspace(props: { initialProducts: ProductRow[]; canManageProducts: boolean }) {
+  const searchParams = useSearchParams();
+  const status = searchParams.get("status");
+  const tab = searchParams.get("tab");
+  const view = searchParams.get("view");
+  const initialFilterStatus: FilterStatus = status === "in_season" || status === "upcoming" || status === "archived" ? status : "all";
+  const initialActiveTab: ActiveTab = tab === "packages" || tab === "media" || tab === "channels" ? tab : "general";
+  return <ProductWorkspaceProvider initialSelectedId={searchParams.get("product") ?? props.initialProducts[0]?.product.id ?? ""} initialSearchQuery={searchParams.get("q") ?? ""} initialFilterStatus={initialFilterStatus} initialActiveTab={initialActiveTab} initialViewMode={view === "table" ? "table" : "split"}><ProductWorkspaceContent {...props} /></ProductWorkspaceProvider>;
 }
