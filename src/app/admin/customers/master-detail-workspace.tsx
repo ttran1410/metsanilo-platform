@@ -268,7 +268,8 @@ function CustomerWorkspaceContent({
   }, [customersList, searchQuery, filterChip, sortMode]);
   const emptyListTitle = "No customers found";
   const emptyListDescription = "Adjust search query or filter chips.";
-  const confirmationActive = Boolean(profile?.customer.contactConfirmationExpiresAt && new Date(profile.customer.contactConfirmationExpiresAt).getTime() > Date.now());
+  const [now] = useState(() => Date.now());
+  const confirmationActive = Boolean(profile?.customer.contactConfirmationExpiresAt && new Date(profile.customer.contactConfirmationExpiresAt).getTime() > now);
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -312,9 +313,11 @@ function CustomerWorkspaceContent({
     if (filteredCustomers.length === 0) return;
     if (selectedId && filteredCustomers.some((customer) => customer.id === selectedId)) return;
     const first = filteredCustomers[0];
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedId(first.id);
-    void loadProfile(first.id, false);
+    const timer = window.setTimeout(() => {
+      setSelectedId(first.id);
+      void loadProfile(first.id, false);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [filteredCustomers, selectedId]);
 
   useEffect(() => {
