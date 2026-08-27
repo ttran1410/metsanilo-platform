@@ -18,6 +18,9 @@ import { ManagerWorkspaceHeader } from "./manager-workspace-header";
 import { ManagerAvailabilityPanel } from "./manager-availability-panel";
 import { ManagerOrderList } from "./manager-order-list";
 import { ManagerBulkActionDialog } from "./manager-bulk-action-dialog";
+import { ManagerOrderTable } from "./manager-order-table";
+import { ManagerOrderCards } from "./manager-order-cards";
+import { ManagerOrderInspector } from "./manager-order-inspector";
 
 type Order = typeof orders.$inferSelect;
 type AvailabilityRow = {
@@ -551,7 +554,7 @@ function ManagerWorkspaceContent({
             onBulkTransition={(status) => void bulkTransition(status)}
           />
           <ManagerOrderList>
-            <div className="admin-orders-table-wrap card mt-3">
+          <ManagerOrderTable>
               <table className="admin-orders-table">
                 <thead>
                   <tr>
@@ -676,8 +679,8 @@ function ManagerWorkspaceContent({
                   description="Try another search or status filter."
                 />
               )}
-            </div>
-            <div className="mt-3 grid gap-3">
+          </ManagerOrderTable>
+          <ManagerOrderCards>
               {filteredOrders.length === 0 && (
                 <AdminEmptyState
                   title="No matching orders"
@@ -719,7 +722,7 @@ function ManagerWorkspaceContent({
                             {order.postalCode} {order.city}
                           </p>
                         )}
-                      </div>
+                    </div>
                     </div>
                     <div className="admin-order-actions">
                       <a
@@ -803,7 +806,7 @@ function ManagerWorkspaceContent({
                     </div>
                   </div>
                   {detail?.order.id === order.id && (
-                    <div className="mt-4 grid gap-3 border-t pt-4">
+                    <ManagerOrderInspector>
                       <h4 className="font-bold">Order detail</h4>
                       <p>
                         Item: {(detail.order.itemSubtotalCents / 100).toFixed(2)}{" "}
@@ -968,11 +971,11 @@ function ManagerWorkspaceContent({
                           </p>
                         )}
                       </div>
-                    </div>
+                    </ManagerOrderInspector>
                   )}
                 </article>
               ))}
-            </div>
+          </ManagerOrderCards>
 
           </ManagerOrderList>
         </section>
