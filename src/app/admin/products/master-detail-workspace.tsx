@@ -24,13 +24,13 @@ import {
 import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLink } from "../ui/admin-row-action-menu";
-import { AdminSearchField } from "../ui/admin-search-field";
 
 import { BilingualEditor } from "./bilingual-editor";
 import { MediaGalleryTab } from "./media-gallery-tab";
 import { PreviewDrawer } from "./preview-drawer";
 import { PricingLadder } from "./pricing-ladder";
 import { SeasonTracker } from "./season-tracker";
+import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-toolbar";
 
 type ProductRow = {
   product: typeof products.$inferSelect;
@@ -329,7 +329,7 @@ export function MasterDetailWorkspace({
   }
 
   const missingEn = !nameEn.trim() || !descEn.trim();
-  const filterOptions: Array<{ key: FilterStatus; label: string; count: number; tone: string }> = [
+  const filterOptions: ProductFilterOption[] = [
     { key: "all", label: "All", count: metrics.total, tone: "neutral" },
     { key: "in_season", label: "In season", count: metrics.inSeason, tone: "success" },
     { key: "upcoming", label: "Upcoming", count: metrics.upcoming, tone: "warning" },
@@ -369,38 +369,13 @@ export function MasterDetailWorkspace({
         /* TABLE MATRIX VIEW */
         <div className="card p-4 overflow-x-auto border border-line flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-            <div className="flex flex-wrap items-center gap-2 flex-1 max-w-lg">
-              <AdminSearchField wrapperClassName="flex-1"
-                  placeholder="Search by name or code…"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
-              />
-
-              <div className="admin-catalog-filters text-[11px]">
-                {filterOptions.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    className={`px-2.5 py-1 rounded-md font-semibold whitespace-nowrap transition-colors ${
-                      filterStatus === tab.key
-                        ? "bg-primary text-on-primary"
-                        : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
-                    }`}
-                    onClick={() => {
-                        setFilterStatus(tab.key);
-                        setCurrentPage(1);
-                      }}
-                  >
-                    <span className={`admin-status-dot is-${tab.tone}`} aria-hidden="true" />
-                    {tab.label} <span className="admin-filter-count">{tab.count}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <ProductQueryToolbar
+              query={searchQuery}
+              onQueryChange={(query) => { setSearchQuery(query); setCurrentPage(1); }}
+              filterStatus={filterStatus}
+              onFilterChange={(status) => { setFilterStatus(status); setCurrentPage(1); }}
+              options={filterOptions}
+            />
 
             <span className="text-xs muted font-semibold">Showing {filteredMasterList.length} products</span>
           </div>
@@ -559,38 +534,13 @@ export function MasterDetailWorkspace({
             </div>
 
             {/* Search & Filter Controls */}
-            <div className="flex flex-col gap-2">
-              <AdminSearchField wrapperClassName="w-full"
-                  placeholder="Search by name or code…"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
-              />
-
-              <div className="admin-catalog-filters text-[11px]">
-                {filterOptions.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    className={`px-2.5 py-1 rounded-md font-semibold whitespace-nowrap transition-colors ${
-                      filterStatus === tab.key
-                        ? "bg-primary text-on-primary"
-                        : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
-                    }`}
-                    onClick={() => {
-                        setFilterStatus(tab.key);
-                        setCurrentPage(1);
-                      }}
-                  >
-                    <span className={`admin-status-dot is-${tab.tone}`} aria-hidden="true" />
-                    {tab.label} <span className="admin-filter-count">{tab.count}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <ProductQueryToolbar
+              query={searchQuery}
+              onQueryChange={(query) => { setSearchQuery(query); setCurrentPage(1); }}
+              filterStatus={filterStatus}
+              onFilterChange={(status) => { setFilterStatus(status); setCurrentPage(1); }}
+              options={filterOptions}
+            />
 
             {/* Product Master Items List */}
             <div
