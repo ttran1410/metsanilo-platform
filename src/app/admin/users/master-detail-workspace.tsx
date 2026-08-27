@@ -12,7 +12,7 @@ import {
 import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
-import { AdminSearchField } from "../ui/admin-search-field";
+import { UserQueryToolbar, type UserRoleFilter } from "./user-query-toolbar";
 import { OnboardingModal } from "./onboarding-modal";
 
 export type UserRow = {
@@ -216,7 +216,7 @@ export function MasterDetailUserWorkspace({
   const [usersList, setUsersList] = useState(initialUsers);
   const [selectedId, setSelectedId] = useState<string>(searchParams.get("user") ?? initialUsers[0]?.id ?? "");
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
-  const [roleFilter, setRoleFilter] = useState<"ALL" | Role>(() => {
+  const [roleFilter, setRoleFilter] = useState<UserRoleFilter>(() => {
     const role = searchParams.get("role");
     return role === "ADMIN" || role === "MANAGER" || role === "STAFF" || role === "CONTENT_CREATOR" ? role : "ALL";
   });
@@ -522,35 +522,7 @@ export function MasterDetailUserWorkspace({
         /* TABLE MATRIX VIEW */
         <div className="card p-4 overflow-x-auto border border-line">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3 mb-3">
-            <div className="flex items-center gap-2 flex-1 max-w-md">
-              <AdminSearchField
-                  wrapperClassName="flex-1"
-                  placeholder="Search team"
-                  aria-label="Search team members"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
-              />
-
-              <select
-                aria-label="Filter role"
-                value={roleFilter}
-                onChange={(e) => {
-                   setRoleFilter(e.target.value as "ALL" | Role);
-                  setCurrentPage(1);
-                }}
-                className="text-xs py-1.5 px-2 rounded-lg border border-line bg-surface font-semibold"
-              >
-                <option value="ALL">All Roles</option>
-                <option value="ADMIN">ADMIN</option>
-                <option value="MANAGER">MANAGER</option>
-                <option value="STAFF">STAFF</option>
-                <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
-              </select>
-            </div>
+            <UserQueryToolbar query={searchQuery} role={roleFilter} onQueryChange={(query) => { setSearchQuery(query); setCurrentPage(1); }} onRoleChange={(role) => { setRoleFilter(role); setCurrentPage(1); }} />
 
             <span className="text-xs muted font-semibold">Showing {filteredUsers.length} team members</span>
           </div>
@@ -707,35 +679,7 @@ export function MasterDetailUserWorkspace({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <AdminSearchField
-                  wrapperClassName="flex-1"
-                  placeholder="Search team"
-                  aria-label="Search team members"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
-              />
-
-              <select
-                aria-label="Filter role"
-                value={roleFilter}
-                onChange={(e) => {
-                   setRoleFilter(e.target.value as "ALL" | Role);
-                  setCurrentPage(1);
-                }}
-                className="text-xs py-1.5 px-2 rounded-lg border border-line bg-surface font-semibold"
-              >
-                <option value="ALL">All Roles</option>
-                <option value="ADMIN">ADMIN</option>
-                <option value="MANAGER">MANAGER</option>
-                <option value="STAFF">STAFF</option>
-                <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
-              </select>
-            </div>
+            <UserQueryToolbar query={searchQuery} role={roleFilter} onQueryChange={(query) => { setSearchQuery(query); setCurrentPage(1); }} onRoleChange={(role) => { setRoleFilter(role); setCurrentPage(1); }} />
 
             {/* USER ROSTER LIST */}
             <div
