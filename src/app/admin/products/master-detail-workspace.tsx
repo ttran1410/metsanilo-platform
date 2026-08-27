@@ -33,6 +33,7 @@ import { SeasonTracker } from "./season-tracker";
 import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-toolbar";
 import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspace-provider";
 import { ProductArchiveDialog, ProductDeleteDialog, ProductRestoreDialog } from "./product-action-dialogs";
+import { archiveProduct, restoreProduct } from "./product-admin-actions";
 
 type ProductRow = {
   product: typeof products.$inferSelect;
@@ -134,20 +135,14 @@ function ProductWorkspaceContent({
     setError("");
     setMessage("");
 
-    const response = await fetch(`/api/admin/products/${selectedRow.product.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "active", active: targetActive }),
-    });
-
-    const body = await response.json();
-    if (!response.ok) {
-      return setError(body.message ?? "Could not update product active status.");
+    const result = targetActive ? await restoreProduct(selectedRow.product.id) : await archiveProduct(selectedRow.product.id);
+    if (!result.ok) {
+      return setError(result.message ?? "Could not update product active status.");
     }
 
     setActive(targetActive);
     setProductsList((current) =>
-      current.map((item) => (item.product.id === selectedRow.product.id ? body.data : item))
+      current.map((item) => (item.product.id === selectedRow.product.id ? result.data as ProductRow : item))
     );
     setMessage(targetActive ? `${selectedRow.product.nameFi} is now active.` : `${selectedRow.product.nameFi} has been archived.`);
   }
