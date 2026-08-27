@@ -13,6 +13,7 @@ import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminStatusBadge, use
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { UserQueryToolbar, type UserRoleFilter } from "./user-query-toolbar";
+import { UserWorkspaceProvider, useUserWorkspace } from "./user-workspace-provider";
 import { OnboardingModal } from "./onboarding-modal";
 
 export type UserRow = {
@@ -196,7 +197,7 @@ function permissionName(key: string) {
   return PERMISSION_LABELS[key] ?? key.replaceAll(".", " ");
 }
 
-export function MasterDetailUserWorkspace({
+function UserWorkspaceContent({
   initialUsers,
   actorRole = "MANAGER",
   actorId,
@@ -213,15 +214,9 @@ export function MasterDetailUserWorkspace({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const workspace = useUserWorkspace();
+  const { selectedId, setSelectedId, searchQuery, setSearchQuery, roleFilter, setRoleFilter, viewMode, setViewMode, mobileView, setMobileView, currentPage, setCurrentPage, pageSize, setPageSize, splitLimit, setSplitLimit } = workspace;
   const [usersList, setUsersList] = useState(initialUsers);
-  const [selectedId, setSelectedId] = useState<string>(searchParams.get("user") ?? initialUsers[0]?.id ?? "");
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
-  const [roleFilter, setRoleFilter] = useState<UserRoleFilter>(() => {
-    const role = searchParams.get("role");
-    return role === "ADMIN" || role === "MANAGER" || role === "STAFF" || role === "CONTENT_CREATOR" ? role : "ALL";
-  });
-  const [viewMode, setViewMode] = useState<"split" | "table">("split");
-  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
 
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [audit, setAudit] = useState<AuditItem[]>([]);
@@ -291,9 +286,6 @@ export function MasterDetailUserWorkspace({
   }
 
   // Filter Master Roster
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [splitLimit, setSplitLimit] = useState(20);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -306,10 +298,9 @@ export function MasterDetailUserWorkspace({
 
   useEffect(() => {
     // Return to the first page when roster filters change.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
     setSplitLimit(20);
-  }, [searchQuery, roleFilter]);
+  }, [roleFilter, searchQuery, setCurrentPage, setSplitLimit]);
 
   const filteredUsers = useMemo(() => {
     return usersList.filter((u) => {
@@ -1101,5 +1092,27 @@ export function MasterDetailUserWorkspace({
         </div>
       )}
     </section>
+  );
+}
+
+export function MasterDetailUserWorkspace(props: {
+  initialUsers: UserRow[];
+  actorRole?: Role;
+  actorId?: string;
+  canManageUsers: boolean;
+  canAssignPermissions: boolean;
+  canResetPasswords: boolean;
+}) {
+  const searchParams = useSearchParams();
+  const role = searchParams.get("role");
+  const initialRoleFilter: UserRoleFilter = role === "ADMIN" || role === "MANAGER" || role === "STAFF" || role === "CONTENT_CREATOR" ? role : "ALL";
+  return (
+    <UserWorkspaceProvider
+      initialSelectedId={searchParams.get("user") ?? props.initialUsers[0]?.id ?? ""}
+      initialSearchQuery={searchParams.get("q") ?? ""}
+      initialRoleFilter={initialRoleFilter}
+    >
+      <UserWorkspaceContent {...props} />
+    </UserWorkspaceProvider>
   );
 }
