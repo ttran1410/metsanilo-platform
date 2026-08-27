@@ -10,7 +10,11 @@ async function requestUser<T>(userId: string, init: RequestInit): Promise<UserAc
 
 export function updateUserStatus(userId: string, active: boolean) { return requestUser(userId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "active", active }) }); }
 export function revokeUserSessions(userId: string) { return requestUser(userId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke_sessions" }) }); }
-export function resetUserPassword(userId: string) { return requestUser<{ temporaryPassword: string }>(userId, { method: "POST" }); }
+export async function resetUserPassword(userId: string): Promise<UserActionResult<{ temporaryPassword: string }>> {
+  const response = await fetch(`/api/admin/users/${userId}/password`, { method: "POST" });
+  const body = await response.json().catch(() => ({})) as { data?: { temporaryPassword: string }; code?: string; message?: string };
+  return { ok: response.ok, status: response.status, data: body.data, code: body.code, message: body.message };
+}
 export function updateUserRole(userId: string, displayName: string, role: string) { return requestUser(userId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "update", displayName, role }) }); }
 export function resetUserPermissions(userId: string) { return requestUser(userId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reset_permissions" }) }); }
 export async function updateUserPermission(userId: string, permission: string, granted: boolean) {
