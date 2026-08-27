@@ -8,7 +8,7 @@ import { DomainError } from "./errors";
 const codePattern = /^[A-Z0-9][A-Z0-9_-]{1,39}$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
-type ProductInput = {
+export type ProductInput = {
   code: string;
   slug: string;
   nameFi: string;

@@ -2,7 +2,8 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { availability, orders } from "@/db/schema";
-import { deleteProduct, getProductReadiness, listManagerProducts, setProductActive, updateProduct } from "@/domain/products";
+import { getProductReadiness, listManagerProducts } from "@/domain/products";
+import { archiveProduct, deleteProduct, restoreProduct, updateProduct } from "@/domain/admin-products-actions";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
@@ -49,13 +50,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const parsed = command.safeParse(await request.json()); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422);
     const { id } = await params;
-    await requirePermission(db(), request, parsed.data.action === "delete" ? "catalog.product.delete" : "catalog.product.write");
-    if (parsed.data.action === "delete") return success(await deleteProduct(db(), id));
-    if (parsed.data.action === "active") return success(await setProductActive(db(), id, parsed.data.active));
-    return success(await updateProduct(db(), id, parsed.data.product));
+    const actor = await requirePermission(db(), request, parsed.data.action === "delete" ? "catalog.product.delete" : "catalog.product.write");
+    const context = { actor, shop: { id: env().SHOP_ID } };
+    if (parsed.data.action === "delete") return success(await deleteProduct(db(), context, id));
+    if (parsed.data.action === "active") return success(await (parsed.data.active ? restoreProduct(db(), context, id) : archiveProduct(db(), context, id)));
+    return success(await updateProduct(db(), context, id, parsed.data.product));
   } catch (error) { return failure(error); }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try { await requirePermission(db(), request, "catalog.product.delete"); return success(await deleteProduct(db(), (await params).id)); } catch (error) { return failure(error); }
+  try { const actor = await requirePermission(db(), request, "catalog.product.delete"); return success(await deleteProduct(db(), { actor, shop: { id: env().SHOP_ID } }, (await params).id)); } catch (error) { return failure(error); }
 }
