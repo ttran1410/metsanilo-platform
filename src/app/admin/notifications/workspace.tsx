@@ -145,10 +145,8 @@ export function NotificationsInbox({
       items: current.items.map((row) => row.id === item.id ? { ...row, readAt: read ? new Date().toISOString() : null } : row),
     }));
     try {
-      const response = await fetch("/api/admin/notifications", {
+      const response = await fetch(`/api/admin/notifications/${item.id}/${read ? "read" : "unread"}`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: read ? "read" : "unread", id: item.id }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? body.code ?? "Notification update failed");

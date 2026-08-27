@@ -109,7 +109,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
   }
 
   async function markAlertsRead(id?: string) {
-    await fetch("/api/admin/notifications", {
+    await fetch(id ? `/api/admin/notifications/${id}/read` : "/api/admin/notifications", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(id
