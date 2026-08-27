@@ -133,7 +133,7 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
     if (!canManageTheme || busy) return;
     try {
       setBusy("draft");
-      const next = await request(`/api/admin/storefront-theme/drafts/${state.draft.id}/publish`, {
+      const next = await request("/api/admin/storefront-theme", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ themeKey }),
@@ -153,7 +153,8 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
     if (!state?.draft || !canManageTheme || busy) return;
     try {
       setBusy("publish");
-      const next = await request("/api/admin/storefront-theme", {
+      const draftId = state.draft.id;
+      const next = await request(`/api/admin/storefront-theme/drafts/${draftId}/publish`, {
         method: "POST",
         headers: { "content-type": "application/json" },
       });

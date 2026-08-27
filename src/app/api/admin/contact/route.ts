@@ -6,6 +6,7 @@ import { requirePermission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../response";
+import { executeAdmin, parseJson } from "@/app/api/admin/module";
 
 export const runtime = "nodejs";
 
@@ -51,6 +52,38 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    return success(await executeAdmin(request, {
+      permission: "settings.operational",
+      parse: async (inputRequest) => {
+        const parsed = command.safeParse(await parseJson(inputRequest));
+        if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid settings input", 422);
+        return parsed.data;
+      },
+      run: async (input, { database, context }) => {
+        const updateData: Partial<typeof shops.$inferInsert> = {};
+        if (input.phone !== undefined) updateData.contactPhone = input.phone;
+        if (input.email !== undefined) updateData.contactEmail = input.email;
+        if (input.hours !== undefined) updateData.contactHours = input.hours;
+        if (input.nameFi !== undefined) updateData.nameFi = input.nameFi;
+        if (input.nameEn !== undefined) updateData.nameEn = input.nameEn;
+        if (input.businessName !== undefined) updateData.businessName = input.businessName;
+        if (input.businessId !== undefined) updateData.businessId = input.businessId;
+        if (input.howItWorksVisible !== undefined) updateData.howItWorksVisible = input.howItWorksVisible;
+        if (input.aboutUsVisible !== undefined) updateData.aboutUsVisible = input.aboutUsVisible;
+        if (input.reviewsVisible !== undefined) updateData.reviewsVisible = input.reviewsVisible;
+        if (input.active !== undefined) updateData.active = input.active;
+        if (input.sameDayCutoffEnabled !== undefined) updateData.sameDayCutoffEnabled = input.sameDayCutoffEnabled;
+        if (input.sameDayCutoffTime !== undefined) updateData.sameDayCutoffTime = input.sameDayCutoffTime;
+        const [shop] = await database.update(shops).set(updateData).where(eq(shops.id, env().SHOP_ID)).returning();
+        if (!shop) throw new DomainError("NOT_FOUND", "Shop not found", 404);
+        return { phone: shop.contactPhone, email: shop.contactEmail, hours: shop.contactHours, nameFi: shop.nameFi, nameEn: shop.nameEn, businessName: shop.businessName ?? "", businessId: shop.businessId ?? "", howItWorksVisible: shop.howItWorksVisible, aboutUsVisible: shop.aboutUsVisible, reviewsVisible: shop.reviewsVisible, active: shop.active, sameDayCutoffEnabled: shop.sameDayCutoffEnabled, sameDayCutoffTime: shop.sameDayCutoffTime, updatedBy: context.actor.email ?? context.actor.id };
+      },
+    }));
+  } catch (error) {
+    return failure(error);
+  }
+  /*
+  try {
     const actor = await requirePermission(db(), request, "settings.operational");
     const parsed = command.safeParse(await request.json());
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid settings input", 422);
@@ -92,4 +125,5 @@ export async function PUT(request: Request) {
   } catch (error) {
     return failure(error);
   }
+  */
 }
