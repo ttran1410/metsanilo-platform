@@ -273,6 +273,7 @@ export function MasterDetailCustomerWorkspace({
     if (filteredCustomers.length === 0) return;
     if (selectedId && filteredCustomers.some((customer) => customer.id === selectedId)) return;
     const first = filteredCustomers[0];
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedId(first.id);
     void loadProfile(first.id, false);
   }, [filteredCustomers, selectedId]);
