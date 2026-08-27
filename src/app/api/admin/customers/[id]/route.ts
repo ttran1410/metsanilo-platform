@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditEntries, customers } from "@/db/schema";
 import { requirePermission } from "@/domain/access";
-import { getCustomerProfile, mergeCustomers, updateCustomer } from "@/domain/customers";
+import { anonymizeCustomer, getCustomerProfile, mergeCustomers, updateCustomer } from "@/domain/customers";
 import { DomainError } from "@/domain/errors";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { env } from "@/lib/env";
@@ -136,44 +136,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const actor = await requirePermission(db(), request, "customers.anonymize");
     const { id } = await context.params;
-    const now = new Date().toISOString();
-
-    const changed = await db()
-      .update(customers)
-      .set({
-        name: "Anonymized customer",
-        mobile: `ANONYMIZED-${id.slice(0, 8)}`,
-        email: null,
-        facebookProfile: null,
-        marketingConsent: false,
-        marketingConsentStatus: "REVOKED",
-        marketingConsentAt: now,
-        marketingConsentSource: "ADMIN",
-        marketingConsentUpdatedBy: actor.email ?? actor.username ?? actor.id,
-        notes: "Personal data anonymized by authorized user.",
-        updatedAt: now,
-      })
-      .where(and(eq(customers.id, id), eq(customers.shopId, env().SHOP_ID)))
-      .run();
-
-    if (changed.rowsAffected !== 1) throw new DomainError("NOT_FOUND", "Customer not found", 404);
-
-    await db().insert(auditEntries).values({
-      id: randomUUID(),
-      shopId: env().SHOP_ID,
-      actor: actor.email ?? actor.username ?? actor.id,
-      action: "customer.anonymized",
-      entityType: "customer",
-      entityId: id,
-      detailsJson: JSON.stringify({
-        reason: "customer request or retention policy",
-        marketingConsent: false,
-        marketingConsentStatus: "REVOKED",
-      }),
-      createdAt: now,
-    });
-
-    return success({ anonymized: true });
+    return success(await anonymizeCustomer(db(), id, actor.email ?? actor.username ?? actor.id));
   } catch (error) {
     return failure(error);
   }

@@ -107,6 +107,21 @@ export async function clearCustomerRetentionHold(database: Database, customerId:
   await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor, action: "customer.retention_hold_released", entityType: "customer", entityId: customerId, detailsJson: "{}", createdAt: now });
 }
 
+export async function anonymizeCustomer(database: Database, customerId: string, actor: string, now = new Date()) {
+  const timestamp = now.toISOString();
+  const current = await database.query.customers.findFirst({
+    where: and(eq(customers.id, customerId), eq(customers.shopId, env().SHOP_ID)),
+    columns: { id: true, mobile: true },
+  });
+  if (!current) throw new DomainError("NOT_FOUND", "Customer not found", 404);
+  // Retention batches may be retried; an already anonymized record is a no-op.
+  if (current.mobile?.startsWith("ANONYMIZED-")) return { anonymized: false };
+  const updated = await database.update(customers).set({ name: "Anonymized customer", mobile: `ANONYMIZED-${customerId.slice(0, 8)}`, email: null, facebookProfile: null, marketingConsent: false, marketingConsentStatus: "REVOKED", marketingConsentAt: timestamp, marketingConsentSource: "ADMIN", marketingConsentUpdatedBy: actor, notes: "Personal data anonymized by authorized user.", updatedAt: timestamp }).where(and(eq(customers.id, customerId), eq(customers.shopId, env().SHOP_ID))).run();
+  if (updated.rowsAffected !== 1) throw new DomainError("NOT_FOUND", "Customer not found", 404);
+  await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor, action: "customer.anonymized", entityType: "customer", entityId: customerId, detailsJson: JSON.stringify({ reason: "customer request or retention policy", marketingConsent: false, marketingConsentStatus: "REVOKED" }), createdAt: timestamp });
+  return { anonymized: true };
+}
+
 export async function listCustomers(
   database: Database,
   options?: {
