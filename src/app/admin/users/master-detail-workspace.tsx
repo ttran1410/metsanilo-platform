@@ -17,6 +17,7 @@ import { UserWorkspaceProvider, useUserWorkspace } from "./user-workspace-provid
 import { OnboardingModal } from "./onboarding-modal";
 import { UserConfirmationDialog } from "./user-confirmation-dialog";
 import { UserPasswordDialog } from "./user-password-dialog";
+import { resetUserPassword, revokeUserSessions, updateUserStatus } from "./user-admin-actions";
 
 export type UserRow = {
   id: string;
@@ -383,19 +384,19 @@ function UserWorkspaceContent({
   // Toggle Active/Suspended
   async function handleToggleActive(active: boolean) {
     if (!selectedUser) return;
-    setConfirmation({ title: `${active ? "Activate" : "Suspend"} user account?`, description: `${active ? "Activate" : "Suspend"} ${selectedUser.displayName}.${active ? "" : " Their active sessions will no longer be valid."}`, confirmLabel: active ? "Activate account" : "Suspend account", destructive: !active, onConfirm: async () => { setError(""); setMessage(""); const response = await fetch(`/api/admin/users/${selectedUser.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "active", active }) }); const body = await response.json(); if (!response.ok) return setError(body.message ?? "Could not toggle account status."); setMessage(active ? `${selectedUser.displayName} account activated.` : `${selectedUser.displayName} account suspended.`); void refreshUsersList(selectedUser.id); } });
+    setConfirmation({ title: `${active ? "Activate" : "Suspend"} user account?`, description: `${active ? "Activate" : "Suspend"} ${selectedUser.displayName}.${active ? "" : " Their active sessions will no longer be valid."}`, confirmLabel: active ? "Activate account" : "Suspend account", destructive: !active, onConfirm: async () => { setError(""); setMessage(""); const result = await updateUserStatus(selectedUser.id, active); if (!result.ok) return setError(result.message ?? "Could not toggle account status."); setMessage(active ? `${selectedUser.displayName} account activated.` : `${selectedUser.displayName} account suspended.`); void refreshUsersList(selectedUser.id); } });
   }
 
   // Reset Password
   async function handleResetPassword(target: UserRow | undefined = selectedUser) {
     if (!target) return;
-    setConfirmation({ title: "Reset user password?", description: `Generate a new temporary password for ${target.displayName}? Their current password will stop working.`, confirmLabel: "Reset password", destructive: true, onConfirm: async () => { setError(""); setMessage(""); const response = await fetch(`/api/admin/users/${target.id}/password`, { method: "POST" }); const body = await response.json(); if (!response.ok) return setError(body.message ?? "Password reset failed."); setCreatedInfo({ user: target, tempPassword: body.data.temporaryPassword }); } });
+    setConfirmation({ title: "Reset user password?", description: `Generate a new temporary password for ${target.displayName}? Their current password will stop working.`, confirmLabel: "Reset password", destructive: true, onConfirm: async () => { setError(""); setMessage(""); const result = await resetUserPassword(target.id); if (!result.ok || !result.data) return setError(result.message ?? "Password reset failed."); setCreatedInfo({ user: target, tempPassword: result.data.temporaryPassword }); } });
   }
 
   // Revoke All Active Sessions
   async function handleRevokeSessions() {
     if (!selectedUser) return;
-    setConfirmation({ title: "Revoke active sessions?", description: `Sign out ${selectedUser.displayName} from every active session?`, confirmLabel: "Revoke sessions", destructive: true, onConfirm: async () => { setError(""); setMessage(""); const response = await fetch(`/api/admin/users/${selectedUser.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke_sessions" }) }); const body = await response.json(); if (!response.ok) return setError(body.message ?? "Could not revoke sessions."); setMessage(`All active sessions revoked for ${selectedUser.displayName}.`); void loadUserExtras(selectedUser.id); } });
+    setConfirmation({ title: "Revoke active sessions?", description: `Sign out ${selectedUser.displayName} from every active session?`, confirmLabel: "Revoke sessions", destructive: true, onConfirm: async () => { setError(""); setMessage(""); const result = await revokeUserSessions(selectedUser.id); if (!result.ok) return setError(result.message ?? "Could not revoke sessions."); setMessage(`All active sessions revoked for ${selectedUser.displayName}.`); void loadUserExtras(selectedUser.id); } });
   }
 
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
