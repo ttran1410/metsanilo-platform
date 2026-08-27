@@ -10,8 +10,14 @@ import type {
   products,
 } from "@/db/schema";
 import type { AvailabilityWorkspace } from "@/domain/availability";
-import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminPageHeader } from "./presentation";
+import { AdminEmptyState } from "./presentation";
 import { OrdersListing } from "./orders-listing";
+import { ManagerQueryToolbar } from "./manager-query-toolbar";
+import { ManagerSelectionToolbar } from "./manager-selection-toolbar";
+import { ManagerWorkspaceHeader } from "./manager-workspace-header";
+import { ManagerAvailabilityPanel } from "./manager-availability-panel";
+import { ManagerOrderList } from "./manager-order-list";
+import { ManagerBulkActionDialog } from "./manager-bulk-action-dialog";
 
 type Order = typeof orders.$inferSelect;
 type AvailabilityRow = {
@@ -432,24 +438,20 @@ function ManagerWorkspaceContent({
 
   return (
     <main className="shell py-8">
-      <AdminPageHeader
-        eyebrow="RESERVATIONS & CAPACITY"
+      <ManagerWorkspaceHeader
         title={mode === "availability" ? "Harvest availability" : "Orders"}
         description={
           mode === "availability"
             ? "Plan harvest capacity and keep sold-out dates accurate."
             : "Review reservations, confirm customers, and move each order to its next step."
         }
+        message={message}
+        messageTone={messageTone}
       />
-      {message && (
-        <AdminNotice tone={messageTone} live>
-          {message}
-        </AdminNotice>
-      )}
 
       {canViewOrders && (mode === "all" || mode === "orders") && (
         <section id="orders" className="admin-orders-section mt-8">
-          <div className="admin-orders-toolbar">
+          <ManagerQueryToolbar>
             <div>
               <p className="admin-section-kicker">Order queue</p>
               <h2>Orders</h2>
@@ -540,506 +542,444 @@ function ManagerWorkspaceContent({
                 </button>
               )}
             </div>
-          </div>
-          {filteredOrders.length > 0 && (
-            <div className="card mt-3 flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={
-                    filteredOrders.length > 0 &&
-                    filteredOrders.every((order) =>
-                      selectedIds.includes(order.id),
-                    )
-                  }
-                  onChange={(event) =>
-                    setSelectedIds(
-                      event.target.checked
-                        ? filteredOrders.map((order) => order.id)
-                        : [],
-                    )
-                  }
-                />{" "}
-                Select filtered ({filteredOrders.length})
-              </label>
-              <span className="text-sm text-slate-600">
-                {selectedIds.length} selected
-              </span>
-              {selectedIds.length > 0 && (
-                <>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => void bulkTransition("CONFIRMED")}
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => void bulkTransition("PICKING")}
-                  >
-                    Start picking
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => void bulkTransition("READY")}
-                  >
-                    Mark ready
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => void bulkTransition("OUT_FOR_DELIVERY")}
-                  >
-                    Dispatch delivery
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => void bulkTransition("PICKED_UP")}
-                  >
-                    Confirm pickup
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => void bulkTransition("DELIVERED")}
-                  >
-                    Mark delivered
-                  </button>
-                </>
+          </ManagerQueryToolbar>
+          <ManagerSelectionToolbar
+            filteredCount={filteredOrders.length}
+            selectedCount={selectedIds.length}
+            allSelected={filteredOrders.length > 0 && filteredOrders.every((order) => selectedIds.includes(order.id))}
+            onSelectAll={(selected) => setSelectedIds(selected ? filteredOrders.map((order) => order.id) : [])}
+            onBulkTransition={(status) => void bulkTransition(status)}
+          />
+          <ManagerOrderList>
+            <div className="admin-orders-table-wrap card mt-3">
+              <table className="admin-orders-table">
+                <thead>
+                  <tr>
+                    <th>Order</th>
+                    <th>Customer</th>
+                    <th>Fulfilment</th>
+                    <th>Source</th>
+                    <th>Status</th>
+                    <th>Payment</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOrders.map((order) => (
+                    <tr key={order.id}>
+                      <td>
+                        <strong>{order.publicReference}</strong>
+                        <small>
+                          {order.createdAt.slice(0, 16).replace("T", " ")}
+                        </small>
+                      </td>
+                      <td>
+                        <strong>{order.customerName}</strong>
+                        <small>{order.mobile}</small>
+                      </td>
+                      <td>
+                        <strong>{order.fulfillmentDate}</strong>
+                        <small>
+                          {order.fulfillmentMethod} · {order.volumeMl / 1000} l
+                        </small>
+                      </td>
+                      <td>
+                        <span className="pill">
+                          {order.historicalEntry
+                            ? "Historical"
+                            : order.orderSource === "PHONE"
+                              ? "Phone/message"
+                              : order.orderSource}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="pill">{order.status}</span>
+                      </td>
+                      <td>
+                        <small>
+                          {order.finalTotalCents === null
+                            ? "Pending"
+                            : `${(order.finalTotalCents / 100).toFixed(2)} €`}
+                        </small>
+                      </td>
+                      <td>
+                        <div className="admin-table-actions">
+                          <a
+                            className="btn btn-secondary"
+                            href={`/admin/orders/${order.id}`}
+                          >
+                            View
+                          </a>
+                          {order.status === "NEW" && (
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => void status(order, "CONFIRMED")}
+                            >
+                              Confirm
+                            </button>
+                          )}
+                          {order.status === "CONFIRMED" && (
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => void status(order, "PICKING")}
+                            >
+                              Picking
+                            </button>
+                          )}
+                          {order.status === "PICKING" && (
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => void status(order, "READY")}
+                            >
+                              Ready
+                            </button>
+                          )}
+                          {order.status === "READY" && (
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() =>
+                                void status(
+                                  order,
+                                  order.fulfillmentMethod === "PICKUP"
+                                    ? "PICKED_UP"
+                                    : "OUT_FOR_DELIVERY",
+                                )
+                              }
+                            >
+                              {order.fulfillmentMethod === "PICKUP"
+                                ? "Picked up"
+                                : "Dispatch"}
+                            </button>
+                          )}
+                          {order.status === "OUT_FOR_DELIVERY" && (
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => void status(order, "DELIVERED")}
+                            >
+                              Delivered
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredOrders.length === 0 && (
+                <AdminEmptyState
+                  title="No matching orders"
+                  description="Try another search or status filter."
+                />
               )}
             </div>
-          )}
-          <div className="admin-orders-table-wrap card mt-3">
-            <table className="admin-orders-table">
-              <thead>
-                <tr>
-                  <th>Order</th>
-                  <th>Customer</th>
-                  <th>Fulfilment</th>
-                  <th>Source</th>
-                  <th>Status</th>
-                  <th>Payment</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.map((order) => (
-                  <tr key={order.id}>
-                    <td>
-                      <strong>{order.publicReference}</strong>
-                      <small>
-                        {order.createdAt.slice(0, 16).replace("T", " ")}
-                      </small>
-                    </td>
-                    <td>
-                      <strong>{order.customerName}</strong>
-                      <small>{order.mobile}</small>
-                    </td>
-                    <td>
-                      <strong>{order.fulfillmentDate}</strong>
-                      <small>
-                        {order.fulfillmentMethod} · {order.volumeMl / 1000} l
-                      </small>
-                    </td>
-                    <td>
-                      <span className="pill">
-                        {order.historicalEntry
-                          ? "Historical"
-                          : order.orderSource === "PHONE"
-                            ? "Phone/message"
-                            : order.orderSource}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="pill">{order.status}</span>
-                    </td>
-                    <td>
-                      <small>
-                        {order.finalTotalCents === null
-                          ? "Pending"
-                          : `${(order.finalTotalCents / 100).toFixed(2)} €`}
-                      </small>
-                    </td>
-                    <td>
-                      <div className="admin-table-actions">
-                        <a
-                          className="btn btn-secondary"
-                          href={`/admin/orders/${order.id}`}
-                        >
-                          View
-                        </a>
-                        {order.status === "NEW" && (
+            <div className="mt-3 grid gap-3">
+              {filteredOrders.length === 0 && (
+                <AdminEmptyState
+                  title="No matching orders"
+                  description="Try another search or status filter."
+                />
+              )}
+              {filteredOrders.map((order) => (
+                <article className="admin-order-card card" key={order.id}>
+                  <div className="admin-order-card-main">
+                    <div className="flex gap-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${order.publicReference}`}
+                        checked={selectedIds.includes(order.id)}
+                        onChange={(event) =>
+                          setSelectedIds((ids) =>
+                            event.target.checked
+                              ? [...ids, order.id]
+                              : ids.filter((id) => id !== order.id),
+                          )
+                        }
+                      />
+                      <div>
+                        <h3 className="font-bold">
+                          {order.publicReference}{" "}
+                          <span className="pill">{order.status}</span>
+                        </h3>
+                        <p>
+                          {order.customerName} · {order.mobile} ·{" "}
+                          {order.productNameFi} / {order.packageLabelFi}
+                        </p>
+                        <p>
+                          {order.fulfillmentDate} · {order.fulfillmentMethod} ·{" "}
+                          {(order.volumeMl / 1000).toLocaleString("fi-FI")} l
+                        </p>
+                        {order.fulfillmentMethod === "DELIVERY" && (
+                          <p>
+                            Delivery to be agreed · {order.streetAddress},{" "}
+                            {order.postalCode} {order.city}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="admin-order-actions">
+                      <a
+                        className="btn btn-secondary"
+                        href={`/admin/orders/${order.id}`}
+                      >
+                        Open order
+                      </a>
+                      {order.status === "NEW" && (
+                        <>
                           <button
                             className="btn"
-                            type="button"
                             onClick={() => void status(order, "CONFIRMED")}
                           >
                             Confirm
                           </button>
-                        )}
-                        {order.status === "CONFIRMED" && (
                           <button
-                            className="btn"
-                            type="button"
-                            onClick={() => void status(order, "PICKING")}
-                          >
-                            Picking
-                          </button>
-                        )}
-                        {order.status === "PICKING" && (
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => void status(order, "READY")}
-                          >
-                            Ready
-                          </button>
-                        )}
-                        {order.status === "READY" && (
-                          <button
-                            className="btn"
-                            type="button"
+                            className="btn btn-secondary"
                             onClick={() =>
-                              void status(
-                                order,
-                                order.fulfillmentMethod === "PICKUP"
-                                  ? "PICKED_UP"
-                                  : "OUT_FOR_DELIVERY",
-                              )
+                              void status(order, "CUSTOMER_DECLINED")
                             }
                           >
-                            {order.fulfillmentMethod === "PICKUP"
-                              ? "Picked up"
-                              : "Dispatch"}
+                            Customer declined
                           </button>
-                        )}
-                        {order.status === "OUT_FOR_DELIVERY" && (
+                          <button
+                            className="btn bg-[var(--berry)]"
+                            onClick={() => void status(order, "CANCELLED")}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                      {order.status === "CONFIRMED" && (
+                        <>
                           <button
                             className="btn"
-                            type="button"
-                            onClick={() => void status(order, "DELIVERED")}
+                            onClick={() => void status(order, "PICKING")}
                           >
-                            Delivered
+                            Start picking
                           </button>
+                          <button
+                            className="btn bg-[var(--berry)]"
+                            onClick={() => void status(order, "CANCELLED")}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                      {order.status === "PICKING" && (
+                        <button
+                          className="btn"
+                          onClick={() => void status(order, "READY")}
+                        >
+                          Mark ready
+                        </button>
+                      )}
+                      {order.status === "READY" &&
+                        (order.fulfillmentMethod === "PICKUP" ? (
+                          <button
+                            className="btn"
+                            onClick={() => void status(order, "PICKED_UP")}
+                          >
+                            Confirm pickup
+                          </button>
+                        ) : (
+                          <button
+                            className="btn"
+                            onClick={() => void status(order, "OUT_FOR_DELIVERY")}
+                          >
+                            Dispatch delivery
+                          </button>
+                        ))}
+                      {order.status === "OUT_FOR_DELIVERY" && (
+                        <button
+                          className="btn"
+                          onClick={() => void status(order, "DELIVERED")}
+                        >
+                          Mark delivered
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {detail?.order.id === order.id && (
+                    <div className="mt-4 grid gap-3 border-t pt-4">
+                      <h4 className="font-bold">Order detail</h4>
+                      <p>
+                        Item: {(detail.order.itemSubtotalCents / 100).toFixed(2)}{" "}
+                        € · Delivery:{" "}
+                        {detail.order.deliveryFeeCents === null
+                          ? "to be agreed"
+                          : `${(detail.order.deliveryFeeCents / 100).toFixed(2)} €`}{" "}
+                        · Total:{" "}
+                        {detail.order.finalTotalCents === null
+                          ? "to be agreed"
+                          : `${(detail.order.finalTotalCents / 100).toFixed(2)} €`}
+                      </p>
+                      <p className="text-sm">
+                        <strong>Payment summary:</strong>{" "}
+                        {detail.paymentSummary.status} · Paid{" "}
+                        {(detail.paymentSummary.paidCents / 100).toFixed(2)} € ·
+                        Refunded{" "}
+                        {(detail.paymentSummary.refundedCents / 100).toFixed(2)} €
+                        · Outstanding{" "}
+                        {(detail.paymentSummary.outstandingCents / 100).toFixed(
+                          2,
+                        )}{" "}
+                        €
+                      </p>
+                      {detail.order.fulfillmentMethod === "DELIVERY" &&
+                        detail.order.status !== "CANCELLED" && (
+                          <form
+                            className="flex flex-wrap items-end gap-2"
+                            onSubmit={(event) => void detailAction(event, "fee")}
+                          >
+                            <label className="field">
+                              <span>Delivery fee (€)</span>
+                              <input
+                                name="feeEuros"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                defaultValue={
+                                  detail.order.deliveryFeeCents === null
+                                    ? ""
+                                    : (
+                                        detail.order.deliveryFeeCents / 100
+                                      ).toFixed(2)
+                                }
+                                required
+                              />
+                            </label>
+                            <button className="btn" type="submit">
+                              Save fee
+                            </button>
+                          </form>
+                        )}
+                      {detail.paymentSummary.outstandingCents <= 0 && (
+                        <p className="text-xs muted">
+                          Order fully paid — no balance due. Use a refund to
+                          correct an existing payment.
+                        </p>
+                      )}
+                      <form
+                        className="flex flex-wrap items-end gap-2"
+                        onSubmit={(event) => void detailAction(event, "payment")}
+                      >
+                        <label className="field">
+                          <span>Payment (€)</span>
+                          <input
+                            name="paymentEuros"
+                            type="number"
+                            min="0.01"
+                            max={(
+                              detail.paymentSummary.outstandingCents / 100
+                            ).toFixed(2)}
+                            step="0.01"
+                            disabled={
+                              detail.paymentSummary.outstandingCents <= 0
+                            }
+                            required
+                          />
+                        </label>
+                        <label className="field">
+                          <span>Method</span>
+                          <select
+                            name="method"
+                            defaultValue="CASH"
+                            disabled={
+                              detail.paymentSummary.outstandingCents <= 0
+                            }
+                          >
+                            <option value="CASH">Cash</option>
+                            <option value="BANK_TRANSFER">Bank transfer</option>
+                            <option value="MOBILEPAY">MobilePay</option>
+                            <option value="CARD">Card</option>
+                            <option value="OTHER">Other</option>
+                          </select>
+                        </label>
+                        <label className="field">
+                          <span>Reference</span>
+                          <input
+                            name="reference"
+                            maxLength={200}
+                            disabled={
+                              detail.paymentSummary.outstandingCents <= 0
+                            }
+                          />
+                        </label>
+                        <button
+                          className="btn"
+                          type="submit"
+                          disabled={
+                            detail.paymentSummary.outstandingCents <= 0
+                          }
+                        >
+                          Record payment
+                        </button>
+                      </form>
+                      <form
+                        className="flex items-end gap-2"
+                        onSubmit={(event) => void detailAction(event, "note")}
+                      >
+                        <label className="field grow">
+                          <span>Internal note</span>
+                          <textarea name="body" maxLength={2000} required />
+                        </label>
+                        <button className="btn" type="submit">
+                          Add note
+                        </button>
+                      </form>
+                      <div className="text-sm">
+                        <strong>Payments:</strong>{" "}
+                        {detail.payments.length
+                          ? detail.payments
+                              .map(
+                                (payment) =>
+                                  `${(payment.amountCents / 100).toFixed(2)} € ${payment.method}`,
+                              )
+                              .join(" · ")
+                          : "None"}
+                        <br />
+                        <strong>Notes:</strong>{" "}
+                        {detail.notes.length
+                          ? detail.notes.map((note) => note.body).join(" · ")
+                          : "None"}
+                      </div>
+                      <div className="audit-timeline">
+                        <strong>Audit timeline</strong>
+                        {detail.audit.length ? (
+                          detail.audit.map((entry) => (
+                            <div className="audit-event" key={entry.id}>
+                              <span className="pill">
+                                {entry.action.replace("order.", "")}
+                              </span>
+                              <span>{entry.actor}</span>
+                              <time dateTime={entry.createdAt}>
+                                {new Date(entry.createdAt).toLocaleString(
+                                  "fi-FI",
+                                )}
+                              </time>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-slate-600">
+                            No audit events.
+                          </p>
                         )}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredOrders.length === 0 && (
-              <AdminEmptyState
-                title="No matching orders"
-                description="Try another search or status filter."
-              />
-            )}
-          </div>
-          <div className="mt-3 grid gap-3">
-            {filteredOrders.length === 0 && (
-              <AdminEmptyState
-                title="No matching orders"
-                description="Try another search or status filter."
-              />
-            )}
-            {filteredOrders.map((order) => (
-              <article className="admin-order-card card" key={order.id}>
-                <div className="admin-order-card-main">
-                  <div className="flex gap-3">
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${order.publicReference}`}
-                      checked={selectedIds.includes(order.id)}
-                      onChange={(event) =>
-                        setSelectedIds((ids) =>
-                          event.target.checked
-                            ? [...ids, order.id]
-                            : ids.filter((id) => id !== order.id),
-                        )
-                      }
-                    />
-                    <div>
-                      <h3 className="font-bold">
-                        {order.publicReference}{" "}
-                        <span className="pill">{order.status}</span>
-                      </h3>
-                      <p>
-                        {order.customerName} · {order.mobile} ·{" "}
-                        {order.productNameFi} / {order.packageLabelFi}
-                      </p>
-                      <p>
-                        {order.fulfillmentDate} · {order.fulfillmentMethod} ·{" "}
-                        {(order.volumeMl / 1000).toLocaleString("fi-FI")} l
-                      </p>
-                      {order.fulfillmentMethod === "DELIVERY" && (
-                        <p>
-                          Delivery to be agreed · {order.streetAddress},{" "}
-                          {order.postalCode} {order.city}
-                        </p>
-                      )}
                     </div>
-                  </div>
-                  <div className="admin-order-actions">
-                    <a
-                      className="btn btn-secondary"
-                      href={`/admin/orders/${order.id}`}
-                    >
-                      Open order
-                    </a>
-                    {order.status === "NEW" && (
-                      <>
-                        <button
-                          className="btn"
-                          onClick={() => void status(order, "CONFIRMED")}
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          className="btn btn-secondary"
-                          onClick={() =>
-                            void status(order, "CUSTOMER_DECLINED")
-                          }
-                        >
-                          Customer declined
-                        </button>
-                        <button
-                          className="btn bg-[var(--berry)]"
-                          onClick={() => void status(order, "CANCELLED")}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    )}
-                    {order.status === "CONFIRMED" && (
-                      <>
-                        <button
-                          className="btn"
-                          onClick={() => void status(order, "PICKING")}
-                        >
-                          Start picking
-                        </button>
-                        <button
-                          className="btn bg-[var(--berry)]"
-                          onClick={() => void status(order, "CANCELLED")}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    )}
-                    {order.status === "PICKING" && (
-                      <button
-                        className="btn"
-                        onClick={() => void status(order, "READY")}
-                      >
-                        Mark ready
-                      </button>
-                    )}
-                    {order.status === "READY" &&
-                      (order.fulfillmentMethod === "PICKUP" ? (
-                        <button
-                          className="btn"
-                          onClick={() => void status(order, "PICKED_UP")}
-                        >
-                          Confirm pickup
-                        </button>
-                      ) : (
-                        <button
-                          className="btn"
-                          onClick={() => void status(order, "OUT_FOR_DELIVERY")}
-                        >
-                          Dispatch delivery
-                        </button>
-                      ))}
-                    {order.status === "OUT_FOR_DELIVERY" && (
-                      <button
-                        className="btn"
-                        onClick={() => void status(order, "DELIVERED")}
-                      >
-                        Mark delivered
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {detail?.order.id === order.id && (
-                  <div className="mt-4 grid gap-3 border-t pt-4">
-                    <h4 className="font-bold">Order detail</h4>
-                    <p>
-                      Item: {(detail.order.itemSubtotalCents / 100).toFixed(2)}{" "}
-                      € · Delivery:{" "}
-                      {detail.order.deliveryFeeCents === null
-                        ? "to be agreed"
-                        : `${(detail.order.deliveryFeeCents / 100).toFixed(2)} €`}{" "}
-                      · Total:{" "}
-                      {detail.order.finalTotalCents === null
-                        ? "to be agreed"
-                        : `${(detail.order.finalTotalCents / 100).toFixed(2)} €`}
-                    </p>
-                    <p className="text-sm">
-                      <strong>Payment summary:</strong>{" "}
-                      {detail.paymentSummary.status} · Paid{" "}
-                      {(detail.paymentSummary.paidCents / 100).toFixed(2)} € ·
-                      Refunded{" "}
-                      {(detail.paymentSummary.refundedCents / 100).toFixed(2)} €
-                      · Outstanding{" "}
-                      {(detail.paymentSummary.outstandingCents / 100).toFixed(
-                        2,
-                      )}{" "}
-                      €
-                    </p>
-                    {detail.order.fulfillmentMethod === "DELIVERY" &&
-                      detail.order.status !== "CANCELLED" && (
-                        <form
-                          className="flex flex-wrap items-end gap-2"
-                          onSubmit={(event) => void detailAction(event, "fee")}
-                        >
-                          <label className="field">
-                            <span>Delivery fee (€)</span>
-                            <input
-                              name="feeEuros"
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              defaultValue={
-                                detail.order.deliveryFeeCents === null
-                                  ? ""
-                                  : (
-                                      detail.order.deliveryFeeCents / 100
-                                    ).toFixed(2)
-                              }
-                              required
-                            />
-                          </label>
-                          <button className="btn" type="submit">
-                            Save fee
-                          </button>
-                        </form>
-                      )}
-                    {detail.paymentSummary.outstandingCents <= 0 && (
-                      <p className="text-xs muted">
-                        Order fully paid — no balance due. Use a refund to
-                        correct an existing payment.
-                      </p>
-                    )}
-                    <form
-                      className="flex flex-wrap items-end gap-2"
-                      onSubmit={(event) => void detailAction(event, "payment")}
-                    >
-                      <label className="field">
-                        <span>Payment (€)</span>
-                        <input
-                          name="paymentEuros"
-                          type="number"
-                          min="0.01"
-                          max={(
-                            detail.paymentSummary.outstandingCents / 100
-                          ).toFixed(2)}
-                          step="0.01"
-                          disabled={
-                            detail.paymentSummary.outstandingCents <= 0
-                          }
-                          required
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Method</span>
-                        <select
-                          name="method"
-                          defaultValue="CASH"
-                          disabled={
-                            detail.paymentSummary.outstandingCents <= 0
-                          }
-                        >
-                          <option value="CASH">Cash</option>
-                          <option value="BANK_TRANSFER">Bank transfer</option>
-                          <option value="MOBILEPAY">MobilePay</option>
-                          <option value="CARD">Card</option>
-                          <option value="OTHER">Other</option>
-                        </select>
-                      </label>
-                      <label className="field">
-                        <span>Reference</span>
-                        <input
-                          name="reference"
-                          maxLength={200}
-                          disabled={
-                            detail.paymentSummary.outstandingCents <= 0
-                          }
-                        />
-                      </label>
-                      <button
-                        className="btn"
-                        type="submit"
-                        disabled={
-                          detail.paymentSummary.outstandingCents <= 0
-                        }
-                      >
-                        Record payment
-                      </button>
-                    </form>
-                    <form
-                      className="flex items-end gap-2"
-                      onSubmit={(event) => void detailAction(event, "note")}
-                    >
-                      <label className="field grow">
-                        <span>Internal note</span>
-                        <textarea name="body" maxLength={2000} required />
-                      </label>
-                      <button className="btn" type="submit">
-                        Add note
-                      </button>
-                    </form>
-                    <div className="text-sm">
-                      <strong>Payments:</strong>{" "}
-                      {detail.payments.length
-                        ? detail.payments
-                            .map(
-                              (payment) =>
-                                `${(payment.amountCents / 100).toFixed(2)} € ${payment.method}`,
-                            )
-                            .join(" · ")
-                        : "None"}
-                      <br />
-                      <strong>Notes:</strong>{" "}
-                      {detail.notes.length
-                        ? detail.notes.map((note) => note.body).join(" · ")
-                        : "None"}
-                    </div>
-                    <div className="audit-timeline">
-                      <strong>Audit timeline</strong>
-                      {detail.audit.length ? (
-                        detail.audit.map((entry) => (
-                          <div className="audit-event" key={entry.id}>
-                            <span className="pill">
-                              {entry.action.replace("order.", "")}
-                            </span>
-                            <span>{entry.actor}</span>
-                            <time dateTime={entry.createdAt}>
-                              {new Date(entry.createdAt).toLocaleString(
-                                "fi-FI",
-                              )}
-                            </time>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-slate-600">
-                          No audit events.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
+                  )}
+                </article>
+              ))}
+            </div>
+
+          </ManagerOrderList>
         </section>
       )}
 
       {canViewAvailability && (mode === "all" || mode === "availability") && (
-        <section id="availability" className="admin-availability-section mt-10">
+        <ManagerAvailabilityPanel>
           {workspace && (
             <>
               <div className="admin-section-heading">
@@ -1338,9 +1278,9 @@ function ManagerWorkspaceContent({
               </div>
             </>
           )}
-        </section>
+        </ManagerAvailabilityPanel>
       )}
-      <AdminConfirmDialog open={pendingBulk !== null} title="Apply order status change?" description={`Apply ${pendingBulk ?? "this status"} to ${selectedIds.length} selected order${selectedIds.length === 1 ? "" : "s"}? Orders with an invalid status will be skipped.`} confirmLabel="Apply status" onCancel={() => setPendingBulk(null)} onConfirm={confirmBulkTransition} />
+      <ManagerBulkActionDialog open={pendingBulk !== null} action={pendingBulk} selectedCount={selectedIds.length} onCancel={() => setPendingBulk(null)} onConfirm={confirmBulkTransition} />
     </main>
   );
 }
