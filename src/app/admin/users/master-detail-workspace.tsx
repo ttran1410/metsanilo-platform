@@ -17,7 +17,7 @@ import { UserWorkspaceProvider, useUserWorkspace } from "./user-workspace-provid
 import { OnboardingModal } from "./onboarding-modal";
 import { UserConfirmationDialog } from "./user-confirmation-dialog";
 import { UserPasswordDialog } from "./user-password-dialog";
-import { resetUserPassword, revokeUserSessions, updateUserStatus } from "./user-admin-actions";
+import { resetUserPassword, resetUserPermissions, revokeUserSessions, updateUserPermission, updateUserRole, updateUserStatus } from "./user-admin-actions";
 
 export type UserRow = {
   id: string;
@@ -355,13 +355,8 @@ function UserWorkspaceContent({
     let saved = 0;
     try {
       for (const [permission, granted] of changes) {
-        const response = await fetch(`/api/admin/users/${selectedUser.id}/permissions`, {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ permission, granted }),
-        });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message ?? `Could not update ${permissionName(permission)}.`);
+        const result = await updateUserPermission(selectedUser.id, permission, granted);
+        if (!result.ok) throw new Error(result.message ?? `Could not update ${permissionName(permission)}.`);
         saved += 1;
       }
       setPendingPermissions({});
@@ -378,7 +373,7 @@ function UserWorkspaceContent({
   // Reset to Role Defaults
   async function handleResetToDefaults() {
     if (!selectedUser) return;
-    setConfirmation({ title: "Reset custom permissions?", description: `Remove all custom permission overrides for ${selectedUser.displayName} and restore ${selectedUser.role} defaults?`, confirmLabel: "Reset permissions", destructive: true, onConfirm: async () => { setError(""); setMessage(""); const response = await fetch(`/api/admin/users/${selectedUser.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reset_permissions" }) }); const body = await response.json(); if (!response.ok) return setError(body.message ?? "Could not reset permissions."); setMessage(`Permissions for ${selectedUser.displayName} reset to ${selectedUser.role} defaults.`); void refreshUsersList(selectedUser.id); } });
+    setConfirmation({ title: "Reset custom permissions?", description: `Remove all custom permission overrides for ${selectedUser.displayName} and restore ${selectedUser.role} defaults?`, confirmLabel: "Reset permissions", destructive: true, onConfirm: async () => { setError(""); setMessage(""); const result = await resetUserPermissions(selectedUser.id); if (!result.ok) return setError(result.message ?? "Could not reset permissions."); setMessage(`Permissions for ${selectedUser.displayName} reset to ${selectedUser.role} defaults.`); void refreshUsersList(selectedUser.id); } });
   }
 
   // Toggle Active/Suspended
@@ -414,17 +409,11 @@ function UserWorkspaceContent({
     const role = String(formData.get("role") ?? "") as Role;
 
     try {
-      const response = await fetch(`/api/admin/users/${editingUser.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "update", displayName, role }),
-      });
-
-      const body = await response.json();
+      const result = await updateUserRole(editingUser.id, displayName, role);
       setSavingEdit(false);
 
-      if (!response.ok) {
-        setError(body.message ?? "Could not update user profile.");
+      if (!result.ok) {
+        setError(result.message ?? "Could not update user profile.");
         return;
       }
 

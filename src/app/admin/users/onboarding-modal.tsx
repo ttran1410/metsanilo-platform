@@ -5,6 +5,7 @@ import type { Role } from "@/lib/permissions";
 import type { CreatedUser } from "./master-detail-workspace";
 import { useAdminDialogFocus } from "../presentation";
 import { validateEmail } from "@/lib/email";
+import { inviteUser } from "./user-admin-actions";
 
 const ROLE_PRESETS: Array<{ key: Role; label: string; description: string }> = [
   {
@@ -69,25 +70,14 @@ export function OnboardingModal({
     setBusy(true);
 
     try {
-      const response = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          displayName: displayName.trim(),
-          email: emailResult.email,
-          role,
-          password,
-        }),
-      });
-
-      const body = await response.json();
+      const result = await inviteUser({ displayName: displayName.trim(), email: emailResult.email, role, password });
       setBusy(false);
 
-      if (!response.ok) {
-        return setError(body.message ?? body.code ?? "Could not create user account.");
+      if (!result.ok || !result.data) {
+        return setError(result.message ?? result.code ?? "Could not create user account.");
       }
 
-      onCreated(body.data, password);
+      onCreated(result.data as CreatedUser, password);
     } catch {
       setBusy(false);
       setError("An unexpected network error occurred.");

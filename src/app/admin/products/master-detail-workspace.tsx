@@ -33,7 +33,7 @@ import { SeasonTracker } from "./season-tracker";
 import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-toolbar";
 import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspace-provider";
 import { ProductArchiveDialog, ProductDeleteDialog, ProductRestoreDialog } from "./product-action-dialogs";
-import { archiveProduct, restoreProduct } from "./product-admin-actions";
+import { archiveProduct, deleteProduct, reorderProducts, restoreProduct, updateProduct } from "./product-admin-actions";
 
 type ProductRow = {
   product: typeof products.$inferSelect;
@@ -117,12 +117,8 @@ function ProductWorkspaceContent({
     setProductsList(next);
 
     const orderedIds = next.map((item) => item.product.id);
-    const response = await fetch("/api/admin/products", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "reorder", productIds: orderedIds }),
-    });
-    if (!response.ok) {
+    const result = await reorderProducts(orderedIds);
+    if (!result.ok) {
       setError("Could not save product order.");
     } else {
       setMessage("Product display order updated.");
@@ -254,21 +250,15 @@ function ProductWorkspaceContent({
       showOnReserve,
     };
 
-    const response = await fetch(`/api/admin/products/${selectedRow.product.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "update", product: payload }),
-    });
-
-    const body = await response.json();
+    const result = await updateProduct(selectedRow.product.id, payload);
     setSaving(false);
 
-    if (!response.ok) {
-      return setError(body.message ?? body.code ?? "Could not save product changes.");
+    if (!result.ok) {
+      return setError(result.message ?? result.code ?? "Could not save product changes.");
     }
 
     setProductsList((current) =>
-      current.map((item) => (item.product.id === selectedRow.product.id ? body.data : item))
+      current.map((item) => (item.product.id === selectedRow.product.id ? result.data as ProductRow : item))
     );
     setMessage(`Saved changes for ${nameFi}.`);
   }
@@ -286,28 +276,20 @@ function ProductWorkspaceContent({
     setError("");
     setMessage("");
 
-    const response = await fetch(`/api/admin/products/${selectedRow.product.id}`, {
-      method: "DELETE",
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      if (body.code === "PRODUCT_IN_USE" || response.status === 409) {
+    const result = await deleteProduct(selectedRow.product.id);
+    if (!result.ok) {
+      if (result.code === "PRODUCT_IN_USE" || result.status === 409) {
         // Fallback to non-destructive Archive
-        const archResponse = await fetch(`/api/admin/products/${selectedRow.product.id}`, {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "active", active: false }),
-        });
-        const archBody = await archResponse.json();
-        if (archResponse.ok) {
+        const archiveResult = await archiveProduct(selectedRow.product.id);
+        if (archiveResult.ok) {
           setActive(false);
           setProductsList((current) =>
-            current.map((item) => (item.product.id === selectedRow.product.id ? archBody.data : item))
+            current.map((item) => (item.product.id === selectedRow.product.id ? archiveResult.data as ProductRow : item))
           );
           return setMessage("Product has historical orders and was safely archived instead of deleted.");
         }
       }
-      return setError(body.message ?? "Could not delete or archive product.");
+      return setError(result.message ?? "Could not delete or archive product.");
     }
 
     // Success delete
