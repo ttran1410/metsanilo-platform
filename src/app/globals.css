@@ -1585,6 +1585,11 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .availability-product-hint { position: relative; }
 .availability-product-hint::after { position: absolute; z-index: 20; top: calc(100% + .45rem); left: 50%; width: max-content; max-width: 17rem; padding: .5rem .65rem; border-radius: .45rem; background: var(--admin-ink); color: white; content: attr(data-tooltip); font-size: .72rem; font-weight: 500; line-height: 1.35; opacity: 0; pointer-events: none; transform: translate(-50%, -.2rem); transition: opacity .15s ease, transform .15s ease; }
 .availability-product-hint:hover::after, .availability-product-hint:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+.customer-section-label { display: inline-flex; align-items: center; gap: .4rem; }
+.customer-info-hint { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 1.2rem; height: 1.2rem; border: 1px solid var(--admin-border); border-radius: 999px; color: var(--admin-muted); cursor: help; }
+.customer-info-hint svg { width: .8rem; height: .8rem; }
+.customer-info-hint::after { position: absolute; z-index: 30; top: calc(100% + .45rem); left: 0; width: min(20rem, calc(100vw - 3rem)); padding: .55rem .7rem; border-radius: .45rem; background: var(--admin-ink); color: white; content: attr(data-tooltip); font-size: .72rem; font-weight: 500; line-height: 1.4; opacity: 0; pointer-events: none; transform: translateY(-.2rem); transition: opacity .15s ease, transform .15s ease; }
+.customer-info-hint:hover::after, .customer-info-hint:focus-visible::after { opacity: 1; transform: translateY(0); }
 .availability-loading-icon { width: .9rem; height: .9rem; opacity: 0; transition: opacity .15s ease; }
 .availability-loading-icon.is-visible { opacity: 1; animation: availability-spin .8s linear infinite; }
 @keyframes availability-spin { to { transform: rotate(360deg); } }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, CircleCheck, Edit3, ExternalLink, GitMerge, LayoutList, Mail, MapPin, MessageSquare, PanelLeft, Phone, Pin, Plus, PlusCircle, Save, Search, ShieldAlert, ShieldCheck, Star } from "lucide-react";
+import { ArrowLeft, CircleCheck, Edit3, ExternalLink, GitMerge, Info, LayoutList, Mail, MapPin, MessageSquare, PanelLeft, Phone, Pin, Plus, PlusCircle, Save, Search, ShieldAlert, ShieldCheck, Star } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge, formatAdminMoney } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconDocument, IconEye } from "../ui/admin-row-action-menu";
@@ -23,6 +23,12 @@ export type CustomerRow = {
   marketingConsentUpdatedBy?: string | null;
   notes?: string | null;
   facebookProfile?: string | null;
+  contactConfirmationExpiresAt?: string | null;
+  contactConfirmedAt?: string | null;
+  contactConfirmedBy?: string | null;
+  contactConfirmationChannel?: string | null;
+  retentionHoldUntil?: string | null;
+  retentionHoldReason?: string | null;
   updatedAt: string;
   metrics?: {
     totalOrders: number;
@@ -104,10 +110,12 @@ export function MasterDetailCustomerWorkspace({
   initialCustomers,
   canEdit,
   canAnonymize,
+  canRetention,
 }: {
   initialCustomers: CustomerRow[] | { items: CustomerRow[]; summary?: { totalCustomers: number; vipCount: number; totalLitres: number; consentCount: number } };
   canEdit: boolean;
   canAnonymize: boolean;
+  canRetention: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -141,6 +149,10 @@ export function MasterDetailCustomerWorkspace({
   const [editingCustomer, setEditingCustomer] = useState<CustomerRow | null>(null);
   const [mergingDuplicate, setMergingDuplicate] = useState<{ id: string; name: string; mobile: string | null; email?: string | null } | null>(null);
   const [showAnonymizeConfirm, setShowAnonymizeConfirm] = useState(false);
+  const [confirmationChannel, setConfirmationChannel] = useState<"WHATSAPP" | "SMS" | "PHONE" | "OTHER">("PHONE");
+  const [retentionBusy, setRetentionBusy] = useState(false);
+  const [holdUntil, setHoldUntil] = useState("");
+  const [holdReason, setHoldReason] = useState("");
 
   const [editingNoteText, setEditingNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -219,6 +231,9 @@ export function MasterDetailCustomerWorkspace({
 
     return list;
   }, [customersList, searchQuery, filterChip, sortMode]);
+  const emptyListTitle = "No customers found";
+  const emptyListDescription = "Adjust search query or filter chips.";
+  const confirmationActive = Boolean(profile?.customer.contactConfirmationExpiresAt && new Date(profile.customer.contactConfirmationExpiresAt).getTime() > Date.now());
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -257,6 +272,15 @@ export function MasterDetailCustomerWorkspace({
   const sidebarDisplayedCustomers = useMemo(() => {
     return filteredCustomers.slice(0, splitLimit);
   }, [filteredCustomers, splitLimit]);
+
+  useEffect(() => {
+    if (filteredCustomers.length === 0) return;
+    if (selectedId && filteredCustomers.some((customer) => customer.id === selectedId)) return;
+    const first = filteredCustomers[0];
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedId(first.id);
+    void loadProfile(first.id, false);
+  }, [filteredCustomers, selectedId]);
 
   useEffect(() => {
     // Return to the first page when the visible customer set changes.
@@ -299,6 +323,35 @@ export function MasterDetailCustomerWorkspace({
     if (!response.ok) return setError(body.message ?? "Anonymization failed.");
     setMessage("Customer personal contact data anonymized. Order ledger totals preserved for accounting.");
     void refreshList();
+  }
+
+  async function handleConfirmContact() {
+    if (!profile || retentionBusy) return;
+    setRetentionBusy(true); setError("");
+    try {
+      const response = await fetch(`/api/admin/customers/${profile.customer.id}/contact-confirmation`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channel: confirmationChannel }) });
+      const body = await response.json();
+      if (!response.ok) return setError(body.message ?? "Could not confirm customer contact.");
+      setMessage(`Contact confirmation saved through ${confirmationChannel.toLowerCase()}.`);
+      await refreshList(profile.customer.id);
+    } finally { setRetentionBusy(false); }
+  }
+
+  async function handleRetentionHold() {
+    if (!profile || retentionBusy || !holdUntil || holdReason.trim().length < 3) return;
+    setRetentionBusy(true); setError("");
+    try {
+      const response = await fetch(`/api/admin/customers/${profile.customer.id}/retention-hold`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ until: new Date(`${holdUntil}T23:59:59Z`).toISOString(), reason: holdReason }) });
+      const body = await response.json();
+      if (!response.ok) return setError(body.message ?? "Could not create retention hold.");
+      setMessage("Retention hold saved."); setHoldReason(""); await refreshList(profile.customer.id);
+    } finally { setRetentionBusy(false); }
+  }
+
+  async function clearRetentionHold() {
+    if (!profile || retentionBusy) return;
+    setRetentionBusy(true); setError("");
+    try { const response = await fetch(`/api/admin/customers/${profile.customer.id}/retention-hold`, { method: "DELETE" }); const body = await response.json(); if (!response.ok) return setError(body.message ?? "Could not release retention hold."); setMessage("Retention hold released."); await refreshList(profile.customer.id); } finally { setRetentionBusy(false); }
   }
 
   return (
@@ -386,7 +439,12 @@ export function MasterDetailCustomerWorkspace({
                 ? "bg-primary text-on-primary shadow-xs"
                 : "bg-surface-muted text-ink/70 hover:bg-surface-muted/80"
             }`}
-            onClick={() => setFilterChip(chip.key as typeof filterChip)}
+            onClick={() => {
+              setFilterChip(chip.key as typeof filterChip);
+              setSelectedId("");
+              setProfile(null);
+              setMobileView("list");
+            }}
           >
             <span>{chip.label}</span><b>{chip.count}</b>
           </button>
@@ -567,7 +625,8 @@ export function MasterDetailCustomerWorkspace({
                 {filteredCustomers.length === 0 && (
                   <tr>
                     <td colSpan={7} className="p-6 text-center">
-                      <AdminEmptyState title="No customers found" description="Adjust search query or filter chips." />
+                      <AdminEmptyState title={emptyListTitle} description={emptyListDescription} />
+                      {filterChip !== "all" && <button type="button" className="btn btn-secondary text-xs mt-3" onClick={() => setFilterChip("all")}>Clear filter</button>}
                     </td>
                   </tr>
                 )}
@@ -688,7 +747,10 @@ export function MasterDetailCustomerWorkspace({
               })}
 
               {filteredCustomers.length === 0 && (
-                <AdminEmptyState title="No customers found" description="Adjust search query or filter chips." />
+                <>
+                  <AdminEmptyState title={emptyListTitle} description={emptyListDescription} />
+                  {filterChip !== "all" && <button type="button" className="btn btn-secondary text-xs mt-3" onClick={() => setFilterChip("all")}>Clear filter</button>}
+                </>
               )}
             </div>
 
@@ -1121,11 +1183,12 @@ export function MasterDetailCustomerWorkspace({
               </div>
 
               {/* GDPR COMPLIANCE & SAFE ANONYMIZATION CARD */}
-              <div className="card p-4 md:p-5 flex flex-wrap items-center justify-between gap-4 bg-surface-muted/30">
-                <div className="flex flex-col gap-1 text-xs">
+              <div className="card p-4 md:p-5 flex flex-col gap-5 bg-surface-muted/30">
+                <div className="flex flex-col gap-2 text-xs">
                   <strong className="font-bold text-ink uppercase tracking-wider text-[11px]">
                     <ShieldCheck aria-hidden="true" />Privacy and consent
                   </strong>
+                  <span className="eyebrow customer-section-label">Marketing consent <span className="customer-info-hint" data-tooltip="Marketing consent controls promotional messages. It does not affect retention or anonymization eligibility." role="img" tabIndex={0} aria-label="Marketing consent controls promotional messages. It does not affect retention or anonymization eligibility."><Info aria-hidden="true" /></span></span>
                   <div className="flex flex-wrap items-center gap-2 mt-0.5">
                     <span
                       className={`px-2 py-0.5 rounded-full font-bold text-[11px] border ${
@@ -1143,22 +1206,40 @@ export function MasterDetailCustomerWorkspace({
                     )}
                   </div>
                 </div>
-
-                {canAnonymize && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary text-xs text-danger py-1.5 px-3"
-                    onClick={() => setShowAnonymizeConfirm(true)}
-                  >
-                    <ShieldAlert aria-hidden="true" />Start anonymization
-                  </button>
+                {canRetention && (
+                  <div className="flex flex-col gap-2 text-xs">
+                    <span className="eyebrow customer-section-label">Contact confirmation <span className="customer-info-hint" data-tooltip="After speaking with the customer by phone, SMS or WhatsApp, choose the channel and confirm. The confirmation is valid for 12 months." role="img" tabIndex={0} aria-label="Contact confirmation is recorded after speaking with the customer and is valid for 12 months."><Info aria-hidden="true" /></span></span>
+                    {profile.customer.contactConfirmationExpiresAt && <span className="text-emerald-800">Confirmed until {profile.customer.contactConfirmationExpiresAt.slice(0, 10)}</span>}
+                    {profile.customer.contactConfirmedBy && <span className="muted">By {profile.customer.contactConfirmedBy} · {profile.customer.contactConfirmationChannel ?? "unknown"} · {profile.customer.contactConfirmedAt?.slice(0, 10)}</span>}
+                    <div className="flex flex-wrap items-center gap-2">
+                    <label className="sr-only" htmlFor="contact-confirmation-channel">Confirmation channel</label>
+                    <select id="contact-confirmation-channel" className="input text-xs" value={confirmationChannel} onChange={(event) => setConfirmationChannel(event.target.value as typeof confirmationChannel)} disabled={retentionBusy}>
+                      <option value="PHONE">Phone</option><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option><option value="OTHER">Other</option>
+                    </select>
+                    {!confirmationActive ? <button type="button" className="btn btn-secondary text-xs" onClick={() => void handleConfirmContact()} disabled={retentionBusy}><ShieldCheck aria-hidden="true" />{retentionBusy ? "Saving…" : "Confirm contact"}</button> : <button type="button" className="btn btn-secondary text-xs" onClick={async () => { setRetentionBusy(true); const response = await fetch(`/api/admin/customers/${profile.customer.id}/contact-confirmation/renew`, { method: "POST" }); setRetentionBusy(false); if (!response.ok) return setError("Could not renew contact confirmation."); setMessage("Contact confirmation renewed."); void refreshList(profile.customer.id); }} disabled={retentionBusy}>Renew confirmation</button>}
+                    </div>
+                  </div>
                 )}
+                {canRetention && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs w-full">
+                    <span className="eyebrow w-full customer-section-label">Retention hold <span className="customer-info-hint" data-tooltip="Use only for an active legal, accounting or dispute reason. Enter an expiry date and a clear reason; the retention job will skip this customer until then." role="img" tabIndex={0} aria-label="Retention hold is for active legal, accounting or dispute reasons and requires an expiry date and reason."><Info aria-hidden="true" /></span></span>
+                    {profile.customer.retentionHoldUntil ? (
+                      <><span className="text-amber-800">Retention hold until {profile.customer.retentionHoldUntil.slice(0, 10)}</span><button type="button" className="btn btn-secondary text-xs" onClick={() => void clearRetentionHold()} disabled={retentionBusy}>Release hold</button></>
+                    ) : (
+                      <><label className="sr-only" htmlFor="retention-hold-until">Hold until</label><input id="retention-hold-until" type="date" className="input text-xs" value={holdUntil} onChange={(event) => setHoldUntil(event.target.value)} disabled={retentionBusy} /><label className="sr-only" htmlFor="retention-hold-reason">Hold reason</label><input id="retention-hold-reason" className="input text-xs min-w-[12rem]" placeholder="Legal/accounting hold reason" value={holdReason} onChange={(event) => setHoldReason(event.target.value)} disabled={retentionBusy} /><button type="button" className="btn btn-secondary text-xs" onClick={() => void handleRetentionHold()} disabled={retentionBusy || !holdUntil || holdReason.trim().length < 3}>Add retention hold</button></>
+                    )}
+                  </div>
+                )}
+                {canAnonymize && <div className="border-t border-line pt-4 flex items-center justify-between gap-3"><div><span className="eyebrow text-danger customer-section-label">Danger zone <span className="customer-info-hint" data-tooltip="Clicking Start anonymization opens a confirmation step. Personal contact data is removed only after you confirm. Order totals and audit records are preserved." role="img" tabIndex={0} aria-label="Start anonymization opens a confirmation step. Personal contact data is removed only after confirmation; order totals and audit records are preserved."><Info aria-hidden="true" /></span></span><p className="muted text-xs">Anonymize personal data when retention rules allow it.</p></div><button type="button" className="btn btn-secondary text-xs text-danger py-1.5 px-3" onClick={() => setShowAnonymizeConfirm(true)}><ShieldAlert aria-hidden="true" />Start anonymization</button></div>}
               </div>
             </div>
           ) : loadingProfile ? (
             <AdminEmptyState title="Loading profile…" description="Fetching Customer 360 context." />
           ) : (
-            <AdminEmptyState title="Select a customer" description="Choose a customer from the left master list." />
+            <AdminEmptyState
+              title={filteredCustomers.length === 0 ? emptyListTitle : "Select a customer"}
+              description={filteredCustomers.length === 0 ? emptyListDescription : "Choose a customer from the left master list."}
+            />
           )}
         </main>
       </div>
@@ -1203,7 +1284,7 @@ export function MasterDetailCustomerWorkspace({
               <button className="btn btn-secondary text-xs" type="button" onClick={() => setShowAnonymizeConfirm(false)}>
                 Cancel
               </button>
-              <button className="btn btn-danger text-xs font-bold" type="button" onClick={() => void handleAnonymize()}>
+              <button className="btn bg-rose-700 text-white hover:bg-rose-800 text-xs font-bold" type="button" onClick={() => void handleAnonymize()}>
                 Confirm Anonymization
               </button>
             </div>

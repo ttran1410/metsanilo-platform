@@ -7,9 +7,11 @@ import { MasterDetailCustomerWorkspace, type CustomerRow } from "./customers/mas
 export function CustomersModule({
   canEdit,
   canAnonymize,
+  canRetention,
 }: {
   canEdit: boolean;
   canAnonymize: boolean;
+  canRetention: boolean;
 }) {
   const [initialCustomers, setInitialCustomers] = useState<CustomerRow[] | { items: CustomerRow[]; summary?: { totalCustomers: number; vipCount: number; totalLitres: number; consentCount: number } } | null>(null);
 
@@ -43,6 +45,7 @@ export function CustomersModule({
       initialCustomers={initialCustomers}
       canEdit={canEdit}
       canAnonymize={canAnonymize}
+      canRetention={canRetention}
     />
   );
 }

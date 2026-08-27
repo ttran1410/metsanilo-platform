@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
+import { eq } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
-import { availability, customers, packages, products, shops } from "@/db/schema";
-import { createCustomer, getCustomerProfile, updateCustomer } from "@/domain/customers";
+import { availability, customers, orders, packages, products, shops } from "@/db/schema";
+import { confirmCustomerContact, createCustomer, findRetentionEligibleCustomers, getCustomerProfile, renewCustomerContact, setCustomerRetentionHold, updateCustomer } from "@/domain/customers";
 import { createExternalOrder, createHistoricalOrder } from "@/domain/operations";
 import { submitOrder } from "@/domain/orders";
 import { resetEnvForTests } from "@/lib/env";
@@ -87,6 +88,30 @@ afterAll(() => {
 });
 
 describe("Customer Facebook Profile CRM & Order Sync", () => {
+  it("applies all retention eligibility exclusions and terminal-date rules", async () => {
+    const now = new Date("2026-08-27T12:00:00Z");
+    const makeCustomer = async (name: string) => createCustomer(database, { name, mobile: `+35840${String(testNumber).padStart(2, "0")}${name.length}${Math.random().toString().slice(2, 8)}` });
+    const addOrder = async (customer: { id: string; mobile: string | null }, status: "PICKED_UP" | "DELIVERED" | "CANCELLED", date: string) => {
+      await createHistoricalOrder(database, { productId: "product-berries", packageId: "package-5l", quantity: 1, fulfillmentDate: date, fulfillmentMethod: "PICKUP", customerName: "Retention test", mobile: customer.mobile ?? undefined, completedStatus: status === "CANCELLED" ? "PICKED_UP" : status, completedAt: `${date}T12:00:00Z`, source: "OTHER", reason: "Retention test" });
+      if (status === "CANCELLED") await database.update(orders).set({ status: "CANCELLED", updatedAt: `${date}T12:00:00Z` }).where(eq(orders.customerId, customer.id));
+    };
+    const withOrder = async (name: string) => { const c = await makeCustomer(name); await addOrder(c, "PICKED_UP", "2023-08-26"); return c; };
+    const fulfilled = await withOrder("fulfilled-old");
+    const cancelled = await withOrder("cancelled-old"); await database.update(orders).set({ status: "CANCELLED", updatedAt: "2023-08-26T12:00:00Z" }).where(eq(orders.customerId, cancelled.id));
+    const open = await makeCustomer("open-order"); await submitOrder(database, { locale: "fi", productId: "product-berries", packageId: "package-5l", quantity: 1, fulfillmentDate: "2099-08-20", fulfillmentMethod: "PICKUP", customerName: open.name, mobile: open.mobile!, idempotencyKey: `open-${open.id}` });
+    const held = await withOrder("active-hold"); await setCustomerRetentionHold(database, held.id, "tester", "2027-01-01", "legal dispute");
+    const expiredHold = await withOrder("expired-hold"); await setCustomerRetentionHold(database, expiredHold.id, "tester", "2026-01-01", "expired");
+    const confirmed = await withOrder("active-confirmation"); await confirmCustomerContact(database, confirmed.id, "tester", "SMS", null, now);
+    const expiredConfirmation = await withOrder("expired-confirmation"); await confirmCustomerContact(database, expiredConfirmation.id, "tester", "SMS", null, new Date("2024-01-01T00:00:00Z"));
+
+    const eligible = await findRetentionEligibleCustomers(database, now);
+    const ids = new Set(eligible.map((item) => item.customerId));
+    expect(ids).toEqual(new Set([fulfilled.id, cancelled.id, expiredHold.id, expiredConfirmation.id]));
+    expect(ids.has(open.id)).toBe(false);
+    expect(ids.has(held.id)).toBe(false);
+    expect(ids.has(confirmed.id)).toBe(false);
+  });
+
   it("creates customer with facebookProfile and updates profile successfully", async () => {
     const created = await createCustomer(database, {
       name: "Maija Meikäläinen",
@@ -279,5 +304,23 @@ describe("Customer Facebook Profile CRM & Order Sync", () => {
     const profile2 = await getCustomerProfile(database, customerNoMobile.id);
     expect(profile2?.identityConflicts).toHaveLength(1);
     expect(profile2?.identityConflicts[0].id).toBe(duplicateFbCustomer.id);
+  });
+
+  it("records operator contact confirmation for 12 months", async () => {
+    const customer = await createCustomer(database, { name: "Aino Test", mobile: "+358401234567" });
+    const result = await confirmCustomerContact(database, customer.id, "operator@test", "WHATSAPP", "Confirmed by phone chat", new Date("2026-08-27T10:00:00.000Z"));
+    expect(result.expiresAt).toBe("2027-08-27T10:00:00.000Z");
+    const profile = await getCustomerProfile(database, customer.id);
+    expect(profile?.customer.contactConfirmationChannel).toBe("WHATSAPP");
+    expect(profile?.customer.contactConfirmationExpiresAt).toBe(result.expiresAt);
+  });
+
+  it("renews an existing operator confirmation without changing its channel", async () => {
+    const customer = await createCustomer(database, { name: "Aino Renewal", mobile: "+358401234568" });
+    await confirmCustomerContact(database, customer.id, "operator@test", "SMS", undefined, new Date("2026-08-27T10:00:00.000Z"));
+    const renewed = await renewCustomerContact(database, customer.id, "operator@test", new Date("2027-08-20T10:00:00.000Z"));
+    expect(renewed.expiresAt).toBe("2028-08-20T10:00:00.000Z");
+    const profile = await getCustomerProfile(database, customer.id);
+    expect(profile?.customer.contactConfirmationChannel).toBe("SMS");
   });
 });

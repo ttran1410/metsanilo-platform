@@ -8,7 +8,7 @@ export const PERMISSIONS = [
   "delivery.read", "delivery.write", "delivery.override",
   "cms.read", "cms.edit", "cms.publish", "theme.manage",
   "media.read", "media.write",
-  "customers.read", "customers.write", "customers.anonymize", "customers.identity.resolve", "customers.consent.read", "customers.consent.write",
+  "customers.read", "customers.write", "customers.anonymize", "customers.retention.manage", "customers.identity.resolve", "customers.consent.read", "customers.consent.write",
   "reviews.read", "reviews.create", "reviews.write", "reviews.moderate", "reviews.feature", "reviews.visibility",
   "shop_users.read", "shop_users.manage", "shop_users.password_reset", "shop_permissions.read", "shop_permissions.assign",
   "settings.read", "settings.operational", "settings.sources.read", "settings.sources.manage", "settings.fulfillment.read", "settings.fulfillment.manage", "audit.read", "audit.export",
@@ -28,6 +28,7 @@ export type Role = "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
 export const HIGH_RISK_PERMISSIONS: Permission[] = [
   "orders.delete",
   "customers.anonymize",
+  "customers.retention.manage",
   "orders.export",
   "audit.export",
   "catalog.product.delete",
