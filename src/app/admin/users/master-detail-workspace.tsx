@@ -575,7 +575,7 @@ export function MasterDetailUserWorkspace({
                   <tr key={u.id} className="hover:bg-surface-muted/60 transition-colors">
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-surface-muted border border-line flex items-center justify-center font-bold text-xs text-primary shrink-0">
                           {u.displayName.slice(0, 1).toUpperCase()}
                         </div>
                         <div>
@@ -588,9 +588,9 @@ export function MasterDetailUserWorkspace({
                       <span
                         className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
                           u.role === "ADMIN"
-                            ? "bg-purple-100 text-purple-900 border-purple-300"
+                            ? "bg-surface-muted text-ink border-line"
                             : u.role === "MANAGER"
-                            ? "bg-blue-100 text-blue-900 border-blue-300"
+                            ? "bg-surface-muted text-ink border-line"
                             : u.role === "STAFF"
                             ? "bg-emerald-100 text-emerald-900 border-emerald-300"
                             : "bg-surface-muted text-ink/80 border-line"
@@ -775,9 +775,9 @@ export function MasterDetailUserWorkspace({
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                           u.role === "ADMIN"
-                            ? "bg-purple-100 text-purple-900 border-purple-300"
+                            ? "bg-surface-muted text-ink border-line"
                             : u.role === "MANAGER"
-                            ? "bg-blue-100 text-blue-900 border-blue-300"
+                            ? "bg-surface-muted text-ink border-line"
                             : u.role === "STAFF"
                             ? "bg-emerald-100 text-emerald-900 border-emerald-300"
                             : "bg-surface-muted text-ink/80 border-line"
