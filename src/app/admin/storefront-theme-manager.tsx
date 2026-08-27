@@ -133,7 +133,7 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
     if (!canManageTheme || busy) return;
     try {
       setBusy("draft");
-      const next = await request("/api/admin/storefront-theme", {
+      const next = await request(`/api/admin/storefront-theme/drafts/${state.draft.id}/publish`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ themeKey }),
@@ -156,7 +156,6 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
       const next = await request("/api/admin/storefront-theme", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "publish", draftId: state.draft.id }),
       });
       setState(next);
       setTone("success");
@@ -173,7 +172,7 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
     if (!state?.draft || !canManageTheme || busy) return;
     try {
       setBusy("discard");
-      const next = await request(`/api/admin/storefront-theme?draftId=${encodeURIComponent(state.draft.id)}`, {
+      const next = await request(`/api/admin/storefront-theme/drafts/${encodeURIComponent(state.draft.id)}`, {
         method: "DELETE",
       });
       setState(next);
@@ -191,10 +190,9 @@ export function StorefrontThemeManager({ canManageTheme }: { canManageTheme: boo
     if (!canManageTheme || busy) return;
     try {
       setBusy("rollback");
-      const next = await request("/api/admin/storefront-theme", {
+      const next = await request(`/api/admin/storefront-theme/versions/${version.id}/rollback`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "rollback", versionId: version.id }),
       });
       setState(next);
       setTone("success");
