@@ -32,6 +32,7 @@ import { PricingLadder } from "./pricing-ladder";
 import { SeasonTracker } from "./season-tracker";
 import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-toolbar";
 import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspace-provider";
+import { ProductArchiveDialog, ProductDeleteDialog, ProductRestoreDialog } from "./product-action-dialogs";
 
 type ProductRow = {
   product: typeof products.$inferSelect;
@@ -906,35 +907,12 @@ function ProductWorkspaceContent({
       )}
 
       {/* ARCHIVE CONFIRMATION MODAL */}
-      {showArchiveConfirm && selectedRow && (
-        <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowArchiveConfirm(false)}>
-          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
-            <p className="eyebrow text-amber-900">Confirm archive</p>
-            <h3 className="text-lg font-bold text-ink">Archive {selectedRow.product.nameFi}?</h3>
-            <p className="text-xs muted leading-relaxed">
-              Archiving hides this product from the customer storefront and reservation portal. Historical order records and audit receipts will be preserved intact.
-            </p>
-            <div className="profile-actions justify-end gap-2 mt-2 pt-3 border-t border-line">
-              <button className="btn btn-secondary text-xs" type="button" onClick={() => setShowArchiveConfirm(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 shadow-md"
-                type="button"
-                onClick={() => {
-                  setShowArchiveConfirm(false);
-                  void handleToggleActive(false);
-                }}
-              >
-                <Archive aria-hidden="true" /> Archive product
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {selectedRow && <ProductArchiveDialog open={showArchiveConfirm} productName={selectedRow.product.nameFi} onCancel={() => setShowArchiveConfirm(false)} onConfirm={() => { setShowArchiveConfirm(false); void handleToggleActive(false); }} />}
+      {selectedRow && <ProductRestoreDialog open={showUnarchiveConfirm} productName={selectedRow.product.nameFi} onCancel={() => setShowUnarchiveConfirm(false)} onConfirm={() => { setShowUnarchiveConfirm(false); void handleToggleActive(true); }} />}
+      {selectedRow && <ProductDeleteDialog open={showDeleteConfirm} productName={selectedRow.product.nameFi} onCancel={() => setShowDeleteConfirm(false)} onConfirm={() => { setShowDeleteConfirm(false); void handleDeleteOrArchive(); }} />}
 
       {/* UN-ARCHIVE CONFIRMATION MODAL */}
-      {showUnarchiveConfirm && selectedRow && (
+      {false && showUnarchiveConfirm && selectedRow && (
         <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowUnarchiveConfirm(false)}>
           <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
             <p className="eyebrow text-emerald-800">Confirm restore</p>
@@ -962,7 +940,7 @@ function ProductWorkspaceContent({
       )}
 
       {/* DELETE CONFIRMATION MODAL */}
-      {showDeleteConfirm && selectedRow && (
+      {false && showDeleteConfirm && selectedRow && (
         <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
           <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
             <p className="eyebrow text-danger">Confirm permanent delete</p>
