@@ -291,11 +291,10 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
     event.preventDefault();
     try {
       const values = new FormData(event.currentTarget);
-      const updated = await request("/api/admin/fulfillment-locations", {
+      const updated = await request(`/api/admin/fulfillment-locations/${location.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          id: location.id,
           type: values.get("type"),
           nameFi: values.get("nameFi"),
           nameEn: values.get("nameEn"),
@@ -341,7 +340,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
 
   async function deleteLocationItem(id: string) {
     setConfirmation({ title: "Delete fulfillment location?", description: "This can affect pickup and delivery operations. Review dependencies before continuing.", confirmLabel: "Delete location", destructive: true, onConfirm: async () => {
-      try { await request(`/api/admin/fulfillment-locations?id=${id}`, { method: "DELETE" }); feedback("Fulfillment location deleted.", "success"); await loadAll(); }
+      try { await request(`/api/admin/fulfillment-locations/${id}`, { method: "DELETE" }); feedback("Fulfillment location deleted.", "success"); await loadAll(); }
       catch (error) { feedback(error instanceof Error ? error.message : "Could not delete location", "error"); }
     } });
   }
