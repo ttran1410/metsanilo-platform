@@ -74,7 +74,8 @@ export async function findRetentionEligibleCustomers(database: Database, now = n
   const cutoff = new Date(now);
   cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 2);
   return database.all<{ customerId: string; lastOrderDate: string }>(sql`
-    SELECT c.id as customerId, MAX(o.fulfillment_date) as lastOrderDate
+    SELECT c.id as customerId,
+      MAX(CASE WHEN o.status IN ('PICKED_UP', 'DELIVERED') THEN o.fulfillment_date ELSE substr(o.updated_at, 1, 10) END) as lastOrderDate
     FROM customers c
     JOIN orders o ON o.customer_id = c.id AND o.shop_id = c.shop_id
     WHERE c.shop_id = ${env().SHOP_ID}
@@ -87,7 +88,7 @@ export async function findRetentionEligibleCustomers(database: Database, now = n
           AND open_order.status NOT IN ('PICKED_UP', 'DELIVERED', 'CANCELLED', 'CANCELLED_BY_CUSTOMER', 'REJECTED', 'NO_SHOW', 'CUSTOMER_DECLINED', 'REFUNDED')
       )
     GROUP BY c.id
-    HAVING MAX(o.fulfillment_date) <= ${cutoff.toISOString().slice(0, 10)}
+    HAVING MAX(CASE WHEN o.status IN ('PICKED_UP', 'DELIVERED') THEN o.fulfillment_date ELSE substr(o.updated_at, 1, 10) END) <= ${cutoff.toISOString().slice(0, 10)}
     ORDER BY lastOrderDate ASC
   `);
 }
