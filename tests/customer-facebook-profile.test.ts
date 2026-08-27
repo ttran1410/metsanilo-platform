@@ -5,7 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { createDatabaseConnection, type Database } from "@/db/client";
 import { availability, customers, packages, products, shops } from "@/db/schema";
-import { createCustomer, getCustomerProfile, updateCustomer } from "@/domain/customers";
+import { confirmCustomerContact, createCustomer, getCustomerProfile, updateCustomer } from "@/domain/customers";
 import { createExternalOrder, createHistoricalOrder } from "@/domain/operations";
 import { submitOrder } from "@/domain/orders";
 import { resetEnvForTests } from "@/lib/env";
@@ -279,5 +279,14 @@ describe("Customer Facebook Profile CRM & Order Sync", () => {
     const profile2 = await getCustomerProfile(database, customerNoMobile.id);
     expect(profile2?.identityConflicts).toHaveLength(1);
     expect(profile2?.identityConflicts[0].id).toBe(duplicateFbCustomer.id);
+  });
+
+  it("records operator contact confirmation for 12 months", async () => {
+    const customer = await createCustomer(database, { name: "Aino Test", mobile: "+358401234567" });
+    const result = await confirmCustomerContact(database, customer.id, "operator@test", "WHATSAPP", "Confirmed by phone chat", new Date("2026-08-27T10:00:00.000Z"));
+    expect(result.expiresAt).toBe("2027-08-27T10:00:00.000Z");
+    const profile = await getCustomerProfile(database, customer.id);
+    expect(profile?.customer.contactConfirmationChannel).toBe("WHATSAPP");
+    expect(profile?.customer.contactConfirmationExpiresAt).toBe(result.expiresAt);
   });
 });
