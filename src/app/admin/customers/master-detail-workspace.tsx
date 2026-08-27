@@ -14,6 +14,7 @@ import { CustomerQueryToolbar } from "./customer-query-toolbar";
 import { CustomerSavedViews } from "./customer-saved-views";
 import { CustomerWorkspaceHeader } from "./customer-workspace-header";
 import { CustomerRecordList } from "./customer-record-list";
+import { CustomerInspector } from "./customer-inspector";
 
 export type CustomerRow = {
   id: string;
@@ -670,6 +671,7 @@ function CustomerWorkspaceContent({
         </div>
       ) : (
         /* MASTER-DETAIL SPLIT WORKSPACE GRID */
+        <CustomerInspector>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           {/* LEFT MASTER SIDEBAR (4 Cols) */}
           <aside className={`lg:col-span-4 card p-4 flex flex-col gap-3 max-h-[85vh] sticky top-4 ${mobileView === "detail" ? "hidden lg:flex" : "flex"}`}>
@@ -1268,6 +1270,7 @@ function CustomerWorkspaceContent({
           )}
         </main>
       </div>
+        </CustomerInspector>
       )}
       </CustomerRecordList>
 

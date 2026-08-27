@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Building2, CreditCard, ExternalLink, Image as ImageIcon, Inbox, LoaderCircle, LockKeyhole, MapPin, Palette, Pause, Phone, Play, Plus, Save, ShieldAlert, Store, Trash2, UploadCloud, type LucideIcon } from "lucide-react";
 import { AdminConfirmDialog, AdminNotice, AdminPageHeader } from "./presentation";
 import { StorefrontThemeManager } from "./storefront-theme-manager";
+import { SettingsSectionTabs } from "./settings-section-tabs";
 
 type Method = {
   id?: string;
@@ -489,7 +490,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
         </AdminNotice>
       )}
 
-      <nav className="settings-section-tabs" aria-label="Settings sections">
+      <SettingsSectionTabs>
         {sections.map((sec) => {
           const active = activeSection === sec.id;
           const Icon = sec.icon;
@@ -511,7 +512,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
             </button>
           );
         })}
-      </nav>
+      </SettingsSectionTabs>
 
       <main className="flex flex-col gap-6">
         {activeSection === "identity" && (
