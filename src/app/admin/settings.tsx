@@ -349,7 +349,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
   // Save Payment Method
   async function savePaymentMethod(method: Method) {
     try {
-      const updated = await request("/api/admin/payment-methods", {
+      const updated = await request(`/api/admin/payment-methods/${method.method}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(method),
@@ -363,7 +363,7 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
 
   async function deletePaymentMethodItem(methodKey: string) {
     setConfirmation({ title: "Delete custom payment method?", description: `Remove '${methodKey}' from the shop configuration? Existing orders and audit history are preserved.`, confirmLabel: "Delete method", destructive: true, onConfirm: async () => {
-      try { await request(`/api/admin/payment-methods?method=${methodKey}`, { method: "DELETE" }); feedback("Payment method deleted.", "success"); await loadAll(); }
+      try { await request(`/api/admin/payment-methods/${methodKey}`, { method: "DELETE" }); feedback("Payment method deleted.", "success"); await loadAll(); }
       catch (error) { feedback(error instanceof Error ? error.message : "Could not delete payment method", "error"); }
     } });
   }
