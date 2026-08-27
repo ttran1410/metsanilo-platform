@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/db/client";
 import { requirePermission } from "@/domain/access";
-import { createCustomer, listCustomers, searchCustomers } from "@/domain/customers";
+import { createCustomer, listCustomers } from "@/domain/customers";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../response";
 

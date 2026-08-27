@@ -6,7 +6,6 @@ import { auditEntries, customers } from "@/db/schema";
 import { requirePermission } from "@/domain/access";
 import { anonymizeCustomer, getCustomerProfile, mergeCustomers, updateCustomer } from "@/domain/customers";
 import { DomainError } from "@/domain/errors";
-import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
 

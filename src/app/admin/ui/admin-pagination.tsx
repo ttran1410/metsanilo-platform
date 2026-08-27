@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 
 export interface AdminPaginationProps {
   page: number;

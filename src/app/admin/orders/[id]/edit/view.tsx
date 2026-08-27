@@ -61,7 +61,6 @@ function addDaysStr(base: string, days: number) {
 export function OrderEditForm({
   initial,
   products,
-  availabilityList = [],
 }: {
   initial: Order;
   products: Product[];

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Ban, CheckCircle2, Eye, EyeOff, MessageSquare, Plus, ShieldCheck, Star, Trash2, X } from "lucide-react";
+import { Ban, CheckCircle2, Eye, EyeOff, MessageSquare, Plus, ShieldCheck, Star, X } from "lucide-react";
 import { AdminSearchField } from "../ui/admin-search-field";
 import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminPageHeader, useAdminDialogFocus } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";

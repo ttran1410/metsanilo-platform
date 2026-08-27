@@ -94,7 +94,7 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
   const router = useRouter();
   const [detail, setDetail] = useState(initial);
   const [message, setMessage] = useState(initialNotice);
-  const [copied, setCopied] = useState<string | null>(null);
+  const [, setCopied] = useState<string | null>(null);
   const [pendingCancel, setPendingCancel] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);

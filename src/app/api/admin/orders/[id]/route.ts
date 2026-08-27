@@ -3,7 +3,7 @@ import { getManagerOrder, updateManagerOrder, deleteManagerOrder, transitionOrde
 import { failure, success } from "../../../response";
 import { requirePermission } from "@/domain/access";
 import { adminContext } from "@/app/admin/portal-auth";
-import { DomainError, fromZodError } from "@/domain/errors";
+import { fromZodError } from "@/domain/errors";
 import { z } from "zod";
 
 export const runtime = "nodejs";
