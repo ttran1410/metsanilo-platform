@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ArrowRight, KeyRound, Shield } from "lucide-react";
+import { ArrowRight, KeyRound, LockKeyhole, Shield } from "lucide-react";
 import { AdminNotice } from "../presentation";
 
 type Profile = {
@@ -32,7 +32,6 @@ export function ProfileForm({ initial }: { initial: Profile }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           displayName: values.get("displayName"),
-          email: values.get("email"),
         }),
       });
 
@@ -85,13 +84,18 @@ export function ProfileForm({ initial }: { initial: Profile }) {
 
         <label className="field">
           <span>Email address</span>
-          <input
-            name="email"
-            type="email"
-            defaultValue={profile.email ?? ""}
-            required
-            className="w-full text-xs py-2 px-3 rounded-lg border border-line bg-surface font-medium"
-          />
+          <div className="relative group">
+            <input
+              name="email"
+              type="email"
+              defaultValue={profile.email ?? ""}
+              readOnly
+              aria-readonly="true"
+              title="Email address cannot be changed here"
+              className="w-full text-xs py-2 pl-3 pr-9 rounded-lg border border-line bg-surface font-medium"
+            />
+            <span title="Email address cannot be changed here"><LockKeyhole aria-label="Email address cannot be changed here" className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" /></span>
+          </div>
         </label>
 
         <div className="pt-2 border-t border-line mt-auto flex items-center justify-end">

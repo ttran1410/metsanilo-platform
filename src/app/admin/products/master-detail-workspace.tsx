@@ -19,12 +19,12 @@ import {
   Package,
   Plus,
   Save,
-  Search,
   Trash2,
 } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLink } from "../ui/admin-row-action-menu";
+import { AdminSearchField } from "../ui/admin-search-field";
 
 import { BilingualEditor } from "./bilingual-editor";
 import { MediaGalleryTab } from "./media-gallery-tab";
@@ -370,18 +370,15 @@ export function MasterDetailWorkspace({
         <div className="card p-4 overflow-x-auto border border-line flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
             <div className="flex flex-wrap items-center gap-2 flex-1 max-w-lg">
-              <div className="relative flex-1">
-                <input
+              <AdminSearchField wrapperClassName="flex-1"
                   placeholder="Search by name or code…"
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full text-xs py-1.5 px-3 pl-9 rounded-lg border border-line bg-surface"
-                />
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
-              </div>
+                  className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
+              />
 
               <div className="admin-catalog-filters text-[11px]">
                 {filterOptions.map((tab) => (
@@ -563,18 +560,15 @@ export function MasterDetailWorkspace({
 
             {/* Search & Filter Controls */}
             <div className="flex flex-col gap-2">
-              <div className="relative w-full">
-                <input
+              <AdminSearchField wrapperClassName="w-full"
                   placeholder="Search by name or code…"
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full text-xs py-1.5 px-3 pl-9 rounded-lg border border-line bg-surface"
-                />
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
-              </div>
+                  className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
+              />
 
               <div className="admin-catalog-filters text-[11px]">
                 {filterOptions.map((tab) => (

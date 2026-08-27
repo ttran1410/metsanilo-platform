@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, CircleCheck, Edit3, ExternalLink, GitMerge, Info, LayoutList, Mail, MapPin, MessageSquare, PanelLeft, Phone, Pin, Plus, PlusCircle, Save, Search, ShieldAlert, ShieldCheck, Star } from "lucide-react";
+import { AdminSearchField } from "../ui/admin-search-field";
+import { ArrowLeft, CircleCheck, Edit3, ExternalLink, GitMerge, Info, LayoutList, Mail, MapPin, MessageSquare, PanelLeft, Phone, Pin, Plus, PlusCircle, Save, ShieldAlert, ShieldCheck, Star } from "lucide-react";
 import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge, formatAdminMoney } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconDocument, IconEye } from "../ui/admin-row-action-menu";
@@ -371,15 +372,12 @@ export function MasterDetailCustomerWorkspace({
       {/* WORKSPACE TOOLBAR: SEARCH, SORT, VIEW SWITCHER & NEW CUSTOMER */}
       <div className="card customers-toolbar">
         <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <div className="relative flex-1">
-            <input
+          <AdminSearchField wrapperClassName="flex-1"
               placeholder="Search customers by name, phone, email, or notes…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full text-xs py-2 px-3 pl-9 rounded-lg border border-line bg-surface"
-            />
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
-          </div>
+          />
 
           <select
             value={sortMode}

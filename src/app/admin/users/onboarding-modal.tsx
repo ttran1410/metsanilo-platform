@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import type { Role } from "@/lib/permissions";
 import type { CreatedUser } from "./master-detail-workspace";
 import { useAdminDialogFocus } from "../presentation";
+import { validateEmail } from "@/lib/email";
 
 const ROLE_PRESETS: Array<{ key: Role; label: string; description: string }> = [
   {
@@ -62,6 +63,9 @@ export function OnboardingModal({
       return setError("Only Store Owner (ADMIN) accounts can grant the ADMIN role.");
     }
 
+    const emailResult = validateEmail(email);
+    if ("error" in emailResult) return setError(emailResult.error ?? "Enter a valid email address, such as name@example.com.");
+
     setBusy(true);
 
     try {
@@ -70,7 +74,7 @@ export function OnboardingModal({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           displayName: displayName.trim(),
-          email: email.trim().toLowerCase(),
+          email: emailResult.email,
           role,
           password,
         }),
@@ -126,6 +130,9 @@ export function OnboardingModal({
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => {
+                    if (email && "error" in validateEmail(email)) setError("Enter a valid email address, such as name@example.com.");
+                  }}
                   placeholder="eero@example.fi"
                   required
                 />

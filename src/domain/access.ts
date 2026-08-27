@@ -311,6 +311,9 @@ export async function updateUserProfile(
 
 export async function updateUserRole(database: Database, request: Request, input: { userId: string; role: Role }) {
   const actor = await requirePermission(database, request, "shop_users.manage");
+  if (input.userId === actor.id && (actor.role === "ADMIN" || actor.role === "MANAGER") && input.role !== actor.role) {
+    throw new DomainError("FORBIDDEN", "Cannot change your own role", 403);
+  }
   if (actor.role !== "ADMIN" && input.role === "ADMIN") throw new DomainError("FORBIDDEN", "Only Admin can set role to Admin", 403);
   const target = await database.query.users.findFirst({ where: and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID)) });
   if (!target) throw new DomainError("NOT_FOUND", "User not found", 404);

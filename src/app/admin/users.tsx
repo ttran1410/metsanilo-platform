@@ -7,11 +7,13 @@ import { MasterDetailUserWorkspace, type UserRow } from "./users/master-detail-w
 
 export function UserModule({
   actorRole = "MANAGER",
+  actorId,
   canManageUsers,
   canAssignPermissions,
   canResetPasswords,
 }: {
   actorRole?: Role;
+  actorId?: string;
   canManageUsers: boolean;
   canAssignPermissions: boolean;
   canResetPasswords: boolean;
@@ -47,6 +49,7 @@ export function UserModule({
     <MasterDetailUserWorkspace
       initialUsers={initialUsers}
       actorRole={actorRole}
+      actorId={actorId}
       canManageUsers={canManageUsers}
       canAssignPermissions={canAssignPermissions}
       canResetPasswords={canResetPasswords}
