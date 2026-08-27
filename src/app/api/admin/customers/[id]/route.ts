@@ -42,7 +42,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requirePermission(db(), request, "customers.write");
+    const actor = await requirePermission(db(), request, "customers.anonymize");
     const actorName = actor.email ?? actor.username ?? actor.id;
     const { id } = await context.params;
 
@@ -134,7 +134,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requirePermission(db(), request, "customers.write");
+    const actor = await requirePermission(db(), request, "customers.anonymize");
     const { id } = await context.params;
     const now = new Date().toISOString();
 
@@ -144,6 +144,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         name: "Anonymized customer",
         mobile: `ANONYMIZED-${id.slice(0, 8)}`,
         email: null,
+        facebookProfile: null,
         marketingConsent: false,
         marketingConsentStatus: "REVOKED",
         marketingConsentAt: now,

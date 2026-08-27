@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, like, ne, or } from "drizzle-orm";
+import { and, desc, eq, like, ne, or, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, customers, orders, reviews } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -30,6 +30,73 @@ export async function searchCustomers(database: Database, query: string) {
       )
     )
     .limit(25);
+}
+
+export type ContactConfirmationChannel = "WHATSAPP" | "SMS" | "PHONE" | "OTHER" | "MIGRATION";
+
+export async function confirmCustomerContact(
+  database: Database,
+  customerId: string,
+  actor: string,
+  channel: ContactConfirmationChannel,
+  note?: string | null,
+  now = new Date(),
+) {
+  const confirmedAt = now.toISOString();
+  const expires = new Date(now);
+  expires.setUTCFullYear(expires.getUTCFullYear() + 1);
+  const updated = await database.update(customers).set({
+    contactConfirmedAt: confirmedAt,
+    contactConfirmedBy: actor,
+    contactConfirmationChannel: channel,
+    contactConfirmationNote: note?.trim() || null,
+    contactConfirmationExpiresAt: expires.toISOString(),
+    updatedAt: confirmedAt,
+  }).where(and(eq(customers.id, customerId), eq(customers.shopId, env().SHOP_ID))).run();
+  if (updated.rowsAffected !== 1) throw new DomainError("NOT_FOUND", "Customer not found", 404);
+  await database.insert(auditEntries).values({
+    id: randomUUID(), shopId: env().SHOP_ID, actor, action: "customer.contact_confirmed",
+    entityType: "customer", entityId: customerId,
+    detailsJson: JSON.stringify({ channel, expiresAt: expires.toISOString(), note: note?.trim() || null }),
+    createdAt: confirmedAt,
+  });
+  return { confirmedAt, expiresAt: expires.toISOString() };
+}
+
+export async function findRetentionEligibleCustomers(database: Database, now = new Date()) {
+  const cutoff = new Date(now);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 2);
+  return database.all<{ customerId: string; lastOrderDate: string }>(sql`
+    SELECT c.id as customerId, MAX(o.fulfillment_date) as lastOrderDate
+    FROM customers c
+    JOIN orders o ON o.customer_id = c.id AND o.shop_id = c.shop_id
+    WHERE c.shop_id = ${env().SHOP_ID}
+      AND o.status IN ('PICKED_UP', 'DELIVERED', 'CANCELLED', 'CANCELLED_BY_CUSTOMER', 'REJECTED', 'NO_SHOW', 'CUSTOMER_DECLINED', 'REFUNDED')
+      AND (c.contact_confirmation_expires_at IS NULL OR c.contact_confirmation_expires_at <= ${now.toISOString()})
+      AND (c.retention_hold_until IS NULL OR c.retention_hold_until <= ${now.toISOString()})
+      AND NOT EXISTS (
+        SELECT 1 FROM orders open_order
+        WHERE open_order.customer_id = c.id AND open_order.shop_id = c.shop_id
+          AND open_order.status NOT IN ('PICKED_UP', 'DELIVERED', 'CANCELLED', 'CANCELLED_BY_CUSTOMER', 'REJECTED', 'NO_SHOW', 'CUSTOMER_DECLINED', 'REFUNDED')
+      )
+    GROUP BY c.id
+    HAVING MAX(o.fulfillment_date) <= ${cutoff.toISOString().slice(0, 10)}
+    ORDER BY lastOrderDate ASC
+  `);
+}
+
+export async function setCustomerRetentionHold(database: Database, customerId: string, actor: string, until: string, reason: string) {
+  const now = new Date().toISOString();
+  const updated = await database.update(customers).set({ retentionHoldUntil: until, retentionHoldReason: reason.trim(), retentionHoldSetBy: actor, updatedAt: now }).where(and(eq(customers.id, customerId), eq(customers.shopId, env().SHOP_ID))).run();
+  if (updated.rowsAffected !== 1) throw new DomainError("NOT_FOUND", "Customer not found", 404);
+  await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor, action: "customer.retention_hold_created", entityType: "customer", entityId: customerId, detailsJson: JSON.stringify({ until, reason: reason.trim() }), createdAt: now });
+}
+
+export async function clearCustomerRetentionHold(database: Database, customerId: string, actor: string) {
+  const now = new Date().toISOString();
+  const updated = await database.update(customers).set({ retentionHoldUntil: null, retentionHoldReason: null, retentionHoldSetBy: null, updatedAt: now }).where(and(eq(customers.id, customerId), eq(customers.shopId, env().SHOP_ID))).run();
+  if (updated.rowsAffected !== 1) throw new DomainError("NOT_FOUND", "Customer not found", 404);
+  await database.insert(auditEntries).values({ id: randomUUID(), shopId: env().SHOP_ID, actor, action: "customer.retention_hold_released", entityType: "customer", entityId: customerId, detailsJson: "{}", createdAt: now });
 }
 
 export async function listCustomers(

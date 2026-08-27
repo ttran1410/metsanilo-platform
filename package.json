@@ -15,6 +15,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:preflight": "tsx scripts/preflight.ts",
     "db:release": "tsx scripts/release.ts",
+    "customer-retention": "tsx scripts/customer-retention.ts",
+    "customer-retention-backfill": "tsx scripts/customer-retention-backfill.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
