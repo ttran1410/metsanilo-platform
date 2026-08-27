@@ -6,17 +6,11 @@ import { DomainError } from "./errors";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { getHarvestSeasonForDate } from "./seasons";
+export { calculateCapacityAdjustment } from "./capacity";
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 type PlanFrequency = "DAY" | "WEEK" | "MONTH" | "CUSTOM";
-
-export function calculateCapacityAdjustment(currentCapacityMl: number, reservedMl: number, deltaMl: number) {
-  const nextCapacityMl = currentCapacityMl + deltaMl;
-  if (!Number.isInteger(nextCapacityMl) || nextCapacityMl < 0) throw new DomainError("VALIDATION_ERROR", "Capacity must be non-negative millilitres", 422);
-  if (nextCapacityMl < reservedMl) throw new DomainError("BELOW_RESERVED", "Capacity cannot be lower than reserved volume", 409);
-  return nextCapacityMl;
-}
 
 export async function findAvailabilityDuplicateGroups(database: Database) {
   const { SHOP_ID } = env();
