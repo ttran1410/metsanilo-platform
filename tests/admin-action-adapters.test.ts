@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { archiveProduct, deleteProduct, restoreProduct, updateProduct } from "@/app/admin/products/product-admin-actions";
-import { inviteUser, resetUserPassword, updateUserPermission, updateUserStatus } from "@/app/admin/users/user-admin-actions";
+import { inviteUser, resetUserPassword, updateUserPermission, updateUserRole, updateUserStatus } from "@/app/admin/users/user-admin-actions";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -31,5 +31,12 @@ describe("admin mutation action adapters", () => {
     expect(fetchMock).toHaveBeenLastCalledWith("/api/admin/users", expect.objectContaining({ method: "POST" }));
     await updateUserPermission("u1", "orders.read", true);
     expect(fetchMock).toHaveBeenLastCalledWith("/api/admin/users/u1/permissions", expect.objectContaining({ method: "PUT" }));
+  });
+
+  it("blocks self downgrade before sending a role request", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const result = await updateUserRole({ userId: "u1", displayName: "Admin", currentRole: "ADMIN", nextRole: "STAFF", actorId: "u1", actorRole: "ADMIN" });
+    expect(result).toMatchObject({ ok: false, status: 403, code: "SELF_ROLE_CHANGE_FORBIDDEN" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

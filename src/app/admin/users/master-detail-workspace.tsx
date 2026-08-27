@@ -409,7 +409,7 @@ function UserWorkspaceContent({
     const role = String(formData.get("role") ?? "") as Role;
 
     try {
-      const result = await updateUserRole(editingUser.id, displayName, role);
+      const result = await updateUserRole({ userId: editingUser.id, displayName, currentRole: editingUser.role, nextRole: role, actorId, actorRole });
       setSavingEdit(false);
 
       if (!result.ok) {
