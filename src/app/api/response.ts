@@ -26,7 +26,6 @@ export function failure(error: unknown) {
     {
       code: "INTERNAL_ERROR",
       message: "An unexpected server error occurred while processing your request. Please try again or contact support.",
-      detail: error instanceof Error ? (error.stack || error.message) : errorMessage,
       correlationId,
     },
     { status: 500 },

@@ -45,11 +45,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid command payload", 422);
 
     if (parsed.data.action === "update") {
+      if (parsed.data.email !== undefined) throw new DomainError("FORBIDDEN", "Email address cannot be changed from User & Permissions", 403);
       return success(
         await updateUserProfile(db(), request, {
           userId: id,
           displayName: parsed.data.displayName,
-          email: parsed.data.email,
           role: parsed.data.role,
         })
       );

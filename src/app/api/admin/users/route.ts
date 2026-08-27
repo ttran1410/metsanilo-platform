@@ -1,28 +1,45 @@
 import { z } from "zod";
-import { db } from "@/db/client";
 import { createUser, listUsers } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../response";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
 import { searchUsers } from "@/domain/admin-search";
+import { executeAdmin, parseJson } from "@/app/api/admin/module";
+import { emailSchema, normalizeEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
-const command = z.object({ email: z.string().email(), displayName: z.string(), role: z.enum(["ADMIN", "MANAGER", "STAFF", "CONTENT_CREATOR"]), password: z.string() });
+const command = z.object({
+  email: z.preprocess(
+    (value) => (typeof value === "string" ? normalizeEmail(value) : value),
+    emailSchema,
+  ),
+  displayName: z.string(),
+  role: z.enum(["ADMIN", "MANAGER", "STAFF", "CONTENT_CREATOR"]),
+  password: z.string(),
+});
 
 export async function GET(request: Request) {
-  try {
-    if (hasListQuery(request)) return success(await searchUsers(db(), parseAdminListQuery(request), {
+  try { return success(await executeAdmin(request, {
+    permission: "shop_users.manage",
+    parse: async () => request,
+    run: async (input, { database }) => {
+      if (hasListQuery(input)) return searchUsers(database, parseAdminListQuery(input), {
       role: adminQueryParam(request, "role"),
       active: adminQueryParam(request, "status") === undefined ? undefined : adminQueryParam(request, "status") === "active",
-    }));
-    return success(await listUsers(db(), request));
-  } catch (error) { return failure(error); }
+      });
+      return listUsers(database, request);
+    },
+  })); } catch (error) { return failure(error); }
 }
 
 export async function POST(request: Request) {
-  try {
-    const parsed = command.safeParse(await request.json());
-    if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid user", 422);
-    return success(await createUser(db(), request, parsed.data), 201);
-  } catch (error) { return failure(error); }
+  try { return success(await executeAdmin(request, {
+    permission: "shop_users.manage",
+    parse: async (input) => {
+      const parsed = command.safeParse(await parseJson(input));
+      if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid user", 422);
+      return parsed.data;
+    },
+    run: (input, { database }) => createUser(database, request, input),
+  }), 201); } catch (error) { return failure(error); }
 }

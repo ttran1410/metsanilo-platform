@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/client";
 import { listAuditEntries } from "@/domain/audit";
-import { adminContext, hasAdminPermission } from "@/app/admin/portal-auth";
+import { authenticateAdmin } from "@/app/api/admin/module";
+import { failure } from "@/app/api/response";
 import type { AuditCategory, AuditSeverity } from "@/domain/audit";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const { request: req } = await adminContext();
-  if (!(await hasAdminPermission(req, "audit.export"))) {
-    return NextResponse.json({ message: "Forbidden: Audit export permission required" }, { status: 403 });
-  }
+  try {
+  await authenticateAdmin(request, "audit.export");
 
   const { searchParams } = new URL(request.url);
   const format = searchParams.get("format") ?? "csv";
@@ -69,4 +68,5 @@ export async function GET(request: Request) {
       "content-disposition": `attachment; filename="security-audit-export-${todayStr}.csv"`,
     },
   });
+  } catch (error) { return failure(error); }
 }

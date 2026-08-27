@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Ban, CheckCircle2, Eye, EyeOff, MessageSquare, Plus, Search, ShieldCheck, Star, Trash2, X } from "lucide-react";
+import { Ban, CheckCircle2, Eye, EyeOff, MessageSquare, Plus, ShieldCheck, Star, Trash2, X } from "lucide-react";
+import { AdminSearchField } from "../ui/admin-search-field";
 import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminPageHeader, useAdminDialogFocus } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconLink, IconLock, IconPencil, IconTrash, IconUser } from "../ui/admin-row-action-menu";
@@ -294,10 +295,7 @@ export function ReviewsManager({
             ))}
           </div>
 
-          <label className="review-search">
-            <Search aria-hidden="true" />
-            <input
-              type="text"
+          <AdminSearchField wrapperClassName="review-search"
               placeholder="Search reviewer, order, or review text"
               aria-label="Search reviews"
               value={searchQuery}
@@ -305,8 +303,7 @@ export function ReviewsManager({
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-            />
-          </label>
+          />
         </div>
 
         {filteredRows.length === 0 ? (

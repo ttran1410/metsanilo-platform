@@ -70,6 +70,7 @@
   --admin-radius: .5rem;
 }
 
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--cream); color: var(--ink); font-family: var(--sans); font-size: 1.0625rem; }
@@ -108,6 +109,7 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   background: var(--store-canvas);
   color: var(--store-ink);
 }
+
 .storefront[data-theme="forest-harvest"] { --store-canvas: #f7f7f2; --store-surface: #ffffff; --store-surface-muted: #eef2ec; --store-ink: #17201b; --store-muted: rgb(23 32 27 / 68%); --store-line: #d8d5cd; --store-footer: #10281d; --forest: #14532d; --moss: #1e6b34; --berry: #343a75; --cream: #f7f7f2; --paper: #ffffff; --oat: #eef2ec; --ink: #17201b; --muted: rgb(23 32 27 / 68%); --line: #d8d5cd; }
 .storefront[data-theme="nordic-ink"] { --store-canvas: #ffffff; --store-surface: #ffffff; --store-surface-muted: #f1f1ef; --store-ink: #111111; --store-muted: rgb(17 17 17 / 68%); --store-line: rgb(17 17 17 / 14%); --store-footer: #111111; --forest: #111111; --moss: #2d5948; --berry: #111111; --cream: #ffffff; --paper: #ffffff; --oat: #f1f1ef; --ink: #111111; --muted: rgb(17 17 17 / 68%); --line: rgb(17 17 17 / 14%); }
 .storefront[data-theme="berry-season"] { --store-canvas: #fff8f4; --store-surface: #fffdfb; --store-surface-muted: #f3e6e3; --store-ink: #2b171e; --store-muted: #6a4f56; --store-line: #e4d2d0; --store-footer: #321a25; --forest: #3f1e2c; --moss: #6b3f4c; --berry: #8b3f5c; --cream: #fff8f4; --paper: #fffdfb; --oat: #f3e6e3; --ink: #2b171e; --muted: #6a4f56; --line: #e4d2d0; }
@@ -358,6 +360,18 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 .form-control, .field :is(input, select, textarea), .review-form-field :is(input, select, textarea), .admin-login-field :is(input, select, textarea) { width: 100%; }
+/* Icon-led search fields need an explicit gutter. The broad admin input rule
+ * above otherwise wins over Tailwind's per-input padding utilities. */
+.admin-app .relative:has(> input + svg) > input { padding-left: 2.75rem !important; }
+.admin-app .relative:has(> input + svg) > svg { top: 50%; transform: translateY(-50%); }
+/* Cover the alternate search markup used by older admin modules as well. */
+.admin-app input:has(+ svg) { padding-left: 2.75rem !important; }
+.admin-app :has(> svg + input) > input { padding-left: 2.75rem !important; }
+.admin-app :has(> input + svg) > svg,
+.admin-app :has(> svg + input) > svg { top: 50%; transform: translateY(-50%); }
+.admin-search-field { position: relative; display: flex; min-width: 0; align-items: center; }
+.admin-search-field-icon { position: absolute; left: .75rem; z-index: 1; width: 1rem; height: 1rem; color: var(--admin-ink-muted); pointer-events: none; }
+.admin-search-field-input { width: 100%; min-width: 0; padding-left: 1.85rem !important; }
 .form-control:hover,
 .field :is(input, select, textarea):hover,
 .review-form-field :is(input, select, textarea):hover,
@@ -532,7 +546,8 @@ input[type="date"], input[type="date"]::-webkit-calendar-picker-indicator { curs
 .admin-user-menu { position: relative; }
 .admin-user-menu summary { display: flex; min-height: 2.65rem; align-items: center; gap: .55rem; border: 1px solid var(--line); border-radius: .8rem; color: var(--ink); padding: .35rem .55rem; cursor: pointer; list-style: none; }
 .admin-user-menu summary::-webkit-details-marker { display: none; }
-.admin-avatar, .profile-avatar-large { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 50%; background: #d9b6c8; color: var(--forest); font-size: .78rem; font-weight: 800; }
+.admin-avatar { display: grid; width: 2rem; height: 2rem; place-items: center; border: 1px solid var(--admin-border); border-radius: 50%; background: var(--admin-surface-muted); color: var(--admin-ink); font-size: .78rem; font-weight: 800; }
+.profile-avatar-large { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 50%; background: #d9b6c8; color: var(--forest); font-size: .78rem; font-weight: 800; }
 .admin-user-copy { display: grid; gap: .05rem; text-align: left; }
 .admin-user-copy strong { font-size: .74rem; }
 .admin-user-copy small { max-width: 10rem; overflow: hidden; color: #b9c8be; font-size: .62rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -2038,7 +2053,8 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .orders-filter-bar { display: flex; align-items: center; gap: .65rem; padding: .75rem; }
 .orders-search { position: relative; display: flex; flex: 1 1 18rem; align-items: center; }
 .orders-search svg { position: absolute; left: .75rem; color: var(--admin-ink-muted); pointer-events: none; }
-.orders-search input { width: 100%; min-height: var(--admin-control-height); padding-left: 2.25rem; }
+.orders-search input { width: 100%; min-height: var(--admin-control-height); padding-left: 2.75rem !important; }
+.orders-search svg { top: 50%; transform: translateY(-50%); }
 
 .pickup-terminal, .packing-board { display: grid; gap: 1rem; color: var(--admin-ink); }
 .pickup-terminal-header, .packing-board > header { display: flex; align-items: end; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--admin-border); padding: .35rem 0 1rem; }
@@ -2149,7 +2165,8 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
 .review-state-tabs b { display: grid; min-width: 1.3rem; height: 1.3rem; place-items: center; border-radius: 999px; background: rgb(255 255 255 / 75%); color: var(--admin-ink); font-size: .65rem; font-variant-numeric: tabular-nums; }
 .review-search { position: relative; display: flex; flex: 0 1 22rem; align-items: center; }
 .review-search svg { position: absolute; left: .75rem; color: var(--admin-ink-muted); }
-.review-search input { width: 100%; min-height: var(--admin-control-height); border: 1px solid var(--admin-border); border-radius: var(--admin-radius); background: var(--admin-surface); padding: .6rem .75rem .6rem 2.25rem; font-size: .78rem; }
+.review-search input { width: 100%; min-height: var(--admin-control-height); border: 1px solid var(--admin-border); border-radius: var(--admin-radius); background: var(--admin-surface); padding: .6rem .75rem .6rem 2.75rem !important; font-size: .78rem; }
+.review-search svg { top: 50%; transform: translateY(-50%); }
 .review-queue > .admin-empty-state, .review-queue > .admin-state-card { margin: 1rem; }
 .review-record-list { display: grid; gap: .75rem; padding: .75rem; }
 .review-record { display: grid; gap: .8rem; border: 1px solid var(--admin-border); border-left: 4px solid var(--admin-info); border-radius: var(--admin-radius); background: var(--admin-surface); padding: 1rem; box-shadow: 0 4px 14px rgb(23 55 43 / 4%); }
@@ -2529,3 +2546,6 @@ tbody tr:last-child .row-action-menu .absolute { transform-origin: bottom right;
   .availability-plan-preview article > div:last-child { justify-items: start; }
   .availability-freeze-dialog { height: min(100%, 44rem); overflow-y: auto; border-radius: 0; }
 }
+
+/* Keep the shared search component's compact spacing after module rules. */
+.admin-app .admin-search-field-input { padding-left: 1.85rem !important; }

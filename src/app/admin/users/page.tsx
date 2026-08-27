@@ -22,6 +22,7 @@ export default async function UsersPage() {
         <div className="admin-users-module">
           <UserModule
             actorRole={actor.role}
+            actorId={actor.id}
             canManageUsers={canManageUsers}
             canAssignPermissions={canAssignPermissions}
             canResetPasswords={canResetPasswords}

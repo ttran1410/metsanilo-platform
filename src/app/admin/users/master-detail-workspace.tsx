@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Boxes, ChevronDown, ClipboardList, Copy, Gauge, KeyRound, LockKeyhole, MapPinned, Pencil, Plus, RefreshCcw, Save, Search, ShieldAlert, ShieldCheck, ShoppingBasket, Store, UserRoundX, UsersRound, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Boxes, ChevronDown, ClipboardList, Copy, Gauge, KeyRound, LockKeyhole, MapPinned, Pencil, Plus, RefreshCcw, Save, ShieldAlert, ShieldCheck, ShoppingBasket, Store, UserRoundX, UsersRound, type LucideIcon } from "lucide-react";
 import {
   defaultPermissionsForRole,
   isHighRiskPermission,
@@ -12,6 +12,7 @@ import {
 import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
+import { AdminSearchField } from "../ui/admin-search-field";
 import { OnboardingModal } from "./onboarding-modal";
 
 export type UserRow = {
@@ -198,12 +199,14 @@ function permissionName(key: string) {
 export function MasterDetailUserWorkspace({
   initialUsers,
   actorRole = "MANAGER",
+  actorId,
   canManageUsers,
   canAssignPermissions,
   canResetPasswords,
 }: {
   initialUsers: UserRow[];
   actorRole?: Role;
+  actorId?: string;
   canManageUsers: boolean;
   canAssignPermissions: boolean;
   canResetPasswords: boolean;
@@ -415,14 +418,13 @@ export function MasterDetailUserWorkspace({
 
     const formData = new FormData(event.currentTarget);
     const displayName = String(formData.get("displayName") ?? "").trim();
-    const email = String(formData.get("email") ?? "").trim() || null;
     const role = String(formData.get("role") ?? "") as Role;
 
     try {
       const response = await fetch(`/api/admin/users/${editingUser.id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "update", displayName, email, role }),
+        body: JSON.stringify({ action: "update", displayName, role }),
       });
 
       const body = await response.json();
@@ -521,8 +523,8 @@ export function MasterDetailUserWorkspace({
         <div className="card p-4 overflow-x-auto border border-line">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3 mb-3">
             <div className="flex items-center gap-2 flex-1 max-w-md">
-              <div className="relative flex-1">
-                <input
+              <AdminSearchField
+                  wrapperClassName="flex-1"
                   placeholder="Search team"
                   aria-label="Search team members"
                   value={searchQuery}
@@ -530,10 +532,8 @@ export function MasterDetailUserWorkspace({
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full text-xs py-1.5 px-3 pl-9 rounded-lg border border-line bg-surface"
-                />
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
-              </div>
+                  className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
+              />
 
               <select
                 aria-label="Filter role"
@@ -575,7 +575,7 @@ export function MasterDetailUserWorkspace({
                   <tr key={u.id} className="hover:bg-surface-muted/60 transition-colors">
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-surface-muted border border-line flex items-center justify-center font-bold text-xs text-primary shrink-0">
                           {u.displayName.slice(0, 1).toUpperCase()}
                         </div>
                         <div>
@@ -588,9 +588,9 @@ export function MasterDetailUserWorkspace({
                       <span
                         className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
                           u.role === "ADMIN"
-                            ? "bg-purple-100 text-purple-900 border-purple-300"
+                            ? "bg-surface-muted text-ink border-line"
                             : u.role === "MANAGER"
-                            ? "bg-blue-100 text-blue-900 border-blue-300"
+                            ? "bg-surface-muted text-ink border-line"
                             : u.role === "STAFF"
                             ? "bg-emerald-100 text-emerald-900 border-emerald-300"
                             : "bg-surface-muted text-ink/80 border-line"
@@ -708,8 +708,8 @@ export function MasterDetailUserWorkspace({
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <input
+              <AdminSearchField
+                  wrapperClassName="flex-1"
                   placeholder="Search team"
                   aria-label="Search team members"
                   value={searchQuery}
@@ -717,10 +717,8 @@ export function MasterDetailUserWorkspace({
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full text-xs py-1.5 px-3 pl-9 rounded-lg border border-line bg-surface"
-                />
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted pointer-events-none" />
-              </div>
+                  className="w-full text-xs py-1.5 px-3 rounded-lg border border-line bg-surface"
+              />
 
               <select
                 aria-label="Filter role"
@@ -777,9 +775,9 @@ export function MasterDetailUserWorkspace({
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                           u.role === "ADMIN"
-                            ? "bg-purple-100 text-purple-900 border-purple-300"
+                            ? "bg-surface-muted text-ink border-line"
                             : u.role === "MANAGER"
-                            ? "bg-blue-100 text-blue-900 border-blue-300"
+                            ? "bg-surface-muted text-ink border-line"
                             : u.role === "STAFF"
                             ? "bg-emerald-100 text-emerald-900 border-emerald-300"
                             : "bg-surface-muted text-ink/80 border-line"
@@ -1072,19 +1070,30 @@ export function MasterDetailUserWorkspace({
 
               <label className="field">
                 <span>Email Address</span>
-                <input name="email" type="email" defaultValue={editingUser.email ?? ""} placeholder="e.g. staff@metsanilo.fi" />
+                <div className="relative group">
+                  <input name="email" type="email" defaultValue={editingUser.email ?? ""} readOnly aria-readonly="true" title="Email address cannot be changed here" className="w-full pr-9" />
+                  <span title="Email address cannot be changed here"><LockKeyhole aria-label="Email address cannot be changed here" className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" /></span>
+                </div>
               </label>
 
               <label className="field">
                 <span>Assigned Role</span>
-                <select name="role" defaultValue={editingUser.role} disabled={actorRole !== "ADMIN" && editingUser.role === "ADMIN"}>
-                  <option value="ADMIN" disabled={actorRole !== "ADMIN"}>
-                    {actorRole !== "ADMIN" ? "ADMIN (Requires Store Owner)" : "ADMIN"}
-                  </option>
-                  <option value="MANAGER">MANAGER</option>
-                  <option value="STAFF">STAFF</option>
-                  <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
-                </select>
+                {(() => {
+                  const roleLocked = (actorId !== undefined && editingUser.id === actorId && (actorRole === "ADMIN" || actorRole === "MANAGER")) || (actorRole !== "ADMIN" && editingUser.role === "ADMIN");
+                  return (
+                    <div className="relative">
+                      <select name="role" defaultValue={editingUser.role} disabled={roleLocked} className={roleLocked ? "w-full pr-9" : "w-full"}>
+                        <option value="ADMIN" disabled={actorRole !== "ADMIN"}>
+                          {actorRole !== "ADMIN" ? "ADMIN (Requires Store Owner)" : "ADMIN"}
+                        </option>
+                        <option value="MANAGER">MANAGER</option>
+                        <option value="STAFF">STAFF</option>
+                        <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
+                      </select>
+                      {roleLocked && <span title="Your role cannot be changed here"><LockKeyhole aria-label="Your role cannot be changed here" className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" /></span>}
+                    </div>
+                  );
+                })()}
               </label>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-line">
