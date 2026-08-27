@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdminSearchField } from "../ui/admin-search-field";
-import { ArrowLeft, CircleCheck, Edit3, ExternalLink, GitMerge, Info, LayoutList, Mail, MapPin, MessageSquare, PanelLeft, Phone, Pin, Plus, PlusCircle, Save, ShieldAlert, ShieldCheck, Star } from "lucide-react";
-import { AdminEmptyState, AdminNotice, AdminPageHeader, AdminStatusBadge, formatAdminMoney } from "../presentation";
+import { ArrowLeft, CircleCheck, Edit3, ExternalLink, GitMerge, Info, LayoutList, Mail, MapPin, MessageSquare, PanelLeft, Phone, Pin, PlusCircle, Save, ShieldAlert, ShieldCheck, Star } from "lucide-react";
+import { AdminEmptyState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconDocument, IconEye } from "../ui/admin-row-action-menu";
 import { CustomerModal } from "./customer-modal";
 import { MergeModal } from "./merge-modal";
+import { CustomerQueryToolbar } from "./customer-query-toolbar";
+import { CustomerSavedViews } from "./customer-saved-views";
+import { CustomerWorkspaceHeader } from "./customer-workspace-header";
+import { CustomerRecordList } from "./customer-record-list";
 
 export type CustomerRow = {
   id: string;
@@ -88,6 +92,40 @@ type ProfileData = {
   identityConflicts: Array<{ id: string; name: string; mobile: string | null; email?: string | null }>;
 };
 
+type CustomerQueryContextValue = {
+  selectedId: string; setSelectedId: (value: string) => void;
+  searchQuery: string; setSearchQuery: (value: string) => void;
+  filterChip: "all" | "vip" | "conflicts" | "consent"; setFilterChip: (value: CustomerQueryContextValue["filterChip"]) => void;
+  sortMode: "recent" | "spend_desc" | "litres_desc" | "name_asc"; setSortMode: (value: CustomerQueryContextValue["sortMode"]) => void;
+  workspaceView: "table" | "split"; setWorkspaceView: (value: CustomerQueryContextValue["workspaceView"]) => void;
+  mobileView: "list" | "detail"; setMobileView: (value: CustomerQueryContextValue["mobileView"]) => void;
+};
+const CustomerQueryContext = createContext<CustomerQueryContextValue | null>(null);
+
+function CustomerWorkspaceProvider({ initialCustomers, initial, children }: { initialCustomers: CustomerRow[]; initial?: Partial<Pick<CustomerQueryContextValue, "selectedId" | "searchQuery" | "filterChip" | "sortMode" | "workspaceView" | "mobileView">>; children: ReactNode }) {
+  const [selectedId, setSelectedId] = useState(initial?.selectedId ?? initialCustomers[0]?.id ?? "");
+  const [searchQuery, setSearchQuery] = useState(initial?.searchQuery ?? "");
+  const [filterChip, setFilterChip] = useState<CustomerQueryContextValue["filterChip"]>(initial?.filterChip ?? "all");
+  const [sortMode, setSortMode] = useState<CustomerQueryContextValue["sortMode"]>(initial?.sortMode ?? "recent");
+  const [workspaceView, setWorkspaceView] = useState<CustomerQueryContextValue["workspaceView"]>(initial?.workspaceView ?? "split");
+  const [mobileView, setMobileView] = useState<CustomerQueryContextValue["mobileView"]>(initial?.mobileView ?? "list");
+  return <CustomerQueryContext.Provider value={{ selectedId, setSelectedId, searchQuery, setSearchQuery, filterChip, setFilterChip, sortMode, setSortMode, workspaceView, setWorkspaceView, mobileView, setMobileView }}>{children}</CustomerQueryContext.Provider>;
+}
+
+export function MasterDetailCustomerWorkspace(props: Parameters<typeof CustomerWorkspaceContent>[0]) {
+  const rawList = Array.isArray(props.initialCustomers) ? props.initialCustomers : props.initialCustomers.items;
+  const searchParams = useSearchParams();
+  const filter = searchParams.get("filter");
+  const sort = searchParams.get("sort");
+  return <CustomerWorkspaceProvider initialCustomers={rawList} initial={{ selectedId: searchParams.get("customer") ?? undefined, searchQuery: searchParams.get("q") ?? undefined, filterChip: filter === "vip" || filter === "conflicts" || filter === "consent" ? filter : undefined, sortMode: sort === "spend_desc" || sort === "litres_desc" || sort === "name_asc" ? sort : undefined, workspaceView: searchParams.get("view") === "table" ? "table" : "split" }}><CustomerWorkspaceContent {...props} /></CustomerWorkspaceProvider>;
+}
+
+function useCustomerQuery() {
+  const context = useContext(CustomerQueryContext);
+  if (!context) throw new Error("useCustomerQuery must be used inside CustomerWorkspaceProvider");
+  return context;
+}
+
 function formatLitres(ml: number) {
   return `${(ml / 1000).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} L`;
 }
@@ -107,7 +145,7 @@ function maskPhone(mobile?: string | null) {
   return `${compact.slice(0, 4)} ••• ${compact.slice(-4)}`;
 }
 
-export function MasterDetailCustomerWorkspace({
+function CustomerWorkspaceContent({
   initialCustomers,
   canEdit,
   canAnonymize,
@@ -122,12 +160,7 @@ export function MasterDetailCustomerWorkspace({
   const searchParams = useSearchParams();
   const rawList = Array.isArray(initialCustomers) ? initialCustomers : (initialCustomers?.items ?? []);
   const [customersList, setCustomersList] = useState<CustomerRow[]>(rawList);
-  const [selectedId, setSelectedId] = useState<string>(searchParams.get("customer") ?? rawList[0]?.id ?? "");
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
-  const [filterChip, setFilterChip] = useState<"all" | "vip" | "conflicts" | "consent">(() => searchParams.get("filter") as "all" | "vip" | "conflicts" | "consent" || "all");
-  const [sortMode, setSortMode] = useState<"recent" | "spend_desc" | "litres_desc" | "name_asc">(() => searchParams.get("sort") as "recent" | "spend_desc" | "litres_desc" | "name_asc" || "recent");
-  const [workspaceView, setWorkspaceView] = useState<"table" | "split">(() => searchParams.get("view") === "table" ? "table" : "split");
-  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+  const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterChip, setFilterChip, sortMode, setSortMode, workspaceView, setWorkspaceView, mobileView, setMobileView } = useCustomerQuery();
 
   const [tableSortField, setTableSortField] = useState<"name" | "volume" | "spend" | "status">("name");
   const [tableSortDirection, setTableSortDirection] = useState<"asc" | "desc">("asc");
@@ -360,17 +393,10 @@ export function MasterDetailCustomerWorkspace({
       {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
 
-      <div className="customers-page-heading">
-        <AdminPageHeader
-          eyebrow="Relationships"
-          title="Customers"
-          description={`${customersList.length} customer${customersList.length === 1 ? "" : "s"} · Search safely, inspect the relationship, then take the next action.`}
-        />
-        {canEdit && <button type="button" className="btn" onClick={() => setShowCreateModal(true)}><Plus aria-hidden="true" />New customer</button>}
-      </div>
+      <CustomerWorkspaceHeader count={customersList.length} canEdit={canEdit} onCreate={() => setShowCreateModal(true)} />
 
       {/* WORKSPACE TOOLBAR: SEARCH, SORT, VIEW SWITCHER & NEW CUSTOMER */}
-      <div className="card customers-toolbar">
+      <CustomerQueryToolbar>
         <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <AdminSearchField wrapperClassName="flex-1"
               placeholder="Search customers by name, phone, email, or notes…"
@@ -417,10 +443,10 @@ export function MasterDetailCustomerWorkspace({
             </button>
           </div>
         </div>
-      </div>
+      </CustomerQueryToolbar>
 
       {/* FILTER CHIPS BAR */}
-      <div className="customers-saved-views" role="tablist" aria-label="Customer saved views">
+      <CustomerSavedViews>
         {[
           { key: "all", label: "All", count: customersList.length },
           { key: "vip", label: "High value", count: customersList.filter((customer) => customer.metrics?.isVip).length },
@@ -447,7 +473,7 @@ export function MasterDetailCustomerWorkspace({
             <span>{chip.label}</span><b>{chip.count}</b>
           </button>
         ))}
-      </div>
+      </CustomerSavedViews>
 
       {/* MOBILE STICKY NAVIGATION HEADER (Visible when inspecting a customer on mobile screens) */}
       {mobileView === "detail" && workspaceView === "split" && (
@@ -464,6 +490,7 @@ export function MasterDetailCustomerWorkspace({
       )}
 
       {/* SCALABLE FULL-WIDTH DATA TABLE VIEW */}
+      <CustomerRecordList>
       {workspaceView === "table" ? (
         <div className="card overflow-hidden customer-table-card">
           <div className="customer-table-wrap">
@@ -1242,6 +1269,7 @@ export function MasterDetailCustomerWorkspace({
         </main>
       </div>
       )}
+      </CustomerRecordList>
 
       {/* CREATE / EDIT CUSTOMER MODAL */}
       {(showCreateModal || editingCustomer) && (
