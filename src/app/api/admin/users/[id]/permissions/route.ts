@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { PERMISSIONS, setUserPermission } from "@/domain/access";
+import { PERMISSIONS, type Permission } from "@/domain/access";
+import { updateUserPermission } from "@/domain/admin-users-actions";
+import { requirePermission } from "@/domain/access";
+import { env } from "@/lib/env";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../../response";
 
@@ -12,6 +15,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const parsed = command.safeParse(await request.json());
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid permission", 422);
     const { id } = await params;
-    return success(await setUserPermission(db(), request, { userId: id, ...parsed.data }));
+    const actor = await requirePermission(db(), request, "shop_permissions.assign");
+    return success(await updateUserPermission(db(), { actor, shop: { id: env().SHOP_ID }, request }, { userId: id, permission: parsed.data.permission as Permission, granted: parsed.data.granted }));
   } catch (error) { return failure(error); }
 }
