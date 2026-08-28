@@ -9,7 +9,6 @@ import {
   getManagerReviewDetail,
   moderateReview,
   replyToReview,
-  updateFullReview,
   updateReviewPublicationIdentity,
 } from "@/domain/reviews";
 import { currentUser, hasUserPermission } from "@/domain/access";
@@ -18,7 +17,7 @@ import { DomainError, fromZodError } from "@/domain/errors";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
 import { searchManagerReviews } from "@/domain/admin-search";
 import { authenticateAdmin, executeAdmin, parseJson } from "../module";
-import { deleteAdminReview } from "@/domain/admin-review-actions";
+import { deleteAdminReview, updateAdminReview, updateAdminReviewPublicationIdentity } from "@/domain/admin-review-actions";
 import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -128,15 +127,14 @@ export async function PUT(request: Request) {
 
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid edit review payload"));
 
-    const actorName = actor.email ?? actor.username ?? actor.id;
     if (parsed.data.action === "publication_identity") {
-      const updatedIdentity = await updateReviewPublicationIdentity(db(), {
+      const actionContext = { actor, shop: { id: env().SHOP_ID } };
+      const updatedIdentity = await updateAdminReviewPublicationIdentity(db(), actionContext, {
         id: parsed.data.id,
         isAnonymous: parsed.data.isAnonymous ?? false,
         reviewerName: parsed.data.reviewerName,
         consentSource: parsed.data.consentSource ?? "",
         consentNote: parsed.data.consentNote ?? "",
-        actor: actorName,
       });
       const reviewFields = {
         displayName: parsed.data.displayName,
@@ -150,10 +148,10 @@ export async function PUT(request: Request) {
       };
       const hasReviewEdits = Object.values(reviewFields).some((value) => value !== undefined);
       return success(hasReviewEdits
-        ? await updateFullReview(db(), { id: parsed.data.id, ...reviewFields, actor: actorName })
+        ? await updateAdminReview(db(), actionContext, { id: parsed.data.id, ...reviewFields })
         : updatedIdentity);
     }
-    return success(await updateFullReview(db(), { ...parsed.data, actor: actorName }));
+    return success(await updateAdminReview(db(), { actor, shop: { id: env().SHOP_ID } }, parsed.data));
   } catch (error) {
     return failure(error);
   }
