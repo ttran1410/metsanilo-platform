@@ -1,6 +1,6 @@
 import type { Database } from "@/db/client";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
-import { bulkModerateReviews, confirmManualReview, deleteReview, getReviewsVisibility, linkReviewToCustomerOrOrder, listManagerReviews, moderateReview, replyToReview, setReviewsVisibility, updateFullReview, updateReviewPublicationIdentity } from "./reviews";
+import { bulkModerateReviews, confirmManualReview, createManualReview, deleteReview, getReviewsVisibility, linkReviewToCustomerOrOrder, listManagerReviews, moderateReview, replyToReview, setReviewsVisibility, updateFullReview, updateReviewPublicationIdentity } from "./reviews";
 import { searchManagerReviews } from "./admin-search";
 import type { AdminListQuery } from "@/lib/admin-list-query";
 
@@ -16,6 +16,11 @@ export async function getAdminReviews(database: Database, context: AdminActionCo
 }
 
 export type AdminReviewModerationInput = Omit<Parameters<typeof moderateReview>[1], "actor">;
+export type AdminReviewCreateInput = Omit<Parameters<typeof createManualReview>[1], "actor">;
+export async function createAdminReview(database: Database, context: AdminActionContext, input: AdminReviewCreateInput) {
+  return createManualReview(database, { ...input, actor: actorName(context) });
+}
+
 export async function moderateAdminReview(database: Database, context: AdminActionContext, input: AdminReviewModerationInput) { return moderateReview(database, { ...input, actor: actorName(context) }); }
 
 export type AdminReviewBulkModerationInput = Omit<Parameters<typeof bulkModerateReviews>[1], "actor">;

@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { createManualReview, getManagerReviewDetail } from "@/domain/reviews";
+import { getManagerReviewDetail } from "@/domain/reviews";
 import { currentUser, hasUserPermission } from "@/domain/access";
 import { failure, success } from "../../response";
 import { DomainError, fromZodError } from "@/domain/errors";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
 import { authenticateAdmin, executeAdmin, parseJson } from "../module";
-import { bulkModerateAdminReviews, confirmAdminReview, deleteAdminReview, getAdminReviews, linkAdminReviewIdentity, moderateAdminReview, replyAdminToReview, updateAdminReview, updateAdminReviewPublicationIdentity } from "@/domain/admin-review-actions";
+import { bulkModerateAdminReviews, confirmAdminReview, createAdminReview, deleteAdminReview, getAdminReviews, linkAdminReviewIdentity, moderateAdminReview, replyAdminToReview, updateAdminReview, updateAdminReviewPublicationIdentity } from "@/domain/admin-review-actions";
 import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -81,10 +81,7 @@ export async function POST(request: Request) {
       }
       return parsed.data;
       },
-      run: async (input, { database, context: { actor } }) => {
-        const actorName = actor.email ?? actor.username ?? actor.id;
-        return createManualReview(database, { ...input, actor: actorName });
-      },
+      run: async (input, { database, context }) => createAdminReview(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, input),
     });
     return success(result, 201);
   } catch (error) {
