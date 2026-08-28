@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { parseJson } from "@/app/api/admin/module";
 import { PUT as updatePaymentMethod } from "@/app/api/admin/payment-methods/[method]/route";
 import { PATCH as updateFulfillmentLocation } from "@/app/api/admin/fulfillment-locations/[id]/route";
+import { DELETE as deletePaymentMethod } from "@/app/api/admin/payment-methods/route";
+import { DELETE as deleteFulfillmentLocation } from "@/app/api/admin/fulfillment-locations/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -21,5 +23,14 @@ describe("admin request module contract", () => {
     expect(fulfillment.headers.get("content-type")).toContain("application/json");
     expect((await payment.json())).toMatchObject({ code: "VALIDATION_ERROR", correlationId: expect.any(String) });
     expect((await fulfillment.json())).toMatchObject({ code: "VALIDATION_ERROR", correlationId: expect.any(String) });
+  });
+
+  it("keeps canonical DELETE requests behind authentication", async () => {
+    const payment = await deletePaymentMethod(new Request("http://localhost/api/admin/payment-methods", { method: "DELETE" }));
+    const fulfillment = await deleteFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations", { method: "DELETE" }));
+    expect(payment.status).toBe(401);
+    expect(fulfillment.status).toBe(401);
+    expect(await payment.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    expect(await fulfillment.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
   });
 });
