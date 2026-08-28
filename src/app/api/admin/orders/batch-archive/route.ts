@@ -1,5 +1,6 @@
 import { failure, success } from "../../../response";
-import { archiveManagerOrder, unarchiveManagerOrder } from "@/domain/orders";
+import { archiveAdminOrder, unarchiveAdminOrder } from "@/domain/admin-order-actions";
+import { env } from "@/lib/env";
 import { DomainError } from "@/domain/errors";
 import { executeAdmin, parseJson } from "../../module";
 
@@ -22,9 +23,9 @@ export async function POST(request: Request) {
     for (const id of ids) {
       try {
         if (action === "unarchive") {
-          await unarchiveManagerOrder(database, id, actor.email ?? undefined);
+          await unarchiveAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, id);
         } else {
-          await archiveManagerOrder(database, id, actor.email ?? undefined);
+          await archiveAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, id);
         }
         processedIds.push(id);
       } catch (err: unknown) {

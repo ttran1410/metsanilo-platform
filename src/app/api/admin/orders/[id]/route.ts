@@ -1,4 +1,6 @@
-import { getManagerOrder, updateManagerOrder, deleteManagerOrder, transitionOrder } from "@/domain/orders";
+import { getManagerOrder } from "@/domain/orders";
+import { deleteAdminOrder, transitionAdminOrder, updateAdminOrder } from "@/domain/admin-order-actions";
+import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
 import { fromZodError } from "@/domain/errors";
 import { z } from "zod";
@@ -69,9 +71,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (!parsedTransition.success) {
         throw fromZodError(parsedTransition.error, "Unable to transition order status. Please check input parameters.");
       }
-      const result = await executeAdmin(request, { permission: "orders.transition", parse: async () => parsedTransition.data, run: async (input, { database }) => {
+      const result = await executeAdmin(request, { permission: "orders.transition", parse: async () => parsedTransition.data, run: async (input, { database, context: { actor } }) => {
         const version = input.expectedVersion ?? (await getManagerOrder(database, id)).order.version;
-        return transitionOrder(database, { orderId: id, status: input.status, expectedVersion: version, reason: input.reason, contactChannel: input.contactChannel });
+        return transitionAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, { orderId: id, status: input.status, expectedVersion: version, reason: input.reason, contactChannel: input.contactChannel });
       } });
       return success(result);
     }
@@ -80,7 +82,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!parsed.success) {
       throw fromZodError(parsed.error, "Unable to update order details. Please check input fields.");
     }
-    const result = await executeAdmin(request, { permission: "orders.update", parse: async () => parsed.data, run: async (input, { database }) => updateManagerOrder(database, { ...input, orderId: id }) });
+    const result = await executeAdmin(request, { permission: "orders.update", parse: async () => parsed.data, run: async (input, { database, context: { actor } }) => updateAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, { ...input, orderId: id }) });
     return success(result);
   } catch (error) {
     return failure(error);
@@ -90,7 +92,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const result = await executeAdmin(request, { permission: "orders.delete", parse: async () => id, run: async (orderId, { database, context: { actor } }) => deleteManagerOrder(database, orderId, actor.email ?? undefined) });
+    const result = await executeAdmin(request, { permission: "orders.delete", parse: async () => id, run: async (orderId, { database, context: { actor } }) => deleteAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, orderId) });
     return success(result);
   } catch (error) {
     return failure(error);

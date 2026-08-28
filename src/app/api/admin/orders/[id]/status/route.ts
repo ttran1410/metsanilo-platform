@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { fromZodError } from "@/domain/errors";
-import { transitionOrder } from "@/domain/orders";
+import { transitionAdminOrder } from "@/domain/admin-order-actions";
+import { env } from "@/lib/env";
 import { failure, success } from "../../../../response";
 import { executeAdmin, parseJson } from "../../../module";
 
@@ -22,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         if (!parsed.success) throw fromZodError(parsed.error, "Unable to update order status. Please check your inputs.");
         return parsed.data;
       },
-      run: async (input, { database }) => transitionOrder(database, { orderId: (await params).id, ...input }),
+      run: async (input, { database, context: { actor } }) => transitionAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, { orderId: (await params).id, ...input }),
     });
     return success(result);
   } catch (error) {

@@ -1,5 +1,6 @@
 import { failure, success } from "../../../response";
-import { deleteManagerOrder } from "@/domain/orders";
+import { deleteAdminOrder } from "@/domain/admin-order-actions";
+import { env } from "@/lib/env";
 import { DomainError } from "@/domain/errors";
 import { executeAdmin, parseJson } from "../../module";
 
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
 
     for (const id of ids) {
       try {
-        await deleteManagerOrder(database, id, actor.email ?? undefined);
+        await deleteAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, id);
         deletedIds.push(id);
       } catch (err: unknown) {
         if (err instanceof DomainError && (err.code === "PAYMENT_EXISTS" || err.status === 400)) {
