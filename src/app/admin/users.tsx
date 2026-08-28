@@ -28,9 +28,10 @@ export function UserModule({
       try {
         const params = new URLSearchParams();
         for (const key of ["q", "role", "page", "limit"]) { const value = searchParams.get(key); if (value) params.set(key, value); }
-        const data = await getAdminQuery<UserRow[]>(`/api/admin/users?${params.toString()}`, "users-list");
-        if (data) {
-          setInitialUsers(data);
+        const data = await getAdminQuery<UserRow[] | { items?: UserRow[] }>(`/api/admin/users?${params.toString()}`, "users-list");
+        const rows = Array.isArray(data) ? data : data?.items;
+        if (rows) {
+          setInitialUsers(rows);
         } else {
           setInitialUsers([]);
         }

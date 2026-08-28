@@ -279,9 +279,10 @@ function UserWorkspaceContent({
       invalidateAdminQuery("users-list");
       const params = new URLSearchParams();
       for (const key of ["q", "role", "page", "limit"]) { const value = searchParams.get(key); if (value) params.set(key, value); }
-      const data = await getAdminQuery<UserRow[]>(`/api/admin/users?${params.toString()}`, "users-list");
-      if (data) {
-        setUsersList(data);
+      const data = await getAdminQuery<UserRow[] | { items?: UserRow[] }>(`/api/admin/users?${params.toString()}`, "users-list");
+      const rows = Array.isArray(data) ? data : data?.items;
+      if (rows) {
+        setUsersList(rows);
         const targetId = idToSelect ?? selectedId;
         if (targetId) void loadUserExtras(targetId);
       }
