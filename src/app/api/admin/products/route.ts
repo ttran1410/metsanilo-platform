@@ -4,7 +4,7 @@ import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../response";
 import { hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
 import { searchManagerProducts } from "@/domain/admin-search";
-import { executeAdmin, parseJson } from "../module";
+import { authenticateAdminAny, executeAdmin, parseJson } from "../module";
 
 export const runtime = "nodejs";
 const product = z.object({
@@ -23,6 +23,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    await authenticateAdminAny(request, ["catalog.product.write"]);
     const body = await parseJson<{ action?: string; productIds?: unknown }>(request);
     if (body?.action === "reorder" && Array.isArray(body.productIds)) {
       const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async () => body.productIds as string[], run: async (productIds, { database, context }) => reorderProducts(database, { actor: context.actor, shop: { id: context.shop.shopId } }, productIds) });

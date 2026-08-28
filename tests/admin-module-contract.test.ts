@@ -32,6 +32,7 @@ import { POST as resetPassword } from "@/app/api/admin/users/[id]/password/route
 import { PUT as updatePermission } from "@/app/api/admin/users/[id]/permissions/route";
 import { GET as getProductMember } from "@/app/api/admin/products/[id]/route";
 import { DELETE as deleteProduct } from "@/app/api/admin/products/[id]/route";
+import { PATCH as reorderProducts } from "@/app/api/admin/products/route";
 import { PATCH as reorderPackages } from "@/app/api/admin/products/[id]/packages/route";
 import { GET as getSeasons } from "@/app/api/admin/products/[id]/seasons/route";
 import { PUT as updateReviewVisibility } from "@/app/api/admin/reviews/visibility/route";
@@ -166,6 +167,12 @@ describe("admin request module contract", () => {
 
   it("authenticates Availability commands before parsing malformed input", async () => {
     const response = await updateAvailability(new Request("http://localhost/api/admin/availability/availability-1", { method: "PUT", body: "{" }), { params: Promise.resolve({ id: "availability-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("authenticates Product collection commands before parsing malformed input", async () => {
+    const response = await reorderProducts(new Request("http://localhost/api/admin/products", { method: "PATCH", body: "{" }));
     expect(response.status).toBe(401);
     expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
   });
