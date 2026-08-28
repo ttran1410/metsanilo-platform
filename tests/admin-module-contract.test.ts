@@ -47,6 +47,10 @@ import { POST as planAvailability } from "@/app/api/admin/availability/plan/rout
 import { POST as uploadMedia } from "@/app/api/admin/media/route";
 import { PATCH as updateMedia, DELETE as deleteMedia } from "@/app/api/admin/media/[id]/route";
 import { POST as markNotificationRead } from "@/app/api/admin/notifications/[id]/read/route";
+import { GET as getAvailabilityDuplicates } from "@/app/api/admin/availability/duplicates/route";
+import { POST as previewAvailability } from "@/app/api/admin/availability/[id]/preview/route";
+import { POST as resolveCustomerIdentity } from "@/app/api/admin/customers/[id]/identity/route";
+import { POST as holdCustomer } from "@/app/api/admin/customers/[id]/retention-hold/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -180,6 +184,20 @@ describe("admin request module contract", () => {
       updateMedia(new Request("http://localhost/api/admin/media/media-1", { method: "PATCH", body: "{}" }), { params: Promise.resolve({ id: "media-1" }) }),
       deleteMedia(new Request("http://localhost/api/admin/media/media-1", { method: "DELETE" }), { params: Promise.resolve({ id: "media-1" }) }),
       markNotificationRead(new Request("http://localhost/api/admin/notifications/notification-1/read", { method: "POST" }), { params: Promise.resolve({ id: "notification-1" }) }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps remaining preview and customer resolution routes behind authentication", async () => {
+    const responses = await Promise.all([
+      getAvailabilityDuplicates(new Request("http://localhost/api/admin/availability/duplicates")),
+      previewAvailability(new Request("http://localhost/api/admin/availability/a1/preview", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "a1" }) }),
+      resolveCustomerIdentity(new Request("http://localhost/api/admin/customers/c1/identity", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "c1" }) }),
+      holdCustomer(new Request("http://localhost/api/admin/customers/c1/retention-hold", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "c1" }) }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
