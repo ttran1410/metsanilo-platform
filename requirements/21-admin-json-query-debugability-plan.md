@@ -430,6 +430,23 @@ Baseline response comparison
 
 No Products, Reviews, Audit, Availability, or detail-page migration should begin until the Orders checkpoint proves that the JSON path is observable, permission-safe, filter-correct, and free of duplicate/stale requests.
 
+## 20. Implementation status (2026-08-28)
+
+Completed:
+
+- Orders, Products, Reviews, Audit, Availability, Notifications, Manual Orders, Order detail/edit, and Product detail/edit use observable JSON initial loaders where collection/detail migration is beneficial.
+- Orders URL state includes transient `created` handling: success notice, inspector selection, and URL cleanup after the created order is loaded.
+- Dashboard badge traffic is separated from workspace collection traffic through navigation summary handling.
+- Typecheck, lint, full Vitest suite (29 files / 154 tests), and production build pass.
+
+Still required:
+
+- Browser/E2E verification for Fetch/XHR visibility, reload/share/back-forward, duplicate requests, retry, and stale responses. The repository currently has no Playwright/Cypress harness or browser test script.
+- Focused API contract tests for the new detail query variants, permission denial, tenant isolation, response envelope, correlation IDs, and request-scope headers.
+- Cross-module URL/transient parameter audit and compatibility-route tests for Settings/operational resources.
+- Remaining server-side action migration for Media, Reviews visibility/notifications, and legacy Settings/User/Customer/Contact branches.
+- Further workspace decomposition for mutation dialogs and ManagerWorkspace compatibility paths.
+
 ## Deferred follow-up
 
 After this implementation plan is complete, verify and finish the complete Orders URL query-state contract. Preserve and restore application parameters such as `view`, `mode`, `q`, `from`, `to`, `preset`, `method`, `status`, `source`, `entry`, `created`, and pagination state across reload/navigation. Data filters must be forwarded to the JSON API; UI-only state such as mode and preset must still restore the correct workspace state. Treat `_rsc` as an internal Next.js transport parameter, not an application parameter. The legacy `created=<orderId>` signal should also regain its success notice and optional selection/opening behavior.
