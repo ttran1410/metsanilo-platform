@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { confirmCustomerContact } from "@/domain/customers";
+import { confirmAdminCustomerContact } from "@/domain/admin-customer-actions";
+import { env } from "@/lib/env";
 import { authenticateAdmin, parseJson } from "../../../module";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../../response";
@@ -16,7 +17,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const parsed = inputSchema.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid contact confirmation input", 422);
     const { id } = await context.params;
-    const result = await confirmCustomerContact(db(), id, actor.email ?? actor.username ?? actor.id, parsed.data.channel, parsed.data.note);
+    const result = await confirmAdminCustomerContact(db(), { actor, shop: { id: env().SHOP_ID } }, id, parsed.data.channel, parsed.data.note);
     return success(result);
   } catch (error) {
     return failure(error);
