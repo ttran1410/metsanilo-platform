@@ -20,6 +20,44 @@ export async function renewAdminCustomerContact(database: Database, context: Adm
 export async function setAdminCustomerRetentionHold(database: Database, context: AdminActionContext, id: string, until: string, reason: string) { return setCustomerRetentionHold(database, id, actorName(context), until, reason); }
 export async function clearAdminCustomerRetentionHold(database: Database, context: AdminActionContext, id: string) { return clearCustomerRetentionHold(database, id, actorName(context)); }
 
+export type AdminCustomerNotesAndConsentInput = {
+  notes?: string | null;
+  marketingConsent?: boolean;
+};
+
+export async function updateAdminCustomerNotesAndConsent(
+  database: Database,
+  context: AdminActionContext,
+  id: string,
+  input: AdminCustomerNotesAndConsentInput,
+) {
+  const actor = actorName(context);
+  const now = new Date().toISOString();
+  const values: Partial<typeof customers.$inferInsert> = {};
+  if (input.notes !== undefined) values.notes = input.notes?.trim() || null;
+  if (input.marketingConsent !== undefined) {
+    values.marketingConsent = input.marketingConsent;
+    values.marketingConsentStatus = input.marketingConsent ? "CONSENTED" : "REVOKED";
+    values.marketingConsentAt = now;
+    values.marketingConsentSource = "ADMIN";
+    values.marketingConsentUpdatedBy = actor;
+  }
+  values.updatedAt = now;
+  const [updated] = await database.update(customers)
+    .set(values)
+    .where(and(eq(customers.id, id), eq(customers.shopId, context.shop.id)))
+    .returning();
+  if (!updated) throw new DomainError("NOT_FOUND", "Customer not found", 404);
+
+  const actions = [];
+  if (input.notes !== undefined) actions.push({ action: "customer.notes_updated", details: { notes: input.notes?.trim() || null } });
+  if (input.marketingConsent !== undefined) actions.push({ action: "customer.marketing_consent_updated", details: { marketingConsent: input.marketingConsent, marketingConsentStatus: values.marketingConsentStatus } });
+  for (const entry of actions) {
+    await database.insert(auditEntries).values({ id: randomUUID(), shopId: context.shop.id, actor, action: entry.action, entityType: "customer", entityId: id, detailsJson: JSON.stringify(entry.details), createdAt: now });
+  }
+  return updated;
+}
+
 export type AdminCustomerIdentityInput = { id: string; action: "KEEP_SEPARATE" | "MERGE"; duplicateId?: string; reason: string };
 export async function resolveAdminCustomerIdentity(database: Database, context: AdminActionContext, input: AdminCustomerIdentityInput) {
   const actor = actorName(context); const current = await database.query.customers.findFirst({ where: and(eq(customers.id, input.id), eq(customers.shopId, context.shop.id)) });

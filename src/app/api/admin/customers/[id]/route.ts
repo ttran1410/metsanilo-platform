@@ -1,11 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { auditEntries, customers } from "@/db/schema";
 import { authenticateAdmin, parseJson } from "../../module";
 import { getCustomerProfile } from "@/domain/customers";
-import { anonymizeAdminCustomer, mergeAdminCustomers, updateAdminCustomer } from "@/domain/admin-customer-actions";
+import { anonymizeAdminCustomer, mergeAdminCustomers, updateAdminCustomer, updateAdminCustomerNotesAndConsent } from "@/domain/admin-customer-actions";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
@@ -47,7 +44,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const parsed = updateSchema.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid customer payload", 422);
     const actor = (await authenticateAdmin(request, "customers.write")).actor;
-    const actorName = actor.email ?? actor.username ?? actor.id;
 
     // Handle Merge Action
     if (parsed.data.action === "merge") {
@@ -60,25 +56,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     // Handle Notes Action
     if (parsed.data.action === "notes") {
-      const now = new Date().toISOString();
-      await db()
-        .update(customers)
-        .set({ notes: parsed.data.notes?.trim() || null, updatedAt: now })
-        .where(and(eq(customers.id, id), eq(customers.shopId, env().SHOP_ID)))
-        .run();
-
-      await db().insert(auditEntries).values({
-        id: randomUUID(),
-        shopId: env().SHOP_ID,
-        actor: actorName,
-        action: "customer.notes_updated",
-        entityType: "customer",
-        entityId: id,
-        detailsJson: JSON.stringify({ notes: parsed.data.notes }),
-        createdAt: now,
-      });
-
-      return success((await db().query.customers.findFirst({ where: eq(customers.id, id) }))!);
+      return success(await updateAdminCustomerNotesAndConsent(db(), { actor, shop: { id: env().SHOP_ID } }, id, { notes: parsed.data.notes }));
     }
 
     // Default Profile Update
@@ -92,34 +70,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       });
 
     if (parsed.data.marketingConsent !== undefined) {
-      const now = new Date().toISOString();
-      const consentStatus = parsed.data.marketingConsent ? ("CONSENTED" as const) : ("REVOKED" as const);
-      await db()
-        .update(customers)
-        .set({
-          marketingConsent: parsed.data.marketingConsent,
-          marketingConsentStatus: consentStatus,
-          marketingConsentAt: now,
-          marketingConsentSource: "ADMIN" as const,
-          marketingConsentUpdatedBy: actorName,
-          updatedAt: now,
-        })
-        .where(and(eq(customers.id, id), eq(customers.shopId, env().SHOP_ID)))
-        .run();
-
-      await db().insert(auditEntries).values({
-        id: randomUUID(),
-        shopId: env().SHOP_ID,
-        actor: actorName,
-        action: "customer.marketing_consent_updated",
-        entityType: "customer",
-        entityId: id,
-        detailsJson: JSON.stringify({
-          marketingConsent: parsed.data.marketingConsent,
-          marketingConsentStatus: consentStatus,
-        }),
-        createdAt: now,
-      });
+      await updateAdminCustomerNotesAndConsent(db(), { actor, shop: { id: env().SHOP_ID } }, id, { marketingConsent: parsed.data.marketingConsent });
     }
 
     return success(updatedCustomer);
