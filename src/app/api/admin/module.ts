@@ -33,19 +33,27 @@ export async function parseJson<T>(request: Request): Promise<T> {
 export async function authenticateAdmin(request: Request, permission: Permission): Promise<AdminExecutionContext> {
   const database = db();
   const actor = await currentUser(database, request);
+  const shop = { shopId: env().SHOP_ID };
+  if (actor.shopId !== shop.shopId) {
+    throw new DomainError("FORBIDDEN", "Admin account is not active in this shop", 403);
+  }
   if (!(await hasUserPermission(database, actor, permission))) {
     throw new DomainError("FORBIDDEN", `Permission required: ${permission}`, 403);
   }
-  return { actor, shop: { shopId: env().SHOP_ID } };
+  return { actor, shop };
 }
 
 export async function authenticateAdminAny(request: Request, permissions: readonly Permission[]): Promise<AdminExecutionContext> {
   const database = db();
   const actor = await currentUser(database, request);
+  const shop = { shopId: env().SHOP_ID };
+  if (actor.shopId !== shop.shopId) {
+    throw new DomainError("FORBIDDEN", "Admin account is not active in this shop", 403);
+  }
   if (!(await Promise.all(permissions.map((permission) => hasUserPermission(database, actor, permission)))).some(Boolean)) {
     throw new DomainError("FORBIDDEN", "Admin permission required", 403);
   }
-  return { actor, shop: { shopId: env().SHOP_ID } };
+  return { actor, shop };
 }
 
 export async function executeAdmin<TInput, TResult>(

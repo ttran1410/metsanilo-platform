@@ -83,6 +83,26 @@ describe("executeAdmin contract", () => {
     })).toThrow("Admin action context shop mismatch");
   });
 
+  it.each([
+    ["Orders", "/api/admin/orders", "orders.read"],
+    ["Users", "/api/admin/users", "shop_users.read"],
+    ["Customers", "/api/admin/customers", "customers.read"],
+    ["Availability", "/api/admin/availability", "availability.read"],
+  ])("rejects a cross-shop actor for the %s module before permission checks", async (_module, path, permission) => {
+    hasUserPermission.mockClear();
+    currentUser.mockResolvedValue({ id: "actor-other", role: "ADMIN", shopId: "shop-other" });
+    const run = vi.fn();
+
+    await expect(executeAdmin(new Request(`http://localhost${path}`), {
+      permission: permission as "orders.read",
+      parse: async () => undefined,
+      run,
+    })).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
+
+    expect(hasUserPermission).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("preserves a valid request correlation ID and replaces invalid IDs", async () => {
     const valid = failure(new DomainError("FORBIDDEN", "Denied", 403), new Request("http://localhost", { headers: { "x-correlation-id": "123e4567-e89b-12d3-a456-426614174000" } }));
     expect((await valid.json()).correlationId).toBe("123e4567-e89b-12d3-a456-426614174000");
