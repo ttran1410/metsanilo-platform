@@ -60,6 +60,9 @@ import { POST as createHistoricalOrder } from "@/app/api/admin/orders/historical
 import { POST as createExternalOrder } from "@/app/api/admin/orders/external/route";
 import { GET as exportOrders } from "@/app/api/admin/orders/export/route";
 import { GET as exportAudit } from "@/app/api/admin/audit/export/route";
+import { POST as renewContact } from "@/app/api/admin/customers/[id]/contact-confirmation/renew/route";
+import { GET as retentionReview } from "@/app/api/admin/customers/retention-review/route";
+import { POST as markNotificationUnread } from "@/app/api/admin/notifications/[id]/unread/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -237,6 +240,19 @@ describe("admin request module contract", () => {
       createExternalOrder(new Request("http://localhost/api/admin/orders/external", { method: "POST", body: "{}" })),
       exportOrders(new Request("http://localhost/api/admin/orders/export")),
       exportAudit(new Request("http://localhost/api/admin/audit/export")),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps remaining Customer and Notification routes behind authentication", async () => {
+    const responses = await Promise.all([
+      renewContact(new Request("http://localhost/api/admin/customers/c1/contact-confirmation/renew", { method: "POST" }), { params: Promise.resolve({ id: "c1" }) }),
+      retentionReview(new Request("http://localhost/api/admin/customers/retention-review")),
+      markNotificationUnread(new Request("http://localhost/api/admin/notifications/n1/unread", { method: "POST" }), { params: Promise.resolve({ id: "n1" }) }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
