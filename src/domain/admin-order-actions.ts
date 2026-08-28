@@ -8,7 +8,7 @@ import { listManagerOrdersWithPaymentSummary } from "./orders";
 import { searchManagerOrders } from "./admin-search";
 import type { AdminListQuery } from "@/lib/admin-list-query";
 
-export type AdminOrdersQueryFilters = { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; from?: string; to?: string };
+export type AdminOrdersQueryFilters = { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; historicalEntry?: boolean; source?: string; from?: string; to?: string };
 export async function getAdminOrders(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminOrdersQueryFilters }) {
   assertAdminActionContext(context);
   if (query?.list) return searchManagerOrders(database, query.list, query.filters);

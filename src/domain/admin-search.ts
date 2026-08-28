@@ -60,7 +60,7 @@ export async function searchUsers(database: Database, query: AdminListQuery, fil
   return paged(items, total, query);
 }
 
-export async function searchManagerOrders(database: Database, query: AdminListQuery, filters?: { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; from?: string; to?: string }) {
+export async function searchManagerOrders(database: Database, query: AdminListQuery, filters?: { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; historicalEntry?: boolean; source?: string; from?: string; to?: string }) {
   const shopId = env().SHOP_ID;
   const filter = and(
     eq(orders.shopId, shopId),
@@ -69,6 +69,8 @@ export async function searchManagerOrders(database: Database, query: AdminListQu
     filters?.productId ? eq(orders.productId, filters.productId) : undefined,
     filters?.seasonId ? eq(orders.seasonId, filters.seasonId) : undefined,
     filters?.archived === undefined ? undefined : eq(orders.archived, filters.archived),
+    filters?.historicalEntry === undefined ? undefined : eq(orders.historicalEntry, filters.historicalEntry),
+    filters?.source ? eq(orders.orderSource, filters.source as typeof orders.orderSource.enumValues[number]) : undefined,
     filters?.from ? gte(orders.fulfillmentDate, filters.from) : undefined,
     filters?.to ? lte(orders.fulfillmentDate, filters.to) : undefined,
     query.q
