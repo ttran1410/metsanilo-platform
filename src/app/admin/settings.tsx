@@ -186,7 +186,9 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
   const [activeSection, setActiveSection] = useState<Section>(() => parseSettingsUrlState(searchParams));
   useEffect(() => {
     const next = serializeSettingsUrlState(searchParams, activeSection);
-    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const applicationParams = new URLSearchParams(searchParams.toString());
+    applicationParams.delete("_rsc");
+    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [activeSection, router, searchParams]);
 
   const [shopData, setShopData] = useState<ShopIdentity>({

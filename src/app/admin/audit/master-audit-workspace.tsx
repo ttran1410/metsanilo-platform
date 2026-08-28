@@ -197,7 +197,9 @@ export function MasterAuditWorkspace({
 
   useEffect(() => {
     const next = serializeAuditUrlState(searchParams, { searchQuery, severityFilter, categoryFilter, actorFilter, dateRange, currentPage, selectedAuditId });
-    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const applicationParams = new URLSearchParams(searchParams.toString());
+    applicationParams.delete("_rsc");
+    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [actorFilter, categoryFilter, currentPage, dateRange, router, searchParams, searchQuery, selectedAuditId, severityFilter]);
 
   const exportUrl = useMemo(() => {
