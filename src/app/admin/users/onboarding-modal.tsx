@@ -5,7 +5,7 @@ import type { Role } from "@/lib/permissions";
 import type { CreatedUser } from "./master-detail-workspace";
 import { useAdminDialogFocus } from "../presentation";
 import { validateEmail } from "@/lib/email";
-import { inviteUser } from "./user-admin-actions";
+import { useUserOnboardingController } from "./use-user-onboarding-controller";
 
 const ROLE_PRESETS: Array<{ key: Role; label: string; description: string }> = [
   {
@@ -53,6 +53,7 @@ export function OnboardingModal({
   const [password, setPassword] = useState(generateOneTimePassword());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { submit } = useUserOnboardingController({ setError, setBusy, onCreated: ({ data, password: createdPassword }) => onCreated(data as CreatedUser, createdPassword) });
 
   const canGrantAdmin = actorRole === "ADMIN";
 
@@ -67,21 +68,7 @@ export function OnboardingModal({
     const emailResult = validateEmail(email);
     if ("error" in emailResult) return setError(emailResult.error ?? "Enter a valid email address, such as name@example.com.");
 
-    setBusy(true);
-
-    try {
-      const result = await inviteUser({ displayName: displayName.trim(), email: emailResult.email, role, password });
-      setBusy(false);
-
-      if (!result.ok || !result.data) {
-        return setError(result.message ?? result.code ?? "Could not create user account.");
-      }
-
-      onCreated(result.data as CreatedUser, password);
-    } catch {
-      setBusy(false);
-      setError("An unexpected network error occurred.");
-    }
+    await submit({ displayName: displayName.trim(), email: emailResult.email, role, password });
   }
 
   return (
