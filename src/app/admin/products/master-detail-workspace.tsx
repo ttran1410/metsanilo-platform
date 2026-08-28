@@ -70,6 +70,7 @@ function ProductWorkspaceContent({
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterStatus, setFilterStatus, activeTab, setActiveTab, viewMode, setViewMode, mobileView, setMobileView, currentPage, setCurrentPage, pageSize, setPageSize, splitLimit, setSplitLimit } = useProductWorkspace();
   const [productsList, setProductsList] = useState(initialProducts);
   const [loading, setLoading] = useState(loadInitialFromApi);
+  const [serverTotal, setServerTotal] = useState<number | null>(null);
   const productsRequestRef = useRef<AbortController | null>(null);
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
@@ -85,16 +86,18 @@ function ProductWorkspaceContent({
     const controller = new AbortController();
     productsRequestRef.current?.abort();
     productsRequestRef.current = controller;
-    void fetch("/api/admin/products", { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "products-list" } })
+    const params = new URLSearchParams({ q: searchQuery.trim(), page: String(currentPage), pageSize: String(pageSize) });
+    if (filterStatus !== "all") params.set("status", filterStatus);
+    void fetch(`/api/admin/products?${params.toString()}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "products-list" } })
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.message ?? "Products unavailable");
-        if (!controller.signal.aborted) setProductsList(Array.isArray(body.data) ? body.data : body.data.items ?? []);
+        if (!controller.signal.aborted) { setProductsList(Array.isArray(body.data) ? body.data : body.data.items ?? []); setServerTotal(Array.isArray(body.data) ? body.data.length : body.data.total ?? 0); }
       })
       .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) undefined; })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [loadInitialFromApi]);
+  }, [currentPage, filterStatus, loadInitialFromApi, pageSize, searchQuery]);
 
   useEffect(() => {
     const next = serializeProductsUrlState(searchParams, { selectedId, searchQuery, filterStatus, activeTab, viewMode, page: currentPage });
@@ -225,8 +228,8 @@ function ProductWorkspaceContent({
 
   const paginatedMasterList = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredMasterList.slice(start, start + pageSize);
-  }, [filteredMasterList, currentPage, pageSize]);
+    return serverTotal === null ? filteredMasterList.slice(start, start + pageSize) : filteredMasterList;
+  }, [filteredMasterList, currentPage, pageSize, serverTotal]);
 
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
@@ -498,7 +501,7 @@ function ProductWorkspaceContent({
           <AdminPagination
             page={currentPage}
             limit={pageSize}
-            total={filteredMasterList.length}
+            total={serverTotal ?? filteredMasterList.length}
             onPageChange={setCurrentPage}
             onLimitChange={setPageSize}
             itemLabel="products"
