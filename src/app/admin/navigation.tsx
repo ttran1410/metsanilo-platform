@@ -126,11 +126,11 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
   useEffect(() => {
     async function refreshBadges() {
       try {
-        const response = await fetch("/api/admin/dashboard", { cache: "no-store" });
+        const response = await fetch("/api/admin/navigation-summary", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-summary" } });
         if (!response.ok) return;
         const body = await response.json();
-        setTriageCount(body.data.attentionCount ?? body.data.overdueNew?.length ?? 0);
-        setUnreadCount(body.data.unreadNotifications ?? 0);
+        setTriageCount(body.data.triageCount ?? 0);
+        setUnreadCount(body.data.unreadCount ?? 0);
       } catch { /* Badges are supplementary. */ }
     }
     void refreshBadges();

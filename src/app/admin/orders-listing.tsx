@@ -261,7 +261,9 @@ export function OrdersListing({
   }, []);
 
   useEffect(() => {
-    if (loadInitialFromApi) void refreshOrders();
+    if (!loadInitialFromApi) return;
+    const initial = window.setTimeout(() => void refreshOrders(), 0);
+    return () => window.clearTimeout(initial);
   }, [loadInitialFromApi, refreshOrders]);
 
   const selectQuickView = useCallback((targetView: OrdersView, customStatus?: string) => {
