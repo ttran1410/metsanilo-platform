@@ -16,6 +16,7 @@ import { CustomerWorkspaceHeader } from "./customer-workspace-header";
 import { CustomerRecordList } from "./customer-record-list";
 import { CustomerInspector } from "./customer-inspector";
 import { parseCustomersUrlState, serializeCustomersUrlState } from "../customers-url-state";
+import { useCustomerContactActionController } from "./use-customer-contact-action-controller";
 
 export type CustomerRow = {
   id: string;
@@ -237,6 +238,8 @@ function CustomerWorkspaceContent({
     }
   }
 
+  const contactActions = useCustomerContactActionController({ setError, setBusy: setRetentionBusy, setMessage, refresh: refreshList });
+
   // Load the first profile once the client workspace mounts.
   useEffect(() => {
     if (selectedId && !profile) {
@@ -367,31 +370,18 @@ function CustomerWorkspaceContent({
 
   async function handleConfirmContact() {
     if (!profile || retentionBusy) return;
-    setRetentionBusy(true); setError("");
-    try {
-      const response = await fetch(`/api/admin/customers/${profile.customer.id}/contact-confirmation`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channel: confirmationChannel }) });
-      const body = await response.json();
-      if (!response.ok) return setError(body.message ?? "Could not confirm customer contact.");
-      setMessage(`Contact confirmation saved through ${confirmationChannel.toLowerCase()}.`);
-      await refreshList(profile.customer.id);
-    } finally { setRetentionBusy(false); }
+    await contactActions.confirm(profile.customer.id, confirmationChannel);
   }
 
   async function handleRetentionHold() {
     if (!profile || retentionBusy || !holdUntil || holdReason.trim().length < 3) return;
-    setRetentionBusy(true); setError("");
-    try {
-      const response = await fetch(`/api/admin/customers/${profile.customer.id}/retention-hold`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ until: new Date(`${holdUntil}T23:59:59Z`).toISOString(), reason: holdReason }) });
-      const body = await response.json();
-      if (!response.ok) return setError(body.message ?? "Could not create retention hold.");
-      setMessage("Retention hold saved."); setHoldReason(""); await refreshList(profile.customer.id);
-    } finally { setRetentionBusy(false); }
+    await contactActions.createHold(profile.customer.id, new Date(`${holdUntil}T23:59:59Z`).toISOString(), holdReason);
+    setHoldReason("");
   }
 
   async function clearRetentionHold() {
     if (!profile || retentionBusy) return;
-    setRetentionBusy(true); setError("");
-    try { const response = await fetch(`/api/admin/customers/${profile.customer.id}/retention-hold`, { method: "DELETE" }); const body = await response.json(); if (!response.ok) return setError(body.message ?? "Could not release retention hold."); setMessage("Retention hold released."); await refreshList(profile.customer.id); } finally { setRetentionBusy(false); }
+    await contactActions.releaseHold(profile.customer.id);
   }
 
   return (
@@ -1248,7 +1238,7 @@ function CustomerWorkspaceContent({
                     <select id="contact-confirmation-channel" className="input text-xs" value={confirmationChannel} onChange={(event) => setConfirmationChannel(event.target.value as typeof confirmationChannel)} disabled={retentionBusy}>
                       <option value="PHONE">Phone</option><option value="WHATSAPP">WhatsApp</option><option value="SMS">SMS</option><option value="OTHER">Other</option>
                     </select>
-                    {!confirmationActive ? <button type="button" className="btn btn-secondary text-xs" onClick={() => void handleConfirmContact()} disabled={retentionBusy}><ShieldCheck aria-hidden="true" />{retentionBusy ? "Saving…" : "Confirm contact"}</button> : <button type="button" className="btn btn-secondary text-xs" onClick={async () => { setRetentionBusy(true); const response = await fetch(`/api/admin/customers/${profile.customer.id}/contact-confirmation/renew`, { method: "POST" }); setRetentionBusy(false); if (!response.ok) return setError("Could not renew contact confirmation."); setMessage("Contact confirmation renewed."); void refreshList(profile.customer.id); }} disabled={retentionBusy}>Renew confirmation</button>}
+                    {!confirmationActive ? <button type="button" className="btn btn-secondary text-xs" onClick={() => void handleConfirmContact()} disabled={retentionBusy}><ShieldCheck aria-hidden="true" />{retentionBusy ? "Saving…" : "Confirm contact"}</button> : <button type="button" className="btn btn-secondary text-xs" onClick={() => void contactActions.renew(profile.customer.id)} disabled={retentionBusy}>Renew confirmation</button>}
                     </div>
                   </div>
                 )}
