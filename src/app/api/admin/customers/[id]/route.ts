@@ -3,6 +3,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditEntries, customers } from "@/db/schema";
+import { authenticateAdmin } from "../../module";
 import { requirePermission } from "@/domain/access";
 import { anonymizeCustomer, getCustomerProfile, mergeCustomers, updateCustomer } from "@/domain/customers";
 import { DomainError } from "@/domain/errors";
@@ -29,8 +30,8 @@ const updateSchema = z.object({
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission(db(), request, "customers.read");
     const { id } = await context.params;
+    await authenticateAdmin(request, "customers.read");
     const profile = await getCustomerProfile(db(), id);
     if (!profile) throw new DomainError("NOT_FOUND", "Customer not found", 404);
     return success(profile);
@@ -41,7 +42,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requirePermission(db(), request, "customers.anonymize");
+    const actor = (await authenticateAdmin(request, "customers.anonymize")).actor;
     const actorName = actor.email ?? actor.username ?? actor.id;
     const { id } = await context.params;
 
