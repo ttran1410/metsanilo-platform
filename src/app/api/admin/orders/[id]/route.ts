@@ -3,7 +3,7 @@ import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
 import { fromZodError } from "@/domain/errors";
 import { z } from "zod";
-import { executeAdmin, parseJson } from "../../module";
+import { authenticateAdminAny, executeAdmin, parseJson } from "../../module";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +63,7 @@ const updateSchema = z.object({
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    await authenticateAdminAny(request, ["orders.transition", "orders.update"]);
     const body = await parseJson<Record<string, unknown>>(request);
 
     if (body && typeof body === "object" && body.action === "transition") {
