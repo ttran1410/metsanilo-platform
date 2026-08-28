@@ -6,14 +6,45 @@ import { DomainError } from "./errors";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
 import { listManagerOrdersWithPaymentSummary } from "./orders";
 import { searchManagerOrders } from "./admin-search";
-import type { AdminListQuery } from "@/lib/admin-list-query";
+import { paged, type AdminListQuery } from "@/lib/admin-list-query";
 import { getOrderTriageReasons } from "./order-triage";
 import { todayInTimezone } from "@/lib/format";
 
-export type AdminOrdersQueryFilters = { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; historicalEntry?: boolean; source?: string; from?: string; to?: string };
+export type AdminOrdersQueryFilters = { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; historicalEntry?: boolean; source?: string; from?: string; to?: string; triage?: boolean; unpaid?: boolean };
 export async function getAdminOrders(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminOrdersQueryFilters; includeCounts?: boolean }) {
   assertAdminActionContext(context);
   if (query?.list) {
+    if (query.filters?.triage || query.filters?.unpaid) {
+      const all = await listManagerOrdersWithPaymentSummary(database);
+      const filtered = all.filter((order) => {
+        if (query.filters?.triage && getOrderTriageReasons(order).length === 0) return false;
+        if (query.filters?.unpaid && order.paymentStatus !== "UNPAID") return false;
+        if (query.list?.q && !`${order.publicReference} ${order.customerName} ${order.mobile} ${order.email ?? ""}`.toLowerCase().includes(query.list.q.toLowerCase())) return false;
+        if (query.filters?.status && !((query.filters.status === "FULFILLED" && (order.status === "PICKED_UP" || order.status === "DELIVERED")) || (query.filters.status === "READY_STAGE" && (order.status === "READY" || order.status === "OUT_FOR_DELIVERY")) || query.filters.status === order.status)) return false;
+        if (query.filters?.fulfillmentMethod && order.fulfillmentMethod !== query.filters.fulfillmentMethod) return false;
+        if (query.filters?.source && !((query.filters.source === "FACEBOOK_MESSAGE" || query.filters.source === "FACEBOOK") ? (order.orderSource === "FACEBOOK_MESSAGE" || order.orderSource === "FACEBOOK") : (query.filters.source === "MANUAL" || query.filters.source === "PHONE") ? (order.orderSource === "MANUAL" || order.orderSource === "PHONE") : order.orderSource === query.filters.source)) return false;
+        if (query.filters?.historicalEntry !== undefined && Boolean(order.historicalEntry) !== query.filters.historicalEntry) return false;
+        if (query.filters?.from && order.fulfillmentDate < query.filters.from) return false;
+        if (query.filters?.to && order.fulfillmentDate > query.filters.to) return false;
+        if (query.filters?.archived !== undefined && Boolean(order.archived) !== query.filters.archived) return false;
+        return true;
+      });
+      const result = paged(filtered.slice(query.list.offset, query.list.offset + query.list.pageSize), filtered.length, query.list);
+      if (!query.includeCounts) return result;
+      const shop = await database.query.shops.findFirst({ where: (table, { eq }) => eq(table.id, context.shop.id), columns: { timezone: true } });
+      const date = todayInTimezone(shop?.timezone ?? "Europe/Helsinki");
+      const active = all.filter((order) => !order.archived);
+      return { ...result, quickViewCounts: {
+        TODAY: active.filter((order) => order.fulfillmentDate === date).length,
+        TRIAGE: active.filter((order) => getOrderTriageReasons(order).length > 0).length,
+        NEEDS_CONFIRMATION: active.filter((order) => order.status === "NEW").length,
+        PICKUP_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "PICKUP").length,
+        DELIVERY_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "DELIVERY").length,
+        UNPAID: active.filter((order) => order.paymentStatus === "UNPAID").length,
+        ALL: active.length,
+        ARCHIVED: all.filter((order) => Boolean(order.archived)).length,
+      } };
+    }
     const result = await searchManagerOrders(database, query.list, query.filters);
     if (!query.includeCounts) return result;
     const all = await listManagerOrdersWithPaymentSummary(database);
