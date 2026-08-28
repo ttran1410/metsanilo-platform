@@ -78,20 +78,6 @@ export function ReviewsManager({
   const reviewsRequestRef = useRef<AbortController | null>(null);
   useEffect(() => {
     if (!loadInitialFromApi) return;
-    let active = true;
-    void fetch("/api/admin/reviews", { cache: "no-store", headers: { "x-admin-request-scope": "reviews-list" } })
-      .then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message ?? "Reviews unavailable");
-        if (active) setRows(Array.isArray(body.data) ? body.data : body.data.items ?? []);
-      })
-      .catch((error) => { if (active) setErrorMsg(error instanceof Error ? error.message : "Reviews unavailable"); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [loadInitialFromApi]);
-
-  useEffect(() => {
-    if (!loadInitialFromApi) return;
     const controller = new AbortController();
     reviewsRequestRef.current?.abort();
     reviewsRequestRef.current = controller;
