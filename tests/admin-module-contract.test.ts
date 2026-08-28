@@ -60,6 +60,10 @@ import { POST as createHistoricalOrder } from "@/app/api/admin/orders/historical
 import { POST as createExternalOrder } from "@/app/api/admin/orders/external/route";
 import { GET as exportOrders } from "@/app/api/admin/orders/export/route";
 import { GET as exportAudit } from "@/app/api/admin/audit/export/route";
+import { PUT as setPaymentMethod, DELETE as removePaymentMethod } from "@/app/api/admin/payment-methods/route";
+import { POST as createFulfillmentLocation, PATCH as editFulfillmentLocation, DELETE as removeFulfillmentLocation } from "@/app/api/admin/fulfillment-locations/route";
+import { POST as createOrderSource, PATCH as editOrderSource, DELETE as removeOrderSource } from "@/app/api/admin/order-sources/route";
+import { DELETE as deleteThemeDraft } from "@/app/api/admin/storefront-theme/drafts/[draftId]/route";
 import { POST as renewContact } from "@/app/api/admin/customers/[id]/contact-confirmation/renew/route";
 import { GET as retentionReview } from "@/app/api/admin/customers/retention-review/route";
 import { POST as markNotificationUnread } from "@/app/api/admin/notifications/[id]/unread/route";
@@ -273,6 +277,25 @@ describe("admin request module contract", () => {
       createSeason(new Request("http://localhost/api/admin/products/product-1/seasons", { method: "POST", body: "{}" }), { params: productParams }),
       updateSeason(new Request("http://localhost/api/admin/products/product-1/seasons/season-1", { method: "PATCH", body: "{}" }), { params: seasonParams }),
       deleteSeason(new Request("http://localhost/api/admin/products/product-1/seasons/season-1", { method: "DELETE" }), { params: seasonParams }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps remaining Settings operational mutations behind authentication", async () => {
+    const responses = await Promise.all([
+      setPaymentMethod(new Request("http://localhost/api/admin/payment-methods", { method: "PUT", body: "{}" })),
+      removePaymentMethod(new Request("http://localhost/api/admin/payment-methods?method=CASH", { method: "DELETE" })),
+      createFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations", { method: "POST", body: "{}" })),
+      editFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations", { method: "PATCH", body: "{}" })),
+      removeFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations?id=l1", { method: "DELETE" })),
+      createOrderSource(new Request("http://localhost/api/admin/order-sources", { method: "POST", body: "{}" })),
+      editOrderSource(new Request("http://localhost/api/admin/order-sources", { method: "PATCH", body: "{}" })),
+      removeOrderSource(new Request("http://localhost/api/admin/order-sources?id=s1", { method: "DELETE" })),
+      deleteThemeDraft(new Request("http://localhost/api/admin/storefront-theme/drafts/d1", { method: "DELETE" }), { params: Promise.resolve({ draftId: "d1" }) }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
