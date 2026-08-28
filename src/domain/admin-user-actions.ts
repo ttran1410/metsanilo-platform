@@ -1,11 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, authAccounts, users } from "@/db/schema";
+import { auditEntries, authAccounts, authUsers, users } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { hashPassword, randomPassword } from "./passwords";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
+
+export async function updateAdminProfile(database: Database, context: AdminActionContext, displayName: string) {
+  assertAdminActionContext(context);
+  const now = new Date().toISOString();
+  const [updated] = await database.update(users).set({ displayName }).where(and(eq(users.id, context.actor.id), eq(users.shopId, context.shop.id))).returning();
+  if (!updated) throw new DomainError("NOT_FOUND", "User profile not found", 404);
+  if (context.actor.id !== "legacy-admin") await database.update(authUsers).set({ name: displayName, updatedAt: new Date() }).where(eq(authUsers.id, context.actor.id));
+  return { id: updated.id, displayName: updated.displayName, email: updated.email, username: updated.username, role: updated.role, active: updated.active, updatedAt: now };
+}
 
 export async function resetAdminUserPassword(database: Database, context: AdminActionContext, id: string) {
   assertAdminActionContext(context);
