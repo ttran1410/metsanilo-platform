@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { parseAvailabilityUrlState, serializeAvailabilityUrlState } from "../availability-url-state";
 import { useRouter } from "next/navigation";
 import { CalendarRange, ChevronLeft, ChevronRight, Eye, Info, LoaderCircle, LockKeyhole, Minus, Pencil, Plus, UnlockKeyhole } from "lucide-react";
 import { calculateCapacityAdjustment } from "@/domain/capacity";
 import type { AvailabilityWorkspace } from "@/domain/availability";
-import { AdminNotice, AdminPageHeader, AdminStatusBadge, useAdminDialogFocus } from "../presentation";
+import { AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { BatchPlannerPanel } from "./batch-planner-panel";
@@ -16,6 +16,7 @@ import { AvailabilityWorkflowDialogs } from "./availability-workflow-dialogs";
 import { useCutoffActionController } from "./use-cutoff-action-controller";
 import { useFreezeActionController } from "./use-freeze-action-controller";
 import { useSaveAvailabilityActionController } from "./use-save-availability-action-controller";
+import { CapacityEditorDialog } from "./capacity-editor-dialog";
 
 type Workspace = AvailabilityWorkspace;
 type AvailabilityRow = Workspace["rows"][number];
@@ -126,10 +127,8 @@ export function AvailabilityWorkspace({
   const [freezingRow, setFreezingRow] = useState<AvailabilityRow | null>(null);
 
   const [editing, setEditing] = useState<AvailabilityRow | null>(null);
-  const availabilityDialogRef = useAdminDialogFocus<HTMLFormElement>(editing !== null, () => setEditing(null));
   const [batchPanelOpen, setBatchPanelOpen] = useState(false);
 
-  const [capacityDraftLitres, setCapacityDraftLitres] = useState(0);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -283,7 +282,6 @@ export function AvailabilityWorkspace({
     setError("");
     setMessage("");
     setEditing(row);
-    setCapacityDraftLitres(row.availability.capacityMl / 1000);
   }
 
   async function adjustCapacity(row: AvailabilityRow, deltaMl: number) {
@@ -329,17 +327,14 @@ export function AvailabilityWorkspace({
     await updateCutoff({ id: row.availability.id, version: row.availability.version, capacityMl: row.availability.capacityMl, manualSoldOut: row.availability.manualSoldOut, acceptsOrders: row.availability.acceptsOrders, manualSoldOutReason: row.availability.manualSoldOutReason }, value);
   }
 
-  async function saveAvailability(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!editing) return;
+  async function saveAvailability(row: AvailabilityRow, capacityMl: number) {
     setError("");
     setMessage("");
-    const capacityMl = Math.round(capacityDraftLitres * 1000);
-    if (!Number.isFinite(capacityMl) || capacityMl < editing.availability.reservedMl) {
-      return setError(`Capacity cannot be lower than the ${litres(editing.availability.reservedMl)} already reserved.`);
+    if (!Number.isFinite(capacityMl) || capacityMl < row.availability.reservedMl) {
+      return setError(`Capacity cannot be lower than the ${litres(row.availability.reservedMl)} already reserved.`);
     }
 
-    await saveAvailabilityAction({ id: editing.availability.id, version: editing.availability.version, capacityMl, manualSoldOut: editing.availability.manualSoldOut, soldOutReason: editing.availability.manualSoldOutReason });
+    await saveAvailabilityAction({ id: row.availability.id, version: row.availability.version, capacityMl, manualSoldOut: row.availability.manualSoldOut, soldOutReason: row.availability.manualSoldOutReason });
   }
 
   const inspectedDayRow = inspectingDate ? editableRow(rows.filter((r) => r.availability.businessDate === inspectingDate)) : null;
@@ -856,44 +851,7 @@ export function AvailabilityWorkspace({
         transitions can evolve independently from the calendar renderer.
       */}
       {/* EDIT AVAILABILITY MODAL */}
-      {editing && (
-        <div className="admin-dialog-backdrop">
-          <form ref={availabilityDialogRef} className="admin-dialog card availability-dialog" role="dialog" aria-modal="true" aria-labelledby="availability-edit-title" onSubmit={(event) => void saveAvailability(event)}>
-            <p className="eyebrow">Capacity change</p>
-            <h2 id="availability-edit-title">{editing.product.nameFi} · {editing.availability.businessDate}</h2>
-            <p className="muted text-xs">Review the effect before saving. This record is currently version {editing.availability.version}.</p>
-            {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
-
-            <label className="field">
-              <span>Capacity (litres)</span>
-              <input
-                type="number"
-                min={editing.availability.reservedMl / 1000}
-                step="0.1"
-                value={capacityDraftLitres}
-                onChange={(event) => setCapacityDraftLitres(Number(event.target.value))}
-                required
-              />
-            </label>
-
-            <div className="availability-change-preview" aria-label="Capacity change preview">
-              <div><span>Current capacity</span><strong>{litres(editing.availability.capacityMl)}</strong></div>
-              <div><span>Reserved</span><strong>{litres(editing.availability.reservedMl)}</strong></div>
-              <div><span>New capacity</span><strong>{litres(Math.round(capacityDraftLitres * 1000))}</strong></div>
-              <div><span>New remaining</span><strong>{litres(Math.max(0, Math.round(capacityDraftLitres * 1000) - editing.availability.reservedMl))}</strong></div>
-            </div>
-
-            <div className="admin-dialog-actions">
-              <button className="btn btn-secondary" type="button" onClick={() => setEditing(null)}>
-                Cancel
-              </button>
-              <button className="btn" type="submit">
-                Save capacity
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      <CapacityEditorDialog editing={editing} error={error} onClose={() => setEditing(null)} onSave={saveAvailability} />
     </main>
   );
 }
