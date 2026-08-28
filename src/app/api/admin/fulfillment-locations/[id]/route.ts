@@ -8,7 +8,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     await authenticateAdminAny(request, ["settings.fulfillment.manage"]);
     const body = await parseJson<Record<string, unknown>>(request);
     return patchCollection(new Request(request, { body: JSON.stringify({ ...body, id }), headers: { "content-type": "application/json" } }));
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -17,5 +17,5 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const url = new URL(request.url);
     url.searchParams.set("id", id);
     return deleteCollection(new Request(url, request));
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

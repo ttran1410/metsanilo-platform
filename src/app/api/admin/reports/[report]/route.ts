@@ -38,5 +38,5 @@ export async function GET(request: Request, context: { params: Promise<{ report:
       return new Response(reportCsv(data, report), { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="metsanilo-${report}-${from}-${to}.csv"` } });
     }
     return success({ ...data, comparison });
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

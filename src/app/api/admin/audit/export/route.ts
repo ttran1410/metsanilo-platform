@@ -68,5 +68,5 @@ export async function GET(request: Request) {
       "content-disposition": `attachment; filename="security-audit-export-${todayStr}.csv"`,
     },
   });
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

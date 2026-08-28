@@ -58,7 +58,7 @@ export async function GET(request: Request) {
     } });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     });
     return success(result, 201);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -145,7 +145,7 @@ export async function PUT(request: Request) {
     }
     return success(await updateAdminReview(db(), { actor, shop: { id: env().SHOP_ID } }, parsed.data));
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -157,7 +157,7 @@ export async function DELETE(request: Request) {
     const result = await executeAdmin(request, { permission: "reviews.moderate", parse: async () => ({ id }), run: async (input, { database, context: { actor } }) => deleteAdminReview(database, { actor, shop: { id: env().SHOP_ID } }, input) });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -230,6 +230,6 @@ export async function PATCH(request: Request) {
       }),
     );
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

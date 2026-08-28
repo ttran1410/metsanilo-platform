@@ -36,7 +36,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const seasons = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database, context }) => listAdminSeasons(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, productId) });
     return success(seasons);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -52,6 +52,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     } });
     return success(result, 201);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

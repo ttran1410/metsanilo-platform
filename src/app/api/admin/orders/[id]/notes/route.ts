@@ -13,6 +13,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const result = await executeAdmin(request, { permission: "orders.update", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid note", 422); return parsed.data; }, run: async (input, { database, context: { actor } }) => addAdminOrderNote(database, { actor, shop: { id: env().SHOP_ID } }, { orderId: (await params).id, ...input }) });
     return success(result, 201);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

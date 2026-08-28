@@ -13,6 +13,6 @@ export async function POST(request: Request) {
     const result = await executeAdmin(request, { permission: "orders.create", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw fromZodError(parsed.error, "Invalid historical order payload"); return parsed.data; }, run: async (input, { database }) => createHistoricalOrder(database, input) });
     return success(result, 201);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

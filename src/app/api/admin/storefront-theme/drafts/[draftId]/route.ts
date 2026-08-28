@@ -7,5 +7,5 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ d
     const url = new URL(request.url);
     url.searchParams.set("draftId", draftId);
     return deleteDraft(new Request(url, request));
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

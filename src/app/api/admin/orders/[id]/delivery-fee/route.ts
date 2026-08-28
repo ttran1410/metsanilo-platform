@@ -13,6 +13,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const result = await executeAdmin(request, { permission: "delivery.override", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid delivery fee", 422); return parsed.data; }, run: async (input, { database, context: { actor } }) => setAdminDeliveryFee(database, { actor, shop: { id: env().SHOP_ID } }, { orderId: (await params).id, ...input }) });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

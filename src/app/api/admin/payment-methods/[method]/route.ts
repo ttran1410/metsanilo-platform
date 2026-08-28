@@ -8,7 +8,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ meth
     await authenticateAdminAny(request, ["settings.operational"]);
     const body = await parseJson<Record<string, unknown>>(request);
     return putCollection(new Request(request, { body: JSON.stringify({ ...body, method }), headers: { "content-type": "application/json" } }));
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ method: string }> }) {
@@ -17,5 +17,5 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ m
     const url = new URL(request.url);
     url.searchParams.set("method", method);
     return deleteCollection(new Request(url, request));
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

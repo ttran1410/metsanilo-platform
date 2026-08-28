@@ -8,5 +8,5 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { id } = await context.params;
     const result = await executeAdmin(request, { permission: "shop_users.password_reset", parse: async () => id, run: async (userId, { database, context: { actor } }) => resetAdminUserPassword(database, { actor, shop: { id: env().SHOP_ID } }, userId) });
     return success(result);
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

@@ -16,6 +16,6 @@ export async function GET(request: Request) {
     ]);
     return success(await getAdminNavigationSummary(database, { actor, shop: { id: env().SHOP_ID } }, { dashboard, notifications }));
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

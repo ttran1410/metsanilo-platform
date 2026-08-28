@@ -14,6 +14,6 @@ export async function POST(request: Request) {
     const result = await executeAdmin(request, { permission: "orders.create", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw fromZodError(parsed.error, "Invalid external order payload"); return parsed.data; }, run: async (input, { database, context: { actor } }) => { const allowDateOverride = await hasUserPermission(database, actor, "orders.override_closed_date"); return createExternalOrder(database, { ...input, allowDateOverride }); } });
     return success(result, 201);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

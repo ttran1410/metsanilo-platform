@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       run: async (_input, { database, context }) => getAdminStorefrontTheme(database, { actor: context.actor, shop: { id: env().SHOP_ID } }),
     }));
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -41,7 +41,7 @@ export async function PUT(request: Request) {
     });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -82,6 +82,6 @@ export async function DELETE(request: Request) {
     });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

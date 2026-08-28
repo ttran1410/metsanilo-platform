@@ -9,7 +9,7 @@ const update = z.object({ displayName: z.string().trim().min(2).max(120), email:
 const profilePermission = "shop_users.read" as const;
 
 export async function GET(request: Request) {
-  try { return success(await executeAdmin(request, { permission: profilePermission, parse: async () => undefined, run: async (_, { context }) => { const user = context.actor; return { id: user.id, displayName: user.displayName, email: user.email, username: user.username, role: user.role, active: user.active }; } })); } catch (error) { return failure(error); }
+  try { return success(await executeAdmin(request, { permission: profilePermission, parse: async () => undefined, run: async (_, { context }) => { const user = context.actor; return { id: user.id, displayName: user.displayName, email: user.email, username: user.username, role: user.role, active: user.active }; } })); } catch (error) { return failure(error, request); }
 }
 
 export async function PATCH(request: Request) {
@@ -24,5 +24,5 @@ export async function PATCH(request: Request) {
       },
       run: async (input, { database, context }) => updateAdminProfile(database, { actor: context.actor, shop: { id: context.shop.shopId } }, input.displayName),
     }));
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

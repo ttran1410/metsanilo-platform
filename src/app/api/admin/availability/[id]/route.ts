@@ -28,6 +28,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const context = await authenticateAdmin(request, permission);
     return success(await updateAdminAvailability(db(), { actor: context.actor, shop: { id: env().SHOP_ID } }, id, parsed.data));
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

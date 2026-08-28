@@ -28,7 +28,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const result = await executeAdmin(request, { permission: "shop_users.read", parse: async () => id, run: async (userId, { database }) => getUserAccessDetail(database, userId) });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -69,6 +69,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     throw new DomainError("VALIDATION_ERROR", "Unknown action", 422);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

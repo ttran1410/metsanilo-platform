@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       });
       return listUsers(database, request);
     },
-  })); } catch (error) { return failure(error); }
+  })); } catch (error) { return failure(error, request); }
 }
 
 export async function POST(request: Request) {
@@ -41,5 +41,5 @@ export async function POST(request: Request) {
       return parsed.data;
     },
     run: (input, { database }) => createUser(database, request, input),
-  }), 201); } catch (error) { return failure(error); }
+  }), 201); } catch (error) { return failure(error, request); }
 }

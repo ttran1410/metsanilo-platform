@@ -13,6 +13,6 @@ export async function GET(request: Request) {
       run: async (_input, { database, context }) => ({ groups: await findAdminAvailabilityDuplicates(database, { actor: context.actor, shop: { id: env().SHOP_ID } }) }),
     }));
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

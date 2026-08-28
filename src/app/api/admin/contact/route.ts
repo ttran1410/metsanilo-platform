@@ -32,12 +32,12 @@ export async function GET(request: Request) {
   try {
     const result = await executeAdmin(request, { permission: "settings.read", parse: async () => undefined, run: async (_input, { database, context }) => response(await getAdminSettings(database, { actor: context.actor, shop: { id: env().SHOP_ID } })) });
     return success(result);
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }
 
 export async function PUT(request: Request) {
   try {
     const result = await executeAdmin(request, { permission: "settings.operational", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid settings input", 422); return parsed.data; }, run: async (input, { database, context }) => response(await updateAdminSettings(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, { contactPhone: input.phone, contactEmail: input.email, contactHours: input.hours, nameFi: input.nameFi, nameEn: input.nameEn, businessName: input.businessName, businessId: input.businessId, howItWorksVisible: input.howItWorksVisible, aboutUsVisible: input.aboutUsVisible, reviewsVisible: input.reviewsVisible, active: input.active, sameDayCutoffEnabled: input.sameDayCutoffEnabled, sameDayCutoffTime: input.sameDayCutoffTime })) });
     return success(result);
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

@@ -33,7 +33,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     if (!profile) throw new DomainError("NOT_FOUND", "Customer not found", 404);
     return success(profile);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -75,7 +75,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     return success(updatedCustomer);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -85,6 +85,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { id } = await context.params;
     return success(await anonymizeAdminCustomer(db(), { actor, shop: { id: env().SHOP_ID } }, id));
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

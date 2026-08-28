@@ -68,6 +68,6 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

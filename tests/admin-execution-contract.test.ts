@@ -13,6 +13,7 @@ vi.mock("@/lib/env", () => ({ env: () => ({ SHOP_ID: "shop-test" }) }));
 
 import { authenticateAdminAny, executeAdmin } from "@/app/api/admin/module";
 import { assertAdminActionContext } from "@/domain/admin-action-context";
+import { failure } from "@/app/api/response";
 
 describe("executeAdmin contract", () => {
   beforeEach(() => {
@@ -80,5 +81,13 @@ describe("executeAdmin contract", () => {
       actor: { id: "actor-1", role: "ADMIN", shopId: "shop-a" },
       shop: { id: "shop-b" },
     })).toThrow("Admin action context shop mismatch");
+  });
+
+  it("preserves a valid request correlation ID and replaces invalid IDs", async () => {
+    const valid = failure(new DomainError("FORBIDDEN", "Denied", 403), new Request("http://localhost", { headers: { "x-correlation-id": "123e4567-e89b-12d3-a456-426614174000" } }));
+    expect((await valid.json()).correlationId).toBe("123e4567-e89b-12d3-a456-426614174000");
+
+    const invalid = failure(new DomainError("FORBIDDEN", "Denied", 403), new Request("http://localhost", { headers: { "x-correlation-id": "not-safe" } }));
+    expect((await invalid.json()).correlationId).toMatch(/^[0-9a-f-]{36}$/i);
   });
 });

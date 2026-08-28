@@ -19,6 +19,6 @@ export async function GET(request: Request) {
     });
     return success(workspace);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const result = await executeAdmin(request, { permission: "orders.read", parse: async () => id, run: async (orderId, { database, context: { actor } }) => new URL(request.url).searchParams.get("view") === "edit" ? getAdminOrderEditData(database, { actor, shop: { id: env().SHOP_ID } }, orderId) : getAdminOrderDetail(database, { actor, shop: { id: env().SHOP_ID } }, orderId) });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -85,7 +85,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const result = await executeAdmin(request, { permission: "orders.update", parse: async () => parsed.data, run: async (input, { database, context: { actor } }) => updateAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, { ...input, orderId: id }) });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -95,6 +95,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const result = await executeAdmin(request, { permission: "orders.delete", parse: async () => id, run: async (orderId, { database, context: { actor } }) => deleteAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, orderId) });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

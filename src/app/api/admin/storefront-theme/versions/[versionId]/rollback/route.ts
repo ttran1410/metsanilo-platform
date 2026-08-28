@@ -5,5 +5,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ ver
   try {
     const { versionId } = await params;
     return lifecycle(new Request(request, { body: JSON.stringify({ action: "rollback", versionId }), headers: { "content-type": "application/json" } }));
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

@@ -30,6 +30,6 @@ export async function POST(request: Request, routeContext: { params: Promise<{ i
     });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

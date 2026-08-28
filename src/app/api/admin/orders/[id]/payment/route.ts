@@ -21,6 +21,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
     return success(result, 201);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

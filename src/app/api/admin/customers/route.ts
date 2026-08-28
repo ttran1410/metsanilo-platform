@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     } });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -45,6 +45,6 @@ export async function POST(request: Request) {
     }) });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

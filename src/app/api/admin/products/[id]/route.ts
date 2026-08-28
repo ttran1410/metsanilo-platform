@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const result = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database, context }) => { const detail = await getAdminProductDetail(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, productId); if (!detail) throw new DomainError("NOT_FOUND", "Product not found", 404); const rows = await database.select().from(availability).where(and(eq(availability.productId, productId), eq(availability.shopId, env().SHOP_ID), gte(availability.businessDate, detail.product.availableFrom))); return { ...detail, availabilityRows: rows }; } });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -33,9 +33,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (parsed.data.action === "delete") return success(await deleteProduct(db(), context, id));
     if (parsed.data.action === "active") return success(await (parsed.data.active ? restoreProduct(db(), context, id) : archiveProduct(db(), context, id)));
     return success(await updateProduct(db(), context, id, parsed.data.product));
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try { const actor = (await authenticateAdmin(request, "catalog.product.delete")).actor; return success(await deleteProduct(db(), { actor, shop: { id: env().SHOP_ID } }, (await params).id)); } catch (error) { return failure(error); }
+  try { const actor = (await authenticateAdmin(request, "catalog.product.delete")).actor; return success(await deleteProduct(db(), { actor, shop: { id: env().SHOP_ID } }, (await params).id)); } catch (error) { return failure(error, request); }
 }

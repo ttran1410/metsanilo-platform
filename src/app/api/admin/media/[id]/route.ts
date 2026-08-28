@@ -22,7 +22,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return setAdminMediaPrimary(database, { actor, shop: { id: env().SHOP_ID } }, attachmentId);
     } });
     return success(result);
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -30,5 +30,5 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     const { id } = await context.params;
     const result = await executeAdmin(request, { permission: "media.write", parse: async () => id, run: async (assetId, { database, context: { actor } }) => deleteAdminMedia(database, { actor, shop: { id: env().SHOP_ID } }, assetId) });
     return success(result);
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

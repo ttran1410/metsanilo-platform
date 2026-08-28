@@ -17,5 +17,5 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const result = await executeAdmin(request, { permission: "shop_permissions.assign", parse: async () => ({ userId: id, permission: parsed.data.permission as Permission, granted: parsed.data.granted }), run: async (input, { database, context: { actor } }) => updateUserPermission(database, { actor, shop: { id: env().SHOP_ID }, request }, input) });
     return success(result);
-  } catch (error) { return failure(error); }
+  } catch (error) { return failure(error, request); }
 }

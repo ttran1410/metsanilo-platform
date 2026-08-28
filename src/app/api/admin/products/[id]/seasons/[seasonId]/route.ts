@@ -18,7 +18,7 @@ export async function GET(
     if (summary.season.productId !== id) throw new DomainError("NOT_FOUND", "Harvest season not found", 404);
     return success(summary);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -43,7 +43,7 @@ export async function PATCH(
     const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async (incoming) => { const parsed = updateSeasonSchema.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season update payload", 422); return parsed.data; }, run: async (input, { database, context: { actor } }) => input.action === "extend" ? extendAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, seasonId, input.additionalDays ?? 7) : updateAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, seasonId, { nameFi: input.nameFi, nameEn: input.nameEn, startDate: input.startDate, endDate: input.endDate, status: input.status, targetVolumeMl: input.targetVolumeMl, notes: input.notes }) });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -56,6 +56,6 @@ export async function DELETE(
     const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async () => seasonId, run: async (id, { database, context: { actor } }) => { await deleteAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, id); return { deleted: true }; } });
     return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

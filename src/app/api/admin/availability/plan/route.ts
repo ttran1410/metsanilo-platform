@@ -32,6 +32,6 @@ export async function POST(request: Request) {
     if (parsed.data.preview) return success(await previewAdminAvailabilityPlan(db(), actionContext, parsed.data));
     return success(await planAdminAvailability(db(), actionContext, parsed.data));
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
