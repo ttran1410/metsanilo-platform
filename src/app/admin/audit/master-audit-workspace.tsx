@@ -66,6 +66,7 @@ function ActionTypeIcon({ name }: { name: string }) {
 export function MasterAuditWorkspace({
   initialData,
   canExportAudit = true,
+  loadInitialFromApi = false,
 }: {
   initialData: {
     items: FormattedAuditItem[];
@@ -83,6 +84,7 @@ export function MasterAuditWorkspace({
     };
   };
   canExportAudit?: boolean;
+  loadInitialFromApi?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -141,6 +143,14 @@ export function MasterAuditWorkspace({
       setError("Network error fetching audit entries.");
     }
   }
+
+  useEffect(() => {
+    if (loadInitialFromApi) {
+      queueMicrotask(() => void fetchFilteredAudit());
+    }
+    // Initial JSON load intentionally runs once for the URL-derived state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadInitialFromApi]);
 
   function handleFilterChange(updates: {
     limit?: number;

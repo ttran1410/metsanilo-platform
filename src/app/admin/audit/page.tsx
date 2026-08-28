@@ -1,5 +1,5 @@
 import { db } from "@/db/client";
-import { getAuditMetrics, listAuditEntries } from "@/domain/audit";
+import { getAuditMetrics } from "@/domain/audit";
 import { MasterAuditWorkspace } from "./master-audit-workspace";
 import { AdminRouteFrame } from "../route-frame";
 import { adminContext, hasAdminPermission } from "../portal-auth";
@@ -20,18 +20,17 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
   const query = await searchParams;
   const urlState = parseAuditUrlState(new URLSearchParams(Object.entries(query).flatMap(([key, value]) => value === undefined ? [] : [[key, Array.isArray(value) ? value[0] : value]])));
-  const initialEntries = await listAuditEntries(db(), { page: urlState.currentPage, limit: 15, search: urlState.searchQuery, severity: urlState.severityFilter, category: urlState.categoryFilter, actor: urlState.actorFilter === "ALL" ? undefined : urlState.actorFilter, dateRange: urlState.dateRange });
   const metrics = await getAuditMetrics(db());
   const canExportAudit = await hasAdminPermission(request, "audit.export");
 
   const initialData = {
-    ...initialEntries,
+    items: [], total: 0, page: urlState.currentPage, limit: 15, totalPages: 1, actors: [],
     metrics,
   };
 
   return (
     <AdminRouteFrame permission="audit.read">
-      <MasterAuditWorkspace initialData={initialData} canExportAudit={canExportAudit} />
+      <MasterAuditWorkspace initialData={initialData} loadInitialFromApi canExportAudit={canExportAudit} />
     </AdminRouteFrame>
   );
 }
