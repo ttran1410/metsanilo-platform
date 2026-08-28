@@ -21,6 +21,7 @@ import { ManagerBulkActionDialog } from "./manager-bulk-action-dialog";
 import { ManagerOrderTable } from "./manager-order-table";
 import { ManagerOrderCards } from "./manager-order-cards";
 import { ManagerOrderInspector } from "./manager-order-inspector";
+import { useManagerOrderActionController } from "./use-manager-order-action-controller";
 
 type Order = typeof orders.$inferSelect;
 type AvailabilityRow = {
@@ -309,54 +310,7 @@ function ManagerWorkspaceContent({
     setDetail(body.data);
   }
 
-  async function detailAction(
-    event: FormEvent<HTMLFormElement>,
-    action: "note" | "fee" | "payment",
-  ) {
-    event.preventDefault();
-    if (!detail) return;
-    const values = new FormData(event.currentTarget);
-    const endpoint =
-      action === "note"
-        ? "notes"
-        : action === "fee"
-          ? "delivery-fee"
-          : "payment";
-    const payload =
-      action === "note"
-        ? { body: values.get("body") }
-        : action === "fee"
-          ? {
-              expectedVersion: detail.order.version,
-              deliveryFeeCents: Math.round(
-                Number(values.get("feeEuros")) * 100,
-              ),
-            }
-          : {
-              amountCents: Math.round(Number(values.get("paymentEuros")) * 100),
-              method: values.get("method"),
-              reference:
-                String(values.get("reference") ?? "").trim() || undefined,
-            };
-    const response = await fetch(
-      `/api/admin/orders/${detail.order.id}/${endpoint}`,
-      {
-        method: action === "fee" ? "PUT" : "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-    );
-    const body = await response.json();
-    if (!response.ok)
-      return feedback(body.code ?? body.message ?? "Request failed", "error");
-    if (action === "fee")
-      setDetail((current) =>
-        current ? { ...current, order: body.data } : current,
-      );
-    else await openDetail(detail.order);
-    event.currentTarget.reset();
-    setMessage("Order updated.");
-  }
+  const { detailAction } = useManagerOrderActionController({ detail, onFeeUpdated: (order) => setDetail((current) => current ? { ...current, order } : current), feedback, refreshDetail: openDetail });
 
   async function save(row: AvailabilityRow, form: HTMLFormElement) {
     setMessage("");
