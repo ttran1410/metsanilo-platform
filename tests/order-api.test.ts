@@ -14,6 +14,7 @@ import { planAvailability, previewAvailabilityPlan, previewAvailabilityUpdate } 
 import { resetEnvForTests } from "@/lib/env";
 import { listPaymentMethods, setPaymentMethod } from "@/domain/payment-methods";
 import { getAdminOrderEditData } from "@/domain/admin-order-actions";
+import { getAdminProductDetail } from "@/domain/admin-products-actions";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-test-"));
 let databaseUrl = "";
@@ -168,6 +169,11 @@ describe("public order transaction and API", () => {
 });
 
 describe("product module", () => {
+  it("returns product detail with impact and availability rows in one scoped query", async () => {
+    const result = await getAdminProductDetail(database, { actor: { id: "admin", role: "ADMIN", shopId: "shop-main" }, shop: { id: "shop-main" } }, "product-berries");
+
+    expect(result).toMatchObject({ product: { id: "product-berries" }, impact: { activeOrders: expect.any(Number), availabilityRows: expect.any(Number) }, });
+  });
   it("creates a bilingual product with a package and refuses deletion after use", async () => {
     const created = await createProduct(database, {
       code: "MUSHROOMS", slug: "mushrooms", nameFi: "Sienet", nameEn: "Mushrooms",
