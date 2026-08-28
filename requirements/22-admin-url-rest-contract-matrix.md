@@ -1,6 +1,6 @@
 # Admin URL and REST Contract Matrix
 
-Status: audit baseline
+Status: active implementation audit (2026-08-28)
 
 This matrix is the review baseline for making admin workspaces shareable, reloadable, and observable in browser network tools. It separates application URL state from Next.js `_rsc` transport parameters.
 
@@ -30,6 +30,22 @@ This matrix is the review baseline for making admin workspaces shareable, reload
 | Settings | Mostly local tab/form state | Resource-specific settings endpoints | Review endpoint resource naming and mutation action boundaries | 9 |
 
 ## Orders acceptance gate
+
+## Current implementation status
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Orders | Implemented | JSON collection loader, canonical filter forwarding, transient `created` handling, stale-request protection. |
+| Customers | Partially implemented | JSON/action contracts exist; URL and compatibility parity still needs endpoint-by-endpoint verification. |
+| Users | Implemented for current workspace | URL state and action controllers are separated; authenticated route coverage remains incomplete. |
+| Products | Partially implemented | JSON list/detail loaders and action controllers exist; package/season compatibility paths remain under audit. |
+| Reviews | Partially implemented | Query/action modules exist; dynamic PATCH permissions are isolated, but SSR parity and full route coverage remain. |
+| Availability | Implemented for current workflows | Typed action wrappers and URL state exist; browser verification remains. |
+| Audit | Partially implemented | URL state and JSON loading exist; export intentionally remains a file response. |
+| Notifications | Implemented for current workflows | Query and mutation paths use Admin action modules; URL state needs completeness review. |
+| Settings | Compatibility preserved | Canonical resource routes and legacy collection adapters share contracts; compatibility tests are still being expanded. |
+
+The next audit pass must record, for each module, the exact mapping between URL parameters and API parameters. `_rsc` remains excluded from all application contracts, and `created` remains transient rather than a persistent data filter.
 
 Orders is the reference implementation. It is ready to serve as the template when:
 
