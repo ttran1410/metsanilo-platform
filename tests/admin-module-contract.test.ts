@@ -4,6 +4,9 @@ import { PUT as updatePaymentMethod } from "@/app/api/admin/payment-methods/[met
 import { PATCH as updateFulfillmentLocation } from "@/app/api/admin/fulfillment-locations/[id]/route";
 import { DELETE as deletePaymentMethod } from "@/app/api/admin/payment-methods/route";
 import { DELETE as deleteFulfillmentLocation } from "@/app/api/admin/fulfillment-locations/route";
+import { GET as getProducts } from "@/app/api/admin/products/route";
+import { GET as getOrders } from "@/app/api/admin/orders/route";
+import { GET as getReviews } from "@/app/api/admin/reviews/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -32,5 +35,18 @@ describe("admin request module contract", () => {
     expect(fulfillment.status).toBe(401);
     expect(await payment.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
     expect(await fulfillment.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("keeps canonical collection reads behind authentication", async () => {
+    const responses = await Promise.all([
+      getProducts(new Request("http://localhost/api/admin/products")),
+      getOrders(new Request("http://localhost/api/admin/orders")),
+      getReviews(new Request("http://localhost/api/admin/reviews")),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
   });
 });
