@@ -1,20 +1,18 @@
-import { db } from "@/db/client";
 import { getManagerOrder, updateManagerOrder, deleteManagerOrder, transitionOrder } from "@/domain/orders";
 import { failure, success } from "../../../response";
-import { requirePermission } from "@/domain/access";
-import { adminContext } from "@/app/admin/portal-auth";
 import { fromZodError } from "@/domain/errors";
 import { z } from "zod";
+import { executeAdmin, parseJson } from "../../module";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    await requirePermission(db(), _request, "orders.read");
-    return success(await getManagerOrder(db(), id));
+    const result = await executeAdmin(request, { permission: "orders.read", parse: async () => id, run: async (orderId, { database }) => getManagerOrder(database, orderId) });
+    return success(result);
   } catch (error) {
     return failure(error);
   }
@@ -64,38 +62,26 @@ const updateSchema = z.object({
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = await request.json();
+    const body = await parseJson<Record<string, unknown>>(request);
 
     if (body && typeof body === "object" && body.action === "transition") {
       const parsedTransition = transitionActionSchema.safeParse(body);
       if (!parsedTransition.success) {
         throw fromZodError(parsedTransition.error, "Unable to transition order status. Please check input parameters.");
       }
-      await requirePermission(db(), request, "orders.transition");
-
-      let version = parsedTransition.data.expectedVersion;
-      if (version === undefined) {
-        const orderData = await getManagerOrder(db(), id);
-        version = orderData.order.version;
-      }
-
-      return success(
-        await transitionOrder(db(), {
-          orderId: id,
-          status: parsedTransition.data.status,
-          expectedVersion: version,
-          reason: parsedTransition.data.reason,
-          contactChannel: parsedTransition.data.contactChannel,
-        })
-      );
+      const result = await executeAdmin(request, { permission: "orders.transition", parse: async () => parsedTransition.data, run: async (input, { database }) => {
+        const version = input.expectedVersion ?? (await getManagerOrder(database, id)).order.version;
+        return transitionOrder(database, { orderId: id, status: input.status, expectedVersion: version, reason: input.reason, contactChannel: input.contactChannel });
+      } });
+      return success(result);
     }
 
-    await requirePermission(db(), request, "orders.update");
     const parsed = updateSchema.safeParse({ ...body, orderId: id });
     if (!parsed.success) {
       throw fromZodError(parsed.error, "Unable to update order details. Please check input fields.");
     }
-    return success(await updateManagerOrder(db(), { ...parsed.data, orderId: id }));
+    const result = await executeAdmin(request, { permission: "orders.update", parse: async () => parsed.data, run: async (input, { database }) => updateManagerOrder(database, { ...input, orderId: id }) });
+    return success(result);
   } catch (error) {
     return failure(error);
   }
@@ -104,9 +90,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { actor } = await adminContext();
-    await requirePermission(db(), request, "orders.delete");
-    return success(await deleteManagerOrder(db(), id, actor.email ?? undefined));
+    const result = await executeAdmin(request, { permission: "orders.delete", parse: async () => id, run: async (orderId, { database, context: { actor } }) => deleteManagerOrder(database, orderId, actor.email ?? undefined) });
+    return success(result);
   } catch (error) {
     return failure(error);
   }
