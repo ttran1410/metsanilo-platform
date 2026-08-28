@@ -3,11 +3,10 @@ import { put } from "@vercel/blob";
 import { and, asc, eq, count } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditEntries, mediaAttachments, mediaAssets, products, shops } from "@/db/schema";
-import { requirePermission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../response";
-import { executeAdmin } from "../module";
+import { authenticateAdmin, executeAdmin } from "../module";
 
 export const runtime = "nodejs";
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -42,7 +41,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(db(), request, "media.write");
+    const actor = (await authenticateAdmin(request, "media.write")).actor;
     const form = await request.formData();
     const productId = String(form.get("productId") ?? "").trim() || null;
     const pageKey = String(form.get("pageKey") ?? "").trim() || null;
@@ -126,7 +125,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const actor = await requirePermission(db(), request, "media.write");
+    const actor = (await authenticateAdmin(request, "media.write")).actor;
     const { searchParams } = new URL(request.url);
     const attachmentId = searchParams.get("attachmentId");
     if (!attachmentId) throw new DomainError("VALIDATION_ERROR", "Attachment id is required", 422);
