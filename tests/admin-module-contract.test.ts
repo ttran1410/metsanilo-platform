@@ -36,6 +36,8 @@ import { PATCH as reorderPackages } from "@/app/api/admin/products/[id]/packages
 import { GET as getSeasons } from "@/app/api/admin/products/[id]/seasons/route";
 import { PUT as updateReviewVisibility } from "@/app/api/admin/reviews/visibility/route";
 import { PUT as updateAvailability } from "@/app/api/admin/availability/[id]/route";
+import { POST as publishTheme } from "@/app/api/admin/storefront-theme/drafts/[draftId]/publish/route";
+import { POST as rollbackTheme } from "@/app/api/admin/storefront-theme/versions/[versionId]/rollback/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -61,6 +63,16 @@ describe("admin request module contract", () => {
     const payment = await updatePaymentMethod(new Request("http://localhost/api/admin/payment-methods/CASH", { method: "PUT", body: JSON.stringify({ method: "CASH", enabled: true }) }), { params: Promise.resolve({ method: "CASH" }) });
     const fulfillment = await updateFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations/location-1", { method: "PATCH", body: JSON.stringify({ id: "location-1", nameFi: "Pori", nameEn: "Pori", type: "PICKUP", address: "Market street 1" }) }), { params: Promise.resolve({ id: "location-1" }) });
     for (const response of [payment, fulfillment]) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Storefront theme transitions behind authentication", async () => {
+    const publish = await publishTheme(new Request("http://localhost/api/admin/storefront-theme/drafts/draft-1", { method: "POST" }), { params: Promise.resolve({ draftId: "draft-1" }) });
+    const rollback = await rollbackTheme(new Request("http://localhost/api/admin/storefront-theme/versions/version-1", { method: "POST" }), { params: Promise.resolve({ versionId: "version-1" }) });
+    for (const response of [publish, rollback]) {
       expect(response.status).toBe(401);
       expect(response.headers.get("content-type")).toContain("application/json");
       expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
