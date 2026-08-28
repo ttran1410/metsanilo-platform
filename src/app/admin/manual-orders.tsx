@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AdminNotice, AdminPageHeader } from "./presentation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { CustomerAddressFields } from "../customer-address-fields";
+import { getAdminOrderSources } from "./reference-data-cache";
 
 type OrderSource = { key: string; labelEn: string };
 
@@ -70,15 +71,7 @@ export function ManualOrdersModule({ products: initialProducts, loadInitialFromA
 
   // Load order sources from settings API
   useEffect(() => {
-    fetch("/api/admin/order-sources")
-      .then((r) => r.ok ? r.json() : null)
-      .then((body) => {
-        const rows: Array<{ key: string; labelEn: string; active: boolean }> = body?.data ?? body;
-        if (Array.isArray(rows) && rows.length > 0) {
-          setSources(rows.filter((s) => s.active).map((s) => ({ key: s.key, labelEn: s.labelEn })));
-        }
-      })
-      .catch(() => { /* keep defaults */ });
+    void getAdminOrderSources().then((rows) => { if (rows?.length) setSources(rows.filter((source) => source.active).map(({ key, labelEn }) => ({ key, labelEn }))); });
   }, []);
 
   const isFacebookSource = orderSource === "FACEBOOK";

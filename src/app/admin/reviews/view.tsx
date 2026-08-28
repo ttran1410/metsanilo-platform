@@ -12,6 +12,7 @@ import { LinkIdentityModal } from "./link-identity-modal";
 import { EditReviewModal } from "./edit-review-modal";
 import { PublicationIdentityModal } from "./publication-identity-modal";
 import { parseReviewsUrlState, serializeReviewsUrlState, type ReviewTab } from "../reviews-url-state";
+import { getAdminOrderSources } from "../reference-data-cache";
 
 type Review = {
   id: string;
@@ -128,12 +129,7 @@ export function ReviewsManager({
   }, [activeTab, currentPage, router, searchParams, searchQuery]);
 
   useEffect(() => {
-    fetch("/api/admin/order-sources")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.data && Array.isArray(d.data)) setSources(d.data);
-      })
-      .catch(() => {});
+    void getAdminOrderSources().then((sources) => { if (sources) setSources(sources); });
 
     fetch("/api/admin/reviews/visibility")
       .then((r) => (r.ok ? r.json() : null))
