@@ -11,6 +11,7 @@ import { AdminRowActionMenu, IconLink, IconLock, IconPencil, IconTrash, IconUser
 import { LinkIdentityModal } from "./link-identity-modal";
 import { EditReviewModal } from "./edit-review-modal";
 import { PublicationIdentityModal } from "./publication-identity-modal";
+import { parseReviewsUrlState, serializeReviewsUrlState, type ReviewTab } from "../reviews-url-state";
 
 type Review = {
   id: string;
@@ -38,7 +39,6 @@ type Review = {
   createdAt: string;
 };
 
-type ReviewTab = "pending" | "approved" | "featured" | "rejected" | "all";
 type RejectionReason = "SPAM" | "PROFANITY" | "UNRELATED" | "COMPETITOR" | "OTHER";
 
 function maskContact(contact: string | null) {
@@ -67,12 +67,10 @@ export function ReviewsManager({
   const [rows, setRows] = useState<Review[]>(initial);
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const [activeTab, setActiveTab] = useState<ReviewTab>(() => {
-    const tab = searchParams.get("status");
-    return tab === "approved" || tab === "featured" || tab === "rejected" || tab === "all" ? tab : "pending";
-  });
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
-  const [currentPage, setCurrentPage] = useState(() => Number(searchParams.get("page") ?? "1") || 1);
+  const initialUrlState = parseReviewsUrlState(searchParams);
+  const [activeTab, setActiveTab] = useState<ReviewTab>(initialUrlState.activeTab);
+  const [searchQuery, setSearchQuery] = useState(initialUrlState.searchQuery);
+  const [currentPage, setCurrentPage] = useState(initialUrlState.currentPage);
   const [pageSize, setPageSize] = useState(20);
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
@@ -101,10 +99,7 @@ export function ReviewsManager({
   ]);
 
   useEffect(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    if (searchQuery) next.set("q", searchQuery); else next.delete("q");
-    if (activeTab !== "pending") next.set("status", activeTab); else next.delete("status");
-    if (currentPage > 1) next.set("page", String(currentPage)); else next.delete("page");
+    const next = serializeReviewsUrlState(searchParams, { searchQuery, activeTab, currentPage });
     if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [activeTab, currentPage, router, searchParams, searchQuery]);
 
