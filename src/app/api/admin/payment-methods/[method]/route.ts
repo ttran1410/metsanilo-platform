@@ -1,14 +1,19 @@
 import { DELETE as deleteCollection, PUT as putCollection } from "../route";
+import { failure } from "../../../response";
 
 export async function PUT(request: Request, { params }: { params: Promise<{ method: string }> }) {
-  const { method } = await params;
-  const body = await request.json();
-  return putCollection(new Request(request, { body: JSON.stringify({ ...body, method }), headers: { "content-type": "application/json" } }));
+  try {
+    const { method } = await params;
+    const body = await request.json();
+    return putCollection(new Request(request, { body: JSON.stringify({ ...body, method }), headers: { "content-type": "application/json" } }));
+  } catch (error) { return failure(error); }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ method: string }> }) {
-  const { method } = await params;
-  const url = new URL(request.url);
-  url.searchParams.set("method", method);
-  return deleteCollection(new Request(url, request));
+  try {
+    const { method } = await params;
+    const url = new URL(request.url);
+    url.searchParams.set("method", method);
+    return deleteCollection(new Request(url, request));
+  } catch (error) { return failure(error); }
 }
