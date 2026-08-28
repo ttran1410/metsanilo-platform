@@ -13,6 +13,7 @@ import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-r
 import { BatchPlannerPanel } from "./batch-planner-panel";
 import { DateInspectorDrawer, type DateOrdersEntry } from "./date-inspector-drawer";
 import { FreezeModal } from "./freeze-modal";
+import { useCutoffActionController } from "./use-cutoff-action-controller";
 
 type Workspace = AvailabilityWorkspace;
 type AvailabilityRow = Workspace["rows"][number];
@@ -20,7 +21,7 @@ type QueueItem = Workspace["queues"]["picking"][number];
 type OrdersByDate = Record<string, DateOrdersEntry>;
 type ViewMode = "WEEK" | "MONTH" | "TABLE";
 
-const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function litres(value: number) {
   return `${(value / 1000).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} L`;
@@ -112,6 +113,7 @@ export function AvailabilityWorkspace({
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [adjustingAvailabilityId, setAdjustingAvailabilityId] = useState<string | null>(null);
   const workspaceRequestId = useRef(0);
+  const updateCutoff = useCutoffActionController({ onError: setError, onSuccess: (value) => { setMessage(value === "OPEN" ? "Same-day cutoff override enabled for this date." : "Same-day cutoff override cleared."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7); } });
 
   useEffect(() => {
     if (loadInitialFromApi) {
@@ -312,11 +314,7 @@ export function AvailabilityWorkspace({
   }
 
   async function handleCutoffOverride(row: AvailabilityRow, value: "OPEN" | "CLOSED" | null) {
-    const response = await fetch(`/api/admin/availability/${row.availability.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: row.availability.version, capacityMl: row.availability.capacityMl, manualSoldOut: row.availability.manualSoldOut, acceptsOrders: row.availability.acceptsOrders, cutoffOverride: value, soldOutReason: row.availability.manualSoldOutReason ?? undefined }) });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not update cutoff override.");
-    setMessage(value === "OPEN" ? "Same-day cutoff override enabled for this date." : "Same-day cutoff override cleared.");
-    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7);
+    await updateCutoff({ id: row.availability.id, version: row.availability.version, capacityMl: row.availability.capacityMl, manualSoldOut: row.availability.manualSoldOut, acceptsOrders: row.availability.acceptsOrders, manualSoldOutReason: row.availability.manualSoldOutReason }, value);
   }
 
   async function saveAvailability(event: FormEvent<HTMLFormElement>) {
