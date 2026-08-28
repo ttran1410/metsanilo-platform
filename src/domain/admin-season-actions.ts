@@ -1,10 +1,20 @@
 import type { Database } from "@/db/client";
-import { cloneHarvestSeason, createHarvestSeason, deleteHarvestSeason, extendHarvestSeason, updateHarvestSeason } from "./seasons";
+import { cloneHarvestSeason, createHarvestSeason, deleteHarvestSeason, extendHarvestSeason, getHarvestSeasonSummary, listHarvestSeasons, updateHarvestSeason } from "./seasons";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
 
 export type AdminSeasonContext = AdminActionContext;
 export type AdminSeasonCreateInput = Parameters<typeof createHarvestSeason>[1];
 export type AdminSeasonUpdateInput = Parameters<typeof updateHarvestSeason>[2];
+
+export function listAdminSeasons(database: Database, context: AdminSeasonContext, productId: string) {
+  assertAdminActionContext(context);
+  return listHarvestSeasons(database, productId);
+}
+
+export function getAdminSeasonSummary(database: Database, context: AdminSeasonContext, seasonId: string) {
+  assertAdminActionContext(context);
+  return getHarvestSeasonSummary(database, seasonId);
+}
 
 function actorName(context: AdminSeasonContext) {
   assertAdminActionContext(context);

@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { parseJson } from "../../../../module";
 import { DomainError } from "@/domain/errors";
-import { getHarvestSeasonSummary } from "@/domain/seasons";
-import { deleteAdminSeason, extendAdminSeason, updateAdminSeason } from "@/domain/admin-season-actions";
+import { deleteAdminSeason, extendAdminSeason, getAdminSeasonSummary, updateAdminSeason } from "@/domain/admin-season-actions";
 import { failure, success } from "../../../../../response";
 import { executeAdmin } from "../../../../module";
 import { env } from "@/lib/env";
@@ -15,7 +14,7 @@ export async function GET(
 ) {
   try {
     const { id, seasonId } = await context.params;
-    const summary = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => ({ id, seasonId }), run: async ({ seasonId: selectedSeasonId }, { database }) => getHarvestSeasonSummary(database, selectedSeasonId) });
+    const summary = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => ({ id, seasonId }), run: async ({ seasonId: selectedSeasonId }, { database, context }) => getAdminSeasonSummary(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, selectedSeasonId) });
     if (summary.season.productId !== id) throw new DomainError("NOT_FOUND", "Harvest season not found", 404);
     return success(summary);
   } catch (error) {

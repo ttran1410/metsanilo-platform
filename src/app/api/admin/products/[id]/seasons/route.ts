@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { parseJson } from "../../../module";
 import { DomainError } from "@/domain/errors";
-import { listHarvestSeasons } from "@/domain/seasons";
-import { cloneAdminSeason, createAdminSeason } from "@/domain/admin-season-actions";
+import { cloneAdminSeason, createAdminSeason, listAdminSeasons } from "@/domain/admin-season-actions";
 import { failure, success } from "../../../../response";
 import { executeAdmin } from "../../../module";
 import { env } from "@/lib/env";
@@ -34,7 +33,7 @@ const cloneSeasonSchema = z.object({
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const seasons = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database }) => listHarvestSeasons(database, productId) });
+    const seasons = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database, context }) => listAdminSeasons(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, productId) });
     return success(seasons);
   } catch (error) {
     return failure(error);
