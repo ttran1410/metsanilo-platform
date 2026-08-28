@@ -34,6 +34,7 @@ import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-t
 import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspace-provider";
 import { ProductArchiveDialog, ProductDeleteDialog, ProductRestoreDialog } from "./product-action-dialogs";
 import { archiveProduct, deleteProduct, reorderProducts, restoreProduct, updateProduct } from "./product-admin-actions";
+import { parseProductsUrlState, serializeProductsUrlState } from "../products-url-state";
 
 type ProductRow = {
   product: typeof products.$inferSelect;
@@ -49,7 +50,6 @@ type ProductRow = {
 };
 
 type ActiveTab = "general" | "packages" | "media" | "channels";
-type FilterStatus = "all" | "in_season" | "upcoming" | "archived";
 
 function todayStr() {
   const d = new Date();
@@ -77,13 +77,7 @@ function ProductWorkspaceContent({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    if (selectedId) next.set("product", selectedId); else next.delete("product");
-    if (searchQuery) next.set("q", searchQuery); else next.delete("q");
-    if (filterStatus !== "all") next.set("status", filterStatus); else next.delete("status");
-    if (activeTab !== "general") next.set("tab", activeTab); else next.delete("tab");
-    if (viewMode !== "split") next.set("view", viewMode); else next.delete("view");
-    if (currentPage > 1) next.set("page", String(currentPage)); else next.delete("page");
+    const next = serializeProductsUrlState(searchParams, { selectedId, searchQuery, filterStatus, activeTab, viewMode, page: currentPage });
     if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [activeTab, currentPage, filterStatus, router, searchParams, searchQuery, selectedId, viewMode]);
 
@@ -949,10 +943,6 @@ function ProductWorkspaceContent({
 
 export function MasterDetailWorkspace(props: { initialProducts: ProductRow[]; canManageProducts: boolean }) {
   const searchParams = useSearchParams();
-  const status = searchParams.get("status");
-  const tab = searchParams.get("tab");
-  const view = searchParams.get("view");
-  const initialFilterStatus: FilterStatus = status === "in_season" || status === "upcoming" || status === "archived" ? status : "all";
-  const initialActiveTab: ActiveTab = tab === "packages" || tab === "media" || tab === "channels" ? tab : "general";
-  return <ProductWorkspaceProvider initialSelectedId={searchParams.get("product") ?? props.initialProducts[0]?.product.id ?? ""} initialSearchQuery={searchParams.get("q") ?? ""} initialFilterStatus={initialFilterStatus} initialActiveTab={initialActiveTab} initialViewMode={view === "table" ? "table" : "split"}><ProductWorkspaceContent {...props} /></ProductWorkspaceProvider>;
+  const urlState = parseProductsUrlState(searchParams, props.initialProducts[0]?.product.id ?? "");
+  return <ProductWorkspaceProvider initialSelectedId={urlState.selectedId} initialSearchQuery={urlState.searchQuery} initialFilterStatus={urlState.filterStatus} initialActiveTab={urlState.activeTab} initialViewMode={urlState.viewMode}><ProductWorkspaceContent {...props} /></ProductWorkspaceProvider>;
 }
