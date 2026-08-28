@@ -6,7 +6,7 @@ import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { availability } from "@/db/schema";
 import { failure, success } from "../../../response";
-import { executeAdmin, parseJson, authenticateAdmin } from "../../module";
+import { executeAdmin, parseJson, authenticateAdmin, authenticateAdminAny } from "../../module";
 
 
 export const runtime = "nodejs";
@@ -25,6 +25,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await authenticateAdminAny(request, ["catalog.product.write", "catalog.product.delete"]);
     const parsed = command.safeParse(await parseJson<unknown>(request)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422);
     const { id } = await params;
     const actor = (await authenticateAdmin(request, parsed.data.action === "delete" ? "catalog.product.delete" : "catalog.product.write")).actor;
