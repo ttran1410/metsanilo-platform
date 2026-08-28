@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { del } from "@vercel/blob";
-import { and, eq } from "drizzle-orm";
+import { del, put } from "@vercel/blob";
+import { and, count, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, mediaAttachments, mediaAssets } from "@/db/schema";
+import { auditEntries, mediaAttachments, mediaAssets, products, shops } from "@/db/schema";
 import { DomainError } from "./errors";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
 
@@ -48,4 +48,27 @@ export async function deleteAdminMedia(database: Database, context: AdminActionC
   await database.delete(mediaAssets).where(and(eq(mediaAssets.id, assetId), eq(mediaAssets.shopId, context.shop.id)));
   await database.insert(auditEntries).values({ id: randomUUID(), shopId: context.shop.id, actor: context.actor.email ?? context.actor.id, action: "media.deleted", entityType: "product", entityId: row[0].attachment.productId ?? "", detailsJson: JSON.stringify({ assetId }), createdAt: new Date().toISOString() });
   return { deleted: true };
+}
+
+export type AdminMediaUploadInput = { productId: string | null; pageKey: string | null; file: File; altFi: string; altEn: string };
+export async function uploadAdminMedia(database: Database, context: AdminActionContext, input: AdminMediaUploadInput) {
+  assertAdminActionContext(context);
+  if (!input.productId && !input.pageKey) throw new DomainError("VALIDATION_ERROR", "Product or page key is required", 422);
+  if (input.file.size > 2 * 1024 * 1024) throw new DomainError("VALIDATION_ERROR", "Images must be 2 MB or smaller", 422);
+  if (input.productId) {
+    const product = await database.query.products.findFirst({ where: and(eq(products.id, input.productId), eq(products.shopId, context.shop.id)) });
+    if (!product) throw new DomainError("NOT_FOUND", "Product not found", 404);
+  }
+  const condition = input.productId ? and(eq(mediaAttachments.shopId, context.shop.id), eq(mediaAttachments.productId, input.productId)) : and(eq(mediaAttachments.shopId, context.shop.id), eq(mediaAttachments.pageKey, input.pageKey!));
+  const existing = await database.select({ total: count() }).from(mediaAttachments).where(condition);
+  const total = Number(existing[0]?.total ?? 0);
+  if (input.productId && total >= 4) throw new DomainError("MEDIA_LIMIT", "A product can have at most 4 images", 409);
+  const now = new Date().toISOString(); const assetId = randomUUID(); const attachmentId = randomUUID();
+  const blob = await put(`${input.productId ? `products/${input.productId}` : `pages/${input.pageKey}`}/${input.file.name}`, input.file, { access: "public", addRandomSuffix: true, contentType: input.file.type });
+  await database.insert(mediaAssets).values({ id: assetId, shopId: context.shop.id, url: blob.url, pathname: blob.pathname, mimeType: input.file.type, sizeBytes: input.file.size, altFi: input.altFi, altEn: input.altEn, captionFi: "", captionEn: "", active: true, createdAt: now });
+  await database.insert(mediaAttachments).values({ id: attachmentId, shopId: context.shop.id, assetId, productId: input.productId, pageKey: input.pageKey, sortOrder: total, isPrimary: total === 0 });
+  if (input.pageKey === "logo") await database.update(shops).set({ logoUrl: blob.url }).where(eq(shops.id, context.shop.id));
+  if (input.pageKey === "favicon") await database.update(shops).set({ faviconUrl: blob.url }).where(eq(shops.id, context.shop.id));
+  await database.insert(auditEntries).values({ id: randomUUID(), shopId: context.shop.id, actor: context.actor.email ?? context.actor.id, action: "media.uploaded", entityType: input.pageKey ? "page_media" : "product", entityId: input.pageKey ?? input.productId!, detailsJson: JSON.stringify({ assetId, sizeBytes: input.file.size, pageKey: input.pageKey }), createdAt: now });
+  return { ...blob, id: assetId, altFi: input.altFi, altEn: input.altEn, attachmentId };
 }
