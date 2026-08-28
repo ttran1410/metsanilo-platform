@@ -223,6 +223,11 @@ function UserWorkspaceContent({
   const searchParams = useSearchParams();
   const workspace = useUserWorkspace();
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, roleFilter, setRoleFilter, viewMode, setViewMode, mobileView, setMobileView, currentPage, setCurrentPage, pageSize, setPageSize, splitLimit, setSplitLimit } = workspace;
+  const urlQuery = parseUsersUrlState(searchParams, selectedId).searchQuery;
+
+  useEffect(() => {
+    if (searchQuery !== urlQuery) setSearchQuery(urlQuery);
+  }, [searchQuery, setSearchQuery, urlQuery]);
   const [usersList, setUsersList] = useState(initialUsers);
 
   const [sessions, setSessions] = useState<SessionItem[]>([]);

@@ -69,6 +69,11 @@ function ProductWorkspaceContent({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterStatus, setFilterStatus, activeTab, setActiveTab, viewMode, setViewMode, mobileView, setMobileView, currentPage, setCurrentPage, pageSize, setPageSize, splitLimit, setSplitLimit } = useProductWorkspace();
+  const urlQuery = parseProductsUrlState(searchParams, selectedId).searchQuery;
+
+  useEffect(() => {
+    if (searchQuery !== urlQuery) setSearchQuery(urlQuery);
+  }, [searchQuery, setSearchQuery, urlQuery]);
   const [productsList, setProductsList] = useState(initialProducts);
   const [loading, setLoading] = useState(loadInitialFromApi);
   const [serverTotal, setServerTotal] = useState<number | null>(null);

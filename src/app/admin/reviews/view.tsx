@@ -74,6 +74,10 @@ export function ReviewsManager({
   const initialUrlState = parseReviewsUrlState(searchParams);
   const [activeTab, setActiveTab] = useState<ReviewTab>(initialUrlState.activeTab);
   const [searchQuery, setSearchQuery] = useState(initialUrlState.searchQuery);
+
+  useEffect(() => {
+    if (searchQuery !== initialUrlState.searchQuery) setSearchQuery(initialUrlState.searchQuery);
+  }, [initialUrlState.searchQuery, searchQuery]);
   const [currentPage, setCurrentPage] = useState(initialUrlState.currentPage);
   const [pageSize, setPageSize] = useState(20);
   const [serverTotal, setServerTotal] = useState<number | null>(null);

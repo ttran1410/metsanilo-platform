@@ -166,6 +166,11 @@ function CustomerWorkspaceContent({
   const [customersList, setCustomersList] = useState<CustomerRow[]>(rawList);
   const customersRequestRef = useRef<AbortController | null>(null);
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterChip, setFilterChip, sortMode, setSortMode, workspaceView, setWorkspaceView, mobileView, setMobileView } = useCustomerQuery();
+  const urlQuery = parseCustomersUrlState(searchParams).searchQuery;
+
+  useEffect(() => {
+    if (searchQuery !== urlQuery) setSearchQuery(urlQuery);
+  }, [searchQuery, setSearchQuery, urlQuery]);
 
   const [tableSortField, setTableSortField] = useState<"name" | "volume" | "spend" | "status">("name");
   const [tableSortDirection, setTableSortDirection] = useState<"asc" | "desc">("asc");
