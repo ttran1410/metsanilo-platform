@@ -1,12 +1,7 @@
 import { z } from "zod";
 import { DomainError } from "@/domain/errors";
-import {
-  listNotifications,
-  type NotificationFilters,
-  type NotificationSeverity,
-  type NotificationStateFilter,
-} from "@/domain/notifications";
-import { markAdminFilteredNotificationsRead, markAdminNotificationReadState } from "@/domain/admin-notification-actions";
+import { type NotificationFilters, type NotificationSeverity, type NotificationStateFilter } from "@/domain/notifications";
+import { getAdminNotifications, markAdminFilteredNotificationsRead, markAdminNotificationReadState } from "@/domain/admin-notification-actions";
 import { env } from "@/lib/env";
 import { failure, success } from "../../response";
 import { executeAdmin, parseJson } from "../module";
@@ -45,14 +40,14 @@ export async function GET(request: Request) {
     const result = await executeAdmin(request, {
       permission: "notifications.read",
       parse: async () => new URL(request.url),
-      run: async (url, { database }) => {
+      run: async (url, { database, context }) => {
         const filters = filtersFromUrl(url);
-        const data = await listNotifications(database, {
+        return getAdminNotifications(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, {
           ...filters,
           page: Number(url.searchParams.get("page") || 1),
           pageSize: url.searchParams.get("view") === "recent" ? 6 : 20,
+          recent: url.searchParams.get("view") === "recent",
         });
-        return url.searchParams.get("view") === "recent" ? data.items : data;
       },
     });
     return success(result);
