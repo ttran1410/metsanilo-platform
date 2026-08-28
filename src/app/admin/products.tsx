@@ -12,9 +12,11 @@ type ProductRow = {
 export function ProductModule({
   initialProducts,
   canManageProducts,
+  loadInitialFromApi = false,
 }: {
   initialProducts: ProductRow[];
   canManageProducts: boolean;
+  loadInitialFromApi?: boolean;
 }) {
-  return <MasterDetailWorkspace initialProducts={initialProducts} canManageProducts={canManageProducts} />;
+  return <MasterDetailWorkspace initialProducts={initialProducts} canManageProducts={canManageProducts} loadInitialFromApi={loadInitialFromApi} />;
 }

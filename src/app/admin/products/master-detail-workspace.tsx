@@ -59,14 +59,17 @@ function todayStr() {
 function ProductWorkspaceContent({
   initialProducts,
   canManageProducts,
+  loadInitialFromApi = false,
 }: {
   initialProducts: ProductRow[];
   canManageProducts: boolean;
+  loadInitialFromApi?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterStatus, setFilterStatus, activeTab, setActiveTab, viewMode, setViewMode, mobileView, setMobileView, currentPage, setCurrentPage, pageSize, setPageSize, splitLimit, setSplitLimit } = useProductWorkspace();
   const [productsList, setProductsList] = useState(initialProducts);
+  const [loading, setLoading] = useState(loadInitialFromApi);
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showUnarchiveConfirm, setShowUnarchiveConfirm] = useState(false);
@@ -75,6 +78,20 @@ function ProductWorkspaceContent({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!loadInitialFromApi) return;
+    let active = true;
+    void fetch("/api/admin/products", { cache: "no-store", headers: { "x-admin-request-scope": "products-list" } })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message ?? "Products unavailable");
+        if (active) setProductsList(Array.isArray(body.data) ? body.data : body.data.items ?? []);
+      })
+      .catch(() => undefined)
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [loadInitialFromApi]);
 
   useEffect(() => {
     const next = serializeProductsUrlState(searchParams, { selectedId, searchQuery, filterStatus, activeTab, viewMode, page: currentPage });
@@ -941,7 +958,7 @@ function ProductWorkspaceContent({
   );
 }
 
-export function MasterDetailWorkspace(props: { initialProducts: ProductRow[]; canManageProducts: boolean }) {
+export function MasterDetailWorkspace(props: { initialProducts: ProductRow[]; canManageProducts: boolean; loadInitialFromApi?: boolean }) {
   const searchParams = useSearchParams();
   const urlState = parseProductsUrlState(searchParams, props.initialProducts[0]?.product.id ?? "");
   return <ProductWorkspaceProvider initialSelectedId={urlState.selectedId} initialSearchQuery={urlState.searchQuery} initialFilterStatus={urlState.filterStatus} initialActiveTab={urlState.activeTab} initialViewMode={urlState.viewMode}><ProductWorkspaceContent {...props} /></ProductWorkspaceProvider>;
