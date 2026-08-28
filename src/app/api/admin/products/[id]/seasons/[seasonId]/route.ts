@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { db } from "@/db/client";
-import { authenticateAdmin, parseJson } from "../../../../module";
+import { parseJson } from "../../../../module";
 import { DomainError } from "@/domain/errors";
 import { getHarvestSeasonSummary } from "@/domain/seasons";
 import { deleteAdminSeason, extendAdminSeason, updateAdminSeason } from "@/domain/admin-season-actions";
@@ -41,31 +40,9 @@ export async function PATCH(
   context: { params: Promise<{ id: string; seasonId: string }> }
 ) {
   try {
-    const actor = (await authenticateAdmin(request, "catalog.product.write")).actor;
     const { seasonId } = await context.params;
-
-    const parsed = updateSeasonSchema.safeParse(await parseJson<unknown>(request));
-    if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season update payload", 422);
-
-    if (parsed.data.action === "extend") {
-      const extended = await extendAdminSeason(db(), { actor, shop: { id: env().SHOP_ID } }, seasonId, parsed.data.additionalDays ?? 7);
-      return success(extended);
-    }
-
-    const updated = await updateAdminSeason(
-      db(), { actor, shop: { id: env().SHOP_ID } }, seasonId,
-      {
-        nameFi: parsed.data.nameFi,
-        nameEn: parsed.data.nameEn,
-        startDate: parsed.data.startDate,
-        endDate: parsed.data.endDate,
-        status: parsed.data.status,
-        targetVolumeMl: parsed.data.targetVolumeMl,
-        notes: parsed.data.notes,
-      }
-    );
-
-    return success(updated);
+    const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async (incoming) => { const parsed = updateSeasonSchema.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season update payload", 422); return parsed.data; }, run: async (input, { database, context: { actor } }) => input.action === "extend" ? extendAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, seasonId, input.additionalDays ?? 7) : updateAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, seasonId, { nameFi: input.nameFi, nameEn: input.nameEn, startDate: input.startDate, endDate: input.endDate, status: input.status, targetVolumeMl: input.targetVolumeMl, notes: input.notes }) });
+    return success(result);
   } catch (error) {
     return failure(error);
   }
@@ -76,11 +53,9 @@ export async function DELETE(
   context: { params: Promise<{ id: string; seasonId: string }> }
 ) {
   try {
-    const actor = (await authenticateAdmin(request, "catalog.product.write")).actor;
     const { seasonId } = await context.params;
-
-    await deleteAdminSeason(db(), { actor, shop: { id: env().SHOP_ID } }, seasonId);
-    return success({ deleted: true });
+    const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async () => seasonId, run: async (id, { database, context: { actor } }) => { await deleteAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, id); return { deleted: true }; } });
+    return success(result);
   } catch (error) {
     return failure(error);
   }
