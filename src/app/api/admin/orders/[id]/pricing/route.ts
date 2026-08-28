@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { db } from "@/db/client";
 import { updateAdminOrderPricing } from "@/domain/admin-order-actions";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../../response";
-import { authenticateAdmin, parseJson } from "../../../module";
+import { executeAdmin, parseJson } from "../../../module";
 
 
 export const dynamic = "force-dynamic";
@@ -17,7 +16,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const parsed = command.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid order pricing", 422);
     const { id } = await params;
-    const actor = (await authenticateAdmin(request, "orders.update")).actor;
-    return success(await updateAdminOrderPricing(db(), { actor, shop: { id: env().SHOP_ID } }, { orderId: id, ...parsed.data }));
+    const result = await executeAdmin(request, { permission: "orders.update", parse: async () => ({ orderId: id, ...parsed.data }), run: async (input, { database, context: { actor } }) => updateAdminOrderPricing(database, { actor, shop: { id: env().SHOP_ID } }, input) });
+    return success(result);
   } catch (error) { return failure(error); }
 }
