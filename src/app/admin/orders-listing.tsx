@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Download, Filter, List, PackageCheck, Plus, Store } from "lucide-react";
@@ -210,6 +210,7 @@ export function OrdersListing({
   const [limit, setLimit] = useState(20);
   const [lastUpdated, setLastUpdated] = useState<string | null>(initialLoadedAt ?? null);
   const [inspectingId, setInspectingId] = useState<string | null>(null);
+  const ordersRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -245,20 +246,25 @@ export function OrdersListing({
   }, [search, from, to, method, status, source, entryType, view, archiveScope]);
 
   const refreshOrders = useCallback(async (announce = false) => {
+    ordersRequestRef.current?.abort();
+    const controller = new AbortController();
+    ordersRequestRef.current = controller;
     setLoading(true);
     try {
-      const response = await fetch("/api/admin/orders", { cache: "no-store" });
+      const response = await fetch("/api/admin/orders", { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "orders-list" } });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? "Order refresh failed");
       setRows(body.data);
       setLastUpdated(new Date().toISOString());
       if (announce) setNotice("Order queue synced.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed.");
+      if (!(err instanceof DOMException && err.name === "AbortError")) setError(err instanceof Error ? err.message : "Sync failed.");
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, []);
+
+  useEffect(() => () => ordersRequestRef.current?.abort(), []);
 
   useEffect(() => {
     if (!loadInitialFromApi) return;
