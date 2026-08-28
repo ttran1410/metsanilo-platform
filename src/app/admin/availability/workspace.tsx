@@ -453,6 +453,13 @@ export function AvailabilityWorkspace({
         </div>
       </section>
 
+      {workspaceLoading ? (
+        <section className="card py-12 text-center" role="status" aria-live="polite">
+          <LoaderCircle className="mx-auto mb-3 h-6 w-6 animate-spin" aria-hidden="true" />
+          <p className="font-semibold">Loading availability…</p>
+        </section>
+      ) : (
+        <>
       {/* VIEW MODE 1: CALENDAR WEEK TIMELINE VIEW (MON-SUN) */}
       {viewMode === "WEEK" && (
         <section className="availability-day-grid">
@@ -815,6 +822,9 @@ export function AvailabilityWorkspace({
           ))}
         </div>
       </section>
+
+        </>
+      )}
 
       {/* DATE INSPECTOR DRAWER */}
       {inspectingDate && (
