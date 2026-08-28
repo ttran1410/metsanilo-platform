@@ -7,6 +7,7 @@ import { AdminNotice, AdminStatusBadge, useAdminDialogFocus } from "../../presen
 import { getLifecycleSteps } from "@/domain/order-transitions";
 import { IconCopy } from "../../ui/admin-row-action-menu";
 import { useOrderDeleteActionController } from "../use-order-delete-action-controller";
+import { useOrderDetailActionController } from "../use-order-detail-action-controller";
 
 type Snapshot = { address?: string; nameEn?: string; instructionsEn?: string };
 
@@ -105,6 +106,7 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
   const deleteDialogRef = useAdminDialogFocus(pendingDelete, () => setPendingDelete(false));
   const [recordTab, setRecordTab] = useState<"notes" | "audit">("notes");
   const deleteOrder = useOrderDeleteActionController({ onError: setMessage });
+  const submitOrderAction = useOrderDetailActionController({ onError: (message) => setModalError(message) });
 
   const lifecycle: string[] = getLifecycleSteps(detail.order.fulfillmentMethod);
   const isClosed = ["CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "DELIVERED", "PICKED_UP", "REFUNDED"].includes(detail.order.status);
@@ -172,7 +174,6 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
 
     try {
       const values = new FormData(formElement);
-      const endpoint = kind === "note" ? "notes" : kind === "payment" ? "payment" : kind === "pricing" ? "pricing" : "delivery-exception";
       const payload =
         kind === "note"
           ? { body: values.get("body") }
@@ -187,27 +188,14 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
             }
           : { type: values.get("type"), nextAction: values.get("nextAction"), note: values.get("note"), rescheduledDate: values.get("rescheduledDate") || undefined };
 
-      const response = await fetch(`/api/admin/orders/${detail.order.id}/${endpoint}`, {
-        method: kind === "note" || kind === "payment" || kind === "exception" ? "POST" : "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const body = await response.json();
-      if (!response.ok) {
-        const errText = body.message ?? body.code ?? "Order update failed";
-        if (kind !== "note") {
-          setModalError(errText);
-        } else {
-          setMessage(errText);
-        }
-        return;
-      }
+      const result = await submitOrderAction(detail.order.id, kind, payload);
+      if (!result.ok) return;
 
       formElement.reset();
       setActiveModal(null);
       setModalError("");
-      if (body.data && "order" in body.data) {
-        setDetail(body.data);
+      if (result.data && typeof result.data === "object" && "order" in result.data) {
+        setDetail(result.data as Detail);
       }
       await refresh();
       setMessage(`Order ${kind} recorded.`);
