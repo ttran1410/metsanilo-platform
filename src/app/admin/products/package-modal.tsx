@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import type { packages } from "@/db/schema";
 import { AdminNotice, useAdminDialogFocus } from "../presentation";
+import { usePackageEditorController } from "./use-package-editor-controller";
 
 type PackageRow = typeof packages.$inferSelect;
 
@@ -19,8 +20,6 @@ export function PackageModal({
 }) {
   const isEditing = Boolean(editingPackage);
   const dialogRef = useAdminDialogFocus(true, onClose);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
 
   const [labelFi, setLabelFi] = useState(editingPackage?.labelFi ?? "");
   const [labelEn, setLabelEn] = useState(editingPackage?.labelEn ?? "");
@@ -33,61 +32,7 @@ export function PackageModal({
   const [active, setActive] = useState(editingPackage?.active ?? true);
   const [isDefault, setIsDefault] = useState(editingPackage?.isDefault ?? false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setBusy(true);
-
-    const litresNum = Number(volumeLitres);
-    const eurosNum = Number(priceEuros);
-
-    if (!labelFi.trim() || !labelEn.trim()) {
-      setBusy(false);
-      return setError("Both Finnish and English package labels are required.");
-    }
-    if (isNaN(litresNum) || litresNum <= 0) {
-      setBusy(false);
-      return setError("Package volume must be greater than 0 Litres.");
-    }
-    if (isNaN(eurosNum) || eurosNum < 0) {
-      setBusy(false);
-      return setError("Package price must be 0 or greater.");
-    }
-
-    const payload = {
-      labelFi: labelFi.trim(),
-      labelEn: labelEn.trim(),
-      volumeMl: Math.round(litresNum * 1000),
-      priceCents: Math.round(eurosNum * 100),
-      active,
-      isDefault,
-    };
-
-    try {
-      const url = editingPackage ? `/api/admin/packages/${editingPackage.id}` : `/api/admin/products/${productId}/packages`;
-      const method = editingPackage ? "PATCH" : "POST";
-      const bodyPayload = editingPackage ? { action: "update", package: payload } : payload;
-
-      const response = await fetch(url, {
-        method,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(bodyPayload),
-      });
-
-      const body = await response.json();
-      setBusy(false);
-
-      if (!response.ok) {
-        return setError(body.message ?? body.code ?? "Could not save package.");
-      }
-
-      onSaved();
-      onClose();
-    } catch {
-      setBusy(false);
-      setError("An unexpected network error occurred.");
-    }
-  }
+  const { error, busy, handleSubmit } = usePackageEditorController({ productId, editingPackage, values: { labelFi, labelEn, volumeLitres, priceEuros, active, isDefault }, onClose, onSaved });
 
   return (
     <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
