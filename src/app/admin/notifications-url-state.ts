@@ -12,7 +12,7 @@ export function parseNotificationsUrlState(params: URLSearchParams): Notificatio
   const state = params.get("state");
   const severity = params.get("severity");
   return {
-    state: state === "READ" || state === "UNREAD" ? state : "ALL",
+    state: state === "READ" || state === "ALL" ? state : "UNREAD",
     category: params.get("category") ?? undefined,
     severity: severity === "HIGH" || severity === "STANDARD" || severity === "INFO" ? severity : undefined,
     query: params.get("q") ?? undefined,

@@ -8,9 +8,9 @@ describe("Notifications URL state", () => {
     });
   });
 
-  it("falls back to ALL and page one for invalid values", () => {
+  it("falls back to the server default UNREAD and page one for invalid values", () => {
     expect(parseNotificationsUrlState(new URLSearchParams("state=ARCHIVED&severity=LOW&page=0"))).toEqual({
-      state: "ALL", category: undefined, severity: undefined, query: undefined, page: 1,
+      state: "UNREAD", category: undefined, severity: undefined, query: undefined, page: 1,
     });
   });
 
