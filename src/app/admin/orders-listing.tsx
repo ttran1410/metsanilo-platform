@@ -247,12 +247,22 @@ export function OrdersListing({
     ordersRequestRef.current = controller;
     setLoading(true);
     try {
-      const response = await fetch("/api/admin/orders", { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "orders-list" } });
+      const params = new URLSearchParams({ q: search.trim(), page: String(page), pageSize: String(limit), includeCounts: "true" });
+      if (view === "TRIAGE") params.set("triage", "true");
+      if (view === "UNPAID") params.set("unpaid", "true");
+      if (status !== "ALL") params.set("status", status === "FULFILLED" ? "PICKED_UP" : status === "READY_STAGE" ? "READY" : status);
+      if (method !== "ALL") params.set("fulfillmentMethod", method);
+      if (source !== "ALL") params.set("source", source);
+      if (entryType !== "ALL") params.set("historicalEntry", entryType === "HISTORICAL_ONLY" ? "true" : "false");
+      if (archiveScope !== "ALL") params.set("archived", archiveScope === "ARCHIVED_ONLY" ? "true" : "false");
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      const response = await fetch(`/api/admin/orders?${params.toString()}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "orders-list" } });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? "Order refresh failed");
       setRows(Array.isArray(body.data) ? body.data : body.data.items ?? []);
-      setServerTotal(null);
-      setServerQuickViewCounts(null);
+      setServerTotal(Array.isArray(body.data) ? null : body.data.total ?? 0);
+      setServerQuickViewCounts(Array.isArray(body.data) ? null : body.data.quickViewCounts ?? null);
       setLastUpdated(new Date().toISOString());
       if (announce) setNotice("Order queue synced.");
     } catch (err) {
@@ -260,7 +270,7 @@ export function OrdersListing({
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, []);
+  }, [archiveScope, entryType, from, limit, method, page, search, source, status, to, view]);
 
   useEffect(() => () => ordersRequestRef.current?.abort(), []);
 
