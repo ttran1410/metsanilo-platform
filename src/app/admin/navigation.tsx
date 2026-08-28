@@ -43,8 +43,17 @@ let navigationSummaryPromise: Promise<{ triageCount: number; unreadCount: number
 let navigationSummaryFetchedAt = 0;
 let navigationOrderSearchPromise: Promise<OrderResult[]> | null = null;
 
+type NavigationSummaryCache = {
+  promise: Promise<{ triageCount: number; unreadCount: number } | null>;
+  fetchedAt: number;
+};
+
 function fetchNavigationSummary() {
   const now = Date.now();
+  const browserCache = typeof window !== "undefined"
+    ? (window as Window & { __metsaniloNavigationSummary?: NavigationSummaryCache }).__metsaniloNavigationSummary
+    : undefined;
+  if (browserCache && now - browserCache.fetchedAt < 15_000) return browserCache.promise;
   if (navigationSummaryPromise && now - navigationSummaryFetchedAt < 15_000) return navigationSummaryPromise;
   navigationSummaryFetchedAt = now;
   navigationSummaryPromise = fetch("/api/admin/navigation-summary", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-summary" } })
@@ -54,6 +63,9 @@ function fetchNavigationSummary() {
       return { triageCount: body.data?.triageCount ?? 0, unreadCount: body.data?.unreadCount ?? 0 };
     })
     .catch(() => null);
+  if (typeof window !== "undefined") {
+    (window as Window & { __metsaniloNavigationSummary?: NavigationSummaryCache }).__metsaniloNavigationSummary = { promise: navigationSummaryPromise, fetchedAt: now };
+  }
   return navigationSummaryPromise;
 }
 
