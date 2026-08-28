@@ -211,6 +211,9 @@ export function OrdersListing({
   const [lastUpdated, setLastUpdated] = useState<string | null>(initialLoadedAt ?? null);
   const [inspectingId, setInspectingId] = useState<string | null>(null);
   const ordersRequestRef = useRef<AbortController | null>(null);
+  const initialLoadCompleteRef = useRef(false);
+  const [serverTotal, setServerTotal] = useState<number | null>(null);
+  const [serverQuickViewCounts, setServerQuickViewCounts] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -255,7 +258,9 @@ export function OrdersListing({
       const response = await fetch("/api/admin/orders", { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "orders-list" } });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? "Order refresh failed");
-      setRows(body.data);
+      setRows(Array.isArray(body.data) ? body.data : body.data.items ?? []);
+      setServerTotal(null);
+      setServerQuickViewCounts(null);
       setLastUpdated(new Date().toISOString());
       if (announce) setNotice("Order queue synced.");
     } catch (err) {
@@ -269,9 +274,38 @@ export function OrdersListing({
 
   useEffect(() => {
     if (!loadInitialFromApi) return;
-    const initial = window.setTimeout(() => void refreshOrders(), 0);
+    const initial = window.setTimeout(async () => { await refreshOrders(); initialLoadCompleteRef.current = true; }, 0);
     return () => window.clearTimeout(initial);
   }, [loadInitialFromApi, refreshOrders]);
+
+  useEffect(() => {
+    if (!loadInitialFromApi || !initialLoadCompleteRef.current || view === "TRIAGE" || view === "UNPAID") return;
+    const controller = new AbortController();
+    ordersRequestRef.current?.abort();
+    ordersRequestRef.current = controller;
+    const timer = window.setTimeout(async () => {
+      const params = new URLSearchParams({ q: search.trim(), page: String(page), pageSize: String(limit), includeCounts: "true" });
+      if (status !== "ALL") params.set("status", status === "FULFILLED" ? "PICKED_UP" : status === "READY_STAGE" ? "READY" : status);
+      if (method !== "ALL") params.set("fulfillmentMethod", method);
+      if (source !== "ALL") params.set("source", source === "MANUAL" ? "MANUAL" : source);
+      if (entryType !== "ALL") params.set("historicalEntry", entryType === "HISTORICAL_ONLY" ? "true" : "false");
+      if (archiveScope !== "ALL") params.set("archived", archiveScope === "ARCHIVED_ONLY" ? "true" : "false");
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      try {
+        const response = await fetch(`/api/admin/orders?${params.toString()}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "orders-list" } });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message ?? "Order query failed");
+        setRows(body.data.items ?? []);
+        setServerTotal(body.data.total ?? 0);
+        setServerQuickViewCounts(body.data.quickViewCounts ?? null);
+        setLastUpdated(new Date().toISOString());
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) setError(error instanceof Error ? error.message : "Order query failed");
+      }
+    }, search.trim() ? 300 : 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [archiveScope, entryType, from, limit, loadInitialFromApi, method, page, search, source, status, to, view]);
 
   const selectQuickView = useCallback((targetView: OrdersView, customStatus?: string) => {
     setView(targetView);
@@ -416,7 +450,7 @@ export function OrdersListing({
     return count;
   }, [datePreset, status, method, source, entryType, archiveScope, search]);
 
-  const quickViewCounts = useMemo(() => {
+  const computedQuickViewCounts = useMemo(() => {
     const day = todayStr();
     const activeRows = rows.filter((o) => !o.archived);
     return {
@@ -430,6 +464,7 @@ export function OrdersListing({
       ARCHIVED: rows.filter((o) => Boolean(o.archived)).length,
     };
   }, [rows]);
+  const quickViewCounts = serverQuickViewCounts ?? computedQuickViewCounts;
 
   const matchesQuickView = useCallback((order: AdminOrder, selectedView: OrdersView, scope: ArchiveScope) => {
     const day = todayStr();
@@ -526,8 +561,8 @@ export function OrdersListing({
 
   const visibleRows = useMemo(() => {
     const start = (page - 1) * limit;
-    return sortedRows.slice(start, start + limit);
-  }, [sortedRows, page, limit]);
+    return serverTotal !== null ? sortedRows : sortedRows.slice(start, start + limit);
+  }, [serverTotal, sortedRows, page, limit]);
 
   const selectedOrders = useMemo(() => {
     return rows.filter((order) => selected.includes(order.id));
@@ -1187,7 +1222,7 @@ export function OrdersListing({
           <AdminPagination
             page={page}
             limit={limit}
-            total={sortedRows.length}
+            total={serverTotal ?? sortedRows.length}
             onPageChange={setPage}
             onLimitChange={(newLimit) => setLimit(newLimit)}
             itemLabel="orders"
