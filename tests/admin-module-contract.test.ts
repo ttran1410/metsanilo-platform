@@ -17,7 +17,9 @@ describe("admin request module contract", () => {
     const fulfillment = await updateFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations/location-1", { method: "PATCH", body: "{" }), { params: Promise.resolve({ id: "location-1" }) });
     expect(payment.status).toBe(422);
     expect(fulfillment.status).toBe(422);
-    expect((await payment.json()).code).toBe("VALIDATION_ERROR");
-    expect((await fulfillment.json()).code).toBe("VALIDATION_ERROR");
+    expect(payment.headers.get("content-type")).toContain("application/json");
+    expect(fulfillment.headers.get("content-type")).toContain("application/json");
+    expect((await payment.json())).toMatchObject({ code: "VALIDATION_ERROR", correlationId: expect.any(String) });
+    expect((await fulfillment.json())).toMatchObject({ code: "VALIDATION_ERROR", correlationId: expect.any(String) });
   });
 });
