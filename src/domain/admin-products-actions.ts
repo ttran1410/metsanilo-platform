@@ -3,7 +3,7 @@ import type { Database } from "@/db/client";
 import { availability, orders } from "@/db/schema";
 import { env } from "@/lib/env";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
-import { createPackage as createPackageDomain, deletePackage as deletePackageDomain, deleteProduct as deleteProductDomain, getProductReadiness, listManagerProducts, reorderPackages as reorderPackagesDomain, setDefaultPackage as setDefaultPackageDomain, setProductActive, updatePackage as updatePackageDomain, updateProduct as updateProductDomain, reorderProducts as reorderProductsDomain, type ProductInput } from "./products";
+import { createPackage as createPackageDomain, createProduct as createProductDomain, deletePackage as deletePackageDomain, deleteProduct as deleteProductDomain, getProductReadiness, listManagerProducts, reorderPackages as reorderPackagesDomain, setDefaultPackage as setDefaultPackageDomain, setProductActive, updatePackage as updatePackageDomain, updateProduct as updateProductDomain, reorderProducts as reorderProductsDomain, type ProductInput } from "./products";
 type PackageInput = Parameters<typeof createPackageDomain>[2];
 
 export async function getAdminProductDetail(database: Database, context: AdminActionContext, productId: string) {
@@ -16,6 +16,16 @@ export async function getAdminProductDetail(database: Database, context: AdminAc
     database.select({ id: availability.id }).from(availability).where(and(eq(availability.productId, productId), eq(availability.shopId, context.shop.id))),
   ]);
   return { ...found, readiness: await getProductReadiness(database, productId), impact: { activeOrders: activeOrders.length, availabilityRows: availabilityRows.length } };
+}
+
+export function listAdminProducts(database: Database, context: AdminActionContext) {
+  assertAdminActionContext(context);
+  return listManagerProducts(database);
+}
+
+export function createAdminProduct(database: Database, context: AdminActionContext, input: Parameters<typeof createProductDomain>[1]) {
+  assertAdminActionContext(context);
+  return createProductDomain(database, input);
 }
 
 export async function archiveProduct(database: Database, context: AdminActionContext, productId: string) {
