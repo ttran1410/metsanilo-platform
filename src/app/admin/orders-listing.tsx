@@ -305,11 +305,11 @@ export function OrdersListing({
   useEffect(() => {
     async function loadSources() {
       try {
-        const response = await fetch("/api/admin/settings");
+        const response = await fetch("/api/admin/order-sources", { cache: "no-store" });
         const body = await response.json();
-        if (response.ok && body.data?.sources) {
+        if (response.ok && Array.isArray(body.data)) {
           setSources(
-            (body.data.sources as Array<{ key: string; labelEn: string }>).filter(
+            (body.data as Array<{ key: string; labelEn: string }>).filter(
               (s) => s.key !== "HISTORICAL"
             )
           );
