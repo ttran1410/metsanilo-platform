@@ -6,12 +6,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { CustomerAddressFields } from "@/app/customer-address-fields";
 
-type Product = {
+export type Product = {
   product: { id: string; nameFi: string; nameEn: string };
   packages: Array<{ id: string; productId: string; labelFi: string; labelEn: string; volumeMl: number; priceCents: number; active: boolean }>;
 };
 
-type AvailabilityItem = {
+export type AvailabilityItem = {
   availability: {
     id: string;
     productId: string;
@@ -24,7 +24,7 @@ type AvailabilityItem = {
   product: { id: string; nameFi: string; nameEn: string };
 };
 
-type Order = {
+export type Order = {
   id: string;
   version: number;
   productId: string;
