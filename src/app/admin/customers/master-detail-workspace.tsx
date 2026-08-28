@@ -15,6 +15,7 @@ import { CustomerSavedViews } from "./customer-saved-views";
 import { CustomerWorkspaceHeader } from "./customer-workspace-header";
 import { CustomerRecordList } from "./customer-record-list";
 import { CustomerInspector } from "./customer-inspector";
+import { parseCustomersUrlState, serializeCustomersUrlState } from "../customers-url-state";
 
 export type CustomerRow = {
   id: string;
@@ -116,9 +117,8 @@ function CustomerWorkspaceProvider({ initialCustomers, initial, children }: { in
 export function MasterDetailCustomerWorkspace(props: Parameters<typeof CustomerWorkspaceContent>[0]) {
   const rawList = Array.isArray(props.initialCustomers) ? props.initialCustomers : props.initialCustomers.items;
   const searchParams = useSearchParams();
-  const filter = searchParams.get("filter");
-  const sort = searchParams.get("sort");
-  return <CustomerWorkspaceProvider initialCustomers={rawList} initial={{ selectedId: searchParams.get("customer") ?? undefined, searchQuery: searchParams.get("q") ?? undefined, filterChip: filter === "vip" || filter === "conflicts" || filter === "consent" ? filter : undefined, sortMode: sort === "spend_desc" || sort === "litres_desc" || sort === "name_asc" ? sort : undefined, workspaceView: searchParams.get("view") === "table" ? "table" : "split" }}><CustomerWorkspaceContent {...props} /></CustomerWorkspaceProvider>;
+  const urlState = parseCustomersUrlState(searchParams);
+  return <CustomerWorkspaceProvider initialCustomers={rawList} initial={{ selectedId: urlState.selectedId || undefined, searchQuery: urlState.searchQuery, filterChip: urlState.filterChip, sortMode: urlState.sortMode, workspaceView: urlState.workspaceView }}><CustomerWorkspaceContent {...props} /></CustomerWorkspaceProvider>;
 }
 
 function useCustomerQuery() {
@@ -276,13 +276,7 @@ function CustomerWorkspaceContent({
   const [splitLimit, setSplitLimit] = useState(20);
 
   useEffect(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    if (selectedId) next.set("customer", selectedId); else next.delete("customer");
-    if (searchQuery) next.set("q", searchQuery); else next.delete("q");
-    if (filterChip !== "all") next.set("filter", filterChip); else next.delete("filter");
-    if (sortMode !== "recent") next.set("sort", sortMode); else next.delete("sort");
-    if (workspaceView !== "split") next.set("view", workspaceView); else next.delete("view");
-    if (page > 1) next.set("page", String(page)); else next.delete("page");
+    const next = serializeCustomersUrlState(searchParams, { selectedId, searchQuery, filterChip, sortMode, workspaceView, page });
     if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [filterChip, page, router, searchParams, searchQuery, selectedId, sortMode, workspaceView]);
 
