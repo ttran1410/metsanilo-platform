@@ -4,6 +4,16 @@ import type { Database } from "@/db/client";
 import { auditEntries, orders } from "@/db/schema";
 import { DomainError } from "./errors";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
+import { listManagerOrdersWithPaymentSummary } from "./orders";
+import { searchManagerOrders } from "./admin-search";
+import type { AdminListQuery } from "@/lib/admin-list-query";
+
+export type AdminOrdersQueryFilters = { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; from?: string; to?: string };
+export async function getAdminOrders(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminOrdersQueryFilters }) {
+  assertAdminActionContext(context);
+  if (query?.list) return searchManagerOrders(database, query.list, query.filters);
+  return listManagerOrdersWithPaymentSummary(database);
+}
 import { addDeliveryException, addOrderNote, archiveManagerOrder, confirmPickup, deleteManagerOrder, previewManagerOrderUpdate, recordPayment, recordRefund, setDeliveryFee, transitionOrder, unarchiveManagerOrder, updateManagerOrder } from "./orders";
 import type { PaymentMethod } from "./payment-methods";
 
