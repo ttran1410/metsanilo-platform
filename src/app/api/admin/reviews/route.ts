@@ -171,6 +171,7 @@ export async function PATCH(request: Request) {
       rejectionReason: z.enum(["SPAM", "PROFANITY", "UNRELATED", "COMPETITOR", "OTHER"]).optional(),
     }).safeParse(payload);
     if (bulk.success) {
+      if (!canModerate) return failure({ message: "Permission required: reviews.moderate", code: "FORBIDDEN", status: 403 });
       return success(await bulkModerateAdminReviews(db(), { actor, shop: { id: env().SHOP_ID } }, bulk.data));
     }
 
