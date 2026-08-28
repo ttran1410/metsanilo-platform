@@ -1,11 +1,10 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { getManagerReviewDetail } from "@/domain/reviews";
 import { failure, success } from "../../response";
 import { DomainError, fromZodError } from "@/domain/errors";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
 import { authenticateAdmin, executeAdmin, parseJson } from "../module";
-import { bulkModerateAdminReviews, confirmAdminReview, createAdminReview, deleteAdminReview, getAdminReviews, linkAdminReviewIdentity, moderateAdminReview, replyAdminToReview, updateAdminReview, updateAdminReviewPublicationIdentity } from "@/domain/admin-review-actions";
+import { bulkModerateAdminReviews, confirmAdminReview, createAdminReview, deleteAdminReview, getAdminReviewDetail, getAdminReviews, linkAdminReviewIdentity, moderateAdminReview, replyAdminToReview, updateAdminReview, updateAdminReviewPublicationIdentity } from "@/domain/admin-review-actions";
 import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -55,7 +54,7 @@ export async function GET(request: Request) {
       } });
     }
     const id = new URL(request.url).searchParams.get("id");
-    return id ? getManagerReviewDetail(database, id) : getAdminReviews(database, { actor: context.actor, shop: { id: env().SHOP_ID } });
+    return id ? getAdminReviewDetail(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, id) : getAdminReviews(database, { actor: context.actor, shop: { id: env().SHOP_ID } });
     } });
     return success(result);
   } catch (error) {
