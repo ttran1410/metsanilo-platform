@@ -4,7 +4,7 @@ import type { Database } from "@/db/client";
 import { auditEntries, orders } from "@/db/schema";
 import { DomainError } from "./errors";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
-import { getManagerOrder, listManagerOrdersWithPaymentSummary } from "./orders";
+import { getManagerOrder, getOrderQueue, listManagerOrdersWithPaymentSummary } from "./orders";
 import { listManagerProducts } from "./products";
 import { listManagerAvailability } from "./availability";
 import { searchManagerOrders } from "./admin-search";
@@ -26,6 +26,19 @@ export async function getAdminOrderEditData(database: Database, context: AdminAc
     listManagerAvailability(database),
   ]);
   return { detail, products, availabilityList };
+}
+
+export async function getAdminOrderQueue(database: Database, context: AdminActionContext, filters: Parameters<typeof getOrderQueue>[1] = {}) {
+  assertAdminActionContext(context);
+  return getOrderQueue(database, filters);
+}
+
+export async function getAdminOrdersForExport(database: Database, context: AdminActionContext, selectedIds: string[] = []) {
+  assertAdminActionContext(context);
+  const orders = await listManagerOrdersWithPaymentSummary(database);
+  if (!selectedIds.length) return orders;
+  const selected = new Set(selectedIds);
+  return orders.filter((order) => selected.has(order.id));
 }
 
 export async function getAdminOrders(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminOrdersQueryFilters; includeCounts?: boolean }) {

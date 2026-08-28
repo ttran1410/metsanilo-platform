@@ -1,4 +1,5 @@
-import { listManagerOrdersWithPaymentSummary } from "@/domain/orders";
+import { getAdminOrdersForExport } from "@/domain/admin-order-actions";
+import { env } from "@/lib/env";
 import { failure } from "../../../response";
 import { executeAdmin } from "../../module";
 
@@ -9,15 +10,10 @@ export async function GET(request: Request) {
     const ordersList = await executeAdmin(request, {
       permission: "orders.export",
       parse: async () => new URL(request.url).searchParams,
-      run: async (searchParams, { database }) => {
+      run: async (searchParams, { database, context }) => {
         const idsParam = searchParams.get("ids");
         const selectedIds = idsParam ? idsParam.split(",").filter(Boolean) : [];
-        let list = await listManagerOrdersWithPaymentSummary(database);
-        if (selectedIds.length > 0) {
-          const idSet = new Set(selectedIds);
-          list = list.filter((order) => idSet.has(order.id));
-        }
-        return list;
+        return getAdminOrdersForExport(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, selectedIds);
       },
     });
 
