@@ -22,6 +22,7 @@ import {
   updateFullReview,
   updateReviewPublicationIdentity,
 } from "@/domain/reviews";
+import { moderateAdminReview } from "@/domain/admin-review-actions";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-review-test-"));
 let databaseUrl = "";
@@ -29,6 +30,10 @@ let database: Database;
 let closeDatabase: () => void;
 
 describe("Review Engine & Social Proof Trust System", () => {
+  it("rejects review actions with a mismatched admin shop context", async () => {
+    await expect(moderateAdminReview(database, { actor: { id: "admin", role: "ADMIN", shopId: "shop-other" }, shop: { id: "shop-main" } }, { id: "review-1", status: "APPROVED" }))
+      .rejects.toThrow("Admin action context shop mismatch");
+  });
   beforeEach(async () => {
     databaseUrl = `file:${join(directory, `test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`)}`;
     process.env.TURSO_DATABASE_URL = databaseUrl;
