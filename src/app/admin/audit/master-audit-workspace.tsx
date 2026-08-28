@@ -32,6 +32,7 @@ import { AdminEmptyState, AdminNotice } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconEye, IconLink } from "../ui/admin-row-action-menu";
 import { DiffInspectorDrawer } from "./diff-inspector-drawer";
+import { parseAuditUrlState, serializeAuditUrlState } from "../audit-url-state";
 
 function ActionTypeIcon({ name }: { name: string }) {
   const props = { className: "w-3.5 h-3.5 stroke-[1.8] shrink-0" };
@@ -88,15 +89,16 @@ export function MasterAuditWorkspace({
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedAuditId, setSelectedAuditId] = useState<string | null>(searchParams.get("audit") ?? null);
+  const initialUrlState = parseAuditUrlState(searchParams);
+  const [selectedAuditId, setSelectedAuditId] = useState<string | null>(initialUrlState.selectedAuditId);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? searchParams.get("search") ?? "");
-  const [severityFilter, setSeverityFilter] = useState<AuditSeverity | "ALL">(() => (searchParams.get("severity") as AuditSeverity | "ALL") || "ALL");
-  const [categoryFilter, setCategoryFilter] = useState<AuditCategory | "ALL">(() => (searchParams.get("category") as AuditCategory | "ALL") || "ALL");
-  const [actorFilter, setActorFilter] = useState<string>(() => searchParams.get("actor") ?? "ALL");
-  const [dateRange, setDateRange] = useState<"24h" | "7d" | "30d" | "all">(() => (searchParams.get("dateRange") as "24h" | "7d" | "30d" | "all") || "7d");
-  const [currentPage, setCurrentPage] = useState(() => Number(searchParams.get("page") ?? "1") || 1);
+  const [searchQuery, setSearchQuery] = useState(initialUrlState.searchQuery);
+  const [severityFilter, setSeverityFilter] = useState<AuditSeverity | "ALL">(initialUrlState.severityFilter);
+  const [categoryFilter, setCategoryFilter] = useState<AuditCategory | "ALL">(initialUrlState.categoryFilter);
+  const [actorFilter, setActorFilter] = useState<string>(initialUrlState.actorFilter);
+  const [dateRange, setDateRange] = useState<"24h" | "7d" | "30d" | "all">(initialUrlState.dateRange);
+  const [currentPage, setCurrentPage] = useState(initialUrlState.currentPage);
   const [limitState, setLimitState] = useState(initialData.limit || 20);
 
   const selectedItem = useMemo(() => data.items.find((item) => item.id === selectedAuditId) ?? null, [data.items, selectedAuditId]);
@@ -184,14 +186,7 @@ export function MasterAuditWorkspace({
   const hasActiveCustomFilters = searchQuery !== "" || severityFilter !== "ALL" || categoryFilter !== "ALL" || actorFilter !== "ALL" || dateRange !== "7d";
 
   useEffect(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    if (searchQuery) next.set("q", searchQuery); else next.delete("q");
-    if (severityFilter !== "ALL") next.set("severity", severityFilter); else next.delete("severity");
-    if (categoryFilter !== "ALL") next.set("category", categoryFilter); else next.delete("category");
-    if (actorFilter !== "ALL") next.set("actor", actorFilter); else next.delete("actor");
-    if (dateRange !== "7d") next.set("dateRange", dateRange); else next.delete("dateRange");
-    if (currentPage > 1) next.set("page", String(currentPage)); else next.delete("page");
-    if (selectedAuditId) next.set("audit", selectedAuditId); else next.delete("audit");
+    const next = serializeAuditUrlState(searchParams, { searchQuery, severityFilter, categoryFilter, actorFilter, dateRange, currentPage, selectedAuditId });
     if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [actorFilter, categoryFilter, currentPage, dateRange, router, searchParams, searchQuery, selectedAuditId, severityFilter]);
 
