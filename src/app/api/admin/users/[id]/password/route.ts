@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditEntries, authAccounts, users } from "@/db/schema";
-import { requirePermission } from "@/domain/access";
+import { authenticateAdmin } from "../../../module";
 import { DomainError } from "@/domain/errors";
 import { hashPassword, randomPassword } from "@/domain/passwords";
 import { env } from "@/lib/env";
@@ -10,7 +10,7 @@ import { failure, success } from "../../../../response";
 export const runtime = "nodejs";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requirePermission(db(), request, "shop_users.password_reset");
+    const actor = (await authenticateAdmin(request, "shop_users.password_reset")).actor;
     const { id } = await context.params;
     if (actor.id === id) throw new DomainError("FORBIDDEN", "Use change password for your own account", 403);
     const target = await db().query.users.findFirst({ where: and(eq(users.id, id), eq(users.shopId, env().SHOP_ID), eq(users.active, true)) });

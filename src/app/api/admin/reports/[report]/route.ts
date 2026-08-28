@@ -1,8 +1,8 @@
 import { db } from "@/db/client";
-import { requirePermission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { getReport, reportCsv, type ReportKey } from "@/domain/reports";
 import { failure, success } from "../../../response";
+import { authenticateAdmin } from "../../module";
 
 export const runtime = "nodejs";
 
@@ -23,7 +23,7 @@ export async function GET(request: Request, context: { params: Promise<{ report:
     const { report: rawReport } = await context.params;
     if (!(rawReport in permissions)) throw new DomainError("NOT_FOUND", "Report not found", 404);
     const report = rawReport as ReportKey;
-    await requirePermission(db(), request, permissions[report]);
+    await authenticateAdmin(request, permissions[report]);
     const url = new URL(request.url);
     const today = new Date().toISOString().slice(0, 10);
     const from = validDate(url.searchParams.get("from"), today);

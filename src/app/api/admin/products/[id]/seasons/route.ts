@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { requirePermission } from "@/domain/access";
+import { authenticateAdmin, parseJson } from "../../../module";
 import { DomainError } from "@/domain/errors";
 import { cloneHarvestSeason, createHarvestSeason, listHarvestSeasons } from "@/domain/seasons";
 import { failure, success } from "../../../../response";
+import { executeAdmin } from "../../../module";
 
 export const runtime = "nodejs";
 
@@ -31,9 +32,8 @@ const cloneSeasonSchema = z.object({
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission(db(), request, "catalog.product.read");
     const { id } = await context.params;
-    const seasons = await listHarvestSeasons(db(), id);
+    const seasons = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database }) => listHarvestSeasons(database, productId) });
     return success(seasons);
   } catch (error) {
     return failure(error);
@@ -42,11 +42,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requirePermission(db(), request, "catalog.product.write");
+    const actor = (await authenticateAdmin(request, "catalog.product.write")).actor;
     const actorName = actor.email ?? actor.username ?? actor.id;
     const { id } = await context.params;
 
-    const payload = await request.json();
+    const payload = await parseJson<unknown>(request);
     const clone = cloneSeasonSchema.safeParse(payload);
     if (clone.success) {
       const season = await cloneHarvestSeason(db(), clone.data.sourceSeasonId, clone.data, actorName, id);

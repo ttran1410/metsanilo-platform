@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { requirePermission } from "@/domain/access";
+import { authenticateAdmin, parseJson } from "../../../../module";
 import { DomainError } from "@/domain/errors";
 import { deleteHarvestSeason, extendHarvestSeason, getHarvestSeasonSummary, updateHarvestSeason } from "@/domain/seasons";
 import { failure, success } from "../../../../../response";
+import { executeAdmin } from "../../../../module";
 
 export const runtime = "nodejs";
 
@@ -12,9 +13,8 @@ export async function GET(
   context: { params: Promise<{ id: string; seasonId: string }> }
 ) {
   try {
-    await requirePermission(db(), request, "catalog.product.read");
     const { id, seasonId } = await context.params;
-    const summary = await getHarvestSeasonSummary(db(), seasonId);
+    const summary = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => ({ id, seasonId }), run: async ({ seasonId: selectedSeasonId }, { database }) => getHarvestSeasonSummary(database, selectedSeasonId) });
     if (summary.season.productId !== id) throw new DomainError("NOT_FOUND", "Harvest season not found", 404);
     return success(summary);
   } catch (error) {
@@ -39,11 +39,11 @@ export async function PATCH(
   context: { params: Promise<{ id: string; seasonId: string }> }
 ) {
   try {
-    const actor = await requirePermission(db(), request, "catalog.product.write");
+    const actor = (await authenticateAdmin(request, "catalog.product.write")).actor;
     const actorName = actor.email ?? actor.username ?? actor.id;
     const { seasonId } = await context.params;
 
-    const parsed = updateSeasonSchema.safeParse(await request.json());
+    const parsed = updateSeasonSchema.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season update payload", 422);
 
     if (parsed.data.action === "extend") {
@@ -77,7 +77,7 @@ export async function DELETE(
   context: { params: Promise<{ id: string; seasonId: string }> }
 ) {
   try {
-    const actor = await requirePermission(db(), request, "catalog.product.write");
+    const actor = (await authenticateAdmin(request, "catalog.product.write")).actor;
     const actorName = actor.email ?? actor.username ?? actor.id;
     const { seasonId } = await context.params;
 

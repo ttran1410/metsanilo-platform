@@ -7,7 +7,7 @@ import { archiveProduct, deleteProduct, restoreProduct, updateProduct } from "@/
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
-import { requirePermission } from "@/domain/access";
+import { executeAdmin, parseJson, authenticateAdmin } from "../../module";
 
 
 export const runtime = "nodejs";
@@ -16,31 +16,33 @@ const command = z.discriminatedUnion("action", [z.object({ action: z.literal("up
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission(db(), request, "catalog.product.read");
     const { id } = await params;
-    const all = await listManagerProducts(db());
-    const found = all.find((item) => item.product.id === id);
+    const result = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database }) => {
+    const all = await listManagerProducts(database);
+    const found = all.find((item) => item.product.id === productId);
     if (!found) throw new DomainError("NOT_FOUND", "Product not found", 404);
 
     const activeOrders = await db()
       .select({ id: orders.id })
       .from(orders)
-      .where(and(eq(orders.productId, id), eq(orders.shopId, env().SHOP_ID)));
+      .where(and(eq(orders.productId, productId), eq(orders.shopId, env().SHOP_ID)));
 
     const availabilityCount = await db()
       .select({ id: availability.id })
       .from(availability)
-      .where(and(eq(availability.productId, id), eq(availability.shopId, env().SHOP_ID)));
+      .where(and(eq(availability.productId, productId), eq(availability.shopId, env().SHOP_ID)));
 
-    const readiness = await getProductReadiness(db(), id);
-    return success({
+    const readiness = await getProductReadiness(database, productId);
+    return {
       ...found,
       readiness,
       impact: {
         activeOrders: activeOrders.length,
         availabilityRows: availabilityCount.length,
       },
-    });
+    };
+    } });
+    return success(result);
   } catch (error) {
     return failure(error);
   }
@@ -48,9 +50,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const parsed = command.safeParse(await request.json()); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422);
+    const parsed = command.safeParse(await parseJson<unknown>(request)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422);
     const { id } = await params;
-    const actor = await requirePermission(db(), request, parsed.data.action === "delete" ? "catalog.product.delete" : "catalog.product.write");
+    const actor = (await authenticateAdmin(request, parsed.data.action === "delete" ? "catalog.product.delete" : "catalog.product.write")).actor;
     const context = { actor, shop: { id: env().SHOP_ID } };
     if (parsed.data.action === "delete") return success(await deleteProduct(db(), context, id));
     if (parsed.data.action === "active") return success(await (parsed.data.active ? restoreProduct(db(), context, id) : archiveProduct(db(), context, id)));
@@ -59,5 +61,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try { const actor = await requirePermission(db(), request, "catalog.product.delete"); return success(await deleteProduct(db(), { actor, shop: { id: env().SHOP_ID } }, (await params).id)); } catch (error) { return failure(error); }
+  try { const actor = (await authenticateAdmin(request, "catalog.product.delete")).actor; return success(await deleteProduct(db(), { actor, shop: { id: env().SHOP_ID } }, (await params).id)); } catch (error) { return failure(error); }
 }

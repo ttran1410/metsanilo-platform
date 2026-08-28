@@ -13,11 +13,12 @@ import {
   updateFullReview,
   updateReviewPublicationIdentity,
 } from "@/domain/reviews";
-import { currentUser, hasUserPermission, requirePermission } from "@/domain/access";
+import { currentUser, hasUserPermission } from "@/domain/access";
 import { failure, success } from "../../response";
-import { fromZodError } from "@/domain/errors";
+import { DomainError, fromZodError } from "@/domain/errors";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
 import { searchManagerReviews } from "@/domain/admin-search";
+import { authenticateAdmin, executeAdmin, parseJson } from "../module";
 
 export const runtime = "nodejs";
 
@@ -44,10 +45,10 @@ const commandSchema = z.object({
 
 export async function GET(request: Request) {
   try {
-    await requirePermission(db(), request, "reviews.read");
+    const result = await executeAdmin(request, { permission: "reviews.read", parse: async () => undefined, run: async (_input, { database }) => {
     if (hasListQuery(request)) {
       const rating = adminQueryParam(request, "rating");
-      return success(await searchManagerReviews(db(), parseAdminListQuery(request), {
+      return searchManagerReviews(database, parseAdminListQuery(request), {
         status: adminQueryParam(request, "status"),
         rating: rating ? Number(rating) : undefined,
         verification: adminQueryParam(request, "verification"),
@@ -55,10 +56,12 @@ export async function GET(request: Request) {
         source: adminQueryParam(request, "source"),
         featured: adminQueryParam(request, "featured") === undefined ? undefined : adminQueryParam(request, "featured") === "true",
         hasReply: adminQueryParam(request, "hasReply") === "true" ? true : undefined,
-      }));
+      });
     }
     const id = new URL(request.url).searchParams.get("id");
-    return success(id ? await getManagerReviewDetail(db(), id) : await listManagerReviews(db()));
+    return id ? getManagerReviewDetail(database, id) : listManagerReviews(database);
+    } });
+    return success(result);
   } catch (error) {
     return failure(error);
   }
@@ -66,9 +69,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(db(), request, "reviews.create");
-    const parsed = z
-      .object({
+    const result = await executeAdmin(request, {
+      permission: "reviews.create",
+      parse: async (incoming) => {
+        const parsed = z.object({
         displayName: z.string().min(2).max(80),
         isAnonymous: z.boolean().optional(),
         reviewerName: z.string().max(80).optional(),
@@ -79,21 +83,21 @@ export async function POST(request: Request) {
         verifiedBuyer: z.boolean().optional(),
         acknowledgementSource: z.string().max(80).optional(),
         publicationConsentNote: z.string().max(500).optional(),
-      })
-      .safeParse(await request.json());
+        }).safeParse(await parseJson<unknown>(incoming));
 
-    if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid manual review payload"));
+      if (!parsed.success) throw fromZodError(parsed.error, "Invalid manual review payload");
 
-    if (parsed.data.verifiedBuyer && (!parsed.data.orderId || !parsed.data.orderId.trim())) {
-      return failure({
-        message: "Order Reference, Phone, Facebook Profile, or Email proof is required when marking as Verified Buyer.",
-        code: "VALIDATION_ERROR",
-        status: 422,
-      });
-    }
-
-    const actorName = actor.email ?? actor.username ?? actor.id;
-    return success(await createManualReview(db(), { ...parsed.data, actor: actorName }), 201);
+      if (parsed.data.verifiedBuyer && (!parsed.data.orderId || !parsed.data.orderId.trim())) {
+        throw new DomainError("VALIDATION_ERROR", "Order proof is required when marking as Verified Buyer.", 422);
+      }
+      return parsed.data;
+      },
+      run: async (input, { database, context: { actor } }) => {
+        const actorName = actor.email ?? actor.username ?? actor.id;
+        return createManualReview(database, { ...input, actor: actorName });
+      },
+    });
+    return success(result, 201);
   } catch (error) {
     return failure(error);
   }
@@ -101,7 +105,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const actor = await requirePermission(db(), request, "reviews.moderate");
+    const actor = (await authenticateAdmin(request, "reviews.moderate")).actor;
     const parsed = z
       .object({
         id: z.string().min(1),
@@ -119,7 +123,7 @@ export async function PUT(request: Request) {
         orderId: z.string().optional(),
         verifiedBuyer: z.boolean().optional(),
       })
-      .safeParse(await request.json());
+      .safeParse(await parseJson<unknown>(request));
 
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid edit review payload"));
 
@@ -156,7 +160,7 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const actor = await requirePermission(db(), request, "reviews.moderate");
+    const actor = (await authenticateAdmin(request, "reviews.moderate")).actor;
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     if (!id) return failure({ message: "Review ID required", code: "VALIDATION_ERROR", status: 400 });
@@ -172,7 +176,7 @@ export async function PATCH(request: Request) {
   try {
     const actor = await currentUser(db(), request);
     const canModerate = await hasUserPermission(db(), actor, "reviews.moderate");
-    const payload = await request.json();
+    const payload = await parseJson<Record<string, unknown>>(request);
     const bulk = z.object({
       action: z.literal("bulk_moderate"),
       ids: z.array(z.string().min(1)).min(1).max(100),
