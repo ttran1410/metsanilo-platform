@@ -15,6 +15,7 @@ import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-r
 import { UserQueryToolbar, type UserRoleFilter } from "./user-query-toolbar";
 import { UserWorkspaceProvider, useUserWorkspace } from "./user-workspace-provider";
 import { UserActionDialogs } from "./user-action-dialogs";
+import { UserProfileEditDialog } from "./user-profile-edit-dialog";
 import { usePermissionEditorController } from "./use-permission-editor-controller";
 import { useUserAccountActionController } from "./use-user-account-action-controller";
 import { useUserProfileEditorController } from "./use-user-profile-editor-controller";
@@ -900,64 +901,7 @@ function UserWorkspaceContent({
     )}
 
       {/* EDIT USER PROFILE MODAL */}
-      {editingUser && (
-        <div className="admin-dialog-backdrop">
-          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-line pb-2">
-              <h3 className="text-base font-bold text-ink flex items-center gap-2">
-                <Pencil aria-hidden="true" /> Edit profile and role
-              </h3>
-              <button type="button" className="admin-dialog-close" aria-label="Close edit profile" onClick={() => setEditingUser(null)}>
-                ×
-              </button>
-            </div>
-
-            <form className="space-y-4 text-xs" onSubmit={(e) => void handleSaveUserEdit(e)}>
-              <label className="field">
-                <span>Display Name</span>
-                <input name="displayName" defaultValue={editingUser.displayName} required minLength={2} maxLength={120} />
-              </label>
-
-              <label className="field">
-                <span>Email Address</span>
-                <div className="relative group">
-                  <input name="email" type="email" defaultValue={editingUser.email ?? ""} readOnly aria-readonly="true" title="Email address cannot be changed here" className="w-full pr-9" />
-                  <span title="Email address cannot be changed here"><LockKeyhole aria-label="Email address cannot be changed here" className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" /></span>
-                </div>
-              </label>
-
-              <label className="field">
-                <span>Assigned Role</span>
-                {(() => {
-                  const roleLocked = (actorId !== undefined && editingUser.id === actorId && (actorRole === "ADMIN" || actorRole === "MANAGER")) || (actorRole !== "ADMIN" && editingUser.role === "ADMIN");
-                  return (
-                    <div className="relative">
-                      <select name="role" defaultValue={editingUser.role} disabled={roleLocked} className={roleLocked ? "w-full pr-9" : "w-full"}>
-                        <option value="ADMIN" disabled={actorRole !== "ADMIN"}>
-                          {actorRole !== "ADMIN" ? "ADMIN (Requires Store Owner)" : "ADMIN"}
-                        </option>
-                        <option value="MANAGER">MANAGER</option>
-                        <option value="STAFF">STAFF</option>
-                        <option value="CONTENT_CREATOR">CONTENT_CREATOR</option>
-                      </select>
-                      {roleLocked && <span title="Your role cannot be changed here"><LockKeyhole aria-label="Your role cannot be changed here" className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" /></span>}
-                    </div>
-                  );
-                })()}
-              </label>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-line">
-                <button className="btn btn-secondary text-xs" type="button" disabled={savingEdit} onClick={() => setEditingUser(null)}>
-                  Cancel
-                </button>
-                <button className="btn text-xs font-bold min-w-[120px]" type="submit" disabled={savingEdit}>
-                  {savingEdit ? "Saving…" : "Save profile"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <UserProfileEditDialog user={editingUser} actorId={actorId} actorRole={actorRole} saving={savingEdit} onCancel={() => setEditingUser(null)} onSubmit={(event) => void handleSaveUserEdit(event)} />
 
       <UserActionDialogs
         actorRole={actorRole}
