@@ -13,6 +13,7 @@ import { createProduct, deleteProduct } from "@/domain/products";
 import { planAvailability, previewAvailabilityPlan, previewAvailabilityUpdate } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
 import { listPaymentMethods, setPaymentMethod } from "@/domain/payment-methods";
+import { getAdminOrderEditData } from "@/domain/admin-order-actions";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-test-"));
 let databaseUrl = "";
@@ -235,6 +236,15 @@ describe("availability planning", () => {
 });
 
 describe("order operations", () => {
+  it("returns the complete scoped order edit query contract", async () => {
+    const receipt = await submitOrder(database, pickupInput("order-edit-query"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    const result = await getAdminOrderEditData(database, { actor: { id: "admin", role: "ADMIN", shopId: "shop-main" }, shop: { id: "shop-main" } }, order.id);
+
+    expect(result.detail.order.id).toBe(order.id);
+    expect(result.products.length).toBeGreaterThan(0);
+    expect(result.availabilityList.length).toBeGreaterThan(0);
+  });
   it("returns filtered queue read models and non-mutating capacity previews", async () => {
     const created = await createExternalOrder(database, { ...pickupInput("queue-preview"), source: "PHONE", status: "CONFIRMED" });
     const confirmed = created;
