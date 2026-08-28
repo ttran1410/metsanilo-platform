@@ -1,5 +1,4 @@
-import { getManagerOrder } from "@/domain/orders";
-import { deleteAdminOrder, transitionAdminOrder, updateAdminOrder } from "@/domain/admin-order-actions";
+import { deleteAdminOrder, getAdminOrderDetail, transitionAdminOrder, updateAdminOrder } from "@/domain/admin-order-actions";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
 import { fromZodError } from "@/domain/errors";
@@ -13,7 +12,7 @@ export const revalidate = 0;
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const result = await executeAdmin(request, { permission: "orders.read", parse: async () => id, run: async (orderId, { database }) => getManagerOrder(database, orderId) });
+    const result = await executeAdmin(request, { permission: "orders.read", parse: async () => id, run: async (orderId, { database, context: { actor } }) => getAdminOrderDetail(database, { actor, shop: { id: env().SHOP_ID } }, orderId) });
     return success(result);
   } catch (error) {
     return failure(error);
@@ -72,7 +71,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         throw fromZodError(parsedTransition.error, "Unable to transition order status. Please check input parameters.");
       }
       const result = await executeAdmin(request, { permission: "orders.transition", parse: async () => parsedTransition.data, run: async (input, { database, context: { actor } }) => {
-        const version = input.expectedVersion ?? (await getManagerOrder(database, id)).order.version;
+        const version = input.expectedVersion ?? (await getAdminOrderDetail(database, { actor, shop: { id: env().SHOP_ID } }, id)).order.version;
         return transitionAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, { orderId: id, status: input.status, expectedVersion: version, reason: input.reason, contactChannel: input.contactChannel });
       } });
       return success(result);
