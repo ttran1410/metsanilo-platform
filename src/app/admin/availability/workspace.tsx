@@ -23,6 +23,27 @@ type QueueItem = Workspace["queues"]["picking"][number];
 type OrdersByDate = Record<string, DateOrdersEntry>;
 type ViewMode = "WEEK" | "MONTH" | "TABLE";
 
+const availabilityQueryCache = new Map<string, { startedAt: number; promise: Promise<{ ok: boolean; data?: Workspace }> }>();
+
+function fetchAvailabilityQuery(path: string) {
+  const now = Date.now();
+  const cached = availabilityQueryCache.get(path);
+  if (cached && now - cached.startedAt < 2_000) return cached.promise;
+  const promise = fetch(path)
+    .then(async (response) => {
+      const body = await response.json();
+      return { ok: response.ok, data: body.data as Workspace | undefined };
+    })
+    .finally(() => {
+      window.setTimeout(() => {
+        const current = availabilityQueryCache.get(path);
+        if (current?.promise === promise) availabilityQueryCache.delete(path);
+      }, 2_000);
+    });
+  availabilityQueryCache.set(path, { startedAt: now, promise });
+  return promise;
+}
+
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function litres(value: number) {
@@ -149,11 +170,10 @@ export function AvailabilityWorkspace({
         productId: requestedProductId,
         ...(seasonFilter !== "ALL" ? { seasonId: seasonFilter } : {}),
       });
-      const response = await fetch(`/api/admin/availability?${query}`);
-      const body = await response.json();
+      const result = await fetchAvailabilityQuery(`/api/admin/availability?${query}`);
       if (requestId !== workspaceRequestId.current) return;
-      if (response.ok && body.data) {
-        setWorkspace(body.data);
+      if (result.ok && result.data) {
+        setWorkspace(result.data);
       }
     } catch {
       if (requestId === workspaceRequestId.current) setError("Could not refresh availability data.");
