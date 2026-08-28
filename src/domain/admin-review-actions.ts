@@ -1,6 +1,6 @@
 import type { Database } from "@/db/client";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
-import { bulkModerateReviews, confirmManualReview, deleteReview, linkReviewToCustomerOrOrder, moderateReview, replyToReview, updateFullReview, updateReviewPublicationIdentity } from "./reviews";
+import { bulkModerateReviews, confirmManualReview, deleteReview, getReviewsVisibility, linkReviewToCustomerOrOrder, moderateReview, replyToReview, setReviewsVisibility, updateFullReview, updateReviewPublicationIdentity } from "./reviews";
 
 function actorName(context: AdminActionContext) {
   assertAdminActionContext(context);
@@ -30,3 +30,5 @@ export async function deleteAdminReview(database: Database, context: AdminAction
 
 export type AdminReviewConfirmationInput = Omit<Parameters<typeof confirmManualReview>[1], "actor">;
 export async function confirmAdminReview(database: Database, context: AdminActionContext, input: AdminReviewConfirmationInput) { return confirmManualReview(database, { ...input, actor: actorName(context) }); }
+export async function getAdminReviewsVisibility(database: Database, context: AdminActionContext) { assertAdminActionContext(context); return getReviewsVisibility(database); }
+export async function setAdminReviewsVisibility(database: Database, context: AdminActionContext, visible: boolean) { assertAdminActionContext(context); return setReviewsVisibility(database, visible); }

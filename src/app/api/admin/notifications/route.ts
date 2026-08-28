@@ -2,12 +2,12 @@ import { z } from "zod";
 import { DomainError } from "@/domain/errors";
 import {
   listNotifications,
-  markFilteredNotificationsRead,
-  markNotificationReadState,
   type NotificationFilters,
   type NotificationSeverity,
   type NotificationStateFilter,
 } from "@/domain/notifications";
+import { markAdminFilteredNotificationsRead, markAdminNotificationReadState } from "@/domain/admin-notification-actions";
+import { env } from "@/lib/env";
 import { failure, success } from "../../response";
 import { executeAdmin, parseJson } from "../module";
 
@@ -72,9 +72,9 @@ export async function POST(request: Request) {
       },
       run: async (input, { database, context: { actor } }) => {
         if (input.action === "read" || input.action === "unread") {
-          return markNotificationReadState(database, input.id, input.action === "read", actor.email ?? actor.id);
+          return markAdminNotificationReadState(database, { actor, shop: { id: env().SHOP_ID } }, input.id, input.action === "read");
         }
-        return markFilteredNotificationsRead(database, input.filters, actor.email ?? actor.id);
+        return markAdminFilteredNotificationsRead(database, { actor, shop: { id: env().SHOP_ID } }, input.filters);
       },
     });
     return success(result);
