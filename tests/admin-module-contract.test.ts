@@ -163,4 +163,10 @@ describe("admin request module contract", () => {
       expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
     }
   });
+
+  it("authenticates Availability commands before parsing malformed input", async () => {
+    const response = await updateAvailability(new Request("http://localhost/api/admin/availability/availability-1", { method: "PUT", body: "{" }), { params: Promise.resolve({ id: "availability-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
 });

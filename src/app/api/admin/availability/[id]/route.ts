@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { authenticateAdmin, parseJson } from "../../module";
+import { authenticateAdmin, authenticateAdminAny, parseJson } from "../../module";
 import { updateAdminAvailability } from "@/domain/admin-availability-actions";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
@@ -20,6 +20,7 @@ const command = z.object({
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await authenticateAdminAny(request, ["availability.write", "availability.sold_out", "availability.cutoff.override"]);
     const parsed = command.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability command", 422);
     const { id } = await params;

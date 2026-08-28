@@ -39,6 +39,15 @@ export async function authenticateAdmin(request: Request, permission: Permission
   return { actor, shop: { shopId: env().SHOP_ID } };
 }
 
+export async function authenticateAdminAny(request: Request, permissions: readonly Permission[]): Promise<AdminExecutionContext> {
+  const database = db();
+  const actor = await currentUser(database, request);
+  if (!(await Promise.all(permissions.map((permission) => hasUserPermission(database, actor, permission)))).some(Boolean)) {
+    throw new DomainError("FORBIDDEN", "Admin permission required", 403);
+  }
+  return { actor, shop: { shopId: env().SHOP_ID } };
+}
+
 export async function executeAdmin<TInput, TResult>(
   request: Request,
   definition: AdminDefinition<TInput, TResult>,

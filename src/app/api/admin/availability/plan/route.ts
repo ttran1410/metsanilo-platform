@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { authenticateAdmin, parseJson } from "../../module";
+import { authenticateAdmin, authenticateAdminAny, parseJson } from "../../module";
 import { planAdminAvailability, previewAdminAvailabilityPlan } from "@/domain/admin-availability-actions";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
@@ -23,6 +23,7 @@ const command = z.object({
 
 export async function POST(request: Request) {
   try {
+    await authenticateAdminAny(request, ["availability.write", "availability.sold_out"]);
     const parsed = command.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability plan", 422);
     const permission = parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write";
