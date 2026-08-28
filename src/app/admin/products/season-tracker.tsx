@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Calendar, Trash2 } from "lucide-react";
-import { AdminConfirmDialog } from "../presentation";
+import { SeasonWorkflowDialogs } from "./season-workflow-dialogs";
 import { useSeasonMutationController } from "./use-season-mutation-controller";
 import { useSeasonQueryController } from "./use-season-query-controller";
 
@@ -410,15 +410,7 @@ export function SeasonTracker({
           </div>
         </div>
       )}
-      <AdminConfirmDialog
-        open={deleteSeasonId !== null}
-        title="Delete harvest season?"
-        description="This removes the season configuration from this product. Existing order records and audit history are preserved."
-        confirmLabel="Delete season"
-        destructive
-        onCancel={() => setDeleteSeasonId(null)}
-        onConfirm={() => confirmDeleteSeason(deleteSeasonId)}
-      />
+      <SeasonWorkflowDialogs open={deleteSeasonId !== null} onCancel={() => setDeleteSeasonId(null)} onConfirm={() => confirmDeleteSeason(deleteSeasonId)} />
     </div>
   );
 }
