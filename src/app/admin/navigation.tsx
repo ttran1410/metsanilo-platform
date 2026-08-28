@@ -41,6 +41,7 @@ function formatAlertCount(count: number) {
 
 let navigationSummaryPromise: Promise<{ triageCount: number; unreadCount: number } | null> | null = null;
 let navigationSummaryFetchedAt = 0;
+let navigationOrderSearchPromise: Promise<OrderResult[]> | null = null;
 
 function fetchNavigationSummary() {
   const now = Date.now();
@@ -54,6 +55,18 @@ function fetchNavigationSummary() {
     })
     .catch(() => null);
   return navigationSummaryPromise;
+}
+
+function fetchNavigationOrderSearch() {
+  if (navigationOrderSearchPromise) return navigationOrderSearchPromise;
+  navigationOrderSearchPromise = fetch("/api/admin/orders", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-command-search" } })
+    .then(async (response) => {
+      if (!response.ok) return [];
+      const body = await response.json();
+      return Array.isArray(body.data) ? body.data as OrderResult[] : [];
+    })
+    .catch(() => []);
+  return navigationOrderSearchPromise;
 }
 
 function NavIcon({ id }: { id: string }) {
@@ -158,11 +171,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
 
   useEffect(() => {
     if (!paletteOpen || orders.length) return;
-    const initial = window.setTimeout(() => void fetch("/api/admin/orders", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-command-search" } }).then(async (response) => {
-      if (!response.ok) return;
-      const body = await response.json();
-      setOrders(body.data);
-    }).catch(() => undefined), 0);
+    const initial = window.setTimeout(() => void fetchNavigationOrderSearch().then(setOrders), 0);
     return () => window.clearTimeout(initial);
   }, [orders.length, paletteOpen]);
 
