@@ -26,6 +26,7 @@ import { POST as refundOrder } from "@/app/api/admin/orders/[id]/refund/route";
 import { PATCH as updateOrderMember } from "@/app/api/admin/orders/[id]/route";
 import { GET as getCustomerMember } from "@/app/api/admin/customers/[id]/route";
 import { POST as anonymizeCustomer } from "@/app/api/admin/customers/[id]/route";
+import { PATCH as updateCustomerMember } from "@/app/api/admin/customers/[id]/route";
 import { POST as confirmContact } from "@/app/api/admin/customers/[id]/contact-confirmation/route";
 import { GET as getUserMember } from "@/app/api/admin/users/[id]/route";
 import { PATCH as updateUser } from "@/app/api/admin/users/[id]/route";
@@ -180,6 +181,12 @@ describe("admin request module contract", () => {
 
   it("authenticates Order member commands before parsing malformed input", async () => {
     const response = await updateOrderMember(new Request("http://localhost/api/admin/orders/order-1", { method: "PATCH", body: "{" }), { params: Promise.resolve({ id: "order-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("authenticates Customer member commands before parsing malformed input", async () => {
+    const response = await updateCustomerMember(new Request("http://localhost/api/admin/customers/customer-1", { method: "PATCH", body: "{" }), { params: Promise.resolve({ id: "customer-1" }) });
     expect(response.status).toBe(401);
     expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
   });

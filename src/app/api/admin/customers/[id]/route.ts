@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import { authenticateAdmin, parseJson } from "../../module";
+import { authenticateAdmin, authenticateAdminAny, parseJson } from "../../module";
 import { getCustomerProfile } from "@/domain/customers";
 import { anonymizeAdminCustomer, executeAdminCustomerCommand } from "@/domain/admin-customer-actions";
 import { DomainError } from "@/domain/errors";
@@ -40,6 +40,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    await authenticateAdminAny(request, ["customers.write"]);
 
     const parsed = updateSchema.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid customer payload", 422);
