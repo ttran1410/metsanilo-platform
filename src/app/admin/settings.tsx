@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Building2, CreditCard, ExternalLink, Image as ImageIcon, Inbox, LoaderCircle, LockKeyhole, MapPin, Palette, Pause, Phone, Play, Plus, Save, ShieldAlert, Store, Trash2, UploadCloud, type LucideIcon } from "lucide-react";
 import { AdminConfirmDialog, AdminNotice, AdminPageHeader } from "./presentation";
 import { StorefrontThemeManager } from "./storefront-theme-manager";
 import { SettingsSectionTabs } from "./settings-section-tabs";
+import { parseSettingsUrlState, serializeSettingsUrlState } from "./settings-url-state";
 
 type Method = {
   id?: string;
@@ -178,7 +180,13 @@ function ImageDropzone({
 }
 
 export function OperationsSettings({ canManageSettings, canManageTheme }: { canManageSettings: boolean; canManageTheme: boolean }) {
-  const [activeSection, setActiveSection] = useState<Section>("identity");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [activeSection, setActiveSection] = useState<Section>(() => parseSettingsUrlState(searchParams));
+  useEffect(() => {
+    const next = serializeSettingsUrlState(searchParams, activeSection);
+    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+  }, [activeSection, router, searchParams]);
 
   const [shopData, setShopData] = useState<ShopIdentity>({
     nameFi: "",
