@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type DragEvent, type FormEvent } from "react";
+import { useState, type DragEvent } from "react";
+import { useMediaGalleryController } from "./use-media-gallery-controller";
 
 type MediaAsset = {
   id: string;
@@ -22,70 +23,8 @@ export function MediaGalleryTab({
   canMedia: boolean;
   onRefresh: () => void;
 }) {
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [altEditingId, setAltEditingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
-
-  async function setPrimary(image: MediaAsset) {
-    if (!image.attachmentId) return;
-    setError("");
-    setNotice("");
-    const response = await fetch(`/api/admin/media/${image.attachmentId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "primary" }),
-    });
-    if (!response.ok) return setError("Could not set primary hero image.");
-    setNotice("Primary hero image updated.");
-    onRefresh();
-  }
-
-  async function saveAlt(event: FormEvent<HTMLFormElement>, image: MediaAsset) {
-    event.preventDefault();
-    if (!image.attachmentId) return;
-    setError("");
-    setNotice("");
-    const values = new FormData(event.currentTarget);
-    const response = await fetch(`/api/admin/media/${image.attachmentId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        action: "metadata",
-        altFi: values.get("altFi"),
-        altEn: values.get("altEn"),
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not save alt tags.");
-    setAltEditingId(null);
-    setNotice("Alt text tags updated.");
-    onRefresh();
-  }
-
-  async function deleteMedia(attachmentId?: string) {
-    if (!attachmentId) return;
-    setError("");
-    setNotice("");
-    const response = await fetch(`/api/admin/media/${attachmentId}`, { method: "DELETE" });
-    if (!response.ok) return setError("Could not delete image.");
-    setNotice("Image removed.");
-    onRefresh();
-  }
-
-  async function reorderMedia(ordered: MediaAsset[]) {
-    setError("");
-    const validIds = ordered.map((item) => item.attachmentId).filter((id): id is string => Boolean(id));
-    if (!validIds.length) return;
-    const response = await fetch(`/api/admin/media/${validIds[0]}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "reorder", attachmentIds: validIds }),
-    });
-    if (!response.ok) return setError("Could not reorder gallery.");
-    setNotice("Gallery order updated.");
-    onRefresh();
-  }
+  const { error, notice, altEditingId, setAltEditingId, setPrimary, saveAlt, deleteMedia, reorderMedia, upload } = useMediaGalleryController({ productId, onRefresh });
 
   function shiftMedia(index: number, direction: -1 | 1) {
     const nextIndex = index + direction;
@@ -107,22 +46,6 @@ export function MediaGalleryTab({
     next.splice(to, 0, moved);
     setDraggingId(null);
     void reorderMedia(next);
-  }
-
-  async function upload(event: FormEvent<HTMLFormElement>, droppedFile?: File) {
-    event.preventDefault();
-    setError("");
-    setNotice("");
-    const data = new FormData(event.currentTarget);
-    const file = droppedFile ?? (data.get("file") as File | null);
-    if (!file || !file.size) return setError("Choose an image file first.");
-    data.set("file", file);
-    data.set("productId", productId);
-    const response = await fetch("/api/admin/media", { method: "POST", body: data });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Upload failed");
-    setNotice("Image uploaded successfully.");
-    onRefresh();
   }
 
   return (
