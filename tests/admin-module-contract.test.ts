@@ -63,6 +63,9 @@ import { GET as exportAudit } from "@/app/api/admin/audit/export/route";
 import { POST as renewContact } from "@/app/api/admin/customers/[id]/contact-confirmation/renew/route";
 import { GET as retentionReview } from "@/app/api/admin/customers/retention-review/route";
 import { POST as markNotificationUnread } from "@/app/api/admin/notifications/[id]/unread/route";
+import { PATCH as updatePackage, DELETE as deletePackage } from "@/app/api/admin/packages/[id]/route";
+import { POST as createSeason } from "@/app/api/admin/products/[id]/seasons/route";
+import { PATCH as updateSeason, DELETE as deleteSeason } from "@/app/api/admin/products/[id]/seasons/[seasonId]/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -253,6 +256,23 @@ describe("admin request module contract", () => {
       renewContact(new Request("http://localhost/api/admin/customers/c1/contact-confirmation/renew", { method: "POST" }), { params: Promise.resolve({ id: "c1" }) }),
       retentionReview(new Request("http://localhost/api/admin/customers/retention-review")),
       markNotificationUnread(new Request("http://localhost/api/admin/notifications/n1/unread", { method: "POST" }), { params: Promise.resolve({ id: "n1" }) }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Product package and season mutations behind authentication", async () => {
+    const productParams = Promise.resolve({ id: "product-1" });
+    const seasonParams = Promise.resolve({ id: "product-1", seasonId: "season-1" });
+    const responses = await Promise.all([
+      updatePackage(new Request("http://localhost/api/admin/packages/package-1", { method: "PATCH", body: "{}" }), { params: Promise.resolve({ id: "package-1" }) }),
+      deletePackage(new Request("http://localhost/api/admin/packages/package-1", { method: "DELETE" }), { params: Promise.resolve({ id: "package-1" }) }),
+      createSeason(new Request("http://localhost/api/admin/products/product-1/seasons", { method: "POST", body: "{}" }), { params: productParams }),
+      updateSeason(new Request("http://localhost/api/admin/products/product-1/seasons/season-1", { method: "PATCH", body: "{}" }), { params: seasonParams }),
+      deleteSeason(new Request("http://localhost/api/admin/products/product-1/seasons/season-1", { method: "DELETE" }), { params: seasonParams }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
