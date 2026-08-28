@@ -76,11 +76,13 @@ function todayStr() {
 
 export function AvailabilityWorkspace({
   initialWorkspace,
+  loadInitialFromApi = false,
   canManage,
   canSoldOut,
   canCutoffOverride,
 }: {
   initialWorkspace: Workspace;
+  loadInitialFromApi?: boolean;
   canManage: boolean;
   canSoldOut: boolean;
   canCutoffOverride: boolean;
@@ -110,6 +112,15 @@ export function AvailabilityWorkspace({
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [adjustingAvailabilityId, setAdjustingAvailabilityId] = useState<string | null>(null);
   const workspaceRequestId = useRef(0);
+
+  useEffect(() => {
+    if (loadInitialFromApi) {
+      const days = viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30;
+      queueMicrotask(() => void fetchWorkspaceForDates(currentStartDate, days));
+    }
+    // Initial JSON load intentionally runs once for URL-derived state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadInitialFromApi]);
 
   useEffect(() => {
     const next = serializeAvailabilityUrlState(searchParams, { viewMode, productFilter, seasonFilter, startDate: currentStartDate });

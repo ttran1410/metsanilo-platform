@@ -1,6 +1,5 @@
 import { Suspense } from "react";
-import { db } from "@/db/client";
-import { getAvailabilityWorkspace, getDaysInMonth, getStartOfMonth, getStartOfWeek } from "@/domain/availability";
+import { getStartOfMonth, getStartOfWeek } from "@/domain/availability";
 import { AvailabilityWorkspace } from "./workspace";
 import { adminContext, hasAdminPermission } from "../portal-auth";
 import { AdminRouteFrame } from "../route-frame";
@@ -31,13 +30,10 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
       : view === "TABLE"
         ? (requestedStart ?? shopToday)
         : getStartOfWeek(requestedStart ?? shopToday);
-  const days = view === "MONTH" ? getDaysInMonth(startDate) : view === "TABLE" ? 30 : 7;
-  const database = db();
-  const workspace = await getAvailabilityWorkspace(database, { startDate, days });
   return (
     <AdminRouteFrame>
       <Suspense fallback={<main className="shell py-10"><p className="card">Loading availability...</p></main>}>
-        <AvailabilityWorkspace initialWorkspace={workspace} canManage={canWrite} canSoldOut={canSoldOut} canCutoffOverride={canCutoffOverride} />
+        <AvailabilityWorkspace initialWorkspace={{ startDate, endDate: startDate, dates: [], rows: [], products: [], ordersByDate: {}, queues: { picking: [], pickup: [], delivery: [] }, today: shopToday }} loadInitialFromApi canManage={canWrite} canSoldOut={canSoldOut} canCutoffOverride={canCutoffOverride} />
       </Suspense>
     </AdminRouteFrame>
   );
