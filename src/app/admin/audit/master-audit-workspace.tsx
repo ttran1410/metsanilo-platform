@@ -118,14 +118,14 @@ export function MasterAuditWorkspace({
       const params = new URLSearchParams({
         page: String(page),
         limit: String(limit),
-        search,
+        q: search,
         severity,
         category,
         actor,
         dateRange: range,
       });
 
-      const response = await fetch(`/api/admin/audit?${params.toString()}`);
+      const response = await fetch(`/api/admin/audit?${params.toString()}`, { cache: "no-store", headers: { "x-admin-request-scope": "audit-list" } });
       const body = await response.json();
       setLoading(false);
 
