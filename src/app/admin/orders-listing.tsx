@@ -141,8 +141,9 @@ export function OrdersListing({
   canUpdate = false,
   canDelete = false,
   canArchive = false,
+  loadInitialFromApi = false,
 }: {
-  initialOrders: AdminOrder[];
+  initialOrders?: AdminOrder[];
   initialLoadedAt?: string;
   initialView?: OrdersView;
   initialStatus?: string;
@@ -153,6 +154,7 @@ export function OrdersListing({
   canUpdate?: boolean;
   canDelete?: boolean;
   canArchive?: boolean;
+  loadInitialFromApi?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -160,7 +162,8 @@ export function OrdersListing({
   const resolvedView = QUICK_VIEWS.some((item) => item.key === urlView) ? urlView as OrdersView : initialView;
   const initialDates = getInitialPresetDatesForView(resolvedView);
 
-  const [rows, setRows] = useState(initialOrders);
+  const [rows, setRows] = useState<AdminOrder[]>(initialOrders ?? []);
+  const [loading, setLoading] = useState(loadInitialFromApi);
   const [view, setView] = useState<OrdersView>(resolvedView);
   const [archiveScope, setArchiveScope] = useState<ArchiveScope>(resolvedView === "ARCHIVED" ? "ARCHIVED_ONLY" : "ACTIVE_ONLY");
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => searchParams.get("mode") === "KANBAN" || searchParams.get("mode") === "TERMINAL" ? searchParams.get("mode") as WorkspaceMode : "TABLE");
@@ -242,6 +245,7 @@ export function OrdersListing({
   }, [search, from, to, method, status, source, entryType, view, archiveScope]);
 
   const refreshOrders = useCallback(async (announce = false) => {
+    setLoading(true);
     try {
       const response = await fetch("/api/admin/orders", { cache: "no-store" });
       const body = await response.json();
@@ -250,9 +254,15 @@ export function OrdersListing({
       setLastUpdated(new Date().toISOString());
       if (announce) setNotice("Order queue synced.");
     } catch (err) {
-      if (announce) setError(err instanceof Error ? err.message : "Sync failed.");
+      setError(err instanceof Error ? err.message : "Sync failed.");
+    } finally {
+      setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (loadInitialFromApi) void refreshOrders();
+  }, [loadInitialFromApi, refreshOrders]);
 
   const selectQuickView = useCallback((targetView: OrdersView, customStatus?: string) => {
     setView(targetView);
@@ -682,6 +692,7 @@ export function OrdersListing({
 
       {notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}
       {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
+      {loading && <AdminNotice tone="neutral" live>Loading orders…</AdminNotice>}
 
       {/* RENDER SELECTED WORKSPACE SUB-VIEW */}
       {workspaceMode === "KANBAN" && (
