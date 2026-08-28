@@ -12,6 +12,7 @@ vi.mock("@/domain/access", () => ({ currentUser, hasUserPermission }));
 vi.mock("@/lib/env", () => ({ env: () => ({ SHOP_ID: "shop-test" }) }));
 
 import { executeAdmin } from "@/app/api/admin/module";
+import { assertAdminActionContext } from "@/domain/admin-action-context";
 
 describe("executeAdmin contract", () => {
   beforeEach(() => {
@@ -55,5 +56,12 @@ describe("executeAdmin contract", () => {
       parse: async () => undefined,
       run: async () => null,
     })).rejects.toMatchObject({ code: "UNAUTHORIZED", status: 401 });
+  });
+
+  it("rejects an actor and shop from different tenants", () => {
+    expect(() => assertAdminActionContext({
+      actor: { id: "actor-1", role: "ADMIN", shopId: "shop-a" },
+      shop: { id: "shop-b" },
+    })).toThrow("Admin action context shop mismatch");
   });
 });
