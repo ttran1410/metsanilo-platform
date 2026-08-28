@@ -433,3 +433,16 @@ No Products, Reviews, Audit, Availability, or detail-page migration should begin
 ## Deferred follow-up
 
 After this implementation plan is complete, verify and finish the complete Orders URL query-state contract. Preserve and restore application parameters such as `view`, `mode`, `q`, `from`, `to`, `preset`, `method`, `status`, `source`, `entry`, `created`, and pagination state across reload/navigation. Data filters must be forwarded to the JSON API; UI-only state such as mode and preset must still restore the correct workspace state. Treat `_rsc` as an internal Next.js transport parameter, not an application parameter. The legacy `created=<orderId>` signal should also regain its success notice and optional selection/opening behavior.
+
+## Cross-module URL and REST contract audit
+
+This follow-up should begin now, before migrating additional workspaces. For each admin module, audit and document:
+
+1. Whether the endpoint follows the resource/action distinction expected by REST: collection reads use `GET /resource`, member reads use `GET /resource/:id`, resource mutations use the appropriate method, and explicit workflows such as publish, rollback, refund, or batch operations remain named actions where that improves safety and clarity.
+2. Whether request and response shapes match the UI’s actual needs, including pagination metadata, stable error envelopes, field validation errors, permissions, tenant scope, and mutation result freshness.
+3. Whether every shareable UI state has a canonical URL representation, with consistent parameter names, defaults, encoding, and removal of transient parameters after they are consumed.
+4. Which URL parameters are data filters sent to the API, which are presentation state restored by the workspace, and which are transient notices/selections. Sensitive values must not be placed in URLs.
+5. Whether the URL is the single source of truth, avoiding competing server `searchParams`, client `useSearchParams`, local state, and API defaults that can disagree.
+6. Whether filter changes are debounced where appropriate, stale requests are aborted or ignored, and browser reload/back/forward/share behavior is covered by tests.
+
+The migration order is Orders as the reference implementation, followed by Customers, Users, Products, Reviews, Availability, Settings, Audit, and Notifications. A module is not considered migrated until its URL contract, API contract, UI mapping, permission behavior, and regression tests agree.
