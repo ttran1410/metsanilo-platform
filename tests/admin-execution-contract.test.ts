@@ -35,17 +35,27 @@ describe("executeAdmin contract", () => {
   });
 
   it("passes authenticated actor and active shop context to the handler", async () => {
-    const result = await executeAdmin(new Request("http://localhost/api/admin/products"), {
+    const result = await executeAdmin(new Request("http://localhost/api/admin/products", { headers: { "x-admin-request-scope": "products-list", "x-correlation-id": "corr-test" } }), {
       permission: "catalog.product.read",
       parse: async () => ({ q: "berry" }),
-      run: async (input, request) => ({ input, actor: request.context.actor, shop: request.context.shop }),
+      run: async (input, request) => ({ input, actor: request.context.actor, shop: request.context.shop, requestScope: request.request.headers.get("x-admin-request-scope") }),
     });
 
     expect(result).toEqual({
       input: { q: "berry" },
       actor: expect.objectContaining({ id: "actor-1" }),
       shop: { shopId: "shop-test" },
+      requestScope: "products-list",
     });
+  });
+
+  it("authenticates before parsing the command", async () => {
+    hasUserPermission.mockResolvedValue(false);
+    const parse = vi.fn(async () => { throw new DomainError("VALIDATION_ERROR", "bad input", 422); });
+    await expect(executeAdmin(new Request("http://localhost/api/admin/products", { method: "POST" }), {
+      permission: "catalog.product.write", parse, run: async () => null,
+    })).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
+    expect(parse).not.toHaveBeenCalled();
   });
 
   it("propagates domain auth errors for the response adapter", async () => {
