@@ -33,10 +33,11 @@ import { SeasonTracker } from "./season-tracker";
 import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-toolbar";
 import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspace-provider";
 import { ProductArchiveDialog, ProductDeleteDialog, ProductRestoreDialog } from "./product-action-dialogs";
-import { archiveProduct, deleteProduct, reorderProducts, restoreProduct, updateProduct } from "./product-admin-actions";
+import { updateProduct } from "./product-admin-actions";
+import { useProductActionController } from "./use-product-action-controller";
 import { parseProductsUrlState, serializeProductsUrlState } from "../products-url-state";
 
-type ProductRow = {
+export type ProductRow = {
   product: typeof products.$inferSelect;
   packages: Array<typeof packages.$inferSelect>;
   media?: Array<{
@@ -122,43 +123,6 @@ function ProductWorkspaceContent({
   const selectedRow = useMemo(() => {
     return productsList.find((p) => p.product.id === selectedId) ?? productsList[0];
   }, [productsList, selectedId]);
-
-  // Reorder Products
-  async function handleMoveProduct(index: number, direction: "up" | "down") {
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= productsList.length) return;
-    const next = [...productsList];
-    const temp = next[index];
-    next[index] = next[targetIndex];
-    next[targetIndex] = temp;
-    setProductsList(next);
-
-    const orderedIds = next.map((item) => item.product.id);
-    const result = await reorderProducts(orderedIds);
-    if (!result.ok) {
-      setError("Could not save product order.");
-    } else {
-      setMessage("Product display order updated.");
-    }
-  }
-
-  // Toggle Active (Archive / Un-archive)
-  async function handleToggleActive(targetActive: boolean) {
-    if (!selectedRow) return;
-    setError("");
-    setMessage("");
-
-    const result = targetActive ? await restoreProduct(selectedRow.product.id) : await archiveProduct(selectedRow.product.id);
-    if (!result.ok) {
-      return setError(result.message ?? "Could not update product active status.");
-    }
-
-    setActive(targetActive);
-    setProductsList((current) =>
-      current.map((item) => (item.product.id === selectedRow.product.id ? result.data as ProductRow : item))
-    );
-    setMessage(targetActive ? `${selectedRow.product.nameFi} is now active.` : `${selectedRow.product.nameFi} has been archived.`);
-  }
 
   // Form State for currently selected product
   const [nameFi, setNameFi] = useState(selectedRow?.product.nameFi ?? "");
@@ -246,6 +210,16 @@ function ProductWorkspaceContent({
     return filteredMasterList.slice(0, splitLimit);
   }, [filteredMasterList, splitLimit]);
 
+  const { handleMoveProduct, handleToggleActive, handleDeleteOrArchive } = useProductActionController({
+    productsList,
+    selectedRow,
+    setProductsList,
+    setActive,
+    selectProduct: (row) => selectProduct(row),
+    setError,
+    setMessage,
+  });
+
   // Save Changes
   async function handleSaveChanges() {
     if (!selectedRow) return;
@@ -285,35 +259,6 @@ function ProductWorkspaceContent({
     setAvailableFrom(newFrom);
     setAvailableThrough(newThrough);
     setMessage("Season extended by 1 week. Click 'Save Changes' to apply.");
-  }
-
-  // Smart Delete or Archive Guard
-  async function handleDeleteOrArchive() {
-    if (!selectedRow) return;
-    setError("");
-    setMessage("");
-
-    const result = await deleteProduct(selectedRow.product.id);
-    if (!result.ok) {
-      if (result.code === "PRODUCT_IN_USE" || result.status === 409) {
-        // Fallback to non-destructive Archive
-        const archiveResult = await archiveProduct(selectedRow.product.id);
-        if (archiveResult.ok) {
-          setActive(false);
-          setProductsList((current) =>
-            current.map((item) => (item.product.id === selectedRow.product.id ? archiveResult.data as ProductRow : item))
-          );
-          return setMessage("Product has historical orders and was safely archived instead of deleted.");
-        }
-      }
-      return setError(result.message ?? "Could not delete or archive product.");
-    }
-
-    // Success delete
-    const nextList = productsList.filter((p) => p.product.id !== selectedRow.product.id);
-    setProductsList(nextList);
-    if (nextList[0]) selectProduct(nextList[0]);
-    setMessage("Product deleted.");
   }
 
   const missingEn = !nameEn.trim() || !descEn.trim();
