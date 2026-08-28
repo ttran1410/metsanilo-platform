@@ -216,7 +216,12 @@ function CustomerWorkspaceContent({
   // Reload customer list & current profile
   async function refreshList(currentIdToSelect?: string) {
     try {
-      const response = await fetch("/api/admin/customers");
+      const params = new URLSearchParams();
+      for (const key of ["q", "filter", "sort", "page", "limit"]) {
+        const value = searchParams.get(key);
+        if (value) params.set(key, value);
+      }
+      const response = await fetch(`/api/admin/customers?${params.toString()}`, { cache: "no-store", headers: { "x-admin-request-scope": "customers-list" } });
       const body = await response.json();
       if (response.ok && body.data) {
         const list = Array.isArray(body.data) ? body.data : (body.data.items ?? []);
