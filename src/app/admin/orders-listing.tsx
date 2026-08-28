@@ -15,6 +15,7 @@ import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
 import { AdminPagination } from "./ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
+import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 
 export type AdminOrder = typeof orders.$inferSelect & {
   paidCents?: number;
@@ -25,22 +26,9 @@ export type AdminOrder = typeof orders.$inferSelect & {
   archivedBy?: string | null;
 };
 
-export type OrdersView =
-  | "TRIAGE"
-  | "ALL"
-  | "TODAY"
-  | "NEEDS_CONFIRMATION"
-  | "PICKUP_TODAY"
-  | "DELIVERY_TODAY"
-  | "UNPAID"
-  | "ARCHIVED";
-
-type WorkspaceMode = "TABLE" | "KANBAN" | "TERMINAL";
-type DatePreset = "TODAY" | "TOMORROW" | "YESTERDAY" | "THIS_WEEK" | "LAST_WEEK" | "LAST_7_DAYS" | "ALL" | "CUSTOM";
 type SortField = "fulfillment" | "ref" | "customer" | "source" | "payment" | "status";
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
-type ArchiveScope = "ACTIVE_ONLY" | "ARCHIVED_ONLY" | "ALL";
-type EntryTypeFilter = "ALL" | "LIVE_ONLY" | "HISTORICAL_ONLY";
+export type { OrdersView } from "./orders-url-state";
 
 function formatOrderSourceBadge(order: AdminOrder) {
   const srcMap: Record<string, { label: string }> = {
@@ -158,26 +146,26 @@ export function OrdersListing({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlView = searchParams.get("view");
-  const resolvedView = QUICK_VIEWS.some((item) => item.key === urlView) ? urlView as OrdersView : initialView;
-  const initialDates = getInitialPresetDatesForView(resolvedView);
+  const initialDefaults = getInitialPresetDatesForView(initialView ?? "TODAY");
+  const parsedUrlState = parseOrdersUrlState(searchParams, { view: initialView ?? "TODAY", status: initialStatus, from: initialDefaults.from, to: initialDefaults.to, preset: initialDefaults.datePreset });
+  const resolvedView = parsedUrlState.view;
 
   const [rows, setRows] = useState<AdminOrder[]>(initialOrders ?? []);
   const [loading, setLoading] = useState(loadInitialFromApi);
   const [view, setView] = useState<OrdersView>(resolvedView);
   const [archiveScope, setArchiveScope] = useState<ArchiveScope>(resolvedView === "ARCHIVED" ? "ARCHIVED_ONLY" : "ACTIVE_ONLY");
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(() => searchParams.get("mode") === "KANBAN" || searchParams.get("mode") === "TERMINAL" ? searchParams.get("mode") as WorkspaceMode : "TABLE");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(parsedUrlState.mode);
   const [showPackingSlip, setShowPackingSlip] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  const [datePreset, setDatePreset] = useState<DatePreset>(() => searchParams.get("preset") as DatePreset || initialDates.datePreset);
-  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
-  const [from, setFrom] = useState(() => searchParams.get("from") ?? initialDates.from);
-  const [to, setTo] = useState(() => searchParams.get("to") ?? initialDates.to);
-  const [method, setMethod] = useState(() => searchParams.get("method") ?? "ALL");
-  const [status, setStatus] = useState(() => searchParams.get("status") ?? initialStatus);
-  const [source, setSource] = useState(() => searchParams.get("source") ?? "ALL");
-  const [entryType, setEntryType] = useState<EntryTypeFilter>(() => searchParams.get("entry") as EntryTypeFilter || "ALL");
+  const [datePreset, setDatePreset] = useState<DatePreset>(parsedUrlState.preset);
+  const [search, setSearch] = useState(parsedUrlState.query);
+  const [from, setFrom] = useState(parsedUrlState.from);
+  const [to, setTo] = useState(parsedUrlState.to);
+  const [method, setMethod] = useState(parsedUrlState.method);
+  const [status, setStatus] = useState(parsedUrlState.status);
+  const [source, setSource] = useState(parsedUrlState.source);
+  const [entryType, setEntryType] = useState<EntryTypeFilter>(parsedUrlState.entry);
   const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([
     { key: "WEBSITE", labelEn: "Website" },
     { key: "SMS", labelEn: "SMS" },
@@ -216,17 +204,7 @@ export function OrdersListing({
   const [serverQuickViewCounts, setServerQuickViewCounts] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("view", view);
-    next.set("mode", workspaceMode);
-    if (search) next.set("q", search); else next.delete("q");
-    if (from) next.set("from", from); else next.delete("from");
-    if (to) next.set("to", to); else next.delete("to");
-    if (datePreset !== "ALL") next.set("preset", datePreset); else next.delete("preset");
-    if (method !== "ALL") next.set("method", method); else next.delete("method");
-    if (status !== "ALL") next.set("status", status); else next.delete("status");
-    if (source !== "ALL") next.set("source", source); else next.delete("source");
-    if (entryType !== "ALL") next.set("entry", entryType); else next.delete("entry");
+    const next = serializeOrdersUrlState(searchParams, { view, mode: workspaceMode, query: search, from, to, preset: datePreset, method, status, source, entry: entryType });
     if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [datePreset, entryType, from, method, router, search, searchParams, source, status, to, view, workspaceMode]);
 
