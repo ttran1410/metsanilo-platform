@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Boxes, ChevronDown, ClipboardList, Gauge, KeyRound, LockKeyhole, MapPinned, Pencil, Plus, RefreshCcw, Save, ShieldAlert, ShieldCheck, ShoppingBasket, Store, UserRoundX, UsersRound, type LucideIcon } from "lucide-react";
 import {
@@ -20,6 +20,7 @@ import { UserPasswordDialog } from "./user-password-dialog";
 import { updateUserRole } from "./user-admin-actions";
 import { usePermissionEditorController } from "./use-permission-editor-controller";
 import { useUserAccountActionController } from "./use-user-account-action-controller";
+import { useUserProfileEditorController } from "./use-user-profile-editor-controller";
 import { parseUsersUrlState, serializeUsersUrlState } from "../users-url-state";
 
 export type UserRow = {
@@ -346,36 +347,15 @@ function UserWorkspaceContent({
   });
 
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  async function handleSaveUserEdit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!editingUser || savingEdit) return;
-    setSavingEdit(true);
-    setError("");
-    setMessage("");
-
-    const formData = new FormData(event.currentTarget);
-    const displayName = String(formData.get("displayName") ?? "").trim();
-    const role = String(formData.get("role") ?? "") as Role;
-
-    try {
-      const result = await updateUserRole({ userId: editingUser.id, displayName, currentRole: editingUser.role, nextRole: role, actorId, actorRole });
-      setSavingEdit(false);
-
-      if (!result.ok) {
-        setError(result.message ?? "Could not update user profile.");
-        return;
-      }
-
-      setEditingUser(null);
-      setMessage(`User profile updated for ${displayName}.`);
-      void refreshUsersList(editingUser.id);
-    } catch {
-      setSavingEdit(false);
-      setError("Network error while updating user profile.");
-    }
-  }
+  const { savingEdit, handleSaveUserEdit } = useUserProfileEditorController({
+    editingUser,
+    actorId,
+    actorRole,
+    closeEditor: () => setEditingUser(null),
+    setError,
+    setMessage,
+    refreshUser: refreshUsersList,
+  });
 
   const selectedDefaults = selectedUser ? defaultPermissionsForRole(selectedUser.role) : [];
   const editable =
