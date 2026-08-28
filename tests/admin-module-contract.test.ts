@@ -196,4 +196,10 @@ describe("admin request module contract", () => {
     expect(response.status).toBe(401);
     expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
   });
+
+  it("authenticates User permission commands before parsing malformed input", async () => {
+    const response = await updatePermission(new Request("http://localhost/api/admin/users/user-1/permissions", { method: "PUT", body: "{" }), { params: Promise.resolve({ id: "user-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
 });
