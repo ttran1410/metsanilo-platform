@@ -23,6 +23,7 @@ import { ManagerOrderCards } from "./manager-order-cards";
 import { ManagerOrderInspector } from "./manager-order-inspector";
 import { useManagerOrderActionController } from "./use-manager-order-action-controller";
 import { useManagerAvailabilityController } from "./use-manager-availability-controller";
+import { useManagerBulkActionController } from "./use-manager-bulk-action-controller";
 
 type Order = typeof orders.$inferSelect;
 type AvailabilityRow = {
@@ -225,32 +226,7 @@ function ManagerWorkspaceContent({
     setPendingBulk(next);
   }
 
-  async function confirmBulkTransition() {
-    const next = pendingBulk;
-    if (!next) return;
-    setPendingBulk(null);
-    const selected = orderRows.filter((order) => selectedIds.includes(order.id));
-    const updated: Order[] = [];
-    let skipped = 0;
-    for (const order of selected) {
-      const response = await fetch(`/api/admin/orders/${order.id}/status`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: next, expectedVersion: order.version }),
-      });
-      const body = await response.json();
-      if (response.ok) updated.push(body.data as Order);
-      else skipped += 1;
-    }
-    setOrderRows((rows) =>
-      rows.map((row) => updated.find((item) => item.id === row.id) ?? row),
-    );
-    setSelectedIds([]);
-    feedback(
-      `${updated.length} order(s) updated${skipped ? `, ${skipped} skipped because they changed or were not eligible` : ""}.`,
-      skipped ? "error" : "success",
-    );
-  }
+  const { confirmBulkTransition } = useManagerBulkActionController({ pendingBulk, orderRows, selectedIds, setPendingBulk: (value) => setPendingBulk(value as typeof pendingBulk), setOrderRows, setSelectedIds, feedback });
 
   function exportOrders() {
     const header = [
