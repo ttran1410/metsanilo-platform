@@ -5,7 +5,7 @@ import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
 import { executeAdminUserCommand } from "@/domain/admin-users-actions";
 import { env } from "@/lib/env";
-import { authenticateAdmin, executeAdmin, parseJson } from "../../module";
+import { authenticateAdmin, authenticateAdminAny, executeAdmin, parseJson } from "../../module";
 
 export const runtime = "nodejs";
 
@@ -35,6 +35,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
+    await authenticateAdminAny(request, ["shop_users.manage", "shop_permissions.assign"]);
     const parsed = commandSchema.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid command payload", 422);
 
