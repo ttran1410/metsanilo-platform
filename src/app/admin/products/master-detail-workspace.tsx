@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { packages, products } from "@/db/schema";
@@ -70,6 +70,7 @@ function ProductWorkspaceContent({
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterStatus, setFilterStatus, activeTab, setActiveTab, viewMode, setViewMode, mobileView, setMobileView, currentPage, setCurrentPage, pageSize, setPageSize, splitLimit, setSplitLimit } = useProductWorkspace();
   const [productsList, setProductsList] = useState(initialProducts);
   const [loading, setLoading] = useState(loadInitialFromApi);
+  const productsRequestRef = useRef<AbortController | null>(null);
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showUnarchiveConfirm, setShowUnarchiveConfirm] = useState(false);
@@ -81,16 +82,18 @@ function ProductWorkspaceContent({
 
   useEffect(() => {
     if (!loadInitialFromApi) return;
-    let active = true;
-    void fetch("/api/admin/products", { cache: "no-store", headers: { "x-admin-request-scope": "products-list" } })
+    const controller = new AbortController();
+    productsRequestRef.current?.abort();
+    productsRequestRef.current = controller;
+    void fetch("/api/admin/products", { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "products-list" } })
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.message ?? "Products unavailable");
-        if (active) setProductsList(Array.isArray(body.data) ? body.data : body.data.items ?? []);
+        if (!controller.signal.aborted) setProductsList(Array.isArray(body.data) ? body.data : body.data.items ?? []);
       })
-      .catch(() => undefined)
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+      .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) undefined; })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, [loadInitialFromApi]);
 
   useEffect(() => {
