@@ -39,7 +39,7 @@ This matrix is the review baseline for making admin workspaces shareable, reload
 | Customers | Partially implemented | JSON/action contracts exist; URL and compatibility parity still needs endpoint-by-endpoint verification. |
 | Users | Implemented for current workspace | URL state and action controllers are separated; authenticated route coverage remains incomplete. |
 | Products | Partially implemented | JSON list/detail loaders and action controllers exist; package/season compatibility paths remain under audit. |
-| Reviews | Partially implemented | Query/action modules exist; dynamic PATCH permissions are isolated, but SSR parity and full route coverage remain. |
+| Reviews | Implemented for current workflows | Page uses the JSON list loader; query/action modules exist and dynamic PATCH permissions are isolated. Full endpoint/browser coverage remains. |
 | Availability | Implemented for current workflows | Typed action wrappers and URL state exist; browser verification remains. |
 | Audit | Partially implemented | URL state and JSON loading exist; export intentionally remains a file response. |
 | Notifications | Implemented for current workflows | Query and mutation paths use Admin action modules; URL state needs completeness review. |
@@ -70,4 +70,4 @@ Orders is the reference implementation. It is ready to serve as the template whe
 - Payment methods expose member routes while the collection also accepts `PUT`/`DELETE` with a method in the body/query. The member routes should be the documented canonical form; collection operations can remain compatibility adapters until callers are migrated.
 - Storefront theme uses a resource read plus explicit draft/publish/rollback workflows. `publish` and `rollback` should remain named actions because they create audited domain transitions rather than generic CRUD updates.
 - Every compatibility adapter must preserve the same permission, actor/shop context, validation, safe error envelope, and response shape as its canonical endpoint.
-- Reviews has a confirmed SSR/client parity gap: the page still loads the full default manager list with `listManagerReviews`, while the client URL exposes `q`, `status`, and `page` and the API supports paged search. Migrate this through a typed Reviews query action as one unit; changing only the URL parser would leave two competing data paths.
+- Reviews SSR/client parity is now aligned: the page renders an empty shell and the client loads the list through `/api/admin/reviews`; remaining work is endpoint-level coverage and browser verification.
