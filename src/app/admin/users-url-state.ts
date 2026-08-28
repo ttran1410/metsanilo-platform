@@ -10,6 +10,7 @@ export function parseUsersUrlState(params: URLSearchParams, fallbackSelectedId =
 
 export function serializeUsersUrlState(current: URLSearchParams, state: { selectedId: string; searchQuery: string; roleFilter: UserRoleFilter; page: number }) {
   const next = new URLSearchParams(current.toString());
+  next.delete("_rsc");
   state.searchQuery ? next.set("q", state.searchQuery) : next.delete("q");
   state.roleFilter !== "ALL" ? next.set("role", state.roleFilter) : next.delete("role");
   state.selectedId ? next.set("user", state.selectedId) : next.delete("user");

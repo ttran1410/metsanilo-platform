@@ -19,6 +19,7 @@ export function parseAuditUrlState(params: URLSearchParams) {
 
 export function serializeAuditUrlState(current: URLSearchParams, state: { selectedAuditId: string | null; searchQuery: string; severityFilter: AuditSeverity | "ALL"; categoryFilter: AuditCategory | "ALL"; actorFilter: string; dateRange: AuditDateRange; currentPage: number }) {
   const next = new URLSearchParams(current.toString());
+  next.delete("_rsc");
   state.searchQuery ? next.set("q", state.searchQuery) : next.delete("q");
   next.delete("search");
   state.severityFilter !== "ALL" ? next.set("severity", state.severityFilter) : next.delete("severity");

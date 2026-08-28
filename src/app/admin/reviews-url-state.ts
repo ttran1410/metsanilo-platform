@@ -11,6 +11,7 @@ export function parseReviewsUrlState(params: URLSearchParams) {
 
 export function serializeReviewsUrlState(current: URLSearchParams, state: { activeTab: ReviewTab; searchQuery: string; currentPage: number }) {
   const next = new URLSearchParams(current.toString());
+  next.delete("_rsc");
   state.searchQuery ? next.set("q", state.searchQuery) : next.delete("q");
   state.activeTab !== "pending" ? next.set("status", state.activeTab) : next.delete("status");
   state.currentPage > 1 ? next.set("page", String(state.currentPage)) : next.delete("page");

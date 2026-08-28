@@ -18,6 +18,7 @@ export function parseCustomersUrlState(params: URLSearchParams) {
 
 export function serializeCustomersUrlState(current: URLSearchParams, state: { selectedId: string; searchQuery: string; filterChip: CustomerFilter; sortMode: CustomerSort; workspaceView: CustomerView; page: number }) {
   const next = new URLSearchParams(current.toString());
+  next.delete("_rsc");
   state.selectedId ? next.set("customer", state.selectedId) : next.delete("customer");
   state.searchQuery ? next.set("q", state.searchQuery) : next.delete("q");
   state.filterChip !== "all" ? next.set("filter", state.filterChip) : next.delete("filter");

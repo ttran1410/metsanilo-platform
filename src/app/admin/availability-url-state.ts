@@ -13,6 +13,7 @@ export function parseAvailabilityUrlState(params: URLSearchParams) {
 
 export function serializeAvailabilityUrlState(current: URLSearchParams, state: { viewMode: AvailabilityView; productFilter: string; seasonFilter: string; startDate: string }) {
   const next = new URLSearchParams(current.toString());
+  next.delete("_rsc");
   next.set("view", state.viewMode);
   state.productFilter !== "ALL" ? next.set("productId", state.productFilter) : next.delete("productId");
   state.seasonFilter !== "ALL" ? next.set("seasonId", state.seasonFilter) : next.delete("seasonId");

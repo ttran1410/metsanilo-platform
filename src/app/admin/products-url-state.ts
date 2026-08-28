@@ -16,6 +16,7 @@ export function parseProductsUrlState(params: URLSearchParams, fallbackSelectedI
 
 export function serializeProductsUrlState(current: URLSearchParams, state: { selectedId: string; searchQuery: string; filterStatus: ProductFilterStatus; activeTab: ProductTab; viewMode: ProductView; page: number }) {
   const next = new URLSearchParams(current.toString());
+  next.delete("_rsc");
   state.selectedId ? next.set("product", state.selectedId) : next.delete("product");
   state.searchQuery ? next.set("q", state.searchQuery) : next.delete("q");
   state.filterStatus !== "all" ? next.set("status", state.filterStatus) : next.delete("status");
