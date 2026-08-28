@@ -1,4 +1,4 @@
-import { deleteAdminOrder, getAdminOrderDetail, transitionAdminOrder, updateAdminOrder } from "@/domain/admin-order-actions";
+import { deleteAdminOrder, getAdminOrderDetail, getAdminOrderEditData, transitionAdminOrder, updateAdminOrder } from "@/domain/admin-order-actions";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
 import { fromZodError } from "@/domain/errors";
@@ -12,7 +12,7 @@ export const revalidate = 0;
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const result = await executeAdmin(request, { permission: "orders.read", parse: async () => id, run: async (orderId, { database, context: { actor } }) => getAdminOrderDetail(database, { actor, shop: { id: env().SHOP_ID } }, orderId) });
+    const result = await executeAdmin(request, { permission: "orders.read", parse: async () => id, run: async (orderId, { database, context: { actor } }) => new URL(request.url).searchParams.get("view") === "edit" ? getAdminOrderEditData(database, { actor, shop: { id: env().SHOP_ID } }, orderId) : getAdminOrderDetail(database, { actor, shop: { id: env().SHOP_ID } }, orderId) });
     return success(result);
   } catch (error) {
     return failure(error);
