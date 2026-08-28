@@ -5,6 +5,23 @@ import { assertAdminActionContext, type AdminActionContext } from "./admin-actio
 import { DomainError } from "./errors";
 
 export type UserActionContext = AdminActionContext & Readonly<{ request: Request }>;
+export type AdminUserCommand =
+  | { action: "update"; userId: string; displayName?: string; role?: Role }
+  | { action: "role"; userId: string; role: Role }
+  | { action: "active"; userId: string; active: boolean }
+  | { action: "reset_permissions"; userId: string }
+  | { action: "revoke_sessions"; userId: string };
+
+export async function executeAdminUserCommand(database: Database, context: UserActionContext, command: AdminUserCommand) {
+  assertAdminActionContext(context);
+  switch (command.action) {
+    case "update": return updateUserProfile(database, context, command);
+    case "role": return updateUserRole(database, context, command);
+    case "active": return updateUserStatus(database, context, command);
+    case "reset_permissions": return resetUserPermissions(database, context, command.userId);
+    case "revoke_sessions": return revokeUserSessions(database, context, command.userId);
+  }
+}
 
 export async function updateUserRole(database: Database, context: UserActionContext, input: { userId: string; role: Role }) {
   assertAdminActionContext(context);

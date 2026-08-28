@@ -3,7 +3,7 @@ import { db } from "@/db/client";
 import { getUserAccessDetail } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
-import { resetUserPermissions, revokeUserSessions, updateUserProfile, updateUserRole as updateUserRoleAction, updateUserStatus } from "@/domain/admin-users-actions";
+import { executeAdminUserCommand, resetUserPermissions, revokeUserSessions, updateUserProfile, updateUserStatus } from "@/domain/admin-users-actions";
 import { env } from "@/lib/env";
 import { authenticateAdmin, executeAdmin, parseJson } from "../../module";
 
@@ -53,7 +53,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (parsed.data.action === "role") {
       if (!parsed.data.role) throw new DomainError("VALIDATION_ERROR", "Role is required", 422);
       const actor = (await authenticateAdmin(request, "shop_users.manage")).actor;
-      return success(await updateUserRoleAction(db(), { actor, shop: { id: env().SHOP_ID }, request }, { userId: id, role: parsed.data.role }));
+      return success(await executeAdminUserCommand(db(), { actor, shop: { id: env().SHOP_ID }, request }, { action: "role", userId: id, role: parsed.data.role }));
     }
 
     if (parsed.data.action === "active") {
