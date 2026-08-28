@@ -1,15 +1,9 @@
 import { z } from "zod";
 import { db } from "@/db/client";
 import {
-  confirmManualReview,
-  bulkModerateReviews,
   createManualReview,
-  linkReviewToCustomerOrOrder,
   listManagerReviews,
   getManagerReviewDetail,
-  moderateReview,
-  replyToReview,
-  updateReviewPublicationIdentity,
 } from "@/domain/reviews";
 import { currentUser, hasUserPermission } from "@/domain/access";
 import { failure, success } from "../../response";
@@ -17,7 +11,7 @@ import { DomainError, fromZodError } from "@/domain/errors";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
 import { searchManagerReviews } from "@/domain/admin-search";
 import { authenticateAdmin, executeAdmin, parseJson } from "../module";
-import { deleteAdminReview, updateAdminReview, updateAdminReviewPublicationIdentity } from "@/domain/admin-review-actions";
+import { bulkModerateAdminReviews, confirmAdminReview, deleteAdminReview, linkAdminReviewIdentity, moderateAdminReview, replyAdminToReview, updateAdminReview, updateAdminReviewPublicationIdentity } from "@/domain/admin-review-actions";
 import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -182,25 +176,21 @@ export async function PATCH(request: Request) {
       rejectionReason: z.enum(["SPAM", "PROFANITY", "UNRELATED", "COMPETITOR", "OTHER"]).optional(),
     }).safeParse(payload);
     if (bulk.success) {
-      const actorName = actor.email ?? actor.username ?? actor.id;
-      return success(await bulkModerateReviews(db(), { ...bulk.data, actor: actorName }));
+      return success(await bulkModerateAdminReviews(db(), { actor, shop: { id: env().SHOP_ID } }, bulk.data));
     }
 
     const parsed = commandSchema.safeParse(payload);
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid review moderation payload"));
 
-    const actorName = actor.email ?? actor.username ?? actor.id;
-
     if (parsed.data.action === "publication_identity") {
       const allowed = canModerate || (await hasUserPermission(db(), actor, "reviews.write"));
       if (!allowed) return failure({ message: "Permission required: reviews.write", code: "FORBIDDEN", status: 403 });
-      return success(await updateReviewPublicationIdentity(db(), {
+      return success(await updateAdminReviewPublicationIdentity(db(), { actor, shop: { id: env().SHOP_ID } }, {
         id: parsed.data.id,
         isAnonymous: parsed.data.isAnonymous ?? false,
         reviewerName: parsed.data.reviewerName,
         consentSource: parsed.data.consentSource ?? "",
         consentNote: parsed.data.consentNote ?? "",
-        actor: actorName,
       }));
     }
 
@@ -208,33 +198,31 @@ export async function PATCH(request: Request) {
 
     if (parsed.data.action === "link_identity" || (parsed.data.orderId !== undefined || parsed.data.customerId !== undefined)) {
       return success(
-        await linkReviewToCustomerOrOrder(db(), {
+        await linkAdminReviewIdentity(db(), { actor, shop: { id: env().SHOP_ID } }, {
           reviewId: parsed.data.id,
           orderId: parsed.data.orderId,
           customerId: parsed.data.customerId,
           verifiedBuyer: parsed.data.verifiedBuyer,
-          actor: actorName,
         }),
       );
     }
 
     if (parsed.data.sellerReplyText !== undefined) {
-      return success(await replyToReview(db(), { id: parsed.data.id, replyText: parsed.data.sellerReplyText, actor: actorName }));
+      return success(await replyAdminToReview(db(), { actor, shop: { id: env().SHOP_ID } }, { id: parsed.data.id, replyText: parsed.data.sellerReplyText }));
     }
 
     if (parsed.data.confirmSource) {
       return success(
-        await confirmManualReview(db(), {
+        await confirmAdminReview(db(), { actor, shop: { id: env().SHOP_ID } }, {
           id: parsed.data.id,
           source: parsed.data.confirmSource,
           note: parsed.data.confirmNote,
-          actor: actorName,
         }),
       );
     }
 
     return success(
-      await moderateReview(db(), {
+      await moderateAdminReview(db(), { actor, shop: { id: env().SHOP_ID } }, {
         id: parsed.data.id,
         status: parsed.data.status,
         displayText: parsed.data.displayText,
@@ -243,7 +231,6 @@ export async function PATCH(request: Request) {
         featured: parsed.data.featured,
         featuredUntil: parsed.data.featuredUntil,
         verifiedBuyer: parsed.data.verifiedBuyer,
-        actor: actorName,
       }),
     );
   } catch (error) {
