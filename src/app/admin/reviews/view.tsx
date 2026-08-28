@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Ban, CheckCircle2, Eye, EyeOff, MessageSquare, Plus, ShieldCheck, Star, X } from "lucide-react";
@@ -75,6 +75,7 @@ export function ReviewsManager({
   const [searchQuery, setSearchQuery] = useState(initialUrlState.searchQuery);
   const [currentPage, setCurrentPage] = useState(initialUrlState.currentPage);
   const [pageSize, setPageSize] = useState(20);
+  const reviewsRequestRef = useRef<AbortController | null>(null);
   useEffect(() => {
     if (!loadInitialFromApi) return;
     let active = true;
@@ -88,6 +89,26 @@ export function ReviewsManager({
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [loadInitialFromApi]);
+
+  useEffect(() => {
+    if (!loadInitialFromApi) return;
+    const controller = new AbortController();
+    reviewsRequestRef.current?.abort();
+    reviewsRequestRef.current = controller;
+    const params = new URLSearchParams({ q: searchQuery.trim(), page: "1", pageSize: "100" });
+    if (activeTab === "approved" || activeTab === "rejected") params.set("status", activeTab.toUpperCase());
+    if (activeTab === "pending") params.set("status", "PENDING");
+    if (activeTab === "featured") { params.set("status", "APPROVED"); params.set("featured", "true"); }
+    void fetch(`/api/admin/reviews?${params.toString()}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "reviews-list" } })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message ?? "Reviews unavailable");
+        if (!controller.signal.aborted) setRows(body.data.items ?? []);
+      })
+      .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) setErrorMsg(error instanceof Error ? error.message : "Reviews unavailable"); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [activeTab, loadInitialFromApi, searchQuery]);
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
   const manualReviewDialogRef = useAdminDialogFocus(showManualModal, () => setShowManualModal(false));
