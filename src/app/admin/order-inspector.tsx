@@ -6,6 +6,7 @@ import type { orders } from "@/db/schema";
 import { AdminLoadingState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "./presentation";
 import { OrderActionBar } from "./order-action-bar";
 import { IconCopy } from "./ui/admin-row-action-menu";
+import { useOrderNoteActionController } from "./orders/use-order-note-action-controller";
 
 type Order = typeof orders.$inferSelect & { paidCents?: number; outstandingCents?: number | null; paymentStatus?: string };
 type Detail = {
@@ -29,6 +30,7 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const saveNote = useOrderNoteActionController({ onError: setError });
 
   async function load() {
     setError("");
@@ -85,10 +87,9 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
     const bodyText = String(new FormData(form).get("body") ?? "").trim();
     if (!bodyText) return;
     setBusy(true);
-    const response = await fetch(`/api/admin/orders/${order.id}/notes`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ body: bodyText }) });
-    const body = await response.json();
+    const saved = await saveNote(order.id, bodyText);
     setBusy(false);
-    if (!response.ok) return setError(body.message ?? "Could not add note.");
+    if (!saved) return;
     form.reset();
     setNotice("Internal note added.");
     await load();
