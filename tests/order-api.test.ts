@@ -174,6 +174,11 @@ describe("product module", () => {
 
     expect(result).toMatchObject({ product: { id: "product-berries" }, impact: { activeOrders: expect.any(Number), availabilityRows: expect.any(Number) }, });
   });
+
+  it("rejects product detail queries with a mismatched actor/shop context", async () => {
+    await expect(getAdminProductDetail(database, { actor: { id: "other-admin", role: "ADMIN", shopId: "shop-other" }, shop: { id: "shop-main" } }, "product-berries"))
+      .rejects.toThrow("Admin action context shop mismatch");
+  });
   it("creates a bilingual product with a package and refuses deletion after use", async () => {
     const created = await createProduct(database, {
       code: "MUSHROOMS", slug: "mushrooms", nameFi: "Sienet", nameEn: "Mushrooms",
