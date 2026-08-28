@@ -484,6 +484,14 @@ describe("order operations", () => {
 
 
 describe("shop roles and permissions", () => {
+  it("denies a staff actor without the requested permission", async () => {
+    const adminRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("manager:secret").toString("base64")}` } });
+    await createUser(database, adminRequest, { email: "permission-staff@example.com", password: "Perm!pass123", displayName: "Permission Staff", role: "STAFF" });
+    const staffRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("permission-staff@example.com:secret").toString("base64")}` } });
+
+    await expect(requirePermission(database, staffRequest, "delivery.override")).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
+  });
+
   it("seeds Manager and Staff operational defaults", async () => {
     resetEnvForTests();
     const adminRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("manager:secret").toString("base64")}` } });
