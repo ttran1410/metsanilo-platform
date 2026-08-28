@@ -14,6 +14,7 @@ import { BatchPlannerPanel } from "./batch-planner-panel";
 import { DateInspectorDrawer, type DateOrdersEntry } from "./date-inspector-drawer";
 import { FreezeModal } from "./freeze-modal";
 import { useCutoffActionController } from "./use-cutoff-action-controller";
+import { useFreezeActionController } from "./use-freeze-action-controller";
 
 type Workspace = AvailabilityWorkspace;
 type AvailabilityRow = Workspace["rows"][number];
@@ -114,6 +115,7 @@ export function AvailabilityWorkspace({
   const [adjustingAvailabilityId, setAdjustingAvailabilityId] = useState<string | null>(null);
   const workspaceRequestId = useRef(0);
   const updateCutoff = useCutoffActionController({ onError: setError, onSuccess: (value) => { setMessage(value === "OPEN" ? "Same-day cutoff override enabled for this date." : "Same-day cutoff override cleared."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7); } });
+  const updateFreeze = useFreezeActionController({ onError: setError, onSuccess: (locked, reason) => { setFreezingRow(null); setMessage(locked ? `Date ${freezingRow?.availability.businessDate ?? ""} frozen (${reason}).` : "Date reopened."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7); } });
 
   useEffect(() => {
     if (loadInitialFromApi) {
@@ -289,28 +291,12 @@ export function AvailabilityWorkspace({
     if (!freezingRow) return;
     setError("");
     setMessage("");
-    const isLocking = !freezingRow.soldOut;
-    if (!isLocking && freezingRow.availability.capacityMl <= freezingRow.availability.reservedMl) {
+    if (freezingRow.soldOut && freezingRow.availability.capacityMl <= freezingRow.availability.reservedMl) {
       setFreezingRow(null);
       return setError("Increase capacity before reopening this date. Remaining capacity must fit at least one active package.");
     }
 
-    const response = await fetch(`/api/admin/availability/${freezingRow.availability.id}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        expectedVersion: freezingRow.availability.version,
-        capacityMl: freezingRow.availability.capacityMl,
-        manualSoldOut: isLocking,
-        acceptsOrders: !isLocking,
-        soldOutReason: isLocking ? reason : undefined,
-      }),
-    });
-    const body = await response.json();
-    setFreezingRow(null);
-    if (!response.ok) return setError(body.message ?? "Could not update sold-out lock.");
-    setMessage(isLocking ? `Date ${freezingRow.availability.businessDate} frozen (${reason}).` : "Date reopened.");
-    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
+    await updateFreeze({ id: freezingRow.availability.id, version: freezingRow.availability.version, capacityMl: freezingRow.availability.capacityMl, reservedMl: freezingRow.availability.reservedMl, soldOut: freezingRow.soldOut, businessDate: freezingRow.availability.businessDate }, reason);
   }
 
   async function handleCutoffOverride(row: AvailabilityRow, value: "OPEN" | "CLOSED" | null) {
