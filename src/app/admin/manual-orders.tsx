@@ -14,8 +14,9 @@ type Product = {
   packages: Array<{ id: string; labelFi: string; volumeMl: number; priceCents: number }>;
 };
 
-export function ManualOrdersModule({ products }: { products: Product[] }) {
+export function ManualOrdersModule({ products: initialProducts, loadInitialFromApi = false }: { products: Product[]; loadInitialFromApi?: boolean }) {
   const router = useRouter();
+  const [products, setProducts] = useState(initialProducts);
   const [historical, setHistorical] = useState(false);
   const [message, setMessage] = useState("");
   const [mobileError, setMobileError] = useState("");
@@ -46,6 +47,26 @@ export function ManualOrdersModule({ products }: { products: Product[] }) {
     { key: "FACEBOOK", labelEn: "Facebook" },
     { key: "OTHER", labelEn: "Other" },
   ]);
+
+  useEffect(() => {
+    if (!loadInitialFromApi) return;
+    fetch("/api/admin/products", { cache: "no-store", headers: { "x-admin-request-scope": "manual-order-products" } })
+      .then((response) => response.ok ? response.json() : null)
+      .then((body) => {
+        const rows = body?.data;
+        if (Array.isArray(rows)) setProducts(rows);
+      })
+      .catch(() => { /* keep the empty state and let the form remain unavailable */ });
+  }, [loadInitialFromApi]);
+
+  useEffect(() => {
+    if (!productId && products[0]) {
+      queueMicrotask(() => {
+        setProductId(products[0].product.id);
+        setPackageId(products[0].packages[0]?.id ?? "");
+      });
+    }
+  }, [productId, products]);
 
   // Load order sources from settings API
   useEffect(() => {
