@@ -7,6 +7,12 @@ import { DELETE as deleteFulfillmentLocation } from "@/app/api/admin/fulfillment
 import { GET as getProducts } from "@/app/api/admin/products/route";
 import { GET as getOrders } from "@/app/api/admin/orders/route";
 import { GET as getReviews } from "@/app/api/admin/reviews/route";
+import { GET as getCustomers } from "@/app/api/admin/customers/route";
+import { GET as getUsers } from "@/app/api/admin/users/route";
+import { GET as getAvailability } from "@/app/api/admin/availability/route";
+import { GET as getNotifications } from "@/app/api/admin/notifications/route";
+import { GET as getAudit } from "@/app/api/admin/audit/route";
+import { GET as getSettings } from "@/app/api/admin/contact/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -42,6 +48,12 @@ describe("admin request module contract", () => {
       getProducts(new Request("http://localhost/api/admin/products")),
       getOrders(new Request("http://localhost/api/admin/orders")),
       getReviews(new Request("http://localhost/api/admin/reviews")),
+      getCustomers(new Request("http://localhost/api/admin/customers")),
+      getUsers(new Request("http://localhost/api/admin/users")),
+      getAvailability(new Request("http://localhost/api/admin/availability")),
+      getNotifications(new Request("http://localhost/api/admin/notifications")),
+      getAudit(new Request("http://localhost/api/admin/audit")),
+      getSettings(new Request("http://localhost/api/admin/contact")),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
