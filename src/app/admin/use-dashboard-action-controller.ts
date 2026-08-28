@@ -1,6 +1,6 @@
 "use client";
 
-export function useDashboardActionController({ onError, onSuccess }: { onError: (message: string) => void; onSuccess: (kind: "confirm" | "automation", data?: any) => void }) {
+export function useDashboardActionController({ onError, onSuccess }: { onError: (message: string) => void; onSuccess: (kind: "confirm" | "automation", data?: { picking?: number; overdueReminders?: number }) => void }) {
   async function request(path: string, body: unknown, kind: "confirm" | "automation") {
     try { const response = await fetch(path, body === undefined ? { method: "POST" } : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); const result = await response.json().catch(() => ({})); if (!response.ok) return onError(result.message ?? "Dashboard action failed."); onSuccess(kind, result.data); }
     catch { onError("An unexpected network error occurred."); }

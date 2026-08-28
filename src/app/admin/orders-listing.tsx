@@ -211,6 +211,8 @@ export function OrdersListing({
   // Keep the controlled search input aligned when Next restores this workspace
   // from browser history or a shared URL without remounting the component.
   useEffect(() => {
+    // URL restoration is an external navigation synchronization.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (search !== parsedUrlState.query) setSearch(parsedUrlState.query);
   }, [parsedUrlState.query, search]);
 

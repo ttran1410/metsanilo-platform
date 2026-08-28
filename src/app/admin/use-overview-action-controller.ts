@@ -1,7 +1,7 @@
 "use client";
 
 export function useOverviewActionController({ setError, setNotice, reload }: { setError: (message: string) => void; setNotice: (message: string) => void; reload: () => void }) {
-  async function request(path: string, init: RequestInit, fallback: string, success: (data: any) => string) {
+  async function request(path: string, init: RequestInit, fallback: string, success: (data: { picking?: number; overdueReminders?: number } | undefined) => string) {
     try { const response = await fetch(path, init); const body = await response.json().catch(() => ({})); if (!response.ok) return setError(body.message ?? fallback); setNotice(success(body.data)); reload(); }
     catch { setError(fallback); }
   }

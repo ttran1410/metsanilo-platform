@@ -76,6 +76,8 @@ export function ReviewsManager({
   const [searchQuery, setSearchQuery] = useState(initialUrlState.searchQuery);
 
   useEffect(() => {
+    // URL restoration is an external navigation synchronization.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (searchQuery !== initialUrlState.searchQuery) setSearchQuery(initialUrlState.searchQuery);
   }, [initialUrlState.searchQuery, searchQuery]);
   const [currentPage, setCurrentPage] = useState(initialUrlState.currentPage);
