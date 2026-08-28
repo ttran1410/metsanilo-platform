@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { getFulfillmentActions, type OrderTransition } from "@/domain/order-transitions";
 import { AdminConfirmDialog } from "./presentation";
+import { useOrderStatusActionController } from "./use-order-status-action-controller";
 
 type ActionOrder = { id: string; publicReference: string; status: string; fulfillmentMethod: string; finalTotalCents: number | null; version: number };
 
@@ -10,6 +11,7 @@ export function OrderActionBar({ order, onTransition, compact = false, confirmAl
   const [pending, setPending] = useState<OrderTransition | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const transitionOrder = useOrderStatusActionController({ onError: setError, onSuccess: () => window.location.reload() });
   const actions = getFulfillmentActions(order);
   const available = actions.filter((action) => action.available);
   const blocked = actions.filter((action) => !action.available);
@@ -22,9 +24,7 @@ export function OrderActionBar({ order, onTransition, compact = false, confirmAl
 
   async function execute(status: string, transitionReason?: string) {
     if (onTransition) return onTransition(status, transitionReason);
-    const response = await fetch(`/api/admin/orders/${order.id}/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ status, expectedVersion: order.version, reason: transitionReason || undefined, contactChannel: status === "CONFIRMED" ? "PHONE" : undefined }) });
-    if (!response.ok) { const body = await response.json(); return setError(body.message ?? "Status update failed."); }
-    window.location.reload();
+    await transitionOrder(order, status, transitionReason);
   }
 
   async function confirm() {
