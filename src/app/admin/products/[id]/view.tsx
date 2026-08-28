@@ -6,6 +6,7 @@ import { AdminNotice, AdminStatusBadge } from "../../presentation";
 import { PackageModal } from "../package-modal";
 import { ProductPreviewModal } from "../preview-modal";
 import { useProductMediaActionController } from "../use-product-media-action-controller";
+import { usePackageActionController } from "../use-package-action-controller";
 
 import type { packages, products } from "@/db/schema";
 
@@ -58,6 +59,7 @@ export function ProductDetailView({
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [deletingPkgId, setDeletingPkgId] = useState<string | null>(null);
   const mediaActions = useProductMediaActionController({ onError: setError });
+  const packageActions = usePackageActionController({ onRefresh: refreshProduct, onError: setError });
 
   useEffect(() => {
     if (!loadInitialFromApi || !productId) return;
@@ -88,58 +90,22 @@ export function ProductDetailView({
   // Set Default Package
   async function setDefaultPkg(id: string) {
     setError("");
-    const response = await fetch(`/api/admin/packages/${id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "default" }),
-    });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not change default package.");
-    setProduct((current) => ({
-      ...current,
-      packages: current.packages.map((item) => ({ ...item, isDefault: item.id === id })),
-    }));
+    if (!await packageActions.setDefault(id)) return;
     setMessage("Default package updated.");
   }
 
   // Toggle Package Active Status
   async function togglePkgActive(pkg: Product["packages"][number]) {
     setError("");
-    const response = await fetch(`/api/admin/packages/${pkg.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        action: "update",
-        package: {
-          labelFi: pkg.labelFi,
-          labelEn: pkg.labelEn,
-          volumeMl: pkg.volumeMl,
-          priceCents: pkg.priceCents,
-          active: !pkg.active,
-          isDefault: pkg.isDefault,
-        },
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not update package status.");
-    setProduct((current) => ({
-      ...current,
-      packages: current.packages.map((item) => (item.id === pkg.id ? { ...item, active: !pkg.active } : item)),
-    }));
+    if (!await packageActions.toggleActive(pkg)) return;
     setMessage(pkg.active ? "Package archived." : "Package activated.");
   }
 
   // Delete Package
   async function handleDeletePkg(id: string) {
     setError("");
-    const response = await fetch(`/api/admin/packages/${id}`, { method: "DELETE" });
-    const body = await response.json();
+    if (!await packageActions.remove(id)) return;
     setDeletingPkgId(null);
-    if (!response.ok) return setError(body.message ?? body.code ?? "Could not delete package.");
-    setProduct((current) => ({
-      ...current,
-      packages: current.packages.filter((item) => item.id !== id),
-    }));
     setMessage("Package deleted.");
   }
 

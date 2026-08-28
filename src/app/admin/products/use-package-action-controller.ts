@@ -7,10 +7,12 @@ export function usePackageActionController({ onRefresh, onError }: { onRefresh: 
     try {
       const response = await fetch(path, init);
       const body = await response.json().catch(() => ({})) as { message?: string; code?: string };
-      if (!response.ok) return onError(body.message ?? body.code ?? fallback);
+      if (!response.ok) { onError(body.message ?? body.code ?? fallback); return false; }
       onRefresh();
+      return true;
     } catch {
       onError("An unexpected network error occurred.");
+      return false;
     }
   }
 
