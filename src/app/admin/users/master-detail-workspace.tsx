@@ -17,7 +17,8 @@ import { UserWorkspaceProvider, useUserWorkspace } from "./user-workspace-provid
 import { OnboardingModal } from "./onboarding-modal";
 import { UserConfirmationDialog } from "./user-confirmation-dialog";
 import { UserPasswordDialog } from "./user-password-dialog";
-import { resetUserPassword, resetUserPermissions, revokeUserSessions, updateUserPermission, updateUserRole, updateUserStatus } from "./user-admin-actions";
+import { resetUserPassword, resetUserPermissions, revokeUserSessions, updateUserRole, updateUserStatus } from "./user-admin-actions";
+import { usePermissionEditorController } from "./use-permission-editor-controller";
 import { parseUsersUrlState, serializeUsersUrlState } from "../users-url-state";
 
 export type UserRow = {
@@ -227,8 +228,6 @@ function UserWorkspaceContent({
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [pendingPermissions, setPendingPermissions] = useState<Partial<Record<Permission, boolean>>>({});
-  const [savingPermissions, setSavingPermissions] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [createdInfo, setCreatedInfo] = useState<{ user: CreatedUser; tempPassword: string } | null>(null);
   const [confirmation, setConfirmation] = useState<{ title: string; description: string; confirmLabel: string; destructive?: boolean; onConfirm: () => Promise<void> } | null>(null);
@@ -252,7 +251,6 @@ function UserWorkspaceContent({
   async function loadUserExtras(id: string) {
     setSelectedId(id);
     setMobileView("detail");
-    setPendingPermissions({});
     try {
       const response = await fetch(`/api/admin/users/${id}`);
       const body = await response.json();
@@ -333,41 +331,8 @@ function UserWorkspaceContent({
     return filteredUsers.slice(start, start + pageSize);
   }, [filteredUsers, currentPage, pageSize]);
 
-  function stagePermission(permission: Permission, granted: boolean) {
-    if (!selectedUser) return;
-    const current = selectedUser.permissions.includes(permission);
-    setPendingPermissions((changes) => {
-      const next = { ...changes };
-      if (granted === current) delete next[permission];
-      else next[permission] = granted;
-      return next;
-    });
-  }
-
-  async function savePermissionChanges() {
-    if (!selectedUser || savingPermissions) return;
-    const changes = Object.entries(pendingPermissions) as Array<[Permission, boolean]>;
-    if (!changes.length) return;
-    setSavingPermissions(true);
-    setError("");
-    setMessage("");
-    let saved = 0;
-    try {
-      for (const [permission, granted] of changes) {
-        const result = await updateUserPermission(selectedUser.id, permission, granted);
-        if (!result.ok) throw new Error(result.message ?? `Could not update ${permissionName(permission)}.`);
-        saved += 1;
-      }
-      setPendingPermissions({});
-      setMessage(`${saved} permission ${saved === 1 ? "change" : "changes"} saved for ${selectedUser.displayName}.`);
-      await refreshUsersList(selectedUser.id);
-    } catch (caught) {
-      setError(`${saved ? `${saved} changes were saved. ` : ""}${caught instanceof Error ? caught.message : "Could not save permission changes."}`);
-      await refreshUsersList(selectedUser.id);
-    } finally {
-      setSavingPermissions(false);
-    }
-  }
+  const { pendingPermissions, setPendingPermissions, savingPermissions, stagePermission, savePermissionChanges } =
+    usePermissionEditorController(selectedUser, refreshUsersList, setError, setMessage);
 
   // Reset to Role Defaults
   async function handleResetToDefaults() {
