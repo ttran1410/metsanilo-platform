@@ -276,7 +276,9 @@ function UserWorkspaceContent({
 
   async function refreshUsersList(idToSelect?: string) {
     try {
-      const response = await fetch("/api/admin/users");
+      const params = new URLSearchParams();
+      for (const key of ["q", "role", "page", "limit"]) { const value = searchParams.get(key); if (value) params.set(key, value); }
+      const response = await fetch(`/api/admin/users?${params.toString()}`, { cache: "no-store", headers: { "x-admin-request-scope": "users-list" } });
       const body = await response.json();
       if (response.ok && body.data) {
         setUsersList(body.data);
