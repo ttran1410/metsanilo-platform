@@ -432,4 +432,4 @@ No Products, Reviews, Audit, Availability, or detail-page migration should begin
 
 ## Deferred follow-up
 
-After this implementation plan is complete, restore the post-create `created=<orderId>` workflow for Orders. The current OrdersListing JSON flow does not consume the legacy parameter, so the follow-up should preserve the parameter when appropriate, show the order-created success notice, and optionally select or open the created order without making it part of the current Orders data-loading migration.
+After this implementation plan is complete, verify and finish the complete Orders URL query-state contract. Preserve and restore application parameters such as `view`, `mode`, `q`, `from`, `to`, `preset`, `method`, `status`, `source`, `entry`, `created`, and pagination state across reload/navigation. Data filters must be forwarded to the JSON API; UI-only state such as mode and preset must still restore the correct workspace state. Treat `_rsc` as an internal Next.js transport parameter, not an application parameter. The legacy `created=<orderId>` signal should also regain its success notice and optional selection/opening behavior.
