@@ -17,7 +17,6 @@ import { UserWorkspaceProvider, useUserWorkspace } from "./user-workspace-provid
 import { OnboardingModal } from "./onboarding-modal";
 import { UserConfirmationDialog } from "./user-confirmation-dialog";
 import { UserPasswordDialog } from "./user-password-dialog";
-import { updateUserRole } from "./user-admin-actions";
 import { usePermissionEditorController } from "./use-permission-editor-controller";
 import { useUserAccountActionController } from "./use-user-account-action-controller";
 import { useUserProfileEditorController } from "./use-user-profile-editor-controller";
