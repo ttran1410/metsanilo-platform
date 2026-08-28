@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditEntries, mediaAttachments, mediaAssets } from "@/db/schema";
 import { authenticateAdmin, parseJson } from "../../module";
+import { updateAdminMediaMetadata } from "@/domain/admin-media-actions";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
@@ -12,9 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (input.action === "metadata") {
       const altFi = String(input.altFi ?? "").trim(); const altEn = String(input.altEn ?? "").trim();
       if (!altFi || !altEn || altFi.length > 240 || altEn.length > 240) throw new DomainError("VALIDATION_ERROR", "Finnish and English alt text are required", 422);
-      await db().update(mediaAssets).set({ altFi, altEn }).where(and(eq(mediaAssets.id, row[0].asset.id), eq(mediaAssets.shopId, env().SHOP_ID)));
-      await db().insert(auditEntries).values({ id: crypto.randomUUID(), shopId: env().SHOP_ID, actor: actor.email ?? actor.id, action: "media.alt_text_updated", entityType: "product", entityId: row[0].attachment.productId, detailsJson: JSON.stringify({ assetId: row[0].asset.id }), createdAt: new Date().toISOString() });
-      return success({ id, altFi, altEn });
+      return success(await updateAdminMediaMetadata(db(), { actor, shop: { id: env().SHOP_ID } }, { attachmentId: id, altFi, altEn }));
     }
     if (input.action === "reorder") {
       const attachmentIds = Array.isArray((input as { attachmentIds?: unknown }).attachmentIds) ? (input as { attachmentIds: string[] }).attachmentIds : [];
