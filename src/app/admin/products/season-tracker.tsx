@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Calendar, Trash2 } from "lucide-react";
 import { AdminConfirmDialog } from "../presentation";
+import { useSeasonMutationController } from "./use-season-mutation-controller";
 
 export type SeasonItem = {
   id: string;
@@ -52,7 +53,6 @@ export function SeasonTracker({
   const today = todayStr();
   const [seasons, setSeasons] = useState<SeasonItem[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [summary, setSummary] = useState<SeasonSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -109,59 +109,8 @@ export function SeasonTracker({
     setSummaryLoading(selectedSeasonId === seasonId ? false : true);
   }
 
-  async function saveSeasonGoal(season: SeasonItem) {
-    if (!productId) return;
-    const litres = targetLitres.trim() === "" ? null : Number(targetLitres);
-    if (litres !== null && (!Number.isInteger(litres) || litres <= 0)) return;
-    setBusy(true);
-    try {
-      const response = await fetch(`/api/admin/products/${productId}/seasons/${season.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ targetVolumeMl: litres === null ? null : litres * 1000 }) });
-      const body = await response.json();
-      if (response.ok && body.data) setSeasons((prev) => prev.map((item) => item.id === season.id ? body.data : item));
-    } finally { setBusy(false); }
-  }
-
-  async function saveFallbackSeasonGoal() {
-    if (!productId) return;
-    const litres = targetLitres.trim() === "" ? null : Number(targetLitres);
-    if (litres !== null && (!Number.isInteger(litres) || litres <= 0)) return;
-    setBusy(true);
-    try {
-      const year = new Date(`${availableFrom}T00:00:00Z`).getUTCFullYear();
-      const response = await fetch(`/api/admin/products/${productId}/seasons`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nameEn: `${year} Harvest Season`, nameFi: `${year} Satokausi`, startDate: availableFrom, endDate: availableThrough, targetVolumeMl: litres === null ? null : litres * 1000 }) });
-      const body = await response.json();
-      if (response.ok && body.data) setSeasons([body.data]);
-    } finally { setBusy(false); }
-  }
-
-  async function handleAddSeason(e: FormEvent) {
-    e.preventDefault();
-    if (!productId) return;
-    setBusy(true);
-
-    try {
-      const response = await fetch(`/api/admin/products/${productId}/seasons`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(cloneSourceId
-          ? { action: "clone", sourceSeasonId: cloneSourceId, nameFi, nameEn, startDate, endDate, notes, targetVolumeMl: targetLitres ? Number(targetLitres) * 1000 : null }
-          : { nameFi, nameEn, startDate, endDate, notes, targetVolumeMl: targetLitres ? Number(targetLitres) * 1000 : null }),
-      });
-      const body = await response.json();
-      setBusy(false);
-
-      if (response.ok && body.data) {
-        setSeasons((prev) => [body.data, ...prev]);
-        setShowAddForm(false);
-        setCloneSourceId(null);
-        if (onUpdateDates && body.data.status === "ACTIVE") {
-          onUpdateDates(body.data.startDate, body.data.endDate);
-        }
-      }
-    } catch {
-      setBusy(false);
-    }
-  }
+  const seasonMutations = useSeasonMutationController({ productId, availableFrom, availableThrough, cloneSourceId, nameEn, nameFi, startDate, endDate, notes, targetLitres, onUpdateDates, setSeasons, setShowAddForm, setCloneSourceId, setDeleteSeasonId });
+  const { busy, saveSeasonGoal, saveFallbackSeasonGoal, handleAddSeason, handleDeleteSeason, confirmDeleteSeason, handleExtendSeason } = seasonMutations;
 
   function prepareClone(season: SeasonItem) {
     setCloneSourceId(season.id);
@@ -172,56 +121,6 @@ export function SeasonTracker({
     setNotes(season.notes ?? "");
     setTargetLitres(season.targetVolumeMl ? String(season.targetVolumeMl / 1000) : "");
     setShowAddForm(true);
-  }
-
-  async function handleExtendSeason(season: SeasonItem) {
-    if (!productId) {
-      if (onUpdateDates) onUpdateDates(availableFrom, addDays(availableThrough, 7));
-      return;
-    }
-    setBusy(true);
-
-    try {
-      const newEndDate = addDays(season.endDate, 7);
-      const response = await fetch(`/api/admin/products/${productId}/seasons/${season.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "extend", additionalDays: 7 }),
-      });
-      const body = await response.json();
-      setBusy(false);
-
-      if (response.ok && body.data) {
-        setSeasons((prev) => prev.map((s) => (s.id === season.id ? body.data : s)));
-        if (onUpdateDates) onUpdateDates(season.startDate, newEndDate);
-      }
-    } catch {
-      setBusy(false);
-    }
-  }
-
-  async function handleDeleteSeason(seasonId: string) {
-    if (!productId) return;
-    setDeleteSeasonId(seasonId);
-  }
-
-  async function confirmDeleteSeason() {
-    if (!productId || !deleteSeasonId) return;
-    setBusy(true);
-
-    try {
-      const response = await fetch(`/api/admin/products/${productId}/seasons/${deleteSeasonId}`, {
-        method: "DELETE",
-      });
-      setBusy(false);
-
-      if (response.ok) {
-        setSeasons((prev) => prev.filter((s) => s.id !== deleteSeasonId));
-      }
-    } catch {
-      setBusy(false);
-    }
-    setDeleteSeasonId(null);
   }
 
   // Active or fallback single season calculation
@@ -548,7 +447,7 @@ export function SeasonTracker({
         confirmLabel="Delete season"
         destructive
         onCancel={() => setDeleteSeasonId(null)}
-        onConfirm={confirmDeleteSeason}
+        onConfirm={() => confirmDeleteSeason(deleteSeasonId)}
       />
     </div>
   );
