@@ -5,6 +5,8 @@ import { auditEntries, orders } from "@/db/schema";
 import { DomainError } from "./errors";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
 import { getManagerOrder, listManagerOrdersWithPaymentSummary } from "./orders";
+import { listManagerProducts } from "./products";
+import { listManagerAvailability } from "./availability";
 import { searchManagerOrders } from "./admin-search";
 import { paged, type AdminListQuery } from "@/lib/admin-list-query";
 import { getOrderTriageReasons } from "./order-triage";
@@ -14,6 +16,16 @@ export type AdminOrdersQueryFilters = { status?: string; fulfillmentMethod?: str
 export async function getAdminOrderDetail(database: Database, context: AdminActionContext, orderId: string) {
   assertAdminActionContext(context);
   return getManagerOrder(database, orderId);
+}
+
+export async function getAdminOrderEditData(database: Database, context: AdminActionContext, orderId: string) {
+  assertAdminActionContext(context);
+  const [detail, products, availabilityList] = await Promise.all([
+    getManagerOrder(database, orderId),
+    listManagerProducts(database),
+    listManagerAvailability(database),
+  ]);
+  return { detail, products, availabilityList };
 }
 
 export async function getAdminOrders(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminOrdersQueryFilters; includeCounts?: boolean }) {
