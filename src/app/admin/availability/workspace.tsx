@@ -15,6 +15,7 @@ import { DateInspectorDrawer, type DateOrdersEntry } from "./date-inspector-draw
 import { FreezeModal } from "./freeze-modal";
 import { useCutoffActionController } from "./use-cutoff-action-controller";
 import { useFreezeActionController } from "./use-freeze-action-controller";
+import { useSaveAvailabilityActionController } from "./use-save-availability-action-controller";
 
 type Workspace = AvailabilityWorkspace;
 type AvailabilityRow = Workspace["rows"][number];
@@ -116,6 +117,7 @@ export function AvailabilityWorkspace({
   const workspaceRequestId = useRef(0);
   const updateCutoff = useCutoffActionController({ onError: setError, onSuccess: (value) => { setMessage(value === "OPEN" ? "Same-day cutoff override enabled for this date." : "Same-day cutoff override cleared."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7); } });
   const updateFreeze = useFreezeActionController({ onError: setError, onSuccess: (locked, reason) => { setFreezingRow(null); setMessage(locked ? `Date ${freezingRow?.availability.businessDate ?? ""} frozen (${reason}).` : "Date reopened."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7); } });
+  const saveAvailabilityAction = useSaveAvailabilityActionController({ onError: setError, onSuccess: () => { setEditing(null); setMessage("Availability saved."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7); } });
 
   useEffect(() => {
     if (loadInitialFromApi) {
@@ -313,22 +315,7 @@ export function AvailabilityWorkspace({
       return setError(`Capacity cannot be lower than the ${litres(editing.availability.reservedMl)} already reserved.`);
     }
 
-    const response = await fetch(`/api/admin/availability/${editing.availability.id}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        expectedVersion: editing.availability.version,
-        capacityMl,
-        manualSoldOut: editing.availability.manualSoldOut,
-        soldOutReason: editing.availability.manualSoldOutReason ?? undefined,
-      }),
-    });
-
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not save availability.");
-    setEditing(null);
-    setMessage(`Availability for ${editing.availability.businessDate} saved.`);
-    void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
+    await saveAvailabilityAction({ id: editing.availability.id, version: editing.availability.version, capacityMl, manualSoldOut: editing.availability.manualSoldOut, soldOutReason: editing.availability.manualSoldOutReason });
   }
 
   const inspectedDayRow = inspectingDate ? editableRow(rows.filter((r) => r.availability.businessDate === inspectingDate)) : null;
