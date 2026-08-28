@@ -13,6 +13,11 @@ import { GET as getAvailability } from "@/app/api/admin/availability/route";
 import { GET as getNotifications } from "@/app/api/admin/notifications/route";
 import { GET as getAudit } from "@/app/api/admin/audit/route";
 import { GET as getSettings } from "@/app/api/admin/contact/route";
+import { GET as getDashboard } from "@/app/api/admin/dashboard/route";
+import { GET as getNavigationSummary } from "@/app/api/admin/navigation-summary/route";
+import { GET as getMedia } from "@/app/api/admin/media/route";
+import { GET as getTheme } from "@/app/api/admin/storefront-theme/route";
+import { POST as runAutomation } from "@/app/api/admin/automation/run/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -54,6 +59,11 @@ describe("admin request module contract", () => {
       getNotifications(new Request("http://localhost/api/admin/notifications")),
       getAudit(new Request("http://localhost/api/admin/audit")),
       getSettings(new Request("http://localhost/api/admin/contact")),
+      getDashboard(new Request("http://localhost/api/admin/dashboard")),
+      getNavigationSummary(new Request("http://localhost/api/admin/navigation-summary")),
+      getMedia(new Request("http://localhost/api/admin/media")),
+      getTheme(new Request("http://localhost/api/admin/storefront-theme")),
+      runAutomation(new Request("http://localhost/api/admin/automation/run", { method: "POST" })),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
