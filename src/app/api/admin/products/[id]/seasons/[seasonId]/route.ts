@@ -2,9 +2,11 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { authenticateAdmin, parseJson } from "../../../../module";
 import { DomainError } from "@/domain/errors";
-import { deleteHarvestSeason, extendHarvestSeason, getHarvestSeasonSummary, updateHarvestSeason } from "@/domain/seasons";
+import { getHarvestSeasonSummary } from "@/domain/seasons";
+import { deleteAdminSeason, extendAdminSeason, updateAdminSeason } from "@/domain/admin-season-actions";
 import { failure, success } from "../../../../../response";
 import { executeAdmin } from "../../../../module";
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -40,20 +42,18 @@ export async function PATCH(
 ) {
   try {
     const actor = (await authenticateAdmin(request, "catalog.product.write")).actor;
-    const actorName = actor.email ?? actor.username ?? actor.id;
     const { seasonId } = await context.params;
 
     const parsed = updateSeasonSchema.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season update payload", 422);
 
     if (parsed.data.action === "extend") {
-      const extended = await extendHarvestSeason(db(), seasonId, parsed.data.additionalDays ?? 7, actorName);
+      const extended = await extendAdminSeason(db(), { actor, shop: { id: env().SHOP_ID } }, seasonId, parsed.data.additionalDays ?? 7);
       return success(extended);
     }
 
-    const updated = await updateHarvestSeason(
-      db(),
-      seasonId,
+    const updated = await updateAdminSeason(
+      db(), { actor, shop: { id: env().SHOP_ID } }, seasonId,
       {
         nameFi: parsed.data.nameFi,
         nameEn: parsed.data.nameEn,
@@ -62,8 +62,7 @@ export async function PATCH(
         status: parsed.data.status,
         targetVolumeMl: parsed.data.targetVolumeMl,
         notes: parsed.data.notes,
-      },
-      actorName
+      }
     );
 
     return success(updated);
@@ -78,10 +77,9 @@ export async function DELETE(
 ) {
   try {
     const actor = (await authenticateAdmin(request, "catalog.product.write")).actor;
-    const actorName = actor.email ?? actor.username ?? actor.id;
     const { seasonId } = await context.params;
 
-    await deleteHarvestSeason(db(), seasonId, actorName);
+    await deleteAdminSeason(db(), { actor, shop: { id: env().SHOP_ID } }, seasonId);
     return success({ deleted: true });
   } catch (error) {
     return failure(error);
