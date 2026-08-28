@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { packages } from "@/db/schema";
 import { PackageModal } from "./package-modal";
 import { AdminConfirmDialog } from "../presentation";
+import { usePackageActionController } from "./use-package-action-controller";
 
 type PackageRow = typeof packages.$inferSelect;
 
@@ -22,7 +23,7 @@ export function PricingLadder({
   const [editingPkg, setEditingPkg] = useState<PackageRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const actions = usePackageActionController({ onRefresh, onError: setError });
 
   const sortedPackages = useMemo(() => {
     return [...packagesList].sort((a, b) => a.sortOrder - b.sortOrder || a.volumeMl - b.volumeMl);
@@ -36,73 +37,13 @@ export function PricingLadder({
     return smallest.priceCents / smallest.volumeMl;
   }, [sortedPackages]);
 
-  async function setDefaultPkg(id: string) {
-    setError("");
-    setNotice("");
-    const response = await fetch(`/api/admin/packages/${id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "default" }),
-    });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not set default package.");
-    setNotice("Default package updated.");
-    onRefresh();
-  }
-
-  async function toggleActive(pkg: PackageRow) {
-    setError("");
-    setNotice("");
-    const response = await fetch(`/api/admin/packages/${pkg.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        action: "update",
-        package: {
-          labelFi: pkg.labelFi,
-          labelEn: pkg.labelEn,
-          volumeMl: pkg.volumeMl,
-          priceCents: pkg.priceCents,
-          active: !pkg.active,
-          isDefault: pkg.isDefault,
-        },
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not update package status.");
-    setNotice(pkg.active ? "Package archived." : "Package activated.");
-    onRefresh();
-  }
-
-  async function deletePackage(id: string) {
-    setError("");
-    setNotice("");
-    const response = await fetch(`/api/admin/packages/${id}`, { method: "DELETE" });
-    const body = await response.json();
-    setDeletingId(null);
-    if (!response.ok) return setError(body.message ?? body.code ?? "Could not delete package.");
-    setNotice("Package deleted.");
-    onRefresh();
-  }
-
-  async function reorder(packageIds: string[]) {
-    setError("");
-    const response = await fetch(`/api/admin/products/${productId}/packages`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ packageIds }),
-    });
-    if (!response.ok) return setError("Could not reorder packages.");
-    onRefresh();
-  }
-
   function shiftPackage(index: number, direction: -1 | 1) {
     const nextIndex = index + direction;
     if (nextIndex < 0 || nextIndex >= sortedPackages.length) return;
     const next = [...sortedPackages];
     const [moved] = next.splice(index, 1);
     next.splice(nextIndex, 0, moved);
-    void reorder(next.map((p) => p.id));
+    void actions.reorder(productId, next.map((p) => p.id));
   }
 
   return (
@@ -131,7 +72,6 @@ export function PricingLadder({
       </div>
 
       {error && <p className="text-xs font-semibold text-danger">{error}</p>}
-      {notice && <p className="text-xs font-semibold text-emerald-700">{notice}</p>}
 
       {/* Packages Table Matrix */}
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
@@ -234,7 +174,7 @@ export function PricingLadder({
                     <button
                       type="button"
                       className={`text-base transition-transform ${pkg.isDefault ? "scale-125" : "opacity-30 hover:opacity-100"}`}
-                      onClick={() => canEdit && !pkg.isDefault && void setDefaultPkg(pkg.id)}
+                      onClick={() => canEdit && !pkg.isDefault && void actions.setDefault(pkg.id)}
                       title={pkg.isDefault ? "Current Default Package" : "Set as Default Package"}
                     >
                       {pkg.isDefault ? "⭐" : "☆"}
@@ -267,7 +207,7 @@ export function PricingLadder({
                         <button
                           type="button"
                           className="text-button text-xs"
-                          onClick={() => void toggleActive(pkg)}
+                          onClick={() => void actions.toggleActive(pkg)}
                         >
                           {pkg.active ? "Archive" : "Activate"}
                         </button>
@@ -302,7 +242,7 @@ export function PricingLadder({
       )}
 
       {/* Delete Confirmation Modal */}
-      <AdminConfirmDialog open={deletingId !== null} title="Delete package?" description="If this package is referenced by existing orders, deletion will be rejected and it should be archived instead." confirmLabel="Delete package" destructive onCancel={() => setDeletingId(null)} onConfirm={async () => { if (deletingId) await deletePackage(deletingId); }} />
+      <AdminConfirmDialog open={deletingId !== null} title="Delete package?" description="If this package is referenced by existing orders, deletion will be rejected and it should be archived instead." confirmLabel="Delete package" destructive onCancel={() => setDeletingId(null)} onConfirm={async () => { if (deletingId) { await actions.remove(deletingId); setDeletingId(null); } }} />
     </div>
   );
 }
