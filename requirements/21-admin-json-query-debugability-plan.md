@@ -473,6 +473,18 @@ Current remaining work:
 - Add browser-level verification; no browser test harness is currently configured.
 - Continue decomposition of package/media/season child workflows and ManagerWorkspace compatibility paths only where callbacks still own mutations.
 
+### Browser verification checkpoint (2026-08-28)
+
+Verified in an authenticated local Admin browser session:
+
+- `/admin/orders` loads the order list successfully after navigation/reload.
+- Canonical Orders URL state preserves `view`, `mode`, `from`, `to`, and `preset`.
+- Changing the search field updates the URL with `q` and retains the filtered UI state.
+- Opening the parameterized Orders URL directly restores the same filtered view.
+- The authenticated shell and Orders permission gate are functional.
+
+The in-app browser surface does not expose a network-panel API, so duplicate-request counts, response `Content-Type`, and stale-response timing still require manual DevTools inspection or a future Playwright/network harness. They are not claimed as automatically verified here.
+
 This follow-up should begin now, before migrating additional workspaces. For each admin module, audit and document:
 
 1. Whether the endpoint follows the resource/action distinction expected by REST: collection reads use `GET /resource`, member reads use `GET /resource/:id`, resource mutations use the appropriate method, and explicit workflows such as publish, rollback, refund, or batch operations remain named actions where that improves safety and clarity.
