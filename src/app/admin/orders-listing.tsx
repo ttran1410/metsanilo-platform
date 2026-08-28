@@ -16,8 +16,8 @@ import { BatchPackingSlip } from "./orders/batch-packing-slip";
 import { AdminPagination } from "./ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
+import { getAdminOrderSources } from "./reference-data-cache";
 
-let orderSourcesPromise: Promise<Array<{ key: string; labelEn: string }> | null> | null = null;
 
 export type AdminOrder = typeof orders.$inferSelect & {
   paidCents?: number;
@@ -367,8 +367,7 @@ export function OrdersListing({
   useEffect(() => {
     async function loadSources() {
       try {
-        if (!orderSourcesPromise) orderSourcesPromise = fetch("/api/admin/order-sources", { cache: "no-store", headers: { "x-admin-request-scope": "orders-source-options" } }).then(async (response) => { if (!response.ok) return null; const body = await response.json(); return Array.isArray(body.data) ? body.data as Array<{ key: string; labelEn: string }> : null; }).catch(() => null);
-        const sources = await orderSourcesPromise;
+        const sources = await getAdminOrderSources();
         if (sources) setSources(sources.filter((source) => source.key !== "HISTORICAL"));
       } catch {
         /* Ignore */

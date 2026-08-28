@@ -12,6 +12,7 @@ import type {
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminEmptyState } from "./presentation";
 import { OrdersListing } from "./orders-listing";
+import { getAdminOrderSources } from "./reference-data-cache";
 import { ManagerQueryToolbar } from "./manager-query-toolbar";
 import { ManagerSelectionToolbar } from "./manager-selection-toolbar";
 import { ManagerWorkspaceHeader } from "./manager-workspace-header";
@@ -133,17 +134,7 @@ function ManagerWorkspaceContent({
             0,
           )
         : undefined;
-    void fetch("/api/admin/order-sources")
-      .then(async (response) =>
-        response.ok
-          ? setSourceOptions(
-              (await response.json()).data.filter(
-                (item: { active: boolean }) => item.active,
-              ),
-            )
-          : undefined,
-      )
-      .catch(() => undefined);
+    void getAdminOrderSources().then((sources) => { if (sources) setSourceOptions(sources.filter((item) => item.active)); });
     return () => {
       if (createdMessage !== undefined) window.clearTimeout(createdMessage);
     };
