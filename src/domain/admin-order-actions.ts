@@ -4,13 +4,18 @@ import type { Database } from "@/db/client";
 import { auditEntries, orders } from "@/db/schema";
 import { DomainError } from "./errors";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
-import { listManagerOrdersWithPaymentSummary } from "./orders";
+import { getManagerOrder, listManagerOrdersWithPaymentSummary } from "./orders";
 import { searchManagerOrders } from "./admin-search";
 import { paged, type AdminListQuery } from "@/lib/admin-list-query";
 import { getOrderTriageReasons } from "./order-triage";
 import { todayInTimezone } from "@/lib/format";
 
 export type AdminOrdersQueryFilters = { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; historicalEntry?: boolean; source?: string; from?: string; to?: string; triage?: boolean; unpaid?: boolean };
+export async function getAdminOrderDetail(database: Database, context: AdminActionContext, orderId: string) {
+  assertAdminActionContext(context);
+  return getManagerOrder(database, orderId);
+}
+
 export async function getAdminOrders(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminOrdersQueryFilters; includeCounts?: boolean }) {
   assertAdminActionContext(context);
   if (query?.list) {
