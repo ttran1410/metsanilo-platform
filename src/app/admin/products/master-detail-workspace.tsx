@@ -33,7 +33,7 @@ import { SeasonTracker } from "./season-tracker";
 import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-toolbar";
 import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspace-provider";
 import { ProductArchiveDialog, ProductDeleteDialog, ProductRestoreDialog } from "./product-action-dialogs";
-import { updateProduct } from "./product-admin-actions";
+import { useProductEditorController } from "./use-product-editor-controller";
 import { useProductActionController } from "./use-product-action-controller";
 import { parseProductsUrlState, serializeProductsUrlState } from "../products-url-state";
 
@@ -80,7 +80,6 @@ function ProductWorkspaceContent({
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!loadInitialFromApi) return;
@@ -220,39 +219,13 @@ function ProductWorkspaceContent({
     setMessage,
   });
 
-  // Save Changes
-  async function handleSaveChanges() {
-    if (!selectedRow) return;
-    setSaving(true);
-    setError("");
-    setMessage("");
-
-    const payload = {
-      code: code.trim().toUpperCase(),
-      slug: slug.trim().toLowerCase(),
-      nameFi: nameFi.trim(),
-      nameEn: nameEn.trim(),
-      descriptionFi: descFi.trim(),
-      descriptionEn: descEn.trim(),
-      availableFrom,
-      availableThrough,
-      active,
-      showOnHomepage,
-      showOnReserve,
-    };
-
-    const result = await updateProduct(selectedRow.product.id, payload);
-    setSaving(false);
-
-    if (!result.ok) {
-      return setError(result.message ?? result.code ?? "Could not save product changes.");
-    }
-
-    setProductsList((current) =>
-      current.map((item) => (item.product.id === selectedRow.product.id ? result.data as ProductRow : item))
-    );
-    setMessage(`Saved changes for ${nameFi}.`);
-  }
+  const { saving, handleSaveChanges } = useProductEditorController({
+    selectedRow,
+    values: { code, slug, nameFi, nameEn, descriptionFi: descFi, descriptionEn: descEn, availableFrom, availableThrough, active, showOnHomepage, showOnReserve },
+    setProductsList,
+    setError,
+    setMessage,
+  });
 
   // Handle Extend Season
   function handleExtendSeason(newFrom: string, newThrough: string) {
