@@ -1,10 +1,11 @@
 import { DELETE as deleteCollection, PATCH as patchCollection } from "../route";
 import { failure } from "../../../response";
+import { parseJson } from "../../module";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = await request.json();
+    const body = await parseJson<Record<string, unknown>>(request);
     return patchCollection(new Request(request, { body: JSON.stringify({ ...body, id }), headers: { "content-type": "application/json" } }));
   } catch (error) { return failure(error); }
 }
