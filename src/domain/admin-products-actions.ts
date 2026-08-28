@@ -3,7 +3,8 @@ import type { Database } from "@/db/client";
 import { availability, orders } from "@/db/schema";
 import { env } from "@/lib/env";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
-import { deleteProduct as deleteProductDomain, getProductReadiness, listManagerProducts, setProductActive, updateProduct as updateProductDomain, reorderProducts as reorderProductsDomain, type ProductInput } from "./products";
+import { createPackage as createPackageDomain, deletePackage as deletePackageDomain, deleteProduct as deleteProductDomain, getProductReadiness, listManagerProducts, reorderPackages as reorderPackagesDomain, setDefaultPackage as setDefaultPackageDomain, setProductActive, updatePackage as updatePackageDomain, updateProduct as updateProductDomain, reorderProducts as reorderProductsDomain, type ProductInput } from "./products";
+type PackageInput = Parameters<typeof createPackageDomain>[2];
 
 export async function getAdminProductDetail(database: Database, context: AdminActionContext, productId: string) {
   assertAdminActionContext(context);
@@ -45,4 +46,29 @@ export async function reorderProducts(database: Database, context: AdminActionCo
   assertAdminActionContext(context);
   if (context.shop.id !== env().SHOP_ID) throw new Error("Admin action shop is not active");
   return reorderProductsDomain(database, productIds);
+}
+
+export async function createAdminPackage(database: Database, context: AdminActionContext, productId: string, input: PackageInput) {
+  assertAdminActionContext(context);
+  return createPackageDomain(database, productId, input);
+}
+
+export async function updateAdminPackage(database: Database, context: AdminActionContext, packageId: string, input: PackageInput) {
+  assertAdminActionContext(context);
+  return updatePackageDomain(database, packageId, input);
+}
+
+export async function setAdminDefaultPackage(database: Database, context: AdminActionContext, packageId: string) {
+  assertAdminActionContext(context);
+  return setDefaultPackageDomain(database, packageId);
+}
+
+export async function deleteAdminPackage(database: Database, context: AdminActionContext, packageId: string) {
+  assertAdminActionContext(context);
+  return deletePackageDomain(database, packageId);
+}
+
+export async function reorderAdminPackages(database: Database, context: AdminActionContext, productId: string, packageIds: string[]) {
+  assertAdminActionContext(context);
+  return reorderPackagesDomain(database, productId, packageIds);
 }
