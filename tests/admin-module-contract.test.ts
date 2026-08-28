@@ -23,6 +23,13 @@ import { POST as updateOrderStatus } from "@/app/api/admin/orders/[id]/status/ro
 import { POST as addOrderNote } from "@/app/api/admin/orders/[id]/notes/route";
 import { POST as recordOrderPayment } from "@/app/api/admin/orders/[id]/payment/route";
 import { POST as refundOrder } from "@/app/api/admin/orders/[id]/refund/route";
+import { GET as getCustomerMember } from "@/app/api/admin/customers/[id]/route";
+import { POST as anonymizeCustomer } from "@/app/api/admin/customers/[id]/route";
+import { POST as confirmContact } from "@/app/api/admin/customers/[id]/contact-confirmation/route";
+import { GET as getUserMember } from "@/app/api/admin/users/[id]/route";
+import { PATCH as updateUser } from "@/app/api/admin/users/[id]/route";
+import { POST as resetPassword } from "@/app/api/admin/users/[id]/password/route";
+import { PUT as updatePermission } from "@/app/api/admin/users/[id]/permissions/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -85,6 +92,25 @@ describe("admin request module contract", () => {
       addOrderNote(new Request("http://localhost/api/admin/orders/order-1/notes", { method: "POST", body: "{}" }), { params }),
       recordOrderPayment(new Request("http://localhost/api/admin/orders/order-1/payment", { method: "POST", body: "{}" }), { params }),
       refundOrder(new Request("http://localhost/api/admin/orders/order-1/refund", { method: "POST", body: "{}" }), { params }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Customer and User member/action routes behind authentication", async () => {
+    const customerParams = Promise.resolve({ id: "customer-1" });
+    const userParams = Promise.resolve({ id: "user-1" });
+    const responses = await Promise.all([
+      getCustomerMember(new Request("http://localhost/api/admin/customers/customer-1"), { params: customerParams }),
+      anonymizeCustomer(new Request("http://localhost/api/admin/customers/customer-1", { method: "POST" }), { params: customerParams }),
+      confirmContact(new Request("http://localhost/api/admin/customers/customer-1/contact-confirmation", { method: "POST", body: JSON.stringify({ channel: "PHONE" }) }), { params: customerParams }),
+      getUserMember(new Request("http://localhost/api/admin/users/user-1"), { params: userParams }),
+      updateUser(new Request("http://localhost/api/admin/users/user-1", { method: "PATCH", body: JSON.stringify({ action: "update", displayName: "Test User" }) }), { params: userParams }),
+      resetPassword(new Request("http://localhost/api/admin/users/user-1/password", { method: "POST" }), { params: userParams }),
+      updatePermission(new Request("http://localhost/api/admin/users/user-1/permissions", { method: "PUT", body: JSON.stringify({ permission: "orders.read", granted: true }) }), { params: userParams }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
