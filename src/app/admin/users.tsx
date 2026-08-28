@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { Role } from "@/lib/permissions";
 import { AdminLoadingState } from "./presentation";
 import { MasterDetailUserWorkspace, type UserRow } from "./users/master-detail-workspace";
+import { getAdminQuery } from "./admin-query-cache";
 
 export function UserModule({
   actorRole = "MANAGER",
@@ -27,10 +28,9 @@ export function UserModule({
       try {
         const params = new URLSearchParams();
         for (const key of ["q", "role", "page", "limit"]) { const value = searchParams.get(key); if (value) params.set(key, value); }
-        const response = await fetch(`/api/admin/users?${params.toString()}`, { cache: "no-store", headers: { "x-admin-request-scope": "users-list" } });
-        const body = await response.json();
-        if (response.ok && body.data) {
-          setInitialUsers(body.data);
+        const data = await getAdminQuery<UserRow[]>(`/api/admin/users?${params.toString()}`, "users-list");
+        if (data) {
+          setInitialUsers(data);
         } else {
           setInitialUsers([]);
         }

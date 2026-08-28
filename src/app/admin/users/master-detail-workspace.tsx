@@ -21,6 +21,7 @@ import { usePermissionEditorController } from "./use-permission-editor-controlle
 import { useUserAccountActionController } from "./use-user-account-action-controller";
 import { useUserProfileEditorController } from "./use-user-profile-editor-controller";
 import { parseUsersUrlState, serializeUsersUrlState } from "../users-url-state";
+import { getAdminQuery, invalidateAdminQuery } from "../admin-query-cache";
 
 export type UserRow = {
   id: string;
@@ -275,12 +276,12 @@ function UserWorkspaceContent({
 
   async function refreshUsersList(idToSelect?: string) {
     try {
+      invalidateAdminQuery("users-list");
       const params = new URLSearchParams();
       for (const key of ["q", "role", "page", "limit"]) { const value = searchParams.get(key); if (value) params.set(key, value); }
-      const response = await fetch(`/api/admin/users?${params.toString()}`, { cache: "no-store", headers: { "x-admin-request-scope": "users-list" } });
-      const body = await response.json();
-      if (response.ok && body.data) {
-        setUsersList(body.data);
+      const data = await getAdminQuery<UserRow[]>(`/api/admin/users?${params.toString()}`, "users-list");
+      if (data) {
+        setUsersList(data);
         const targetId = idToSelect ?? selectedId;
         if (targetId) void loadUserExtras(targetId);
       }

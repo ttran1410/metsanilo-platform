@@ -18,6 +18,7 @@ import { CustomerInspector } from "./customer-inspector";
 import { parseCustomersUrlState, serializeCustomersUrlState } from "../customers-url-state";
 import { useCustomerContactActionController } from "./use-customer-contact-action-controller";
 import { useCustomerRecordActionController } from "./use-customer-record-action-controller";
+import { getAdminQuery, invalidateAdminQuery } from "../admin-query-cache";
 
 export type CustomerRow = {
   id: string;
@@ -219,6 +220,7 @@ function CustomerWorkspaceContent({
   // Reload customer list & current profile
   async function refreshList(currentIdToSelect?: string) {
     customersRequestRef.current?.abort();
+    invalidateAdminQuery("customers-list");
     const controller = new AbortController();
     try {
       const params = new URLSearchParams();
@@ -226,10 +228,9 @@ function CustomerWorkspaceContent({
         const value = searchParams.get(key);
         if (value) params.set(key, value);
       }
-      const response = await fetch(`/api/admin/customers?${params.toString()}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "customers-list" } });
-      const body = await response.json();
-      if (response.ok && body.data) {
-        const list = Array.isArray(body.data) ? body.data : (body.data.items ?? []);
+      const data = await getAdminQuery<CustomerRow[] | { items: CustomerRow[] }>(`/api/admin/customers?${params.toString()}`, "customers-list");
+      if (data) {
+        const list = Array.isArray(data) ? data : data.items;
         setCustomersList(list);
         const targetId = currentIdToSelect ?? selectedId;
         if (targetId) void loadProfile(targetId);

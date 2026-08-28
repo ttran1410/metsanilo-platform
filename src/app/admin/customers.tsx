@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminLoadingState } from "./presentation";
 import { MasterDetailCustomerWorkspace, type CustomerRow } from "./customers/master-detail-workspace";
+import { getAdminQuery } from "./admin-query-cache";
 
 export function CustomersModule({
   canEdit,
@@ -28,10 +29,9 @@ export function CustomersModule({
           const value = searchParams.get(key);
           if (value) params.set(key, value);
         }
-        const response = await fetch(`/api/admin/customers?${params.toString()}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "customers-list" } });
-        const body = await response.json();
-        if (response.ok && body.data) {
-          setInitialCustomers(body.data);
+        const data = await getAdminQuery<CustomerRow[] | { items: CustomerRow[]; summary?: { totalCustomers: number; vipCount: number; totalLitres: number; consentCount: number } }>(`/api/admin/customers?${params.toString()}`, "customers-list");
+        if (data) {
+          setInitialCustomers(data);
         } else {
           setInitialCustomers([]);
         }
