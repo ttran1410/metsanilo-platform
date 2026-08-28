@@ -2,7 +2,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { authenticateAdmin, parseJson } from "../../module";
 import { getCustomerProfile } from "@/domain/customers";
-import { anonymizeAdminCustomer, mergeAdminCustomers, updateAdminCustomer, updateAdminCustomerNotesAndConsent } from "@/domain/admin-customer-actions";
+import { anonymizeAdminCustomer, executeAdminCustomerCommand } from "@/domain/admin-customer-actions";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
@@ -50,27 +50,26 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (!parsed.data.duplicateId) {
         throw new DomainError("VALIDATION_ERROR", "duplicateId is required to merge customers", 422);
       }
-      const merged = await mergeAdminCustomers(db(), { actor, shop: { id: env().SHOP_ID } }, id, parsed.data.duplicateId);
+      const merged = await executeAdminCustomerCommand(db(), { actor, shop: { id: env().SHOP_ID } }, { action: "merge", id, duplicateId: parsed.data.duplicateId });
       return success(merged);
     }
 
     // Handle Notes Action
     if (parsed.data.action === "notes") {
-      return success(await updateAdminCustomerNotesAndConsent(db(), { actor, shop: { id: env().SHOP_ID } }, id, { notes: parsed.data.notes }));
+      return success(await executeAdminCustomerCommand(db(), { actor, shop: { id: env().SHOP_ID } }, { action: "notes", id, values: { notes: parsed.data.notes } }));
     }
 
     // Default Profile Update
-    const updatedCustomer = await updateAdminCustomer(db(), { actor, shop: { id: env().SHOP_ID } }, id,
-      {
+    const updatedCustomer = await executeAdminCustomerCommand(db(), { actor, shop: { id: env().SHOP_ID } }, { action: "update", id, values: {
         name: parsed.data.name,
         mobile: parsed.data.mobile,
         email: parsed.data.email,
         facebookProfile: parsed.data.facebookProfile,
         notes: parsed.data.notes,
-      });
+      } });
 
     if (parsed.data.marketingConsent !== undefined) {
-      await updateAdminCustomerNotesAndConsent(db(), { actor, shop: { id: env().SHOP_ID } }, id, { marketingConsent: parsed.data.marketingConsent });
+      await executeAdminCustomerCommand(db(), { actor, shop: { id: env().SHOP_ID } }, { action: "notes", id, values: { marketingConsent: parsed.data.marketingConsent } });
     }
 
     return success(updatedCustomer);

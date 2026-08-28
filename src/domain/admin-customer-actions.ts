@@ -8,6 +8,18 @@ import { assertAdminActionContext, type AdminActionContext } from "./admin-actio
 
 function actorName(context: AdminActionContext) { assertAdminActionContext(context); return context.actor.email ?? context.actor.id; }
 
+export type AdminCustomerCommand =
+  | { action: "update"; id: string; values: AdminCustomerUpdateInput }
+  | { action: "notes"; id: string; values: AdminCustomerNotesAndConsentInput }
+  | { action: "merge"; id: string; duplicateId: string };
+
+export async function executeAdminCustomerCommand(database: Database, context: AdminActionContext, command: AdminCustomerCommand) {
+  assertAdminActionContext(context);
+  if (command.action === "update") return updateAdminCustomer(database, context, command.id, command.values);
+  if (command.action === "notes") return updateAdminCustomerNotesAndConsent(database, context, command.id, command.values);
+  return mergeAdminCustomers(database, context, command.id, command.duplicateId);
+}
+
 export type AdminCustomerCreateInput = Parameters<typeof createCustomer>[1];
 export async function createAdminCustomer(database: Database, context: AdminActionContext, input: AdminCustomerCreateInput) { actorName(context); return createCustomer(database, input); }
 export type AdminCustomerUpdateInput = Parameters<typeof updateCustomer>[2];
