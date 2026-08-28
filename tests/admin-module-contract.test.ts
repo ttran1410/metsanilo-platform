@@ -30,6 +30,12 @@ import { GET as getUserMember } from "@/app/api/admin/users/[id]/route";
 import { PATCH as updateUser } from "@/app/api/admin/users/[id]/route";
 import { POST as resetPassword } from "@/app/api/admin/users/[id]/password/route";
 import { PUT as updatePermission } from "@/app/api/admin/users/[id]/permissions/route";
+import { GET as getProductMember } from "@/app/api/admin/products/[id]/route";
+import { DELETE as deleteProduct } from "@/app/api/admin/products/[id]/route";
+import { PATCH as reorderPackages } from "@/app/api/admin/products/[id]/packages/route";
+import { GET as getSeasons } from "@/app/api/admin/products/[id]/seasons/route";
+import { PUT as updateReviewVisibility } from "@/app/api/admin/reviews/visibility/route";
+import { PUT as updateAvailability } from "@/app/api/admin/availability/[id]/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -111,6 +117,23 @@ describe("admin request module contract", () => {
       updateUser(new Request("http://localhost/api/admin/users/user-1", { method: "PATCH", body: JSON.stringify({ action: "update", displayName: "Test User" }) }), { params: userParams }),
       resetPassword(new Request("http://localhost/api/admin/users/user-1/password", { method: "POST" }), { params: userParams }),
       updatePermission(new Request("http://localhost/api/admin/users/user-1/permissions", { method: "PUT", body: JSON.stringify({ permission: "orders.read", granted: true }) }), { params: userParams }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Product, Review, and Availability action routes behind authentication", async () => {
+    const productParams = Promise.resolve({ id: "product-1" });
+    const responses = await Promise.all([
+      getProductMember(new Request("http://localhost/api/admin/products/product-1"), { params: productParams }),
+      deleteProduct(new Request("http://localhost/api/admin/products/product-1", { method: "DELETE" }), { params: productParams }),
+      reorderPackages(new Request("http://localhost/api/admin/products/product-1/packages", { method: "PATCH", body: JSON.stringify({ packageIds: [] }) }), { params: productParams }),
+      getSeasons(new Request("http://localhost/api/admin/products/product-1/seasons"), { params: productParams }),
+      updateReviewVisibility(new Request("http://localhost/api/admin/reviews/visibility", { method: "PUT", body: JSON.stringify({ visible: true }) })),
+      updateAvailability(new Request("http://localhost/api/admin/availability/availability-1", { method: "PUT", body: JSON.stringify({ expectedVersion: 1, capacityMl: 1000, manualSoldOut: false }) }), { params: Promise.resolve({ id: "availability-1" }) }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
