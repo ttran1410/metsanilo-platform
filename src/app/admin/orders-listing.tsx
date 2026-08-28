@@ -17,6 +17,8 @@ import { AdminPagination } from "./ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 
+let orderSourcesPromise: Promise<Array<{ key: string; labelEn: string }> | null> | null = null;
+
 export type AdminOrder = typeof orders.$inferSelect & {
   paidCents?: number;
   outstandingCents?: number | null;
@@ -365,15 +367,9 @@ export function OrdersListing({
   useEffect(() => {
     async function loadSources() {
       try {
-        const response = await fetch("/api/admin/order-sources", { cache: "no-store" });
-        const body = await response.json();
-        if (response.ok && Array.isArray(body.data)) {
-          setSources(
-            (body.data as Array<{ key: string; labelEn: string }>).filter(
-              (s) => s.key !== "HISTORICAL"
-            )
-          );
-        }
+        if (!orderSourcesPromise) orderSourcesPromise = fetch("/api/admin/order-sources", { cache: "no-store", headers: { "x-admin-request-scope": "orders-source-options" } }).then(async (response) => { if (!response.ok) return null; const body = await response.json(); return Array.isArray(body.data) ? body.data as Array<{ key: string; labelEn: string }> : null; }).catch(() => null);
+        const sources = await orderSourcesPromise;
+        if (sources) setSources(sources.filter((source) => source.key !== "HISTORICAL"));
       } catch {
         /* Ignore */
       }
