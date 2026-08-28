@@ -115,12 +115,14 @@ export function AvailabilityWorkspace({
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [adjustingAvailabilityId, setAdjustingAvailabilityId] = useState<string | null>(null);
   const workspaceRequestId = useRef(0);
+  const initialLoadStartedRef = useRef(false);
   const updateCutoff = useCutoffActionController({ onError: setError, onSuccess: (value) => { setMessage(value === "OPEN" ? "Same-day cutoff override enabled for this date." : "Same-day cutoff override cleared."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7); } });
   const updateFreeze = useFreezeActionController({ onError: setError, onSuccess: (locked, reason) => { setFreezingRow(null); setMessage(locked ? `Date ${freezingRow?.availability.businessDate ?? ""} frozen (${reason}).` : "Date reopened."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7); } });
   const saveAvailabilityAction = useSaveAvailabilityActionController({ onError: setError, onSuccess: () => { setEditing(null); setMessage("Availability saved."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7); } });
 
   useEffect(() => {
-    if (loadInitialFromApi) {
+    if (loadInitialFromApi && !initialLoadStartedRef.current) {
+      initialLoadStartedRef.current = true;
       const days = viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30;
       queueMicrotask(() => void fetchWorkspaceForDates(currentStartDate, days));
     }
