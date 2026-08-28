@@ -1,11 +1,11 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { mediaAttachments, mediaAssets, shops } from "@/db/schema";
+import { mediaAttachments, mediaAssets } from "@/db/schema";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../response";
 import { authenticateAdmin, executeAdmin } from "../module";
-import { uploadAdminMedia } from "@/domain/admin-media-actions";
+import { deleteAdminMediaAttachment, uploadAdminMedia } from "@/domain/admin-media-actions";
 
 export const runtime = "nodejs";
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -67,20 +67,7 @@ export async function DELETE(request: Request) {
     const attachmentId = searchParams.get("attachmentId");
     if (!attachmentId) throw new DomainError("VALIDATION_ERROR", "Attachment id is required", 422);
 
-    const attachment = await db().query.mediaAttachments.findFirst({
-      where: and(eq(mediaAttachments.id, attachmentId), eq(mediaAttachments.shopId, env().SHOP_ID)),
-    });
-    if (!attachment) throw new DomainError("NOT_FOUND", "Media attachment not found", 404);
-
-    await db().delete(mediaAttachments).where(eq(mediaAttachments.id, attachmentId));
-
-    if (attachment.pageKey === "logo") {
-      await db().update(shops).set({ logoUrl: null }).where(eq(shops.id, env().SHOP_ID));
-    } else if (attachment.pageKey === "favicon") {
-      await db().update(shops).set({ faviconUrl: null }).where(eq(shops.id, env().SHOP_ID));
-    }
-
-    return success({ deleted: true, id: attachmentId, updatedBy: actor.email ?? actor.id });
+    return success(await deleteAdminMediaAttachment(db(), { actor, shop: { id: env().SHOP_ID } }, attachmentId));
   } catch (error) {
     return failure(error);
   }

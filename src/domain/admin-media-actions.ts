@@ -72,3 +72,13 @@ export async function uploadAdminMedia(database: Database, context: AdminActionC
   await database.insert(auditEntries).values({ id: randomUUID(), shopId: context.shop.id, actor: context.actor.email ?? context.actor.id, action: "media.uploaded", entityType: input.pageKey ? "page_media" : "product", entityId: input.pageKey ?? input.productId!, detailsJson: JSON.stringify({ assetId, sizeBytes: input.file.size, pageKey: input.pageKey }), createdAt: now });
   return { ...blob, id: assetId, altFi: input.altFi, altEn: input.altEn, attachmentId };
 }
+
+export async function deleteAdminMediaAttachment(database: Database, context: AdminActionContext, attachmentId: string) {
+  assertAdminActionContext(context);
+  const attachment = await database.query.mediaAttachments.findFirst({ where: and(eq(mediaAttachments.id, attachmentId), eq(mediaAttachments.shopId, context.shop.id)) });
+  if (!attachment) throw new DomainError("NOT_FOUND", "Media attachment not found", 404);
+  await database.delete(mediaAttachments).where(and(eq(mediaAttachments.id, attachmentId), eq(mediaAttachments.shopId, context.shop.id)));
+  if (attachment.pageKey === "logo") await database.update(shops).set({ logoUrl: null }).where(eq(shops.id, context.shop.id));
+  if (attachment.pageKey === "favicon") await database.update(shops).set({ faviconUrl: null }).where(eq(shops.id, context.shop.id));
+  return { deleted: true, id: attachmentId, updatedBy: context.actor.email ?? context.actor.id };
+}
