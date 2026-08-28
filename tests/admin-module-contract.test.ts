@@ -43,6 +43,10 @@ import { PUT as updateReviewVisibility } from "@/app/api/admin/reviews/visibilit
 import { PUT as updateAvailability } from "@/app/api/admin/availability/[id]/route";
 import { POST as publishTheme } from "@/app/api/admin/storefront-theme/drafts/[draftId]/publish/route";
 import { POST as rollbackTheme } from "@/app/api/admin/storefront-theme/versions/[versionId]/rollback/route";
+import { POST as planAvailability } from "@/app/api/admin/availability/plan/route";
+import { POST as uploadMedia } from "@/app/api/admin/media/route";
+import { PATCH as updateMedia, DELETE as deleteMedia } from "@/app/api/admin/media/[id]/route";
+import { POST as markNotificationRead } from "@/app/api/admin/notifications/[id]/read/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -161,6 +165,21 @@ describe("admin request module contract", () => {
       getSeasons(new Request("http://localhost/api/admin/products/product-1/seasons"), { params: productParams }),
       updateReviewVisibility(new Request("http://localhost/api/admin/reviews/visibility", { method: "PUT", body: JSON.stringify({ visible: true }) })),
       updateAvailability(new Request("http://localhost/api/admin/availability/availability-1", { method: "PUT", body: JSON.stringify({ expectedVersion: 1, capacityMl: 1000, manualSoldOut: false }) }), { params: Promise.resolve({ id: "availability-1" }) }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps remaining operational mutations behind authentication", async () => {
+    const responses = await Promise.all([
+      planAvailability(new Request("http://localhost/api/admin/availability/plan", { method: "POST", body: "{}" })),
+      uploadMedia(new Request("http://localhost/api/admin/media", { method: "POST" })),
+      updateMedia(new Request("http://localhost/api/admin/media/media-1", { method: "PATCH", body: "{}" }), { params: Promise.resolve({ id: "media-1" }) }),
+      deleteMedia(new Request("http://localhost/api/admin/media/media-1", { method: "DELETE" }), { params: Promise.resolve({ id: "media-1" }) }),
+      markNotificationRead(new Request("http://localhost/api/admin/notifications/notification-1/read", { method: "POST" }), { params: Promise.resolve({ id: "notification-1" }) }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
