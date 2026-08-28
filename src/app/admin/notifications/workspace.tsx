@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Bell, CheckCheck, Circle, CircleCheck, Clock3, ExternalLink, Inbox, Info, Search } from "lucide-react";
 import type { NotificationFilters, NotificationSeverity, NotificationStateFilter } from "@/domain/notifications";
 import { AdminConfirmDialog, AdminNotice, AdminPageHeader } from "../presentation";
+import { serializeNotificationsUrlState } from "../notifications-url-state";
 
 type NotificationItem = {
   id: string;
@@ -101,13 +102,7 @@ export function NotificationsInbox({
   }
 
   function queryString(next: InboxFilters, page = 1) {
-    const params = new URLSearchParams();
-    params.set("state", next.state);
-    if (next.category && next.category !== "ALL") params.set("category", next.category);
-    if (next.severity) params.set("severity", next.severity);
-    if (next.query) params.set("q", next.query);
-    if (page > 1) params.set("page", String(page));
-    return params;
+    return serializeNotificationsUrlState({ state: next.state, category: next.category, severity: next.severity, query: next.query, page });
   }
 
   async function load(next: InboxFilters, page = 1) {
