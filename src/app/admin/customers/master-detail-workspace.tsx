@@ -17,6 +17,7 @@ import { CustomerRecordList } from "./customer-record-list";
 import { CustomerInspector } from "./customer-inspector";
 import { parseCustomersUrlState, serializeCustomersUrlState } from "../customers-url-state";
 import { useCustomerContactActionController } from "./use-customer-contact-action-controller";
+import { useCustomerRecordActionController } from "./use-customer-record-action-controller";
 
 export type CustomerRow = {
   id: string;
@@ -239,6 +240,7 @@ function CustomerWorkspaceContent({
   }
 
   const contactActions = useCustomerContactActionController({ setError, setBusy: setRetentionBusy, setMessage, refresh: refreshList });
+  const recordActions = useCustomerRecordActionController({ setError, setMessage, refresh: refreshList });
 
   // Load the first profile once the client workspace mounts.
   useEffect(() => {
@@ -339,18 +341,8 @@ function CustomerWorkspaceContent({
     setError("");
     setMessage("");
 
-    const response = await fetch(`/api/admin/customers/${profile.customer.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "notes", notes: editingNoteText }),
-    });
-
-    const body = await response.json();
     setSavingNote(false);
-
-    if (!response.ok) return setError(body.message ?? "Could not save note.");
-    setMessage("Pinned staff note saved.");
-    void refreshList(profile.customer.id);
+    await recordActions.saveNote(profile.customer.id, editingNoteText);
   }
 
   // Anonymize Customer (GDPR Right to be Forgotten)
@@ -360,12 +352,7 @@ function CustomerWorkspaceContent({
     setError("");
     setMessage("");
 
-    const response = await fetch(`/api/admin/customers/${profile.customer.id}`, { method: "POST" });
-    const body = await response.json();
-
-    if (!response.ok) return setError(body.message ?? "Anonymization failed.");
-    setMessage("Customer personal contact data anonymized. Order ledger totals preserved for accounting.");
-    void refreshList();
+    await recordActions.anonymize(profile.customer.id);
   }
 
   async function handleConfirmContact() {
