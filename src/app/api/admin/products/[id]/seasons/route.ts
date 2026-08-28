@@ -1,10 +1,11 @@
 import { z } from "zod";
-import { db } from "@/db/client";
-import { authenticateAdmin, parseJson } from "../../../module";
+import { parseJson } from "../../../module";
 import { DomainError } from "@/domain/errors";
-import { cloneHarvestSeason, createHarvestSeason, listHarvestSeasons } from "@/domain/seasons";
+import { listHarvestSeasons } from "@/domain/seasons";
+import { cloneAdminSeason, createAdminSeason } from "@/domain/admin-season-actions";
 import { failure, success } from "../../../../response";
 import { executeAdmin } from "../../../module";
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -42,36 +43,15 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const actor = (await authenticateAdmin(request, "catalog.product.write")).actor;
-    const actorName = actor.email ?? actor.username ?? actor.id;
     const { id } = await context.params;
-
-    const payload = await parseJson<unknown>(request);
-    const clone = cloneSeasonSchema.safeParse(payload);
-    if (clone.success) {
-      const season = await cloneHarvestSeason(db(), clone.data.sourceSeasonId, clone.data, actorName, id);
-      return success(season, 201);
-    }
-
-    const parsed = createSeasonSchema.safeParse(payload);
-    if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season inputs", 422);
-
-    const season = await createHarvestSeason(
-      db(),
-      {
-        productId: id,
-        nameFi: parsed.data.nameFi,
-        nameEn: parsed.data.nameEn,
-        startDate: parsed.data.startDate,
-        endDate: parsed.data.endDate,
-        status: parsed.data.status,
-        targetVolumeMl: parsed.data.targetVolumeMl,
-        notes: parsed.data.notes,
-      },
-      actorName
-    );
-
-    return success(season);
+    const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async (incoming) => parseJson<unknown>(incoming), run: async (payload, { database, context: { actor } }) => {
+      const clone = cloneSeasonSchema.safeParse(payload);
+      if (clone.success) return cloneAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, clone.data.sourceSeasonId, clone.data, id);
+      const parsed = createSeasonSchema.safeParse(payload);
+      if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season inputs", 422);
+      return createAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, { ...parsed.data, productId: id });
+    } });
+    return success(result, 201);
   } catch (error) {
     return failure(error);
   }
