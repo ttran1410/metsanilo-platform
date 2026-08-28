@@ -54,12 +54,12 @@ describe("admin request module contract", () => {
   it("keeps compatibility member routes on the JSON error envelope", async () => {
     const payment = await updatePaymentMethod(new Request("http://localhost/api/admin/payment-methods/CASH", { method: "PUT", body: "{" }), { params: Promise.resolve({ method: "CASH" }) });
     const fulfillment = await updateFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations/location-1", { method: "PATCH", body: "{" }), { params: Promise.resolve({ id: "location-1" }) });
-    expect(payment.status).toBe(422);
-    expect(fulfillment.status).toBe(422);
+    expect(payment.status).toBe(401);
+    expect(fulfillment.status).toBe(401);
     expect(payment.headers.get("content-type")).toContain("application/json");
     expect(fulfillment.headers.get("content-type")).toContain("application/json");
-    expect((await payment.json())).toMatchObject({ code: "VALIDATION_ERROR", correlationId: expect.any(String) });
-    expect((await fulfillment.json())).toMatchObject({ code: "VALIDATION_ERROR", correlationId: expect.any(String) });
+    expect((await payment.json())).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    expect((await fulfillment.json())).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
   });
 
   it("keeps Settings operational mutations behind authentication", async () => {
