@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { and, eq, gte } from "drizzle-orm";
 import { db } from "@/db/client";
 import { getAdminProductDetail, archiveProduct, deleteProduct, restoreProduct, updateProduct } from "@/domain/admin-products-actions";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
+import { availability } from "@/db/schema";
 import { failure, success } from "../../../response";
 import { executeAdmin, parseJson, authenticateAdmin } from "../../module";
 
@@ -14,7 +16,7 @@ const command = z.discriminatedUnion("action", [z.object({ action: z.literal("up
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const result = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database, context }) => { const detail = await getAdminProductDetail(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, productId); if (!detail) throw new DomainError("NOT_FOUND", "Product not found", 404); return detail; } });
+    const result = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database, context }) => { const detail = await getAdminProductDetail(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, productId); if (!detail) throw new DomainError("NOT_FOUND", "Product not found", 404); const rows = await database.select().from(availability).where(and(eq(availability.productId, productId), eq(availability.shopId, env().SHOP_ID), gte(availability.businessDate, detail.product.availableFrom))); return { ...detail, availabilityRows: rows }; } });
     return success(result);
   } catch (error) {
     return failure(error);

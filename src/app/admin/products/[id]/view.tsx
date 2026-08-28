@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type DragEvent, type FormEvent } from "react";
+import { useEffect, useState, type DragEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { AdminNotice, AdminStatusBadge } from "../../presentation";
 import { PackageModal } from "../package-modal";
@@ -34,15 +34,20 @@ type AvailabilityRow = {
 export function ProductDetailView({
   initial,
   availabilityRows,
+  productId,
+  loadInitialFromApi = false,
   canEdit,
   canMedia,
 }: {
-  initial: Product;
-  availabilityRows: AvailabilityRow[];
+  initial?: Product & { impact?: { activeOrders: number; availabilityRows: number } };
+  availabilityRows?: AvailabilityRow[];
+  productId?: string;
+  loadInitialFromApi?: boolean;
   canEdit: boolean;
   canMedia: boolean;
 }) {
-  const [product, setProduct] = useState(initial);
+  const [product, setProduct] = useState<Product>(initial as Product);
+  const [loadedAvailabilityRows, setLoadedAvailabilityRows] = useState(availabilityRows);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [altEditing, setAltEditing] = useState<string | null>(null);
@@ -51,6 +56,18 @@ export function ProductDetailView({
   const [editingPkg, setEditingPkg] = useState<Product["packages"][number] | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [deletingPkgId, setDeletingPkgId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!loadInitialFromApi || !productId) return;
+    fetch(`/api/admin/products/${productId}`, { cache: "no-store", headers: { "x-admin-request-scope": "product-detail" } })
+      .then((response) => response.ok ? response.json() : null)
+      .then((body) => { if (body?.data?.product) { setProduct(body.data); setLoadedAvailabilityRows(body.data.availabilityRows ?? []); } else setError("Product not found."); })
+      .catch(() => setError("Could not load product."));
+  }, [loadInitialFromApi, productId]);
+
+  if (!initial && !productId) return <div className="card" role="status">Product not found.</div>;
+  if (!loadedAvailabilityRows || !product.product) return <div className="card" role="status">Loading product...</div>;
+  const currentAvailabilityRows = loadedAvailabilityRows;
 
   async function refreshProduct() {
     try {
@@ -234,9 +251,9 @@ export function ProductDetailView({
     if (file) void upload(event, file);
   }
 
-  const totalCapacity = availabilityRows.reduce((sum, row) => sum + row.capacityMl, 0);
-  const totalReserved = availabilityRows.reduce((sum, row) => sum + row.reservedMl, 0);
-  const soldOutDates = availabilityRows.filter(
+  const totalCapacity = currentAvailabilityRows.reduce((sum, row) => sum + row.capacityMl, 0);
+  const totalReserved = currentAvailabilityRows.reduce((sum, row) => sum + row.reservedMl, 0);
+  const soldOutDates = currentAvailabilityRows.filter(
     (row) => row.manualSoldOut || !row.acceptsOrders || row.capacityMl <= row.reservedMl
   ).length;
 
@@ -577,7 +594,7 @@ export function ProductDetailView({
 
             <div className="grid grid-cols-2 gap-2 text-center">
               <div className="bg-surface-muted p-2.5 rounded-xl border border-line">
-                <span className="text-xl font-bold text-ink ops-tabular block">{availabilityRows.length}</span>
+                <span className="text-xl font-bold text-ink ops-tabular block">{currentAvailabilityRows.length}</span>
                 <span className="text-[10px] font-semibold uppercase muted">Planned Dates</span>
               </div>
 
