@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { createCustomer, listCustomers } from "@/domain/customers";
+import { listCustomers } from "@/domain/customers";
+import { createAdminCustomer } from "@/domain/admin-customer-actions";
+import { env } from "@/lib/env";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../response";
 import { executeAdmin, parseJson } from "../module";
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const result = await executeAdmin(request, { permission: "customers.write", parse: async (incoming) => { const parsed = createSchema.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid customer inputs", 422); return parsed.data; }, run: async (input, { database }) => createCustomer(database, {
+    const result = await executeAdmin(request, { permission: "customers.write", parse: async (incoming) => { const parsed = createSchema.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid customer inputs", 422); return parsed.data; }, run: async (input, { database, context: { actor } }) => createAdminCustomer(database, { actor, shop: { id: env().SHOP_ID } }, {
       name: input.name, mobile: input.mobile, email: input.email || undefined, facebookProfile: input.facebookProfile || undefined, notes: input.notes || undefined,
     }) });
     return success(result);
