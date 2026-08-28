@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Calendar, Trash2 } from "lucide-react";
 import { AdminConfirmDialog } from "../presentation";
 import { useSeasonMutationController } from "./use-season-mutation-controller";
+import { useSeasonQueryController } from "./use-season-query-controller";
 
 export type SeasonItem = {
   id: string;
@@ -68,38 +69,7 @@ export function SeasonTracker({
   const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
   const [targetLitres, setTargetLitres] = useState("");
 
-  useEffect(() => {
-    if (!productId) return;
-    fetch(`/api/admin/products/${productId}/seasons`)
-      .then((res) => res.json())
-      .then((body) => {
-        if (body.data) setSeasons(body.data);
-      })
-      .catch(() => undefined);
-  }, [productId]);
-
-  useEffect(() => {
-    if (!productId || !selectedSeasonId) {
-      return;
-    }
-
-    let cancelled = false;
-    fetch(`/api/admin/products/${productId}/seasons/${selectedSeasonId}`)
-      .then((res) => res.json())
-      .then((body) => {
-        if (!cancelled) setSummary(body.data ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setSummary(null);
-      })
-      .finally(() => {
-        if (!cancelled) setSummaryLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [productId, selectedSeasonId]);
+  useSeasonQueryController({ productId, selectedSeasonId, setSeasons, setSummary, setSummaryLoading });
 
   function selectSeason(seasonId: string) {
     const selected = seasons.find((season) => season.id === seasonId);
