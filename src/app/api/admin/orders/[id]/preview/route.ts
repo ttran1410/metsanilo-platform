@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { db } from "@/db/client";
-import { requirePermission } from "@/domain/access";
 import { previewManagerOrderUpdate } from "@/domain/orders";
+import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../../response";
+import { executeAdmin, parseJson } from "../../../module";
 
 export const runtime = "nodejs";
 
@@ -16,11 +16,8 @@ const command = z.object({
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission(db(), request, "orders.update");
-    const parsed = command.safeParse(await request.json());
-    if (!parsed.success) return failure({ message: "Invalid order preview payload", code: "VALIDATION_ERROR", status: 422 });
-    const { id } = await context.params;
-    return success(await previewManagerOrderUpdate(db(), { orderId: id, ...parsed.data }));
+    const result = await executeAdmin(request, { permission: "orders.update", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid order preview payload", 422); return parsed.data; }, run: async (input, { database }) => previewManagerOrderUpdate(database, { orderId: (await context.params).id, ...input }) });
+    return success(result);
   } catch (error) {
     return failure(error);
   }
