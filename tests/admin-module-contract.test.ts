@@ -55,6 +55,11 @@ import { POST as deliveryException } from "@/app/api/admin/orders/[id]/delivery-
 import { PUT as deliveryFee } from "@/app/api/admin/orders/[id]/delivery-fee/route";
 import { POST as pickupConfirm } from "@/app/api/admin/orders/[id]/pickup-confirm/route";
 import { POST as orderPreview } from "@/app/api/admin/orders/[id]/preview/route";
+import { GET as getOrderQueue } from "@/app/api/admin/orders/queue/route";
+import { POST as createHistoricalOrder } from "@/app/api/admin/orders/historical/route";
+import { POST as createExternalOrder } from "@/app/api/admin/orders/external/route";
+import { GET as exportOrders } from "@/app/api/admin/orders/export/route";
+import { GET as exportAudit } from "@/app/api/admin/audit/export/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -217,6 +222,21 @@ describe("admin request module contract", () => {
       deliveryFee(new Request("http://localhost/api/admin/orders/order-1/delivery-fee", { method: "PUT", body: "{}" }), { params }),
       pickupConfirm(new Request("http://localhost/api/admin/orders/order-1/pickup-confirm", { method: "POST", body: "{}" }), { params }),
       orderPreview(new Request("http://localhost/api/admin/orders/order-1/preview", { method: "POST", body: "{}" }), { params }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Order and Audit operational compatibility routes behind authentication", async () => {
+    const responses = await Promise.all([
+      getOrderQueue(new Request("http://localhost/api/admin/orders/queue")),
+      createHistoricalOrder(new Request("http://localhost/api/admin/orders/historical", { method: "POST", body: "{}" })),
+      createExternalOrder(new Request("http://localhost/api/admin/orders/external", { method: "POST", body: "{}" })),
+      exportOrders(new Request("http://localhost/api/admin/orders/export")),
+      exportAudit(new Request("http://localhost/api/admin/audit/export")),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
