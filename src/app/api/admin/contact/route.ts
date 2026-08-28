@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
 import { shops } from "@/db/schema";
-import { requirePermission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../response";
@@ -28,9 +26,9 @@ const command = z.object({
 
 export async function GET(request: Request) {
   try {
-    await requirePermission(db(), request, "settings.read");
-    const shop = await db().query.shops.findFirst({ where: eq(shops.id, env().SHOP_ID) });
-    return success({
+    const result = await executeAdmin(request, { permission: "settings.read", parse: async () => undefined, run: async (_input, { database }) => {
+    const shop = await database.query.shops.findFirst({ where: eq(shops.id, env().SHOP_ID) });
+    return {
       phone: shop?.contactPhone ?? "",
       email: shop?.contactEmail ?? "",
       hours: shop?.contactHours ?? "",
@@ -44,7 +42,9 @@ export async function GET(request: Request) {
       active: shop?.active ?? true,
       sameDayCutoffEnabled: shop?.sameDayCutoffEnabled ?? false,
       sameDayCutoffTime: shop?.sameDayCutoffTime ?? "15:00",
-    });
+    };
+    } });
+    return success(result);
   } catch (error) {
     return failure(error);
   }

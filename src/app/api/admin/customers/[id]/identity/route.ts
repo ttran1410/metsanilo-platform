@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditEntries, customers, orders } from "@/db/schema";
-import { requirePermission } from "@/domain/access";
+import { authenticateAdmin, parseJson } from "../../../module";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../../response";
@@ -11,9 +11,9 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requirePermission(db(), request, "customers.identity.resolve");
+    const actor = (await authenticateAdmin(request, "customers.identity.resolve")).actor;
     const { id } = await context.params;
-    const body = await request.json() as { action?: "KEEP_SEPARATE" | "MERGE"; duplicateId?: string; reason?: string };
+    const body = await parseJson<{ action?: "KEEP_SEPARATE" | "MERGE"; duplicateId?: string; reason?: string }>(request);
     const reason = body.reason?.trim();
     if (!body.action || !reason) throw new DomainError("VALIDATION_ERROR", "A resolution and reason are required", 422);
     const current = await db().query.customers.findFirst({ where: and(eq(customers.id, id), eq(customers.shopId, env().SHOP_ID)) });

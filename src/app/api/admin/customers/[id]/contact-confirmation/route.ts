@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { db } from "@/db/client";
 import { confirmCustomerContact } from "@/domain/customers";
-import { requirePermission } from "@/domain/access";
+import { authenticateAdmin, parseJson } from "../../../module";
+import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../../response";
 
 const inputSchema = z.object({
@@ -11,9 +12,9 @@ const inputSchema = z.object({
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requirePermission(db(), request, "customers.retention.manage");
-    const parsed = inputSchema.safeParse(await request.json());
-    if (!parsed.success) return failure(new Error("Invalid contact confirmation input"));
+    const actor = (await authenticateAdmin(request, "customers.retention.manage")).actor;
+    const parsed = inputSchema.safeParse(await parseJson<unknown>(request));
+    if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid contact confirmation input", 422);
     const { id } = await context.params;
     const result = await confirmCustomerContact(db(), id, actor.email ?? actor.username ?? actor.id, parsed.data.channel, parsed.data.note);
     return success(result);

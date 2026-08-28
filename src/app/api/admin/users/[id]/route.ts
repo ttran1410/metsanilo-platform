@@ -8,6 +8,7 @@ import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
 import { resetUserPermissions, revokeUserSessions, updateUserProfile, updateUserRole as updateUserRoleAction, updateUserStatus } from "@/domain/admin-users-actions";
 import { env } from "@/lib/env";
+import { executeAdmin, parseJson } from "../../module";
 
 export const runtime = "nodejs";
 
@@ -26,10 +27,9 @@ const commandSchema = z.object({
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission(db(), request, "shop_users.read");
     const { id } = await context.params;
-
-    return success(await getUserAccessDetail(db(), id));
+    const result = await executeAdmin(request, { permission: "shop_users.read", parse: async () => id, run: async (userId, { database }) => getUserAccessDetail(database, userId) });
+    return success(result);
   } catch (error) {
     return failure(error);
   }
@@ -38,7 +38,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const parsed = commandSchema.safeParse(await request.json());
+    const parsed = commandSchema.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid command payload", 422);
 
     if (parsed.data.action === "update") {

@@ -3,8 +3,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditEntries, customers } from "@/db/schema";
-import { authenticateAdmin } from "../../module";
-import { requirePermission } from "@/domain/access";
+import { authenticateAdmin, parseJson } from "../../module";
 import { anonymizeCustomer, getCustomerProfile, mergeCustomers, updateCustomer } from "@/domain/customers";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
@@ -42,12 +41,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const actor = (await authenticateAdmin(request, "customers.anonymize")).actor;
-    const actorName = actor.email ?? actor.username ?? actor.id;
     const { id } = await context.params;
 
-    const parsed = updateSchema.safeParse(await request.json());
+    const parsed = updateSchema.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid customer payload", 422);
+    const actor = (await authenticateAdmin(request, "customers.write")).actor;
+    const actorName = actor.email ?? actor.username ?? actor.id;
 
     // Handle Merge Action
     if (parsed.data.action === "merge") {
@@ -134,7 +133,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requirePermission(db(), request, "customers.anonymize");
+    const actor = (await authenticateAdmin(request, "customers.anonymize")).actor;
     const { id } = await context.params;
     return success(await anonymizeCustomer(db(), id, actor.email ?? actor.username ?? actor.id));
   } catch (error) {
