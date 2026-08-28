@@ -7,11 +7,30 @@ import { assertAdminActionContext, type AdminActionContext } from "./admin-actio
 import { listManagerOrdersWithPaymentSummary } from "./orders";
 import { searchManagerOrders } from "./admin-search";
 import type { AdminListQuery } from "@/lib/admin-list-query";
+import { getOrderTriageReasons } from "./order-triage";
+import { todayInTimezone } from "@/lib/format";
 
 export type AdminOrdersQueryFilters = { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; historicalEntry?: boolean; source?: string; from?: string; to?: string };
-export async function getAdminOrders(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminOrdersQueryFilters }) {
+export async function getAdminOrders(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminOrdersQueryFilters; includeCounts?: boolean }) {
   assertAdminActionContext(context);
-  if (query?.list) return searchManagerOrders(database, query.list, query.filters);
+  if (query?.list) {
+    const result = await searchManagerOrders(database, query.list, query.filters);
+    if (!query.includeCounts) return result;
+    const all = await listManagerOrdersWithPaymentSummary(database);
+    const shop = await database.query.shops.findFirst({ where: (table, { eq }) => eq(table.id, context.shop.id), columns: { timezone: true } });
+    const date = todayInTimezone(shop?.timezone ?? "Europe/Helsinki");
+    const active = all.filter((order) => !order.archived);
+    return { ...result, quickViewCounts: {
+      TODAY: active.filter((order) => order.fulfillmentDate === date).length,
+      TRIAGE: active.filter((order) => getOrderTriageReasons(order).length > 0).length,
+      NEEDS_CONFIRMATION: active.filter((order) => order.status === "NEW").length,
+      PICKUP_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "PICKUP").length,
+      DELIVERY_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "DELIVERY").length,
+      UNPAID: active.filter((order) => order.paymentStatus === "UNPAID").length,
+      ALL: active.length,
+      ARCHIVED: all.filter((order) => Boolean(order.archived)).length,
+    } };
+  }
   return listManagerOrdersWithPaymentSummary(database);
 }
 import { addDeliveryException, addOrderNote, archiveManagerOrder, confirmPickup, deleteManagerOrder, previewManagerOrderUpdate, recordPayment, recordRefund, setDeliveryFee, transitionOrder, unarchiveManagerOrder, updateManagerOrder } from "./orders";
