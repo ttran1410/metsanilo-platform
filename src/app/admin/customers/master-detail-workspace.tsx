@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdminSearchField } from "../ui/admin-search-field";
@@ -161,6 +161,7 @@ function CustomerWorkspaceContent({
   const searchParams = useSearchParams();
   const rawList = Array.isArray(initialCustomers) ? initialCustomers : (initialCustomers?.items ?? []);
   const [customersList, setCustomersList] = useState<CustomerRow[]>(rawList);
+  const customersRequestRef = useRef<AbortController | null>(null);
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterChip, setFilterChip, sortMode, setSortMode, workspaceView, setWorkspaceView, mobileView, setMobileView } = useCustomerQuery();
 
   const [tableSortField, setTableSortField] = useState<"name" | "volume" | "spend" | "status">("name");
@@ -215,13 +216,15 @@ function CustomerWorkspaceContent({
 
   // Reload customer list & current profile
   async function refreshList(currentIdToSelect?: string) {
+    customersRequestRef.current?.abort();
+    const controller = new AbortController();
     try {
       const params = new URLSearchParams();
       for (const key of ["q", "filter", "sort", "page", "limit"]) {
         const value = searchParams.get(key);
         if (value) params.set(key, value);
       }
-      const response = await fetch(`/api/admin/customers?${params.toString()}`, { cache: "no-store", headers: { "x-admin-request-scope": "customers-list" } });
+      const response = await fetch(`/api/admin/customers?${params.toString()}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "customers-list" } });
       const body = await response.json();
       if (response.ok && body.data) {
         const list = Array.isArray(body.data) ? body.data : (body.data.items ?? []);
@@ -229,8 +232,8 @@ function CustomerWorkspaceContent({
         const targetId = currentIdToSelect ?? selectedId;
         if (targetId) void loadProfile(targetId);
       }
-    } catch {
-      /* ignore */
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) { /* refresh is best effort */ }
     }
   }
 

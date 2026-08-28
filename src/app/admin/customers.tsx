@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminLoadingState } from "./presentation";
 import { MasterDetailCustomerWorkspace, type CustomerRow } from "./customers/master-detail-workspace";
@@ -15,28 +15,32 @@ export function CustomersModule({
   canRetention: boolean;
 }) {
   const searchParams = useSearchParams();
+  const requestRef = useRef<AbortController | null>(null);
   const [initialCustomers, setInitialCustomers] = useState<CustomerRow[] | { items: CustomerRow[]; summary?: { totalCustomers: number; vipCount: number; totalLitres: number; consentCount: number } } | null>(null);
 
   useEffect(() => {
     async function load() {
+      requestRef.current?.abort();
+      const controller = new AbortController();
       try {
         const params = new URLSearchParams();
         for (const key of ["q", "filter", "sort", "page", "limit"]) {
           const value = searchParams.get(key);
           if (value) params.set(key, value);
         }
-        const response = await fetch(`/api/admin/customers?${params.toString()}`, { cache: "no-store", headers: { "x-admin-request-scope": "customers-list" } });
+        const response = await fetch(`/api/admin/customers?${params.toString()}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "customers-list" } });
         const body = await response.json();
         if (response.ok && body.data) {
           setInitialCustomers(body.data);
         } else {
           setInitialCustomers([]);
         }
-      } catch {
-        setInitialCustomers([]);
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) setInitialCustomers([]);
       }
     }
     void load();
+    return () => requestRef.current?.abort();
   }, [searchParams]);
 
   if (!initialCustomers) {
