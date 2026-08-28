@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import { parseAvailabilityUrlState, serializeAvailabilityUrlState } from "../availability-url-state";
 import { useRouter } from "next/navigation";
 import { CalendarRange, ChevronLeft, ChevronRight, Eye, Info, LoaderCircle, LockKeyhole, Minus, Pencil, Plus, UnlockKeyhole } from "lucide-react";
 import { calculateCapacityAdjustment } from "@/domain/capacity";
@@ -87,12 +88,10 @@ export function AvailabilityWorkspace({
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const value = searchParams.get("view")?.toUpperCase();
-    return value === "MONTH" || value === "TABLE" ? value : "WEEK";
-  });
-  const [productFilter, setProductFilter] = useState(() => searchParams.get("productId") ?? "ALL");
-  const [seasonFilter, setSeasonFilter] = useState(() => searchParams.get("seasonId") ?? "ALL");
+  const initialUrlState = parseAvailabilityUrlState(searchParams);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialUrlState.viewMode);
+  const [productFilter, setProductFilter] = useState(initialUrlState.productFilter);
+  const [seasonFilter, setSeasonFilter] = useState(initialUrlState.seasonFilter);
 
   // The server anchors and snaps every view's start date (see page.tsx).
   // Adopt its answer instead of recomputing from the browser clock.
@@ -113,11 +112,7 @@ export function AvailabilityWorkspace({
   const workspaceRequestId = useRef(0);
 
   useEffect(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("view", viewMode);
-    if (productFilter !== "ALL") next.set("productId", productFilter); else next.delete("productId");
-    if (seasonFilter !== "ALL") next.set("seasonId", seasonFilter); else next.delete("seasonId");
-    next.set("startDate", currentStartDate);
+    const next = serializeAvailabilityUrlState(searchParams, { viewMode, productFilter, seasonFilter, startDate: currentStartDate });
     if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [currentStartDate, productFilter, router, searchParams, seasonFilter, viewMode]);
 
