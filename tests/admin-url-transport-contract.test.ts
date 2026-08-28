@@ -16,8 +16,8 @@ describe("Admin application URL transport contract", () => {
       serializeProductsUrlState(current, { selectedId: "", searchQuery: "", filterStatus: "all", activeTab: "general", viewMode: "split", page: 1 }),
       serializeReviewsUrlState(current, { activeTab: "all", searchQuery: "", currentPage: 1 }),
       serializeAvailabilityUrlState(current, { viewMode: "WEEK", productFilter: "ALL", seasonFilter: "ALL", startDate: "2026-08-29" }),
-      serializeAuditUrlState(current, { selectedAuditId: null, searchQuery: "", severityFilter: "ALL", categoryFilter: "ALL", actorFilter: "", dateRange: "ALL", currentPage: 1 }),
-      serializeSettingsUrlState(current, "general"),
+      serializeAuditUrlState(current, { selectedAuditId: null, searchQuery: "", severityFilter: "ALL", categoryFilter: "ALL", actorFilter: "", dateRange: "all", currentPage: 1 }),
+      serializeSettingsUrlState(current, "identity"),
     ];
     for (const result of results) expect(result.has("_rsc")).toBe(false);
   });

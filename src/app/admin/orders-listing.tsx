@@ -204,6 +204,7 @@ export function OrdersListing({
   const initialLoadCompleteRef = useRef(false);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [serverQuickViewCounts, setServerQuickViewCounts] = useState<Record<string, number> | null>(null);
+  const [initialQueryReady, setInitialQueryReady] = useState(false);
 
   useEffect(() => {
     if (!initialCreatedId || !rows.some((order) => order.id === initialCreatedId)) return;
@@ -265,12 +266,12 @@ export function OrdersListing({
 
   useEffect(() => {
     if (!loadInitialFromApi) return;
-    const initial = window.setTimeout(async () => { await refreshOrders(); initialLoadCompleteRef.current = true; }, 0);
+    const initial = window.setTimeout(() => { initialLoadCompleteRef.current = true; setInitialQueryReady(true); }, 0);
     return () => window.clearTimeout(initial);
   }, [loadInitialFromApi, refreshOrders]);
 
   useEffect(() => {
-    if (!loadInitialFromApi || !initialLoadCompleteRef.current) return;
+    if (!loadInitialFromApi || !initialLoadCompleteRef.current || !initialQueryReady) return;
     const controller = new AbortController();
     ordersRequestRef.current?.abort();
     ordersRequestRef.current = controller;
@@ -301,7 +302,7 @@ export function OrdersListing({
       }
     }, search.trim() ? 300 : 0);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [archiveScope, entryType, from, limit, loadInitialFromApi, method, page, search, source, status, to, view]);
+  }, [archiveScope, entryType, from, initialQueryReady, limit, loadInitialFromApi, method, page, search, source, status, to, view]);
 
   const selectQuickView = useCallback((targetView: OrdersView, customStatus?: string) => {
     setView(targetView);
