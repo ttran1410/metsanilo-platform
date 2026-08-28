@@ -18,6 +18,11 @@ import { GET as getNavigationSummary } from "@/app/api/admin/navigation-summary/
 import { GET as getMedia } from "@/app/api/admin/media/route";
 import { GET as getTheme } from "@/app/api/admin/storefront-theme/route";
 import { POST as runAutomation } from "@/app/api/admin/automation/run/route";
+import { GET as getOrderMember } from "@/app/api/admin/orders/[id]/route";
+import { POST as updateOrderStatus } from "@/app/api/admin/orders/[id]/status/route";
+import { POST as addOrderNote } from "@/app/api/admin/orders/[id]/notes/route";
+import { POST as recordOrderPayment } from "@/app/api/admin/orders/[id]/payment/route";
+import { POST as refundOrder } from "@/app/api/admin/orders/[id]/refund/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -64,6 +69,22 @@ describe("admin request module contract", () => {
       getMedia(new Request("http://localhost/api/admin/media")),
       getTheme(new Request("http://localhost/api/admin/storefront-theme")),
       runAutomation(new Request("http://localhost/api/admin/automation/run", { method: "POST" })),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Order member and action routes behind authentication", async () => {
+    const params = Promise.resolve({ id: "order-1" });
+    const responses = await Promise.all([
+      getOrderMember(new Request("http://localhost/api/admin/orders/order-1"), { params }),
+      updateOrderStatus(new Request("http://localhost/api/admin/orders/order-1/status", { method: "POST", body: "{}" }), { params }),
+      addOrderNote(new Request("http://localhost/api/admin/orders/order-1/notes", { method: "POST", body: "{}" }), { params }),
+      recordOrderPayment(new Request("http://localhost/api/admin/orders/order-1/payment", { method: "POST", body: "{}" }), { params }),
+      refundOrder(new Request("http://localhost/api/admin/orders/order-1/refund", { method: "POST", body: "{}" }), { params }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
