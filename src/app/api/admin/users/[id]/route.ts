@@ -3,7 +3,7 @@ import { db } from "@/db/client";
 import { getUserAccessDetail } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
-import { executeAdminUserCommand, resetUserPermissions, revokeUserSessions, updateUserProfile, updateUserStatus } from "@/domain/admin-users-actions";
+import { executeAdminUserCommand } from "@/domain/admin-users-actions";
 import { env } from "@/lib/env";
 import { authenticateAdmin, executeAdmin, parseJson } from "../../module";
 
@@ -41,13 +41,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (parsed.data.action === "update") {
       if (parsed.data.email !== undefined) throw new DomainError("FORBIDDEN", "Email address cannot be changed from User & Permissions", 403);
       const actor = (await authenticateAdmin(request, "shop_users.manage")).actor;
-      return success(
-        await updateUserProfile(db(), { actor, shop: { id: env().SHOP_ID }, request }, {
-          userId: id,
-          displayName: parsed.data.displayName,
-          role: parsed.data.role,
-        })
-      );
+      return success(await executeAdminUserCommand(db(), { actor, shop: { id: env().SHOP_ID }, request }, { action: "update", userId: id, displayName: parsed.data.displayName, role: parsed.data.role }));
     }
 
     if (parsed.data.action === "role") {
@@ -59,17 +53,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (parsed.data.action === "active") {
       if (parsed.data.active === undefined) throw new DomainError("VALIDATION_ERROR", "Active status is required", 422);
       const actor = (await authenticateAdmin(request, "shop_users.manage")).actor;
-      return success(await updateUserStatus(db(), { actor, shop: { id: env().SHOP_ID }, request }, { userId: id, active: parsed.data.active }));
+      return success(await executeAdminUserCommand(db(), { actor, shop: { id: env().SHOP_ID }, request }, { action: "active", userId: id, active: parsed.data.active }));
     }
 
     if (parsed.data.action === "reset_permissions") {
       const actor = (await authenticateAdmin(request, "shop_permissions.assign")).actor;
-      return success(await resetUserPermissions(db(), { actor, shop: { id: env().SHOP_ID }, request }, id));
+      return success(await executeAdminUserCommand(db(), { actor, shop: { id: env().SHOP_ID }, request }, { action: "reset_permissions", userId: id }));
     }
 
     if (parsed.data.action === "revoke_sessions") {
       const actor = (await authenticateAdmin(request, "shop_users.manage")).actor;
-      return success(await revokeUserSessions(db(), { actor, shop: { id: env().SHOP_ID }, request }, id));
+      return success(await executeAdminUserCommand(db(), { actor, shop: { id: env().SHOP_ID }, request }, { action: "revoke_sessions", userId: id }));
     }
 
     throw new DomainError("VALIDATION_ERROR", "Unknown action", 422);
