@@ -14,9 +14,7 @@ import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-paginat
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { UserQueryToolbar, type UserRoleFilter } from "./user-query-toolbar";
 import { UserWorkspaceProvider, useUserWorkspace } from "./user-workspace-provider";
-import { OnboardingModal } from "./onboarding-modal";
-import { UserConfirmationDialog } from "./user-confirmation-dialog";
-import { UserPasswordDialog } from "./user-password-dialog";
+import { UserActionDialogs } from "./user-action-dialogs";
 import { usePermissionEditorController } from "./use-permission-editor-controller";
 import { useUserAccountActionController } from "./use-user-account-action-controller";
 import { useUserProfileEditorController } from "./use-user-profile-editor-controller";
@@ -901,19 +899,6 @@ function UserWorkspaceContent({
       </div>
     )}
 
-      {/* 60-SECOND STAFF ONBOARDING WIZARD MODAL */}
-      {showWizard && (
-        <OnboardingModal
-          actorRole={actorRole}
-          onClose={() => setShowWizard(false)}
-          onCreated={(createdUser, tempPassword) => {
-            setShowWizard(false);
-            setCreatedInfo({ user: createdUser, tempPassword });
-            void refreshUsersList(createdUser.id);
-          }}
-        />
-      )}
-
       {/* EDIT USER PROFILE MODAL */}
       {editingUser && (
         <div className="admin-dialog-backdrop">
@@ -974,14 +959,22 @@ function UserWorkspaceContent({
         </div>
       )}
 
-      {/* TEMPORARY PASSWORD COPY MODAL */}
-      <UserConfirmationDialog
+      <UserActionDialogs
+        actorRole={actorRole}
+        showWizard={showWizard}
         confirmation={confirmation}
-        onCancel={() => setConfirmation(null)}
+        createdInfo={createdInfo}
+        onCloseWizard={() => setShowWizard(false)}
+        onCreated={(createdUser, tempPassword) => {
+          setShowWizard(false);
+          setCreatedInfo({ user: createdUser as CreatedUser, tempPassword });
+          void refreshUsersList(createdUser.id);
+        }}
+        onCancelConfirmation={() => setConfirmation(null)}
         onConfirm={async () => { const action = confirmation?.onConfirm; setConfirmation(null); if (action) await action(); }}
+        onDismissPassword={() => setCreatedInfo(null)}
+        onCopyPassword={(password) => { void navigator.clipboard.writeText(password); setMessage("Temporary password copied to clipboard!"); }}
       />
-
-      <UserPasswordDialog createdInfo={createdInfo} onDismiss={() => setCreatedInfo(null)} onCopy={(password) => { void navigator.clipboard.writeText(password); setMessage("Temporary password copied to clipboard!"); }} />
     </section>
   );
 }

@@ -11,8 +11,8 @@ import { AdminNotice, AdminPageHeader, AdminStatusBadge, useAdminDialogFocus } f
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
 import { BatchPlannerPanel } from "./batch-planner-panel";
-import { DateInspectorDrawer, type DateOrdersEntry } from "./date-inspector-drawer";
-import { FreezeModal } from "./freeze-modal";
+import { type DateOrdersEntry } from "./date-inspector-drawer";
+import { AvailabilityWorkflowDialogs } from "./availability-workflow-dialogs";
 import { useCutoffActionController } from "./use-cutoff-action-controller";
 import { useFreezeActionController } from "./use-freeze-action-controller";
 import { useSaveAvailabilityActionController } from "./use-save-availability-action-controller";
@@ -829,41 +829,32 @@ export function AvailabilityWorkspace({
       )}
 
       {/* DATE INSPECTOR DRAWER */}
-      {inspectingDate && (
-        <DateInspectorDrawer
-          date={inspectingDate}
-          capacityMl={dateCards.find((d) => d.date === inspectingDate)?.capacity ?? 0}
-          reservedMl={dateCards.find((d) => d.date === inspectingDate)?.reserved ?? 0}
-          soldOut={dateCards.find((d) => d.date === inspectingDate)?.soldOut ?? false}
-          soldOutReason={dateCards.find((d) => d.date === inspectingDate)?.freezeReason}
-          productName={inspectedProductName}
-          ordersData={inspectedOrdersData}
-          canManage={canManage}
-          canSoldOut={canSoldOut && productFilter !== "ALL"}
-          onClose={() => setInspectingDate(null)}
-          onEditCapacity={productFilter !== "ALL" && inspectedDayRow ? () => openCapacityEditor(inspectedDayRow) : undefined}
-          onFreeze={() => {
-            if (inspectedDayRow) setFreezingRow(inspectedDayRow);
-          }}
-          cutoffOverride={inspectedDayRow?.availability.cutoffOverride}
-          onCutoffOverride={canCutoffOverride && productFilter !== "ALL" && inspectedDayRow ? (value) => void handleCutoffOverride(inspectedDayRow, value) : undefined}
-          onQuickAdjust={canManage && productFilter !== "ALL" && inspectedDayRow ? (delta) => requestCapacityAdjustment(inspectedDayRow, delta) : undefined}
-          quickAdjustDisabled={adjustingAvailabilityId !== null}
-        />
-      )}
-
-      {/* EMERGENCY FREEZE MODAL */}
-      {freezingRow && (
-        <FreezeModal
-          date={freezingRow.availability.businessDate}
-          productName={freezingRow.product.nameFi}
-          mode={freezingRow.soldOut ? "reopen" : "freeze"}
-          initialReason={freezingRow.availability.manualSoldOutReason ?? undefined}
-          onClose={() => setFreezingRow(null)}
-          onConfirm={(reason) => void handleConfirmFreeze(reason)}
-        />
-      )}
-
+      <AvailabilityWorkflowDialogs
+        inspectingDate={inspectingDate}
+        freezingRow={freezingRow}
+        capacityMl={dateCards.find((d) => d.date === inspectingDate)?.capacity ?? 0}
+        reservedMl={dateCards.find((d) => d.date === inspectingDate)?.reserved ?? 0}
+        soldOut={dateCards.find((d) => d.date === inspectingDate)?.soldOut ?? false}
+        soldOutReason={dateCards.find((d) => d.date === inspectingDate)?.freezeReason}
+        productName={inspectedProductName}
+        ordersData={inspectedOrdersData}
+        canManage={canManage}
+        canSoldOut={canSoldOut && productFilter !== "ALL"}
+        onCloseInspector={() => setInspectingDate(null)}
+        onEditCapacity={productFilter !== "ALL" && inspectedDayRow ? () => openCapacityEditor(inspectedDayRow) : undefined}
+        onFreeze={() => { if (inspectedDayRow) setFreezingRow(inspectedDayRow); }}
+        cutoffOverride={inspectedDayRow?.availability.cutoffOverride}
+        onCutoffOverride={canCutoffOverride && productFilter !== "ALL" && inspectedDayRow ? (value) => void handleCutoffOverride(inspectedDayRow, value) : undefined}
+        onQuickAdjust={canManage && productFilter !== "ALL" && inspectedDayRow ? (delta) => requestCapacityAdjustment(inspectedDayRow, delta) : undefined}
+        quickAdjustDisabled={adjustingAvailabilityId !== null}
+        onCloseFreeze={() => setFreezingRow(null)}
+        onConfirmFreeze={(reason) => void handleConfirmFreeze(reason)}
+      />
+      {/*
+        The capacity editor remains local because it owns the draft and form ref.
+        The inspector and freeze workflows are isolated above so their state and
+        transitions can evolve independently from the calendar renderer.
+      */}
       {/* EDIT AVAILABILITY MODAL */}
       {editing && (
         <div className="admin-dialog-backdrop">

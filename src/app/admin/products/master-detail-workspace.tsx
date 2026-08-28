@@ -32,7 +32,7 @@ import { PricingLadder } from "./pricing-ladder";
 import { SeasonTracker } from "./season-tracker";
 import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-toolbar";
 import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspace-provider";
-import { ProductArchiveDialog, ProductDeleteDialog, ProductRestoreDialog } from "./product-action-dialogs";
+import { ProductWorkflowDialogs } from "./product-workflow-dialogs";
 import { useProductEditorController } from "./use-product-editor-controller";
 import { useProductActionController } from "./use-product-action-controller";
 import { parseProductsUrlState, serializeProductsUrlState } from "../products-url-state";
@@ -826,9 +826,7 @@ function ProductWorkspaceContent({
       )}
 
       {/* ARCHIVE CONFIRMATION MODAL */}
-      {selectedRow && <ProductArchiveDialog open={showArchiveConfirm} productName={selectedRow.product.nameFi} onCancel={() => setShowArchiveConfirm(false)} onConfirm={() => { setShowArchiveConfirm(false); void handleToggleActive(false); }} />}
-      {selectedRow && <ProductRestoreDialog open={showUnarchiveConfirm} productName={selectedRow.product.nameFi} onCancel={() => setShowUnarchiveConfirm(false)} onConfirm={() => { setShowUnarchiveConfirm(false); void handleToggleActive(true); }} />}
-      {selectedRow && <ProductDeleteDialog open={showDeleteConfirm} productName={selectedRow.product.nameFi} onCancel={() => setShowDeleteConfirm(false)} onConfirm={() => { setShowDeleteConfirm(false); void handleDeleteOrArchive(); }} />}
+      {selectedRow && <ProductWorkflowDialogs productName={selectedRow.product.nameFi} archiveOpen={showArchiveConfirm} restoreOpen={showUnarchiveConfirm} deleteOpen={showDeleteConfirm} onCancelArchive={() => setShowArchiveConfirm(false)} onCancelRestore={() => setShowUnarchiveConfirm(false)} onCancelDelete={() => setShowDeleteConfirm(false)} onArchive={() => { setShowArchiveConfirm(false); void handleToggleActive(false); }} onRestore={() => { setShowUnarchiveConfirm(false); void handleToggleActive(true); }} onDelete={() => { setShowDeleteConfirm(false); void handleDeleteOrArchive(); }} />}
 
       {/* UN-ARCHIVE CONFIRMATION MODAL */}
       {false && showUnarchiveConfirm && selectedRow && (
