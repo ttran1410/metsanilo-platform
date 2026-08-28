@@ -3,11 +3,11 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { auditEntries, orders } from "@/db/schema";
-import { requirePermission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { getManagerOrder } from "@/domain/orders";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../../response";
+import { authenticateAdmin, parseJson } from "../../../module";
 
 
 export const dynamic = "force-dynamic";
@@ -17,8 +17,8 @@ export const revalidate = 0;
 const command = z.object({ expectedVersion: z.number().int().positive(), itemSubtotalCents: z.number().int().nonnegative(), deliveryFeeCents: z.number().int().nonnegative().nullable().optional(), reason: z.string().trim().min(2).max(500) });
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requirePermission(db(), request, "orders.update");
-    const parsed = command.safeParse(await request.json());
+    const actor = (await authenticateAdmin(request, "orders.update")).actor;
+    const parsed = command.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid order pricing", 422);
     const { id } = await params;
     const current = await db().query.orders.findFirst({ where: and(eq(orders.id, id), eq(orders.shopId, env().SHOP_ID)) });
@@ -34,4 +34,3 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return success(await getManagerOrder(db(), id));
   } catch (error) { return failure(error); }
 }
-
