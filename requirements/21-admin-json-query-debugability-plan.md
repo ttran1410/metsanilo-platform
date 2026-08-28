@@ -429,3 +429,7 @@ Baseline response comparison
 ```
 
 No Products, Reviews, Audit, Availability, or detail-page migration should begin until the Orders checkpoint proves that the JSON path is observable, permission-safe, filter-correct, and free of duplicate/stale requests.
+
+## Deferred follow-up
+
+After this implementation plan is complete, restore the post-create `created=<orderId>` workflow for Orders. The current OrdersListing JSON flow does not consume the legacy parameter, so the follow-up should preserve the parameter when appropriate, show the order-created success notice, and optionally select or open the created order without making it part of the current Orders data-loading migration.
