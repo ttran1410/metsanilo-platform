@@ -18,6 +18,7 @@ import { OnboardingModal } from "./onboarding-modal";
 import { UserConfirmationDialog } from "./user-confirmation-dialog";
 import { UserPasswordDialog } from "./user-password-dialog";
 import { resetUserPassword, resetUserPermissions, revokeUserSessions, updateUserPermission, updateUserRole, updateUserStatus } from "./user-admin-actions";
+import { parseUsersUrlState, serializeUsersUrlState } from "../users-url-state";
 
 export type UserRow = {
   id: string;
@@ -290,11 +291,7 @@ function UserWorkspaceContent({
   // Filter Master Roster
 
   useEffect(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    if (searchQuery) next.set("q", searchQuery); else next.delete("q");
-    if (roleFilter !== "ALL") next.set("role", roleFilter); else next.delete("role");
-    if (selectedId) next.set("user", selectedId); else next.delete("user");
-    if (currentPage > 1) next.set("page", String(currentPage)); else next.delete("page");
+    const next = serializeUsersUrlState(searchParams, { searchQuery, roleFilter, selectedId, page: currentPage });
     if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [currentPage, roleFilter, router, searchParams, searchQuery, selectedId]);
 
@@ -1056,13 +1053,12 @@ export function MasterDetailUserWorkspace(props: {
   canResetPasswords: boolean;
 }) {
   const searchParams = useSearchParams();
-  const role = searchParams.get("role");
-  const initialRoleFilter: UserRoleFilter = role === "ADMIN" || role === "MANAGER" || role === "STAFF" || role === "CONTENT_CREATOR" ? role : "ALL";
+  const urlState = parseUsersUrlState(searchParams, props.initialUsers[0]?.id ?? "");
   return (
     <UserWorkspaceProvider
-      initialSelectedId={searchParams.get("user") ?? props.initialUsers[0]?.id ?? ""}
-      initialSearchQuery={searchParams.get("q") ?? ""}
-      initialRoleFilter={initialRoleFilter}
+      initialSelectedId={urlState.selectedId}
+      initialSearchQuery={urlState.searchQuery}
+      initialRoleFilter={urlState.roleFilter}
     >
       <UserWorkspaceContent {...props} />
     </UserWorkspaceProvider>
