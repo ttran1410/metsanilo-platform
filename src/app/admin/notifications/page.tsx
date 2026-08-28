@@ -1,5 +1,3 @@
-import { db } from "@/db/client";
-import { listNotifications } from "@/domain/notifications";
 import { AdminRouteFrame } from "../route-frame";
 import { adminContext, hasAdminPermission } from "../portal-auth";
 import { NotificationsInbox } from "./workspace";
@@ -18,8 +16,7 @@ export default async function NotificationsPage({
   const query = await searchParams;
   const urlState = parseNotificationsUrlState(new URLSearchParams(Object.entries(query).flatMap(([key, value]) => value === undefined ? [] : [[key, value]])));
   const filters = { state: urlState.state, category: urlState.category, severity: urlState.severity, query: urlState.query };
-  const [initialData, canReadOrders, canReadAvailability, canReadReviews] = await Promise.all([
-    listNotifications(db(), { ...filters, page: urlState.page, pageSize: 20 }),
+  const [canReadOrders, canReadAvailability, canReadReviews] = await Promise.all([
     hasAdminPermission(request, "orders.read"),
     hasAdminPermission(request, "availability.read"),
     hasAdminPermission(request, "reviews.read"),
@@ -27,9 +24,10 @@ export default async function NotificationsPage({
   return (
     <AdminRouteFrame permission="notifications.read">
       <NotificationsInbox
-        initialData={initialData}
+        initialData={{ items: [], page: urlState.page, pageSize: 20, total: 0, unreadCount: 0, matchingUnreadCount: 0, categories: [] }}
         initialFilters={filters}
         permissions={{ canReadOrders, canReadAvailability, canReadReviews }}
+        loadInitialFromApi
       />
     </AdminRouteFrame>
   );

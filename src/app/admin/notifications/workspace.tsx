@@ -68,10 +68,12 @@ export function NotificationsInbox({
   initialData,
   initialFilters,
   permissions,
+  loadInitialFromApi = false,
 }: {
   initialData: InboxData;
   initialFilters: InboxFilters;
   permissions: { canReadOrders: boolean; canReadAvailability: boolean; canReadReviews: boolean };
+  loadInitialFromApi?: boolean;
 }) {
   const [confirmMarkAll, setConfirmMarkAll] = useState(false);
   const router = useRouter();
@@ -83,6 +85,12 @@ export function NotificationsInbox({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState<"success" | "error">("success");
+
+  useEffect(() => {
+    if (loadInitialFromApi) queueMicrotask(() => void load(initialFilters, initialData.page));
+    // Initial JSON load intentionally runs once for the URL-derived state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadInitialFromApi]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("metsanilo:notifications-updated", { detail: data.unreadCount }));
