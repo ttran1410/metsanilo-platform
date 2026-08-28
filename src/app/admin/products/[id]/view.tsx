@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AdminNotice, AdminStatusBadge } from "../../presentation";
 import { PackageModal } from "../package-modal";
 import { ProductPreviewModal } from "../preview-modal";
+import { useProductMediaActionController } from "../use-product-media-action-controller";
 
 import type { packages, products } from "@/db/schema";
 
@@ -56,6 +57,7 @@ export function ProductDetailView({
   const [editingPkg, setEditingPkg] = useState<Product["packages"][number] | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [deletingPkgId, setDeletingPkgId] = useState<string | null>(null);
+  const mediaActions = useProductMediaActionController({ onError: setError });
 
   useEffect(() => {
     if (!loadInitialFromApi || !productId) return;
@@ -146,21 +148,12 @@ export function ProductDetailView({
     event.preventDefault();
     setError("");
     const values = new FormData(event.currentTarget);
-    const response = await fetch(`/api/admin/media/${image.attachmentId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        action: "metadata",
-        altFi: values.get("altFi"),
-        altEn: values.get("altEn"),
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Could not save alt text.");
+    const result = await mediaActions.saveMetadata(image.attachmentId, values.get("altFi"), values.get("altEn"));
+    if (!result.ok) return;
     setProduct((current) => ({
       ...current,
       media: current.media.map((item) =>
-        item.attachmentId === image.attachmentId ? { ...item, altFi: body.data.altFi, altEn: body.data.altEn } : item
+        item.attachmentId === image.attachmentId ? { ...item, altFi: String(values.get("altFi") ?? ""), altEn: String(values.get("altEn") ?? "") } : item
       ),
     }));
     setAltEditing(null);
@@ -170,12 +163,8 @@ export function ProductDetailView({
   // Make Primary Media Image
   async function makePrimary(image: Product["media"][number]) {
     setError("");
-    const response = await fetch(`/api/admin/media/${image.attachmentId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "primary" }),
-    });
-    if (!response.ok) return setError("Could not set primary image.");
+    const result = await mediaActions.setPrimary(image.attachmentId);
+    if (!result.ok) return;
     setProduct((current) => ({
       ...current,
       media: current.media.map((item) => ({ ...item, isPrimary: item.attachmentId === image.attachmentId })),
@@ -186,8 +175,8 @@ export function ProductDetailView({
   // Delete Media Asset
   async function deleteMedia(attachmentId: string) {
     setError("");
-    const response = await fetch(`/api/admin/media/${attachmentId}`, { method: "DELETE" });
-    if (!response.ok) return setError("Could not delete image.");
+    const result = await mediaActions.remove(attachmentId);
+    if (!result.ok) return;
     setProduct((current) => ({
       ...current,
       media: current.media.filter((item) => item.attachmentId !== attachmentId),
@@ -198,12 +187,10 @@ export function ProductDetailView({
   // Reorder Media
   async function reorderMedia(ordered: Product["media"]) {
     setError("");
-    const response = await fetch(`/api/admin/media/${ordered[0]?.attachmentId ?? ""}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "reorder", attachmentIds: ordered.map((item) => item.attachmentId) }),
-    });
-    if (!response.ok) return setError("Could not reorder gallery.");
+    const firstId = ordered[0]?.attachmentId;
+    if (!firstId) return;
+    const result = await mediaActions.reorder(firstId, ordered.map((item) => item.attachmentId));
+    if (!result.ok) return;
     setProduct((current) => ({ ...current, media: ordered }));
     setMessage("Gallery order updated.");
   }
@@ -238,9 +225,8 @@ export function ProductDetailView({
     if (!file || !file.size) return setError("Choose an image first.");
     data.set("file", file);
     data.set("productId", product.product.id);
-    const response = await fetch("/api/admin/media", { method: "POST", body: data });
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Upload failed");
+    const result = await mediaActions.upload(data);
+    if (!result.ok) return;
     setMessage("Image uploaded successfully.");
     void refreshProduct();
   }
