@@ -73,7 +73,7 @@ export function ReportsWorkspace({ permissions }: { permissions: Record<ReportKe
   }, [from, groupBy, method, productId, source, to]);
 
   useEffect(() => {
-    void fetch("/api/admin/products", { cache: "no-store" })
+    void fetch("/api/admin/products", { cache: "no-store", headers: { "x-admin-request-scope": "reports-product-options" } })
       .then((response) => response.json())
       .then((body) => setProducts((body.data ?? []).map((row: { product?: { id: string; nameEn: string }; id?: string; nameEn?: string }) => ({ id: row.product?.id ?? row.id ?? "", nameEn: row.product?.nameEn ?? row.nameEn ?? "Unnamed product" })).filter((product: { id: string }) => product.id)))
       .catch(() => undefined);

@@ -100,7 +100,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
     setAlertsOpen(true);
     setAlertsLoading(true);
     try {
-      const response = await fetch("/api/admin/notifications?view=recent&state=UNREAD", { cache: "no-store" });
+      const response = await fetch("/api/admin/notifications?view=recent&state=UNREAD", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-alerts" } });
       const body = await response.json();
       if (response.ok) setAlerts(body.data ?? []);
     } finally {
@@ -142,7 +142,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
 
   useEffect(() => {
     if (!paletteOpen || orders.length) return;
-    const initial = window.setTimeout(() => void fetch("/api/admin/orders", { cache: "no-store" }).then(async (response) => {
+    const initial = window.setTimeout(() => void fetch("/api/admin/orders", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-command-search" } }).then(async (response) => {
       if (!response.ok) return;
       const body = await response.json();
       setOrders(body.data);
