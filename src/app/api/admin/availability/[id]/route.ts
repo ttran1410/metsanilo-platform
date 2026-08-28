@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { db } from "@/db/client";
 import { authenticateAdmin, parseJson } from "../../module";
-import { updateAvailability } from "@/domain/availability";
+import { updateAdminAvailability } from "@/domain/admin-availability-actions";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const permission = parsed.data.cutoffOverride !== undefined ? "availability.cutoff.override" : parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write";
     const context = await authenticateAdmin(request, permission);
-    return success(await updateAvailability(db(), { id, ...parsed.data, actor: context.actor.email ?? context.actor.id }));
+    return success(await updateAdminAvailability(db(), { actor: context.actor, shop: { id: env().SHOP_ID } }, id, parsed.data));
   } catch (error) {
     return failure(error);
   }
