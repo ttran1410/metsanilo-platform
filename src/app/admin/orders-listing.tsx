@@ -248,6 +248,7 @@ export function OrdersListing({
   const refreshOrders = useCallback(async (announce = false) => {
     ordersRequestRef.current?.abort();
     const controller = new AbortController();
+    setError("");
     ordersRequestRef.current = controller;
     setLoading(true);
     try {
@@ -699,7 +700,7 @@ export function OrdersListing({
       </div>
 
       {notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}
-      {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
+      {error && <AdminNotice tone="error" live><span>{error}</span> <button type="button" className="btn btn-secondary text-xs ml-2" onClick={() => void refreshOrders(true)} disabled={loading}>Retry</button></AdminNotice>}
       {loading && <AdminNotice tone="neutral" live>Loading orders…</AdminNotice>}
 
       {/* RENDER SELECTED WORKSPACE SUB-VIEW */}
