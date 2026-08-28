@@ -53,11 +53,13 @@ function maskContact(contact: string | null) {
 
 export function ReviewsManager({
   initial,
+  loadInitialFromApi = false,
   canCreate,
   canModerate,
   canFeature,
 }: {
   initial: Review[];
+  loadInitialFromApi?: boolean;
   canCreate: boolean;
   canModerate: boolean;
   canFeature: boolean;
@@ -65,6 +67,7 @@ export function ReviewsManager({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [rows, setRows] = useState<Review[]>(initial);
+  const [loading, setLoading] = useState(loadInitialFromApi);
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const initialUrlState = parseReviewsUrlState(searchParams);
@@ -72,6 +75,19 @@ export function ReviewsManager({
   const [searchQuery, setSearchQuery] = useState(initialUrlState.searchQuery);
   const [currentPage, setCurrentPage] = useState(initialUrlState.currentPage);
   const [pageSize, setPageSize] = useState(20);
+  useEffect(() => {
+    if (!loadInitialFromApi) return;
+    let active = true;
+    void fetch("/api/admin/reviews", { cache: "no-store", headers: { "x-admin-request-scope": "reviews-list" } })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message ?? "Reviews unavailable");
+        if (active) setRows(Array.isArray(body.data) ? body.data : body.data.items ?? []);
+      })
+      .catch((error) => { if (active) setErrorMsg(error instanceof Error ? error.message : "Reviews unavailable"); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [loadInitialFromApi]);
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
   const manualReviewDialogRef = useAdminDialogFocus(showManualModal, () => setShowManualModal(false));
@@ -245,6 +261,7 @@ export function ReviewsManager({
 
   return (
     <main className="admin-reviews-workspace shell py-8 space-y-6">
+      {loading && <AdminNotice tone="success" live>Loading reviews…</AdminNotice>}
       <div className="reviews-page-heading">
         <AdminPageHeader
           eyebrow="Content and trust"
