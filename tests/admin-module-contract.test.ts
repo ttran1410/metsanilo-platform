@@ -57,6 +57,16 @@ describe("admin request module contract", () => {
     expect((await fulfillment.json())).toMatchObject({ code: "VALIDATION_ERROR", correlationId: expect.any(String) });
   });
 
+  it("keeps Settings operational mutations behind authentication", async () => {
+    const payment = await updatePaymentMethod(new Request("http://localhost/api/admin/payment-methods/CASH", { method: "PUT", body: JSON.stringify({ method: "CASH", enabled: true }) }), { params: Promise.resolve({ method: "CASH" }) });
+    const fulfillment = await updateFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations/location-1", { method: "PATCH", body: JSON.stringify({ id: "location-1", nameFi: "Pori", nameEn: "Pori", type: "PICKUP", address: "Market street 1" }) }), { params: Promise.resolve({ id: "location-1" }) });
+    for (const response of [payment, fulfillment]) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
   it("keeps canonical DELETE requests behind authentication", async () => {
     const payment = await deletePaymentMethod(new Request("http://localhost/api/admin/payment-methods", { method: "DELETE" }));
     const fulfillment = await deleteFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations", { method: "DELETE" }));
