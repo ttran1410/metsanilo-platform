@@ -47,3 +47,10 @@ Orders is the reference implementation. It is ready to serve as the template whe
 - Do not force CSV exports or file downloads into JSON envelopes.
 - Do not rename every endpoint before its UI contract and domain ownership are understood.
 - Do not move authorization into the browser while moving data loading to JSON.
+
+## Settings/operational REST audit findings
+
+- Fulfillment locations already have a resource-shaped collection/member pair, but the collection `PATCH`/`DELETE` compatibility operations duplicate the member routes. Keep them temporarily for compatibility, but make the member routes canonical and test both paths against the same action contract.
+- Payment methods expose member routes while the collection also accepts `PUT`/`DELETE` with a method in the body/query. The member routes should be the documented canonical form; collection operations can remain compatibility adapters until callers are migrated.
+- Storefront theme uses a resource read plus explicit draft/publish/rollback workflows. `publish` and `rollback` should remain named actions because they create audited domain transitions rather than generic CRUD updates.
+- Every compatibility adapter must preserve the same permission, actor/shop context, validation, safe error envelope, and response shape as its canonical endpoint.
