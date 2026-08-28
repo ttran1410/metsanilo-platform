@@ -7,6 +7,7 @@ import { AdminNotice, AdminPageHeader } from "./presentation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { CustomerAddressFields } from "../customer-address-fields";
 import { getAdminOrderSources } from "./reference-data-cache";
+import { getAdminQuery } from "./admin-query-cache";
 
 type OrderSource = { key: string; labelEn: string };
 
@@ -51,10 +52,8 @@ export function ManualOrdersModule({ products: initialProducts, loadInitialFromA
 
   useEffect(() => {
     if (!loadInitialFromApi) return;
-    fetch("/api/admin/products", { cache: "no-store", headers: { "x-admin-request-scope": "manual-order-products" } })
-      .then((response) => response.ok ? response.json() : null)
-      .then((body) => {
-        const rows = body?.data;
+    void getAdminQuery<Product[]>("/api/admin/products", "admin-products-options")
+      .then((rows) => {
         if (Array.isArray(rows)) setProducts(rows);
       })
       .catch(() => { /* keep the empty state and let the form remain unavailable */ });

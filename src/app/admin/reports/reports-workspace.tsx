@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from "next/link";
 import { CalendarRange, Download, ExternalLink, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { AdminEmptyState, AdminLoadingState, AdminNotice, AdminPageHeader } from "../presentation";
+import { getAdminQuery } from "../admin-query-cache";
 
 type ReportKey = "sales" | "capacity" | "payments" | "customers";
 type ReportData = {
@@ -73,9 +74,8 @@ export function ReportsWorkspace({ permissions }: { permissions: Record<ReportKe
   }, [from, groupBy, method, productId, source, to]);
 
   useEffect(() => {
-    void fetch("/api/admin/products", { cache: "no-store", headers: { "x-admin-request-scope": "reports-product-options" } })
-      .then((response) => response.json())
-      .then((body) => setProducts((body.data ?? []).map((row: { product?: { id: string; nameEn: string }; id?: string; nameEn?: string }) => ({ id: row.product?.id ?? row.id ?? "", nameEn: row.product?.nameEn ?? row.nameEn ?? "Unnamed product" })).filter((product: { id: string }) => product.id)))
+    void getAdminQuery<Array<{ product?: { id: string; nameEn: string }; id?: string; nameEn?: string }>>("/api/admin/products", "admin-products-options")
+      .then((rows) => setProducts((rows ?? []).map((row) => ({ id: row.product?.id ?? row.id ?? "", nameEn: row.product?.nameEn ?? row.nameEn ?? "Unnamed product" })).filter((product) => product.id)))
       .catch(() => undefined);
   }, []);
 
