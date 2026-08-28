@@ -39,6 +39,23 @@ function formatAlertCount(count: number) {
   return count > 99 ? "99+" : String(count);
 }
 
+let navigationSummaryPromise: Promise<{ triageCount: number; unreadCount: number } | null> | null = null;
+let navigationSummaryFetchedAt = 0;
+
+function fetchNavigationSummary() {
+  const now = Date.now();
+  if (navigationSummaryPromise && now - navigationSummaryFetchedAt < 15_000) return navigationSummaryPromise;
+  navigationSummaryFetchedAt = now;
+  navigationSummaryPromise = fetch("/api/admin/navigation-summary", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-summary" } })
+    .then(async (response) => {
+      if (!response.ok) return null;
+      const body = await response.json();
+      return { triageCount: body.data?.triageCount ?? 0, unreadCount: body.data?.unreadCount ?? 0 };
+    })
+    .catch(() => null);
+  return navigationSummaryPromise;
+}
+
 function NavIcon({ id }: { id: string }) {
   const props = { className: "w-4 h-4 stroke-[1.8]" };
   switch (id) {
@@ -126,11 +143,10 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
   useEffect(() => {
     async function refreshBadges() {
       try {
-        const response = await fetch("/api/admin/navigation-summary", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-summary" } });
-        if (!response.ok) return;
-        const body = await response.json();
-        setTriageCount(body.data.triageCount ?? 0);
-        setUnreadCount(body.data.unreadCount ?? 0);
+        const summary = await fetchNavigationSummary();
+        if (!summary) return;
+        setTriageCount(summary.triageCount);
+        setUnreadCount(summary.unreadCount);
       } catch { /* Badges are supplementary. */ }
     }
     void refreshBadges();
