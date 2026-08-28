@@ -22,6 +22,7 @@ import { ManagerOrderTable } from "./manager-order-table";
 import { ManagerOrderCards } from "./manager-order-cards";
 import { ManagerOrderInspector } from "./manager-order-inspector";
 import { useManagerOrderActionController } from "./use-manager-order-action-controller";
+import { useManagerAvailabilityController } from "./use-manager-availability-controller";
 
 type Order = typeof orders.$inferSelect;
 type AvailabilityRow = {
@@ -312,76 +313,7 @@ function ManagerWorkspaceContent({
 
   const { detailAction } = useManagerOrderActionController({ detail, onFeeUpdated: (order) => setDetail((current) => current ? { ...current, order } : current), feedback, refreshDetail: openDetail });
 
-  async function save(row: AvailabilityRow, form: HTMLFormElement) {
-    setMessage("");
-    const values = new FormData(form);
-    const capacityLitres = Number(values.get("capacityLitres"));
-    const response = await fetch(
-      `/api/admin/availability/${encodeURIComponent(row.availability.id)}`,
-      {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          expectedVersion: row.availability.version,
-          capacityMl: Math.round(capacityLitres * 1000),
-          manualSoldOut: values.get("manualSoldOut") === "on",
-          soldOutReason: values.get("soldOutReason"),
-        }),
-      },
-    );
-    const body = await response.json();
-    if (!response.ok) return feedback(body.code ?? "Request failed", "error");
-    setAvailabilityRows((rows) =>
-      rows.map((item) =>
-        item.availability.id === row.availability.id
-          ? { ...item, availability: body.data }
-          : item,
-      ),
-    );
-    setMessage(`Availability ${row.availability.businessDate} saved.`);
-  }
-
-  async function plan(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const values = new FormData(event.currentTarget);
-    const frequency = String(values.get("frequency"));
-    const response = await fetch("/api/admin/availability/plan", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        productId: values.get("productId"),
-        frequency,
-        startDate: values.get("startDate"),
-        endDate: values.get("endDate"),
-        dates: String(values.get("dates") ?? "")
-          .split(",")
-          .map((date) => date.trim())
-          .filter(Boolean),
-        capacityMl: Math.round(Number(values.get("capacityLitres")) * 1000),
-        manualSoldOut: values.get("manualSoldOut") === "on",
-        soldOutReason: values.get("soldOutReason"),
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok)
-      return feedback(body.code ?? body.message ?? "Request failed", "error");
-    const planned = body.data as Array<typeof availability.$inferSelect>;
-    setAvailabilityRows((rows) => {
-      const byId = new Map(rows.map((row) => [row.availability.id, row]));
-      const product = rows.find(
-        (row) => row.product.id === String(values.get("productId")),
-      )?.product;
-      for (const item of planned) {
-        const existing = byId.get(item.id);
-        if (existing) byId.set(item.id, { ...existing, availability: item });
-        else if (product) byId.set(item.id, { availability: item, product });
-      }
-      return [...byId.values()].sort((a, b) =>
-        a.availability.businessDate.localeCompare(b.availability.businessDate),
-      );
-    });
-    setMessage(`${planned.length} availability date(s) planned.`);
-  }
+  const { save, plan } = useManagerAvailabilityController({ setAvailabilityRows, setMessage, feedback });
 
   if (mode === "orders" && canViewOrders)
     return (
