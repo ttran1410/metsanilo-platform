@@ -1,10 +1,18 @@
 import type { Database } from "@/db/client";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
-import { bulkModerateReviews, confirmManualReview, deleteReview, getReviewsVisibility, linkReviewToCustomerOrOrder, moderateReview, replyToReview, setReviewsVisibility, updateFullReview, updateReviewPublicationIdentity } from "./reviews";
+import { bulkModerateReviews, confirmManualReview, deleteReview, getReviewsVisibility, linkReviewToCustomerOrOrder, listManagerReviews, moderateReview, replyToReview, setReviewsVisibility, updateFullReview, updateReviewPublicationIdentity } from "./reviews";
+import { searchManagerReviews } from "./admin-search";
+import type { AdminListQuery } from "@/lib/admin-list-query";
 
 function actorName(context: AdminActionContext) {
   assertAdminActionContext(context);
   return context.actor.email ?? context.actor.id;
+}
+
+export type AdminReviewsQueryFilters = { status?: string; rating?: number; verification?: string; productId?: string; source?: string; featured?: boolean; hasReply?: boolean };
+export async function getAdminReviews(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminReviewsQueryFilters }) {
+  assertAdminActionContext(context);
+  return query?.list ? searchManagerReviews(database, query.list, query.filters) : listManagerReviews(database);
 }
 
 export type AdminReviewModerationInput = Omit<Parameters<typeof moderateReview>[1], "actor">;

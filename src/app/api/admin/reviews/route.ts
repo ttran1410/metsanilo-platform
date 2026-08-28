@@ -1,17 +1,12 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import {
-  createManualReview,
-  listManagerReviews,
-  getManagerReviewDetail,
-} from "@/domain/reviews";
+import { createManualReview, getManagerReviewDetail } from "@/domain/reviews";
 import { currentUser, hasUserPermission } from "@/domain/access";
 import { failure, success } from "../../response";
 import { DomainError, fromZodError } from "@/domain/errors";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
-import { searchManagerReviews } from "@/domain/admin-search";
 import { authenticateAdmin, executeAdmin, parseJson } from "../module";
-import { bulkModerateAdminReviews, confirmAdminReview, deleteAdminReview, linkAdminReviewIdentity, moderateAdminReview, replyAdminToReview, updateAdminReview, updateAdminReviewPublicationIdentity } from "@/domain/admin-review-actions";
+import { bulkModerateAdminReviews, confirmAdminReview, deleteAdminReview, getAdminReviews, linkAdminReviewIdentity, moderateAdminReview, replyAdminToReview, updateAdminReview, updateAdminReviewPublicationIdentity } from "@/domain/admin-review-actions";
 import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -39,10 +34,10 @@ const commandSchema = z.object({
 
 export async function GET(request: Request) {
   try {
-    const result = await executeAdmin(request, { permission: "reviews.read", parse: async () => undefined, run: async (_input, { database }) => {
+    const result = await executeAdmin(request, { permission: "reviews.read", parse: async () => undefined, run: async (_input, { database, context }) => {
     if (hasListQuery(request)) {
       const rating = adminQueryParam(request, "rating");
-      return searchManagerReviews(database, parseAdminListQuery(request), {
+      return getAdminReviews(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, { list: parseAdminListQuery(request), filters: {
         status: adminQueryParam(request, "status"),
         rating: rating ? Number(rating) : undefined,
         verification: adminQueryParam(request, "verification"),
@@ -50,10 +45,10 @@ export async function GET(request: Request) {
         source: adminQueryParam(request, "source"),
         featured: adminQueryParam(request, "featured") === undefined ? undefined : adminQueryParam(request, "featured") === "true",
         hasReply: adminQueryParam(request, "hasReply") === "true" ? true : undefined,
-      });
+      } });
     }
     const id = new URL(request.url).searchParams.get("id");
-    return id ? getManagerReviewDetail(database, id) : listManagerReviews(database);
+    return id ? getManagerReviewDetail(database, id) : getAdminReviews(database, { actor: context.actor, shop: { id: env().SHOP_ID } });
     } });
     return success(result);
   } catch (error) {
