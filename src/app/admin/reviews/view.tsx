@@ -75,13 +75,14 @@ export function ReviewsManager({
   const [searchQuery, setSearchQuery] = useState(initialUrlState.searchQuery);
   const [currentPage, setCurrentPage] = useState(initialUrlState.currentPage);
   const [pageSize, setPageSize] = useState(20);
+  const [serverTotal, setServerTotal] = useState<number | null>(null);
   const reviewsRequestRef = useRef<AbortController | null>(null);
   useEffect(() => {
     if (!loadInitialFromApi) return;
     const controller = new AbortController();
     reviewsRequestRef.current?.abort();
     reviewsRequestRef.current = controller;
-    const params = new URLSearchParams({ q: searchQuery.trim(), page: "1", pageSize: "100" });
+    const params = new URLSearchParams({ q: searchQuery.trim(), page: String(currentPage), pageSize: String(pageSize) });
     if (activeTab === "approved" || activeTab === "rejected") params.set("status", activeTab.toUpperCase());
     if (activeTab === "pending") params.set("status", "PENDING");
     if (activeTab === "featured") { params.set("status", "APPROVED"); params.set("featured", "true"); }
@@ -89,12 +90,12 @@ export function ReviewsManager({
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.message ?? "Reviews unavailable");
-        if (!controller.signal.aborted) setRows(body.data.items ?? []);
+        if (!controller.signal.aborted) { setRows(body.data.items ?? []); setServerTotal(body.data.total ?? 0); }
       })
       .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) setErrorMsg(error instanceof Error ? error.message : "Reviews unavailable"); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [activeTab, loadInitialFromApi, searchQuery]);
+  }, [activeTab, currentPage, loadInitialFromApi, pageSize, searchQuery]);
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
   const manualReviewDialogRef = useAdminDialogFocus(showManualModal, () => setShowManualModal(false));
@@ -264,7 +265,7 @@ export function ReviewsManager({
     return true;
   });
 
-  const paginatedRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedRows = serverTotal === null ? filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize) : filteredRows;
 
   return (
     <main className="admin-reviews-workspace shell py-8 space-y-6">
@@ -634,10 +635,10 @@ export function ReviewsManager({
         )}
       </div>
 
-      {filteredRows.length > pageSize && <AdminPagination
+      {serverTotal !== null && serverTotal > 0 && <AdminPagination
         page={currentPage}
         limit={pageSize}
-        total={filteredRows.length}
+        total={serverTotal}
         onPageChange={setCurrentPage}
         onLimitChange={(newLimit) => setPageSize(newLimit)}
         itemLabel="reviews"
