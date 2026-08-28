@@ -106,7 +106,9 @@ function ProductWorkspaceContent({
 
   useEffect(() => {
     const next = serializeProductsUrlState(searchParams, { selectedId, searchQuery, filterStatus, activeTab, viewMode, page: currentPage });
-    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const applicationParams = new URLSearchParams(searchParams.toString());
+    applicationParams.delete("_rsc");
+    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [activeTab, currentPage, filterStatus, router, searchParams, searchQuery, selectedId, viewMode]);
 
   const today = todayStr();

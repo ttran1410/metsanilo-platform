@@ -229,7 +229,9 @@ export function OrdersListing({
 
   useEffect(() => {
     const next = serializeOrdersUrlState(searchParams, { view, mode: workspaceMode, query: search, from, to, preset: datePreset, method, status, source, entry: entryType });
-    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const applicationParams = new URLSearchParams(searchParams.toString());
+    applicationParams.delete("_rsc");
+    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [datePreset, entryType, from, method, router, search, searchParams, source, status, to, view, workspaceMode]);
 
   function getNextQuickAction(order: AdminOrder): { target: OrderStatus; label: string } | null {

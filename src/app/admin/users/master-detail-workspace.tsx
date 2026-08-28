@@ -300,7 +300,9 @@ function UserWorkspaceContent({
 
   useEffect(() => {
     const next = serializeUsersUrlState(searchParams, { searchQuery, roleFilter, selectedId, page: currentPage });
-    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const applicationParams = new URLSearchParams(searchParams.toString());
+    applicationParams.delete("_rsc");
+    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [currentPage, roleFilter, router, searchParams, searchQuery, selectedId]);
 
   useEffect(() => {

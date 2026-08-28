@@ -296,7 +296,9 @@ function CustomerWorkspaceContent({
 
   useEffect(() => {
     const next = serializeCustomersUrlState(searchParams, { selectedId, searchQuery, filterChip, sortMode, workspaceView, page });
-    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const applicationParams = new URLSearchParams(searchParams.toString());
+    applicationParams.delete("_rsc");
+    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [filterChip, page, router, searchParams, searchQuery, selectedId, sortMode, workspaceView]);
 
   const paginatedCustomers = useMemo(() => {

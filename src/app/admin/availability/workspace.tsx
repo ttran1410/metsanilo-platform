@@ -153,7 +153,9 @@ export function AvailabilityWorkspace({
 
   useEffect(() => {
     const next = serializeAvailabilityUrlState(searchParams, { viewMode, productFilter, seasonFilter, startDate: currentStartDate });
-    if (next.toString() !== searchParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const applicationParams = new URLSearchParams(searchParams.toString());
+    applicationParams.delete("_rsc");
+    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
   }, [currentStartDate, productFilter, router, searchParams, seasonFilter, viewMode]);
 
   const today = workspace.today;
