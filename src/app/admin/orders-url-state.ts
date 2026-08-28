@@ -42,6 +42,7 @@ export function parseOrdersUrlState(params: URLSearchParams, defaults: Pick<Orde
 
 export function serializeOrdersUrlState(current: URLSearchParams, state: OrdersUrlState) {
   const next = new URLSearchParams(current.toString());
+  next.delete("_rsc");
   next.set("view", state.view);
   next.set("mode", state.mode);
   state.query ? next.set("q", state.query) : next.delete("q");

@@ -21,7 +21,7 @@ describe("Orders URL state", () => {
       view: "UNPAID", mode: "TABLE", query: "", from: "", to: "", preset: "ALL", method: "ALL", status: "ALL", source: "ALL", entry: "ALL",
     });
     expect(next.get("created")).toBe("order-1");
-    expect(next.get("_rsc")).toBe("internal");
+    expect(next.has("_rsc")).toBe(false);
     expect(next.get("view")).toBe("UNPAID");
     expect(next.has("q")).toBe(false);
   });
