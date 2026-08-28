@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useDashboardActionController } from "./use-dashboard-action-controller";
 import { AdminLoadingState, formatAdminMoney } from "./presentation";
 
 export type DashboardData = {
@@ -89,6 +90,7 @@ export function DashboardModule() {
   const [cashFlowInfoOpen, setCashFlowInfoOpen] = useState(false);
   const [automationInfoOpen, setAutomationInfoOpen] = useState(false);
   const [runningAutomation, setRunningAutomation] = useState(false);
+  const dashboardActions = useDashboardActionController({ onError: setError, onSuccess: (kind, data) => { if (kind === "confirm") setActionNotice("✓ Order confirmed."); else setActionNotice(`⚡ Automation executed: ${data?.picking ?? 0} order(s) moved to picking shed, ${data?.overdueReminders ?? 0} SLA overdue exception(s) checked.`); void load(); } });
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setRefreshing(true);
@@ -159,37 +161,14 @@ export function DashboardModule() {
   // 1-Click Quick Confirm from Triage Ribbon
   async function handleQuickConfirm(orderId: string, ref: string, expectedVersion = 1) {
     setActionNotice("");
-    try {
-      const response = await fetch(`/api/admin/orders/${orderId}/status`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: "CONFIRMED", expectedVersion }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message ?? "Could not confirm order");
-      setActionNotice(`✓ Quick confirmed order ${ref}.`);
-      void load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Quick confirm failed.");
-    }
+    await dashboardActions.confirm(orderId, expectedVersion);
   }
 
   async function handleRunAutomationNow() {
     setRunningAutomation(true);
     setActionNotice("");
-    try {
-      const response = await fetch("/api/admin/automation/run", { method: "POST" });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message ?? "Could not run automation");
-      const p = body.data?.picking ?? 0;
-      const o = body.data?.overdueReminders ?? 0;
-      setActionNotice(`⚡ Automation executed: ${p} order(s) moved to picking shed, ${o} SLA overdue exception(s) checked.`);
-      void load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Automation trigger failed.");
-    } finally {
-      setRunningAutomation(false);
-    }
+    await dashboardActions.runAutomation();
+    setRunningAutomation(false);
   }
 
   if (error && !data)
