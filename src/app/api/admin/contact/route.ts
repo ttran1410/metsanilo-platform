@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "@/domain/errors";
+import { getAdminSettings, updateAdminSettings } from "@/domain/admin-settings-actions";
 import { executeAdmin, parseJson } from "@/app/api/admin/module";
 import { failure, success } from "../../response";
 
@@ -30,14 +30,14 @@ function response(shop: typeof shops.$inferSelect, updatedBy?: string) {
 
 export async function GET(request: Request) {
   try {
-    const result = await executeAdmin(request, { permission: "settings.read", parse: async () => undefined, run: async (_input, { database }) => { const shop = await database.query.shops.findFirst({ where: eq(shops.id, env().SHOP_ID) }); if (!shop) throw new DomainError("NOT_FOUND", "Shop not found", 404); return response(shop); } });
+    const result = await executeAdmin(request, { permission: "settings.read", parse: async () => undefined, run: async (_input, { database, context }) => response(await getAdminSettings(database, { actor: context.actor, shop: { id: env().SHOP_ID } })) });
     return success(result);
   } catch (error) { return failure(error); }
 }
 
 export async function PUT(request: Request) {
   try {
-    const result = await executeAdmin(request, { permission: "settings.operational", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid settings input", 422); return parsed.data; }, run: async (input, { database, context }) => { const updateData: Partial<typeof shops.$inferInsert> = {}; if (input.phone !== undefined) updateData.contactPhone = input.phone; if (input.email !== undefined) updateData.contactEmail = input.email; if (input.hours !== undefined) updateData.contactHours = input.hours; if (input.nameFi !== undefined) updateData.nameFi = input.nameFi; if (input.nameEn !== undefined) updateData.nameEn = input.nameEn; if (input.businessName !== undefined) updateData.businessName = input.businessName; if (input.businessId !== undefined) updateData.businessId = input.businessId; if (input.howItWorksVisible !== undefined) updateData.howItWorksVisible = input.howItWorksVisible; if (input.aboutUsVisible !== undefined) updateData.aboutUsVisible = input.aboutUsVisible; if (input.reviewsVisible !== undefined) updateData.reviewsVisible = input.reviewsVisible; if (input.active !== undefined) updateData.active = input.active; if (input.sameDayCutoffEnabled !== undefined) updateData.sameDayCutoffEnabled = input.sameDayCutoffEnabled; if (input.sameDayCutoffTime !== undefined) updateData.sameDayCutoffTime = input.sameDayCutoffTime; const [shop] = await database.update(shops).set(updateData).where(eq(shops.id, env().SHOP_ID)).returning(); if (!shop) throw new DomainError("NOT_FOUND", "Shop not found", 404); return response(shop, context.actor.email ?? context.actor.id); } });
+    const result = await executeAdmin(request, { permission: "settings.operational", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid settings input", 422); return parsed.data; }, run: async (input, { database, context }) => response(await updateAdminSettings(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, { contactPhone: input.phone, contactEmail: input.email, contactHours: input.hours, nameFi: input.nameFi, nameEn: input.nameEn, businessName: input.businessName, businessId: input.businessId, howItWorksVisible: input.howItWorksVisible, aboutUsVisible: input.aboutUsVisible, reviewsVisible: input.reviewsVisible, active: input.active, sameDayCutoffEnabled: input.sameDayCutoffEnabled, sameDayCutoffTime: input.sameDayCutoffTime })) });
     return success(result);
   } catch (error) { return failure(error); }
 }
