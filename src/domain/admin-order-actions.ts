@@ -1,4 +1,8 @@
+import { randomUUID } from "node:crypto";
+import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
+import { auditEntries, orders } from "@/db/schema";
+import { DomainError } from "./errors";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
 import { addDeliveryException, addOrderNote, archiveManagerOrder, confirmPickup, deleteManagerOrder, previewManagerOrderUpdate, recordPayment, recordRefund, setDeliveryFee, transitionOrder, unarchiveManagerOrder, updateManagerOrder } from "./orders";
 import type { PaymentMethod } from "./payment-methods";
@@ -58,3 +62,17 @@ export async function updateAdminOrder(database: Database, context: OrderActionC
 export async function deleteAdminOrder(database: Database, context: OrderActionContext, orderId: string) { const actor = prepare(context); return deleteManagerOrder(database, orderId, actor); }
 export async function archiveAdminOrder(database: Database, context: OrderActionContext, orderId: string) { const actor = prepare(context); return archiveManagerOrder(database, orderId, actor); }
 export async function unarchiveAdminOrder(database: Database, context: OrderActionContext, orderId: string) { const actor = prepare(context); return unarchiveManagerOrder(database, orderId, actor); }
+
+export type AdminOrderPricingInput = { orderId: string; expectedVersion: number; itemSubtotalCents: number; deliveryFeeCents?: number | null; reason: string };
+export async function updateAdminOrderPricing(database: Database, context: OrderActionContext, input: AdminOrderPricingInput) {
+  const actor = prepare(context); const current = await database.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, context.shop.id)) });
+  if (!current) throw new DomainError("NOT_FOUND", "Order not found", 404);
+  if (current.version !== input.expectedVersion) throw new DomainError("STALE_VERSION", "Order changed", 409);
+  const fee = input.deliveryFeeCents === undefined ? current.deliveryFeeCents : input.deliveryFeeCents;
+  if (current.fulfillmentMethod === "PICKUP" && fee !== 0) throw new DomainError("INVALID_ORDER", "Pickup orders cannot have a delivery fee", 409);
+  const finalTotalCents = fee === null ? null : input.itemSubtotalCents + fee; const now = new Date().toISOString();
+  const changed = await database.update(orders).set({ itemSubtotalCents: input.itemSubtotalCents, deliveryFeeCents: fee, finalTotalCents, version: sql`${orders.version} + 1`, updatedAt: now }).where(and(eq(orders.id, input.orderId), eq(orders.version, input.expectedVersion), eq(orders.shopId, context.shop.id))).run();
+  if (changed.rowsAffected !== 1) throw new DomainError("STALE_VERSION", "Order changed", 409);
+  await database.insert(auditEntries).values({ id: randomUUID(), shopId: context.shop.id, actor, action: "order.pricing_updated", entityType: "order", entityId: input.orderId, detailsJson: JSON.stringify({ fromItemSubtotalCents: current.itemSubtotalCents, toItemSubtotalCents: input.itemSubtotalCents, fromDeliveryFeeCents: current.deliveryFeeCents, toDeliveryFeeCents: fee, reason: input.reason }), createdAt: now });
+  return database.query.orders.findFirst({ where: and(eq(orders.id, input.orderId), eq(orders.shopId, context.shop.id)) });
+}
