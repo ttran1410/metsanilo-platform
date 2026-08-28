@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { del } from "@vercel/blob";
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, mediaAttachments, mediaAssets } from "@/db/schema";
@@ -35,4 +36,16 @@ export async function setAdminMediaPrimary(database: Database, context: AdminAct
   await database.transaction(async (tx) => { await tx.update(mediaAttachments).set({ isPrimary: false }).where(and(eq(mediaAttachments.shopId, context.shop.id), eq(mediaAttachments.productId, row.productId!))); await tx.update(mediaAttachments).set({ isPrimary: true }).where(and(eq(mediaAttachments.id, attachmentId), eq(mediaAttachments.shopId, context.shop.id))); });
   await database.insert(auditEntries).values({ id: randomUUID(), shopId: context.shop.id, actor: context.actor.email ?? context.actor.id, action: "media.primary_changed", entityType: "product", entityId: row.productId, detailsJson: JSON.stringify({ attachmentId }), createdAt: new Date().toISOString() });
   return { id: attachmentId, isPrimary: true };
+}
+
+export async function deleteAdminMedia(database: Database, context: AdminActionContext, assetId: string) {
+  assertAdminActionContext(context);
+  const row = await database.select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments).innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId)).where(and(eq(mediaAttachments.assetId, assetId), eq(mediaAttachments.shopId, context.shop.id))).limit(1);
+  if (!row[0]) throw new DomainError("NOT_FOUND", "Image not found", 404);
+  if (row[0].attachment.isPrimary) throw new DomainError("PRIMARY_MEDIA_REQUIRED", "Choose another primary image before deleting this image", 409);
+  await del(row[0].asset.url);
+  await database.delete(mediaAttachments).where(and(eq(mediaAttachments.assetId, assetId), eq(mediaAttachments.shopId, context.shop.id)));
+  await database.delete(mediaAssets).where(and(eq(mediaAssets.id, assetId), eq(mediaAssets.shopId, context.shop.id)));
+  await database.insert(auditEntries).values({ id: randomUUID(), shopId: context.shop.id, actor: context.actor.email ?? context.actor.id, action: "media.deleted", entityType: "product", entityId: row[0].attachment.productId ?? "", detailsJson: JSON.stringify({ assetId }), createdAt: new Date().toISOString() });
+  return { deleted: true };
 }
