@@ -11,7 +11,7 @@ vi.mock("@/db/client", () => ({ db: vi.fn(() => database) }));
 vi.mock("@/domain/access", () => ({ currentUser, hasUserPermission }));
 vi.mock("@/lib/env", () => ({ env: () => ({ SHOP_ID: "shop-test" }) }));
 
-import { executeAdmin } from "@/app/api/admin/module";
+import { authenticateAdminAny, executeAdmin } from "@/app/api/admin/module";
 import { assertAdminActionContext } from "@/domain/admin-action-context";
 
 describe("executeAdmin contract", () => {
@@ -56,6 +56,13 @@ describe("executeAdmin contract", () => {
       permission: "catalog.product.write", parse, run: async () => null,
     })).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
     expect(parse).not.toHaveBeenCalled();
+  });
+
+  it("rejects dynamic permission boundaries when no candidate permission is granted", async () => {
+    hasUserPermission.mockResolvedValue(false);
+    hasUserPermission.mockClear();
+    await expect(authenticateAdminAny(new Request("http://localhost/api/admin/settings"), ["settings.read", "settings.operational"])).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
+    expect(hasUserPermission).toHaveBeenCalledTimes(2);
   });
 
   it("propagates domain auth errors for the response adapter", async () => {
