@@ -8,6 +8,7 @@ import { AdminConfirmDialog, AdminNotice, AdminPageHeader } from "./presentation
 import { StorefrontThemeManager } from "./storefront-theme-manager";
 import { SettingsSectionTabs } from "./settings-section-tabs";
 import { parseSettingsUrlState, serializeSettingsUrlState } from "./settings-url-state";
+import { getAdminOrderSources } from "./reference-data-cache";
 
 type Method = {
   id?: string;
@@ -249,13 +250,13 @@ export function OperationsSettings({ canManageSettings, canManageTheme }: { canM
       const [methodsData, contactData, sourceData, locationData] = await Promise.all([
         request("/api/admin/payment-methods"),
         request("/api/admin/contact"),
-        request("/api/admin/order-sources"),
+        getAdminOrderSources(),
         request("/api/admin/fulfillment-locations"),
       ]);
 
       setMethods(methodsData);
       setShopData(contactData);
-      setSources(sourceData);
+      if (sourceData) setSources(sourceData);
       setLocations(locationData);
 
       void loadPageMedia("logo", setLogoMedia);

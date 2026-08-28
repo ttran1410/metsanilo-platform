@@ -1,6 +1,13 @@
 "use client";
 
-export type AdminOrderSourceOption = { key: string; labelEn: string; active: boolean };
+export type AdminOrderSourceOption = {
+  id: string;
+  key: string;
+  labelFi: string;
+  labelEn: string;
+  active: boolean;
+  sortOrder: number;
+};
 
 let orderSourcesPromise: Promise<AdminOrderSourceOption[] | null> | null = null;
 let orderSourcesFetchedAt = 0;

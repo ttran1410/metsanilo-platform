@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { CustomerAddressFields } from "@/app/customer-address-fields";
+import { getAdminOrderSources } from "../../../reference-data-cache";
 
 export type Product = {
   product: { id: string; nameFi: string; nameEn: string };
@@ -112,15 +113,11 @@ export function OrderEditForm({
 
   // Load order sources from settings API
   useEffect(() => {
-    fetch("/api/admin/order-sources")
-      .then((r) => r.ok ? r.json() : null)
-      .then((body) => {
-        const rows: Array<{ key: string; labelEn: string; active: boolean }> = body?.data ?? body;
-        if (Array.isArray(rows) && rows.length > 0) {
-          setSources(rows.filter((s) => s.active).map((s) => ({ key: s.key, labelEn: s.labelEn })));
-        }
-      })
-      .catch(() => { /* keep defaults */ });
+    void getAdminOrderSources().then((rows) => {
+      if (rows && rows.length > 0) {
+        setSources(rows.filter((source) => source.active).map(({ key, labelEn }) => ({ key, labelEn })));
+      }
+    });
   }, []);
 
   const currentProduct = products.find((item) => item.product.id === form.productId);
