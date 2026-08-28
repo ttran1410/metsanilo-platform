@@ -51,6 +51,10 @@ import { GET as getAvailabilityDuplicates } from "@/app/api/admin/availability/d
 import { POST as previewAvailability } from "@/app/api/admin/availability/[id]/preview/route";
 import { POST as resolveCustomerIdentity } from "@/app/api/admin/customers/[id]/identity/route";
 import { POST as holdCustomer } from "@/app/api/admin/customers/[id]/retention-hold/route";
+import { POST as deliveryException } from "@/app/api/admin/orders/[id]/delivery-exception/route";
+import { PUT as deliveryFee } from "@/app/api/admin/orders/[id]/delivery-fee/route";
+import { POST as pickupConfirm } from "@/app/api/admin/orders/[id]/pickup-confirm/route";
+import { POST as orderPreview } from "@/app/api/admin/orders/[id]/preview/route";
 
 describe("admin request module contract", () => {
   it("parses valid JSON bodies", async () => {
@@ -198,6 +202,21 @@ describe("admin request module contract", () => {
       previewAvailability(new Request("http://localhost/api/admin/availability/a1/preview", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "a1" }) }),
       resolveCustomerIdentity(new Request("http://localhost/api/admin/customers/c1/identity", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "c1" }) }),
       holdCustomer(new Request("http://localhost/api/admin/customers/c1/retention-hold", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "c1" }) }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps remaining Order action routes behind authentication", async () => {
+    const params = Promise.resolve({ id: "order-1" });
+    const responses = await Promise.all([
+      deliveryException(new Request("http://localhost/api/admin/orders/order-1/delivery-exception", { method: "POST", body: "{}" }), { params }),
+      deliveryFee(new Request("http://localhost/api/admin/orders/order-1/delivery-fee", { method: "PUT", body: "{}" }), { params }),
+      pickupConfirm(new Request("http://localhost/api/admin/orders/order-1/pickup-confirm", { method: "POST", body: "{}" }), { params }),
+      orderPreview(new Request("http://localhost/api/admin/orders/order-1/preview", { method: "POST", body: "{}" }), { params }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
