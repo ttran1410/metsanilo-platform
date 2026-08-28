@@ -208,6 +208,12 @@ export function OrdersListing({
   const [serverQuickViewCounts, setServerQuickViewCounts] = useState<Record<string, number> | null>(null);
   const [initialQueryReady, setInitialQueryReady] = useState(false);
 
+  // Keep the controlled search input aligned when Next restores this workspace
+  // from browser history or a shared URL without remounting the component.
+  useEffect(() => {
+    if (search !== parsedUrlState.query) setSearch(parsedUrlState.query);
+  }, [parsedUrlState.query, search]);
+
   useEffect(() => {
     if (!initialCreatedId || !rows.some((order) => order.id === initialCreatedId)) return;
     queueMicrotask(() => {
