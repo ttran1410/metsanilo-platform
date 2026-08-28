@@ -1,11 +1,9 @@
-import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { mediaAttachments, mediaAssets } from "@/db/schema";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../response";
 import { authenticateAdmin, executeAdmin } from "../module";
-import { deleteAdminMediaAttachment, uploadAdminMedia } from "@/domain/admin-media-actions";
+import { deleteAdminMediaAttachment, listAdminMedia, uploadAdminMedia } from "@/domain/admin-media-actions";
 
 export const runtime = "nodejs";
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -16,20 +14,10 @@ export async function GET(request: Request) {
     const result = await executeAdmin(request, {
       permission: "media.write",
       parse: async () => new URL(request.url).searchParams,
-      run: async (searchParams, { database }) => {
+      run: async (searchParams, { database, context: { actor } }) => {
         const productId = searchParams.get("productId");
         const pageKey = searchParams.get("pageKey");
-        if (!productId && !pageKey) throw new DomainError("VALIDATION_ERROR", "Product or page key is required", 422);
-        const condition = productId
-          ? and(eq(mediaAttachments.shopId, env().SHOP_ID), eq(mediaAttachments.productId, productId))
-          : and(eq(mediaAttachments.shopId, env().SHOP_ID), eq(mediaAttachments.pageKey, pageKey!));
-        const rows = await database
-          .select({ attachment: mediaAttachments, asset: mediaAssets })
-          .from(mediaAttachments)
-          .innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId))
-          .where(condition)
-          .orderBy(asc(mediaAttachments.sortOrder));
-        return rows.map((row) => ({ ...row.asset, sortOrder: row.attachment.sortOrder, isPrimary: row.attachment.isPrimary, attachmentId: row.attachment.id }));
+        return listAdminMedia(database, { actor, shop: { id: env().SHOP_ID } }, { productId, pageKey });
       },
     });
     return success(result);

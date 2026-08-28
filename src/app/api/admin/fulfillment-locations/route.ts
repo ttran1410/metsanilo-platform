@@ -1,8 +1,6 @@
-import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { fulfillmentLocations } from "@/db/schema";
 import { env } from "@/lib/env";
-import { createAdminFulfillmentLocation, deleteAdminFulfillmentLocation, updateAdminFulfillmentLocation } from "@/domain/admin-fulfillment-actions";
+import { createAdminFulfillmentLocation, deleteAdminFulfillmentLocation, listAdminFulfillmentLocations, updateAdminFulfillmentLocation } from "@/domain/admin-fulfillment-actions";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../response";
 import { executeAdmin, parseJson } from "../module";
@@ -10,7 +8,7 @@ import { executeAdmin, parseJson } from "../module";
 export const runtime = "nodejs";
 const input = z.object({ type: z.enum(["PICKUP", "DELIVERY_ORIGIN"]), nameFi: z.string().trim().min(2).max(120), nameEn: z.string().trim().min(2).max(120), address: z.string().trim().min(2).max(240), instructionsFi: z.string().max(1000).default(""), instructionsEn: z.string().max(1000).default(""), active: z.boolean().default(true), isDefault: z.boolean().default(false) });
 
-export async function GET(request: Request) { try { return success(await executeAdmin(request, { permission: "settings.fulfillment.read", parse: async () => undefined, run: async (_input, { database }) => database.select().from(fulfillmentLocations).where(eq(fulfillmentLocations.shopId, env().SHOP_ID)) })); } catch (error) { return failure(error); } }
+export async function GET(request: Request) { try { return success(await executeAdmin(request, { permission: "settings.fulfillment.read", parse: async () => undefined, run: async (_input, { database, context: { actor } }) => listAdminFulfillmentLocations(database, { actor, shop: { id: env().SHOP_ID } }) })); } catch (error) { return failure(error); } }
 export async function POST(request: Request) { try { const result = await executeAdmin(request, { permission: "settings.fulfillment.manage", parse: async (incoming) => { const parsed = input.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid fulfillment location", 422); return parsed.data; }, run: async (value, { database, context: { actor } }) => createAdminFulfillmentLocation(database, { actor, shop: { id: env().SHOP_ID } }, value) }); return success(result, 201); } catch (error) { return failure(error); } }
 export async function PATCH(request: Request) { try { const result = await executeAdmin(request, { permission: "settings.fulfillment.manage", parse: async (incoming) => { const body = await parseJson<{ id?: string } & Partial<z.infer<typeof input>>>(incoming); if (!body.id) throw new DomainError("VALIDATION_ERROR", "Location id is required", 422); const parsed = input.partial().safeParse(body); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid fulfillment location", 422); return { id: body.id, values: parsed.data }; }, run: async (value, { database, context: { actor } }) => updateAdminFulfillmentLocation(database, { actor, shop: { id: env().SHOP_ID } }, value) }); return success(result); } catch (error) { return failure(error); } }
 export async function DELETE(request: Request) { try { const result = await executeAdmin(request, { permission: "settings.fulfillment.manage", parse: async (incoming) => { const id = new URL(incoming.url).searchParams.get("id"); if (!id) throw new DomainError("VALIDATION_ERROR", "Location id is required", 422); return id; }, run: async (id, { database, context: { actor } }) => deleteAdminFulfillmentLocation(database, { actor, shop: { id: env().SHOP_ID } }, id) }); return success(result); } catch (error) { return failure(error); } }

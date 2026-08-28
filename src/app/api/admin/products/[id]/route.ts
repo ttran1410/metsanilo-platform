@@ -1,9 +1,6 @@
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { availability, orders } from "@/db/schema";
-import { getProductReadiness, listManagerProducts } from "@/domain/products";
-import { archiveProduct, deleteProduct, restoreProduct, updateProduct } from "@/domain/admin-products-actions";
+import { getAdminProductDetail, archiveProduct, deleteProduct, restoreProduct, updateProduct } from "@/domain/admin-products-actions";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
@@ -17,31 +14,7 @@ const command = z.discriminatedUnion("action", [z.object({ action: z.literal("up
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const result = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database }) => {
-    const all = await listManagerProducts(database);
-    const found = all.find((item) => item.product.id === productId);
-    if (!found) throw new DomainError("NOT_FOUND", "Product not found", 404);
-
-    const activeOrders = await db()
-      .select({ id: orders.id })
-      .from(orders)
-      .where(and(eq(orders.productId, productId), eq(orders.shopId, env().SHOP_ID)));
-
-    const availabilityCount = await db()
-      .select({ id: availability.id })
-      .from(availability)
-      .where(and(eq(availability.productId, productId), eq(availability.shopId, env().SHOP_ID)));
-
-    const readiness = await getProductReadiness(database, productId);
-    return {
-      ...found,
-      readiness,
-      impact: {
-        activeOrders: activeOrders.length,
-        availabilityRows: availabilityCount.length,
-      },
-    };
-    } });
+    const result = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database, context }) => { const detail = await getAdminProductDetail(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, productId); if (!detail) throw new DomainError("NOT_FOUND", "Product not found", 404); return detail; } });
     return success(result);
   } catch (error) {
     return failure(error);

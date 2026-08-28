@@ -8,6 +8,23 @@ import { assertAdminActionContext, type AdminActionContext } from "./admin-actio
 
 export type AdminMediaMetadataInput = { attachmentId: string; altFi: string; altEn: string };
 
+export async function listAdminMedia(database: Database, context: AdminActionContext, input: { productId?: string | null; pageKey?: string | null }) {
+  assertAdminActionContext(context);
+  if (!input.productId && !input.pageKey) throw new DomainError("VALIDATION_ERROR", "Product or page key is required", 422);
+  const condition = input.productId
+    ? and(eq(mediaAttachments.shopId, context.shop.id), eq(mediaAttachments.productId, input.productId))
+    : and(eq(mediaAttachments.shopId, context.shop.id), eq(mediaAttachments.pageKey, input.pageKey!));
+  const rows = await database.select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments).innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId)).where(condition).orderBy(mediaAttachments.sortOrder);
+  return rows.map((row) => ({ ...row.asset, sortOrder: row.attachment.sortOrder, isPrimary: row.attachment.isPrimary, attachmentId: row.attachment.id }));
+}
+
+export async function findAdminMediaAttachment(database: Database, context: AdminActionContext, attachmentId: string) {
+  assertAdminActionContext(context);
+  const [row] = await database.select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments).innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId)).where(and(eq(mediaAttachments.id, attachmentId), eq(mediaAttachments.shopId, context.shop.id))).limit(1);
+  if (!row?.attachment.productId) throw new DomainError("NOT_FOUND", "Image not found", 404);
+  return row;
+}
+
 export async function updateAdminMediaMetadata(database: Database, context: AdminActionContext, input: AdminMediaMetadataInput) {
   assertAdminActionContext(context);
   const row = await database.select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments).innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId)).where(and(eq(mediaAttachments.id, input.attachmentId), eq(mediaAttachments.shopId, context.shop.id))).limit(1);

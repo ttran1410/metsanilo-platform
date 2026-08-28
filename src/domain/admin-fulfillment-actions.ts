@@ -7,6 +7,11 @@ import { assertAdminActionContext, type AdminActionContext } from "./admin-actio
 
 export type AdminFulfillmentLocationInput = { type: "PICKUP" | "DELIVERY_ORIGIN"; nameFi: string; nameEn: string; address: string; instructionsFi: string; instructionsEn: string; active: boolean; isDefault: boolean };
 
+export async function listAdminFulfillmentLocations(database: Database, context: AdminActionContext) {
+  assertAdminActionContext(context);
+  return database.select().from(fulfillmentLocations).where(eq(fulfillmentLocations.shopId, context.shop.id));
+}
+
 function actorName(context: AdminActionContext) { assertAdminActionContext(context); return context.actor.email ?? context.actor.id; }
 
 export async function createAdminFulfillmentLocation(database: Database, context: AdminActionContext, input: AdminFulfillmentLocationInput) {
