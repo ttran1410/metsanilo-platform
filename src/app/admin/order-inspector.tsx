@@ -7,6 +7,7 @@ import { AdminLoadingState, AdminNotice, AdminStatusBadge, formatAdminMoney } fr
 import { OrderActionBar } from "./order-action-bar";
 import { IconCopy } from "./ui/admin-row-action-menu";
 import { useOrderNoteActionController } from "./orders/use-order-note-action-controller";
+import { useOrderStatusActionController } from "./use-order-status-action-controller";
 
 type Order = typeof orders.$inferSelect & { paidCents?: number; outstandingCents?: number | null; paymentStatus?: string };
 type Detail = {
@@ -31,6 +32,7 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
   const [busy, setBusy] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const saveNote = useOrderNoteActionController({ onError: setError });
+  const submitStatus = useOrderStatusActionController({ onError: setError, onSuccess: (data) => { if (data) onOrderUpdated(data as Order); void load(); } });
 
   async function load() {
     setError("");
@@ -68,17 +70,10 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
     const current = detail?.order ?? order;
     setBusy(true);
     setError("");
-    const response = await fetch(`/api/admin/orders/${current.id}/status`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status: next, expectedVersion: current.version, reason, contactChannel: next === "CONFIRMED" ? "PHONE" : undefined }),
-    });
-    const body = await response.json();
+    const succeeded = await submitStatus(current, next, reason);
     setBusy(false);
-    if (!response.ok) return setError(body.message ?? "Status update failed.");
-    onOrderUpdated(body.data);
+    if (!succeeded) return;
     setNotice(`${current.publicReference} moved to ${next.replaceAll("_", " ")}.`);
-    await load();
   }
 
   async function addNote(event: FormEvent<HTMLFormElement>) {
