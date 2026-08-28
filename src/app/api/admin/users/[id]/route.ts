@@ -1,14 +1,11 @@
 import { z } from "zod";
 import { db } from "@/db/client";
-import {
-  getUserAccessDetail,
-  requirePermission,
-} from "@/domain/access";
+import { getUserAccessDetail } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
 import { resetUserPermissions, revokeUserSessions, updateUserProfile, updateUserRole as updateUserRoleAction, updateUserStatus } from "@/domain/admin-users-actions";
 import { env } from "@/lib/env";
-import { executeAdmin, parseJson } from "../../module";
+import { authenticateAdmin, executeAdmin, parseJson } from "../../module";
 
 export const runtime = "nodejs";
 
@@ -43,8 +40,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     if (parsed.data.action === "update") {
       if (parsed.data.email !== undefined) throw new DomainError("FORBIDDEN", "Email address cannot be changed from User & Permissions", 403);
+      const actor = (await authenticateAdmin(request, "shop_users.manage")).actor;
       return success(
-        await updateUserProfile(db(), { actor: await requirePermission(db(), request, "shop_users.manage"), shop: { id: env().SHOP_ID }, request }, {
+        await updateUserProfile(db(), { actor, shop: { id: env().SHOP_ID }, request }, {
           userId: id,
           displayName: parsed.data.displayName,
           role: parsed.data.role,
@@ -54,23 +52,23 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     if (parsed.data.action === "role") {
       if (!parsed.data.role) throw new DomainError("VALIDATION_ERROR", "Role is required", 422);
-      const actor = await requirePermission(db(), request, "shop_users.manage");
+      const actor = (await authenticateAdmin(request, "shop_users.manage")).actor;
       return success(await updateUserRoleAction(db(), { actor, shop: { id: env().SHOP_ID }, request }, { userId: id, role: parsed.data.role }));
     }
 
     if (parsed.data.action === "active") {
       if (parsed.data.active === undefined) throw new DomainError("VALIDATION_ERROR", "Active status is required", 422);
-      const actor = await requirePermission(db(), request, "shop_users.manage");
+      const actor = (await authenticateAdmin(request, "shop_users.manage")).actor;
       return success(await updateUserStatus(db(), { actor, shop: { id: env().SHOP_ID }, request }, { userId: id, active: parsed.data.active }));
     }
 
     if (parsed.data.action === "reset_permissions") {
-      const actor = await requirePermission(db(), request, "shop_permissions.assign");
+      const actor = (await authenticateAdmin(request, "shop_permissions.assign")).actor;
       return success(await resetUserPermissions(db(), { actor, shop: { id: env().SHOP_ID }, request }, id));
     }
 
     if (parsed.data.action === "revoke_sessions") {
-      const actor = await requirePermission(db(), request, "shop_users.manage");
+      const actor = (await authenticateAdmin(request, "shop_users.manage")).actor;
       return success(await revokeUserSessions(db(), { actor, shop: { id: env().SHOP_ID }, request }, id));
     }
 
