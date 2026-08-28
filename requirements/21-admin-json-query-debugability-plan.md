@@ -453,6 +453,26 @@ After this implementation plan is complete, verify and finish the complete Order
 
 ## Cross-module URL and REST contract audit
 
+### Implementation checkpoint (2026-08-28, continuation)
+
+Completed since the previous status entry:
+
+- Users permission, account-action, and profile-editor workflows now live in focused controllers rather than the master-detail workspace.
+- Products reorder/archive/delete and editor-save workflows now live in focused controllers.
+- Product package mutations and Product Season list/detail queries now use Admin action modules with actor/shop context.
+- Reviews PATCH dynamic permission authentication is isolated in a route-specific adapter while preserving the moderate/write distinction.
+- Notifications collection reads now use `getAdminNotifications` with an explicit Admin action context.
+- Admin execution tests cover permission denial, unauthorized propagation, and actor/shop context.
+- Compatibility response tests assert JSON content type, safe error code, and correlation ID.
+
+Current remaining work:
+
+- Expand authenticated route contract coverage from representative routes to every canonical and compatibility endpoint.
+- Complete the URL/REST matrix for each module, documenting compatibility query parameters without breaking existing clients.
+- Review remaining legacy Settings, Contact, User, Customer, Product, Availability, and Reviews branches for direct domain calls.
+- Add browser-level verification; no browser test harness is currently configured.
+- Continue decomposition of package/media/season child workflows and ManagerWorkspace compatibility paths only where callbacks still own mutations.
+
 This follow-up should begin now, before migrating additional workspaces. For each admin module, audit and document:
 
 1. Whether the endpoint follows the resource/action distinction expected by REST: collection reads use `GET /resource`, member reads use `GET /resource/:id`, resource mutations use the appropriate method, and explicit workflows such as publish, rollback, refund, or batch operations remain named actions where that improves safety and clarity.
