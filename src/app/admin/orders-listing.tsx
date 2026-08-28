@@ -122,6 +122,7 @@ export function OrdersListing({
   initialLoadedAt,
   initialView = "TODAY",
   initialStatus = "ALL",
+  initialCreatedId,
   canExport,
   canCreate,
   canTransition,
@@ -135,6 +136,7 @@ export function OrdersListing({
   initialLoadedAt?: string;
   initialView?: OrdersView;
   initialStatus?: string;
+  initialCreatedId?: string;
   canExport: boolean;
   canCreate: boolean;
   canTransition: boolean;
@@ -202,6 +204,17 @@ export function OrdersListing({
   const initialLoadCompleteRef = useRef(false);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [serverQuickViewCounts, setServerQuickViewCounts] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    if (!initialCreatedId || !rows.some((order) => order.id === initialCreatedId)) return;
+    queueMicrotask(() => {
+      setInspectingId(initialCreatedId);
+      setNotice("Order created successfully.");
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("created");
+      router.replace(`?${next.toString()}`, { scroll: false });
+    });
+  }, [initialCreatedId, router, rows, searchParams]);
 
   useEffect(() => {
     const next = serializeOrdersUrlState(searchParams, { view, mode: workspaceMode, query: search, from, to, preset: datePreset, method, status, source, entry: entryType });
