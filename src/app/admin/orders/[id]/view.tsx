@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AdminNotice, AdminStatusBadge, useAdminDialogFocus } from "../../presentation";
 import { getLifecycleSteps } from "@/domain/order-transitions";
 import { IconCopy } from "../../ui/admin-row-action-menu";
+import { useOrderDeleteActionController } from "../use-order-delete-action-controller";
 
 type Snapshot = { address?: string; nameEn?: string; instructionsEn?: string };
 
@@ -103,6 +104,7 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
   const cancelDialogRef = useAdminDialogFocus<HTMLFormElement>(pendingCancel, () => setPendingCancel(false));
   const deleteDialogRef = useAdminDialogFocus(pendingDelete, () => setPendingDelete(false));
   const [recordTab, setRecordTab] = useState<"notes" | "audit">("notes");
+  const deleteOrder = useOrderDeleteActionController({ onError: setMessage });
 
   const lifecycle: string[] = getLifecycleSteps(detail.order.fulfillmentMethod);
   const isClosed = ["CANCELLED", "CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW", "DELIVERED", "PICKED_UP", "REFUNDED"].includes(detail.order.status);
@@ -146,16 +148,9 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
   async function handleConfirmDeleteOrder() {
     setDeleting(true);
     setMessage("");
-    try {
-      const response = await fetch(`/api/admin/orders/${detail.order.id}`, { method: "DELETE" });
-      const body = await response.json();
-      setDeleting(false);
-      if (!response.ok) throw new Error(body.message ?? "Delete failed");
-      router.push("/admin/orders");
-    } catch (err) {
-      setDeleting(false);
-      setMessage(err instanceof Error ? err.message : "Delete failed");
-    }
+    const deleted = await deleteOrder(detail.order.id);
+    setDeleting(false);
+    if (deleted) router.push("/admin/orders");
   }
 
   const [modalError, setModalError] = useState("");
