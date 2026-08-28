@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { db } from "@/db/client";
 import { getManagerReviewDetail } from "@/domain/reviews";
-import { currentUser, hasUserPermission } from "@/domain/access";
 import { failure, success } from "../../response";
 import { DomainError, fromZodError } from "@/domain/errors";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
@@ -31,6 +30,14 @@ const commandSchema = z.object({
   consentSource: z.string().max(80).optional(),
   consentNote: z.string().max(500).optional(),
 });
+
+async function authenticateReviewMutation(request: Request) {
+  try {
+    return { actor: (await authenticateAdmin(request, "reviews.moderate")).actor, canModerate: true };
+  } catch {
+    return { actor: (await authenticateAdmin(request, "reviews.write")).actor, canModerate: false };
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -157,8 +164,7 @@ export async function DELETE(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const actor = await currentUser(db(), request);
-    const canModerate = await hasUserPermission(db(), actor, "reviews.moderate");
+    const { actor, canModerate } = await authenticateReviewMutation(request);
     const payload = await parseJson<Record<string, unknown>>(request);
     const bulk = z.object({
       action: z.literal("bulk_moderate"),
@@ -176,8 +182,6 @@ export async function PATCH(request: Request) {
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid review moderation payload"));
 
     if (parsed.data.action === "publication_identity") {
-      const allowed = canModerate || (await hasUserPermission(db(), actor, "reviews.write"));
-      if (!allowed) return failure({ message: "Permission required: reviews.write", code: "FORBIDDEN", status: 403 });
       return success(await updateAdminReviewPublicationIdentity(db(), { actor, shop: { id: env().SHOP_ID } }, {
         id: parsed.data.id,
         isAnonymous: parsed.data.isAnonymous ?? false,
