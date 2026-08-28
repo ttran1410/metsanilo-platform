@@ -1,11 +1,17 @@
 import type { Database } from "@/db/client";
-import { findAvailabilityDuplicateGroups, planAvailability, previewAvailabilityPlan, previewAvailabilityUpdate, updateAvailability } from "./availability";
+import { findAvailabilityDuplicateGroups, getAvailabilityWorkspace, planAvailability, previewAvailabilityPlan, previewAvailabilityUpdate, updateAvailability } from "./availability";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
 
 export type AdminAvailabilityContext = AdminActionContext;
 export type AdminAvailabilityPlanInput = Parameters<typeof planAvailability>[1];
 export type AdminAvailabilityUpdateInput = Omit<Parameters<typeof updateAvailability>[1], "actor" | "id">;
 export type AdminAvailabilityPreviewInput = Omit<Parameters<typeof previewAvailabilityUpdate>[1], "id">;
+export type AdminAvailabilityWorkspaceQuery = Parameters<typeof getAvailabilityWorkspace>[1];
+
+export function getAdminAvailabilityWorkspace(database: Database, context: AdminAvailabilityContext, query: AdminAvailabilityWorkspaceQuery) {
+  assertAdminActionContext(context);
+  return getAvailabilityWorkspace(database, query);
+}
 
 function actorName(context: AdminAvailabilityContext) {
   assertAdminActionContext(context);
