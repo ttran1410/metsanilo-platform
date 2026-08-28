@@ -4,7 +4,6 @@ import {
   confirmManualReview,
   bulkModerateReviews,
   createManualReview,
-  deleteReview,
   linkReviewToCustomerOrOrder,
   listManagerReviews,
   getManagerReviewDetail,
@@ -19,6 +18,8 @@ import { DomainError, fromZodError } from "@/domain/errors";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
 import { searchManagerReviews } from "@/domain/admin-search";
 import { authenticateAdmin, executeAdmin, parseJson } from "../module";
+import { deleteAdminReview } from "@/domain/admin-review-actions";
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -160,13 +161,11 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const actor = (await authenticateAdmin(request, "reviews.moderate")).actor;
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     if (!id) return failure({ message: "Review ID required", code: "VALIDATION_ERROR", status: 400 });
-
-    const actorName = actor.email ?? actor.username ?? actor.id;
-    return success(await deleteReview(db(), { id, actor: actorName }));
+    const result = await executeAdmin(request, { permission: "reviews.moderate", parse: async () => ({ id }), run: async (input, { database, context: { actor } }) => deleteAdminReview(database, { actor, shop: { id: env().SHOP_ID } }, input) });
+    return success(result);
   } catch (error) {
     return failure(error);
   }
