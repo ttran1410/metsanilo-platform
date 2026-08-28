@@ -4,7 +4,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { auditEntries, customers } from "@/db/schema";
 import { authenticateAdmin, parseJson } from "../../module";
-import { anonymizeCustomer, getCustomerProfile, mergeCustomers, updateCustomer } from "@/domain/customers";
+import { getCustomerProfile } from "@/domain/customers";
+import { anonymizeAdminCustomer, mergeAdminCustomers, updateAdminCustomer } from "@/domain/admin-customer-actions";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
@@ -53,7 +54,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (!parsed.data.duplicateId) {
         throw new DomainError("VALIDATION_ERROR", "duplicateId is required to merge customers", 422);
       }
-      const merged = await mergeCustomers(db(), id, parsed.data.duplicateId, actorName);
+      const merged = await mergeAdminCustomers(db(), { actor, shop: { id: env().SHOP_ID } }, id, parsed.data.duplicateId);
       return success(merged);
     }
 
@@ -81,18 +82,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     // Default Profile Update
-    const updatedCustomer = await updateCustomer(
-      db(),
-      id,
+    const updatedCustomer = await updateAdminCustomer(db(), { actor, shop: { id: env().SHOP_ID } }, id,
       {
         name: parsed.data.name,
         mobile: parsed.data.mobile,
         email: parsed.data.email,
         facebookProfile: parsed.data.facebookProfile,
         notes: parsed.data.notes,
-      },
-      actorName
-    );
+      });
 
     if (parsed.data.marketingConsent !== undefined) {
       const now = new Date().toISOString();
@@ -135,7 +132,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const actor = (await authenticateAdmin(request, "customers.anonymize")).actor;
     const { id } = await context.params;
-    return success(await anonymizeCustomer(db(), id, actor.email ?? actor.username ?? actor.id));
+    return success(await anonymizeAdminCustomer(db(), { actor, shop: { id: env().SHOP_ID } }, id));
   } catch (error) {
     return failure(error);
   }
