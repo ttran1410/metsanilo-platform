@@ -16,7 +16,7 @@ type Product = {
   packages: Array<{ id: string; labelFi: string; volumeMl: number; priceCents: number }>;
 };
 
-export function ManualOrdersModule({ products: initialProducts, loadInitialFromApi = false }: { products: Product[]; loadInitialFromApi?: boolean }) {
+export function ManualOrdersWorkspace({ products: initialProducts, loadInitialFromApi = false }: { products: Product[]; loadInitialFromApi?: boolean }) {
   const router = useRouter();
   const [products, setProducts] = useState(initialProducts);
   const [historical, setHistorical] = useState(false);
