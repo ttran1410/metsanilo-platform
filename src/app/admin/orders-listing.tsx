@@ -17,6 +17,7 @@ import { IconCopy } from "./ui/admin-row-action-menu";
 import { OrderRowActions } from "./orders/order-row-actions";
 import { OrderRowStatusCell } from "./orders/order-row-status-cell";
 import { OrderRowSummaryCells } from "./orders/order-row-summary-cells";
+import { OrderRowSelectionCell } from "./orders/order-row-selection-cell";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
@@ -797,17 +798,14 @@ export function OrdersListing({
                 {visibleRows.map((order) => {
                   return (
                     <tr key={order.id} className="hover:bg-surface-muted/40 transition-colors">
-                      <td data-label="Select" className="p-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(order.id)}
-                          onChange={(e) =>
-                            setSelected((cur) =>
-                              e.target.checked ? [...cur, order.id] : cur.filter((id) => id !== order.id)
-                            )
-                          }
-                        />
-                      </td>
+                      <OrderRowSelectionCell
+                        selected={selected.includes(order.id)}
+                        onToggle={(checked) =>
+                          setSelected((cur) =>
+                            checked ? [...cur, order.id] : cur.filter((id) => id !== order.id)
+                          )
+                        }
+                      />
 
                       <td data-label="Order" className="p-3 font-bold">
                         <div className="inline-flex items-center gap-1.5">
