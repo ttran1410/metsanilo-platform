@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { AdminProductPackage } from "../types/package";
+import { createPackage, updatePackage } from "./package-admin-actions";
 
 export function usePackageEditorController({ productId, editingPackage, values, onClose, onSaved }: { productId: string; editingPackage?: AdminProductPackage | null; values: { labelFi: string; labelEn: string; volumeLitres: string; priceEuros: string; active: boolean; isDefault: boolean }; onClose: () => void; onSaved: () => void }) {
   const [error, setError] = useState("");
@@ -15,11 +16,10 @@ export function usePackageEditorController({ productId, editingPackage, values, 
     if (Number.isNaN(eurosNum) || eurosNum < 0) return setBusy(false), setError("Package price must be 0 or greater.");
     const payload = { labelFi: values.labelFi.trim(), labelEn: values.labelEn.trim(), volumeMl: Math.round(litresNum * 1000), priceCents: Math.round(eurosNum * 100), active: values.active, isDefault: values.isDefault };
     try {
-      const response = await fetch(editingPackage ? `/api/admin/packages/${editingPackage.id}` : `/api/admin/products/${productId}/packages`, { method: editingPackage ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(editingPackage ? { action: "update", package: payload } : payload) });
-      const body = await response.json();
-      if (!response.ok) return setError(body.message ?? body.code ?? "Could not save package.");
+      if (editingPackage) await updatePackage({ packageId: editingPackage.id, package: payload });
+      else await createPackage(productId, payload);
       onSaved(); onClose();
-    } catch { setError("An unexpected network error occurred."); }
+    } catch (error) { setError(error instanceof Error ? error.message : "An unexpected network error occurred."); }
     finally { setBusy(false); }
   }
 
