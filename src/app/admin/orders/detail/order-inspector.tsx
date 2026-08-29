@@ -2,20 +2,15 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ChevronDown, ChevronUp, ExternalLink, MessageSquare, Pencil, Phone, Share2, X } from "lucide-react";
-import type { orders } from "@/db/schema";
 import { AdminLoadingState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../../presentation";
 import { OrderActionBar } from "./order-action-bar";
 import { IconCopy } from "../../ui/admin-row-action-menu";
 import { useOrderNoteActionController } from "../actions/use-order-note-action-controller";
 import { useOrderStatusActionController } from "./use-order-status-action-controller";
+import { fetchOrderDetail, type OrderDetail, type OrderDetailOrder } from "./order-detail-query";
 
-type Order = typeof orders.$inferSelect & { paidCents?: number; outstandingCents?: number | null; paymentStatus?: string };
-type Detail = {
-  order: Order;
-  notes: Array<{ id: string; body: string; actor: string; createdAt: string }>;
-  audit: Array<{ id: string; action: string; actor: string; createdAt: string }>;
-  paymentSummary: { paidCents: number; refundedCents: number; outstandingCents: number; status: string };
-};
+type Order = OrderDetailOrder;
+type Detail = OrderDetail;
 
 export function OrderInspector({ order, canTransition, canUpdate, onClose, onPrevious, onNext, onOrderUpdated }: {
   order: Order;
@@ -34,22 +29,21 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
   const saveNote = useOrderNoteActionController({ onError: setError });
   const submitStatus = useOrderStatusActionController({ onError: setError, onSuccess: (data) => { if (data) onOrderUpdated(data as Order); void load(); } });
 
-  async function load() {
+  async function load(signal?: AbortSignal) {
     setError("");
-    const response = await fetch(`/api/admin/orders/${order.id}`);
-    const body = await response.json();
-    if (!response.ok) return setError(body.message ?? "Order details unavailable.");
-    setDetail(body.data);
+    try { setDetail(await fetchOrderDetail(order.id, signal)); }
+    catch (error) { if (!(error instanceof DOMException && error.name === "AbortError")) setError(error instanceof Error ? error.message : "Order details unavailable."); }
   }
 
   useEffect(() => {
+    const controller = new AbortController();
     const initial = window.setTimeout(() => {
       setDetail(null);
       setNotice("");
-      void load();
+      void load(controller.signal);
       closeRef.current?.focus();
     }, 0);
-    return () => window.clearTimeout(initial);
+    return () => { window.clearTimeout(initial); controller.abort(); };
   // The order id intentionally owns the inspector lifecycle.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.id]);
