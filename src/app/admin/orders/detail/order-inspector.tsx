@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, ExternalLink, MessageSquare, Pencil, Phone, Share2, X } from "lucide-react";
 import { AdminLoadingState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../../presentation";
 import { OrderActionBar } from "./order-action-bar";
 import { IconCopy } from "../../ui/admin-row-action-menu";
-import { useOrderNoteActionController } from "../actions/use-order-note-action-controller";
-import { useOrderStatusActionController } from "./use-order-status-action-controller";
 import { fetchOrderDetail, type OrderDetail, type OrderDetailOrder } from "./order-detail-query";
+import { useOrderInspectorActions } from "./use-order-inspector-actions";
 
 type Order = OrderDetailOrder;
 type Detail = OrderDetail;
@@ -24,10 +23,7 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const saveNote = useOrderNoteActionController({ onError: setError });
-  const submitStatus = useOrderStatusActionController({ onError: setError, onSuccess: (data) => { if (data) onOrderUpdated(data as Order); void load(); } });
 
   async function load(signal?: AbortSignal) {
     setError("");
@@ -59,30 +55,9 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
   }, [canTransition, detail, onClose, order]);
-
-  async function transition(next: string, reason?: string) {
-    const current = detail?.order ?? order;
-    setBusy(true);
-    setError("");
-    const succeeded = await submitStatus(current, next, reason);
-    setBusy(false);
-    if (!succeeded) return;
-    setNotice(`${current.publicReference} moved to ${next.replaceAll("_", " ")}.`);
-  }
-
-  async function addNote(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const bodyText = String(new FormData(form).get("body") ?? "").trim();
-    if (!bodyText) return;
-    setBusy(true);
-    const saved = await saveNote(order.id, bodyText);
-    setBusy(false);
-    if (!saved) return;
-    form.reset();
-    setNotice("Internal note added.");
-    await load();
-  }
+  const actions = useOrderInspectorActions({ order, detailOrder: detail?.order, reload: () => load(), onOrderUpdated });
+  const actionError = actions.error || error;
+  const actionNotice = actions.notice || notice;
 
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -127,8 +102,8 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
           <button ref={closeRef} type="button" onClick={onClose} aria-label="Close inspector"><X aria-hidden="true" /></button>
         </div>
       </header>
-      {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
-      {notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}
+      {actionError && <AdminNotice tone="error" live>{actionError}</AdminNotice>}
+      {actionNotice && <AdminNotice tone="success" live>{actionNotice}</AdminNotice>}
       {copied && <AdminNotice tone="success" live>Copied {copied} to clipboard.</AdminNotice>}
       {!detail ? <AdminLoadingState label="Loading order…" /> : <div className="order-inspector-body">
         <div className="order-inspector-status"><AdminStatusBadge status={current.status} /><span>{current.fulfillmentDate} · {current.fulfillmentMethod}</span></div>
@@ -198,8 +173,8 @@ export function OrderInspector({ order, canTransition, canUpdate, onClose, onPre
             </a>
           )}
         </div>
-        {canTransition && <section className="order-inspector-primary"><span>Allowed next actions</span><OrderActionBar order={current} compact confirmAll onTransition={(next, reason) => transition(next, reason)} /></section>}
-        {canUpdate && <form className="order-inspector-note" onSubmit={(event) => void addNote(event)}><label className="field"><span>Add internal note</span><textarea name="body" rows={2} required /></label><button className="btn btn-secondary" disabled={busy}>Add note</button></form>}
+        {canTransition && <section className="order-inspector-primary"><span>Allowed next actions</span><OrderActionBar order={current} compact confirmAll onTransition={(next, reason) => actions.transition(next, reason)} /></section>}
+        {canUpdate && <form className="order-inspector-note" onSubmit={(event) => void actions.addNote(event)}><label className="field"><span>Add internal note</span><textarea name="body" rows={2} required /></label><button className="btn btn-secondary" disabled={actions.busy}>Add note</button></form>}
         <section><div className="section-inline-heading"><div><p className="admin-section-kicker">Recent activity</p><h3>Audit trail</h3></div></div><div className="order-inspector-activity">{detail.audit.slice(0, 5).map((event) => <div key={event.id}><strong>{event.action.replace("order.", "").replaceAll("_", " ")}</strong><small>{event.actor} · {new Date(event.createdAt).toLocaleString("fi-FI")}</small></div>)}{detail.audit.length === 0 && <p>No activity recorded.</p>}</div></section>
       </div>}
       <footer className="order-inspector-footer">
