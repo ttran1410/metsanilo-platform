@@ -7,6 +7,8 @@ export type OrderStatusTransitionCommand = {
   reason?: string;
 };
 
+export type OrderNoteCommand = { orderId: string; body: string };
+
 export async function transitionOrder(command: OrderStatusTransitionCommand) {
   const response = await fetch(`/api/admin/orders/${command.orderId}`, {
     method: "PATCH",
@@ -15,5 +17,16 @@ export async function transitionOrder(command: OrderStatusTransitionCommand) {
   });
   const body = await response.json().catch(() => ({})) as { data?: unknown; message?: string };
   if (!response.ok) throw new Error(body.message ?? "Order transition failed.");
+  return body.data;
+}
+
+export async function addOrderNote(command: OrderNoteCommand) {
+  const response = await fetch(`/api/admin/orders/${command.orderId}/notes`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ body: command.body }),
+  });
+  const body = await response.json().catch(() => ({})) as { data?: unknown; message?: string };
+  if (!response.ok) throw new Error(body.message ?? "Could not add note.");
   return body.data;
 }
