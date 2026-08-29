@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Download, Filter } from "lucide-react";
 import { AdminSearchField } from "./ui/admin-search-field";
@@ -13,11 +12,7 @@ import { OrderInspector } from "./order-inspector";
 import { PickupTerminal } from "./orders/pickup-terminal";
 import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
-import { IconCopy } from "./ui/admin-row-action-menu";
-import { OrderRowActions } from "./orders/order-row-actions";
-import { OrderRowStatusCell } from "./orders/order-row-status-cell";
-import { OrderRowSummaryCells } from "./orders/order-row-summary-cells";
-import { OrderRowSelectionCell } from "./orders/order-row-selection-cell";
+import { OrderRecordRow } from "./orders/order-record-row";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
@@ -796,81 +791,7 @@ export function OrdersListing({
           {/* TABLE DATA DISPLAY */}
           <OrdersRecordList allSelected={allSelected} onToggleAll={(checked) => setSelected(checked ? visibleRows.map((r) => r.id) : [])} sortField={sortField} sortDirection={sortDirection} onSort={handleHeaderSort} page={page} limit={limit} total={serverTotal ?? sortedRows.length} onPageChange={setPage} onLimitChange={setLimit}>
                 {visibleRows.map((order) => {
-                  return (
-                    <tr key={order.id} className="hover:bg-surface-muted/40 transition-colors">
-                      <OrderRowSelectionCell
-                        selected={selected.includes(order.id)}
-                        onToggle={(checked) =>
-                          setSelected((cur) =>
-                            checked ? [...cur, order.id] : cur.filter((id) => id !== order.id)
-                          )
-                        }
-                      />
-
-                      <td data-label="Order" className="p-3 font-bold">
-                        <div className="inline-flex items-center gap-1.5">
-                          <Link className="text-primary hover:underline font-mono" href={`/admin/orders/${order.id}`}>
-                            {order.publicReference}
-                          </Link>
-                          <button
-                            type="button"
-                            title="Copy Order Reference"
-                            className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void navigator.clipboard.writeText(order.publicReference);
-                              setNotice(`Copied ${order.publicReference} to clipboard.`);
-                            }}
-                          >
-                            <IconCopy className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <span className="muted block text-[11px] font-normal">{order.createdAt.slice(0, 10)}</span>
-                      </td>
-
-                      <td data-label="Customer" className="p-3">
-                        {order.customerId ? (
-                          <Link
-                            className="text-primary hover:underline font-bold block w-fit"
-                            href={`/admin/customers/${order.customerId}`}
-                            title="View customer detail"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {order.customerName}
-                          </Link>
-                        ) : (
-                          <strong className="text-ink block font-bold">{order.customerName}</strong>
-                        )}
-                        <div className="inline-flex items-center gap-1">
-                          <span className="muted text-[11px]">{order.mobile}</span>
-                          {order.mobile && (
-                            <button
-                              type="button"
-                              title="Copy Customer Mobile Phone"
-                              className="p-0.5 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (order.mobile) {
-                                  void navigator.clipboard.writeText(order.mobile);
-                                  setNotice(`Copied ${order.mobile} to clipboard.`);
-                                }
-                              }}
-                            >
-                              <IconCopy className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-
-                      <OrderRowSummaryCells order={order} />
-
-                      <OrderRowStatusCell order={order} />
-
-                      <td data-label="Actions" className="p-3 text-right">
-                        <OrderRowActions order={order} canUpdate={canUpdate} canTransition={canTransition} canDelete={canDelete} nextAction={getNextQuickAction(order)} onInspect={() => setInspectingId(order.id)} onEdit={() => router.push(`/admin/orders/${order.id}/edit`)} onQuickTransition={(target) => setPending({ target, orders: [order] })} onDelete={() => { setSelected([order.id]); const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0; setPendingDelete({ deletable: isPaidOrder ? [] : [order], skippedPaid: isPaidOrder ? [order] : [] }); }} />
-                      </td>
-                    </tr>
-                  );
+                  return <OrderRecordRow key={order.id} order={order} selected={selected.includes(order.id)} canUpdate={canUpdate} canTransition={canTransition} canDelete={canDelete} nextAction={getNextQuickAction(order)} onToggleSelected={(checked) => setSelected((cur) => checked ? [...cur, order.id] : cur.filter((id) => id !== order.id))} onCopy={(value) => { void navigator.clipboard.writeText(value); setNotice(`Copied ${value} to clipboard.`); }} onInspect={() => setInspectingId(order.id)} onEdit={() => router.push(`/admin/orders/${order.id}/edit`)} onQuickTransition={(target) => setPending({ target, orders: [order] })} onDelete={() => { setSelected([order.id]); const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0; setPendingDelete({ deletable: isPaidOrder ? [] : [order], skippedPaid: isPaidOrder ? [order] : [] }); }} />;
                 })}
 
                 {visibleRows.length === 0 && (
