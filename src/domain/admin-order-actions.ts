@@ -13,6 +13,29 @@ import { getOrderTriageReasons } from "./order-triage";
 import { todayInTimezone } from "@/lib/format";
 
 export type AdminOrdersQueryFilters = { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; historicalEntry?: boolean; source?: string; from?: string; to?: string; triage?: boolean; unpaid?: boolean };
+
+export type AdminOrderQuickViewCounts = {
+  TODAY: number; TRIAGE: number; NEEDS_CONFIRMATION: number; PICKUP_TODAY: number;
+  DELIVERY_TODAY: number; UNPAID: number; ALL: number; ARCHIVED: number;
+};
+
+export async function getAdminOrderQuickViewCounts(database: Database, context: AdminActionContext): Promise<AdminOrderQuickViewCounts> {
+  assertAdminActionContext(context);
+  const all = await listManagerOrdersWithPaymentSummary(database);
+  const shop = await database.query.shops.findFirst({ where: (table, { eq }) => eq(table.id, context.shop.id), columns: { timezone: true } });
+  const date = todayInTimezone(shop?.timezone ?? "Europe/Helsinki");
+  const active = all.filter((order) => !order.archived);
+  return {
+    TODAY: active.filter((order) => order.fulfillmentDate === date).length,
+    TRIAGE: active.filter((order) => getOrderTriageReasons(order).length > 0).length,
+    NEEDS_CONFIRMATION: active.filter((order) => order.status === "NEW").length,
+    PICKUP_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "PICKUP").length,
+    DELIVERY_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "DELIVERY").length,
+    UNPAID: active.filter((order) => order.paymentStatus === "UNPAID").length,
+    ALL: active.length,
+    ARCHIVED: all.filter((order) => Boolean(order.archived)).length,
+  };
+}
 export async function getAdminOrderDetail(database: Database, context: AdminActionContext, orderId: string) {
   assertAdminActionContext(context);
   return getManagerOrder(database, orderId);

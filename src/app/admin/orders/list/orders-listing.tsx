@@ -226,7 +226,7 @@ export function OrdersListing({
     ordersRequestRef.current = controller;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ q: search.trim(), page: String(page), pageSize: String(limit), includeCounts: "true" });
+      const params = new URLSearchParams({ q: search.trim(), page: String(page), pageSize: String(limit) });
       if (view === "TRIAGE") params.set("triage", "true");
       if (view === "UNPAID") params.set("unpaid", "true");
       if (status !== "ALL") params.set("status", status === "FULFILLED" ? "PICKED_UP" : status === "READY_STAGE" ? "READY" : status);
@@ -241,7 +241,6 @@ export function OrdersListing({
       if (!response.ok) throw new Error(body.message ?? "Order refresh failed");
       setRows(Array.isArray(body.data) ? body.data : body.data.items ?? []);
       setServerTotal(Array.isArray(body.data) ? null : body.data.total ?? 0);
-      setServerQuickViewCounts(Array.isArray(body.data) ? null : body.data.quickViewCounts ?? null);
       setLastUpdated(new Date().toISOString());
       if (announce) setNotice("Order queue synced.");
     } catch (err) {
@@ -252,6 +251,16 @@ export function OrdersListing({
   }, [archiveScope, entryType, from, limit, method, page, search, source, status, to, view]);
 
   useEffect(() => () => ordersRequestRef.current?.abort(), []);
+
+  useEffect(() => {
+    if (!loadInitialFromApi) return;
+    let cancelled = false;
+    void fetch("/api/admin/orders/counts", { cache: "no-store", headers: { "x-admin-request-scope": "orders-counts" } })
+      .then((response) => response.ok ? response.json() : null)
+      .then((body) => { if (!cancelled) setServerQuickViewCounts(body?.data ?? null); })
+      .catch(() => { if (!cancelled) setServerQuickViewCounts(null); });
+    return () => { cancelled = true; };
+  }, [loadInitialFromApi]);
 
   useEffect(() => {
     if (!loadInitialFromApi) return;
