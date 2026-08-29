@@ -98,7 +98,7 @@ function ProductWorkspaceContent({
         if (!response.ok) throw new Error(body.message ?? "Products unavailable");
         if (!controller.signal.aborted) { setProductsList(Array.isArray(body.data) ? body.data : body.data.items ?? []); setServerTotal(Array.isArray(body.data) ? body.data.length : body.data.total ?? 0); }
       })
-      .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) undefined; })
+      .catch(() => undefined)
       .finally(() => undefined);
     return () => controller.abort();
   }, [currentPage, filterStatus, loadInitialFromApi, pageSize, searchQuery]);

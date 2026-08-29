@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type DragEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { AdminNotice, AdminStatusBadge } from "../../presentation";
 import { PackageModal } from "../package-modal";
@@ -60,17 +60,22 @@ export function ProductDetailView({
   const [deletingPkgId, setDeletingPkgId] = useState<string | null>(null);
   const mediaActions = useProductMediaActionController({ onError: setError });
   const packageActions = usePackageActionController({ onRefresh: refreshProduct, onError: setError });
+  const detailRequestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!loadInitialFromApi || !productId) return;
-    fetch(`/api/admin/products/${productId}`, { cache: "no-store", headers: { "x-admin-request-scope": "product-detail" } })
+    detailRequestRef.current?.abort();
+    const controller = new AbortController();
+    detailRequestRef.current = controller;
+    fetch(`/api/admin/products/${productId}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "product-detail" } })
       .then((response) => response.ok ? response.json() : null)
       .then((body) => { if (body?.data?.product) { setProduct(body.data); setLoadedAvailabilityRows(body.data.availabilityRows ?? []); } else setError("Product not found."); })
-      .catch(() => setError("Could not load product."));
+      .catch((reason) => { if (!(reason instanceof DOMException && reason.name === "AbortError")) setError("Could not load product."); });
+    return () => controller.abort();
   }, [loadInitialFromApi, productId]);
 
   if (!initial && !productId) return <div className="card" role="status">Product not found.</div>;
-  if (!loadedAvailabilityRows || !product.product) return <div className="card" role="status">Loading product...</div>;
+  if (!loadedAvailabilityRows || !product?.product) return <div className="card" role="status">Loading product...</div>;
   const currentAvailabilityRows = loadedAvailabilityRows;
 
   async function refreshProduct() {

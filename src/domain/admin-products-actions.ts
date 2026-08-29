@@ -1,9 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { availability, orders } from "@/db/schema";
+import { gte } from "drizzle-orm";
 import { env } from "@/lib/env";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
+import type { AdminListQuery } from "@/lib/admin-list-query";
 import { createPackage as createPackageDomain, createProduct as createProductDomain, deletePackage as deletePackageDomain, deleteProduct as deleteProductDomain, getProductReadiness, listManagerProducts, reorderPackages as reorderPackagesDomain, setDefaultPackage as setDefaultPackageDomain, setProductActive, updatePackage as updatePackageDomain, updateProduct as updateProductDomain, reorderProducts as reorderProductsDomain, type ProductInput } from "./products";
+import { searchManagerProducts } from "./admin-search";
 type PackageInput = Parameters<typeof createPackageDomain>[2];
 
 export async function getAdminProductDetail(database: Database, context: AdminActionContext, productId: string) {
@@ -18,9 +21,21 @@ export async function getAdminProductDetail(database: Database, context: AdminAc
   return { ...found, readiness: await getProductReadiness(database, productId), impact: { activeOrders: activeOrders.length, availabilityRows: availabilityRows.length } };
 }
 
+export async function getAdminProductDetailWithAvailability(database: Database, context: AdminActionContext, productId: string) {
+  const detail = await getAdminProductDetail(database, context, productId);
+  if (!detail) return null;
+  const rows = await database.select().from(availability).where(and(eq(availability.productId, productId), eq(availability.shopId, context.shop.id), gte(availability.businessDate, detail.product.availableFrom)));
+  return { ...detail, availabilityRows: rows };
+}
+
 export function listAdminProducts(database: Database, context: AdminActionContext) {
   assertAdminActionContext(context);
   return listManagerProducts(database);
+}
+
+export async function getAdminProducts(database: Database, context: AdminActionContext, query: AdminListQuery, status?: "in_season" | "upcoming" | "archived") {
+  assertAdminActionContext(context);
+  return searchManagerProducts(database, query, { status });
 }
 
 export function createAdminProduct(database: Database, context: AdminActionContext, input: Parameters<typeof createProductDomain>[1]) {

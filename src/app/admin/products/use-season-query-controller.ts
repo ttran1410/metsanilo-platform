@@ -12,7 +12,7 @@ export function useSeasonQueryController({ productId, selectedSeasonId, setSeaso
     void fetch(`/api/admin/products/${productId}/seasons`, { signal: controller.signal, cache: "no-store", headers: { "x-admin-request-scope": "product-seasons" } })
       .then((response) => response.json())
       .then((body) => { if (!controller.signal.aborted && body.data) setSeasons(body.data); })
-      .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) undefined; });
+      .catch(() => undefined);
     return () => controller.abort();
   }, [productId, setSeasons]);
 
