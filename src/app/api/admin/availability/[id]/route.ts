@@ -1,10 +1,8 @@
 import { z } from "zod";
-import { db } from "@/db/client";
-import { authenticateAdmin, authenticateAdminAny, parseJson } from "../../module";
 import { updateAdminAvailability } from "@/domain/admin-availability-actions";
+import { executeAdmin, authenticateAdminAny, parseJson } from "../../module";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
-import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -25,8 +23,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability command", 422);
     const { id } = await params;
     const permission = parsed.data.cutoffOverride !== undefined ? "availability.cutoff.override" : parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write";
-    const context = await authenticateAdmin(request, permission);
-    return success(await updateAdminAvailability(db(), { actor: context.actor, shop: { id: env().SHOP_ID } }, id, parsed.data));
+    const result = await executeAdmin(request, { permission, parse: async () => parsed.data, run: async (input, { database, context }) => updateAdminAvailability(database, { actor: context.actor, shop: { id: context.shop.shopId } }, id, input) });
+    return success(result);
   } catch (error) {
     return failure(error, request);
   }
