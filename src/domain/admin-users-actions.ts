@@ -3,6 +3,12 @@ import { env } from "@/lib/env";
 import { resetUserPermissionsToRole, revokeUserSessions as revokeUserSessionsDomain, setUserPermission as setUserPermissionDomain, toggleUserActive, updateUserProfile as updateUserProfileDomain, updateUserRole as updateUserRoleDomain, type Permission, type Role } from "./access";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
 import { DomainError } from "./errors";
+import { searchUsers } from "./admin-search";
+
+export async function getAdminUsers(database: Database, context: UserActionContext, query: Parameters<typeof searchUsers>[1], filters?: Parameters<typeof searchUsers>[2]) {
+  assertAdminActionContext(context);
+  return searchUsers(database, query, filters);
+}
 
 export type UserActionContext = AdminActionContext & Readonly<{ request: Request }>;
 export type AdminUserCommand =
