@@ -177,6 +177,8 @@ export function OrdersListing({
   const [lastUpdated, setLastUpdated] = useState<string | null>(initialLoadedAt ?? null);
   const [inspectingId, setInspectingId] = useState<string | null>(null);
   const ordersRequestRef = useRef<AbortController | null>(null);
+  const ordersFilterKey = `${search}|${from}|${to}|${method}|${status}|${source}|${entryType}|${view}|${archiveScope}`;
+  const lastOrdersFilterKeyRef = useRef(ordersFilterKey);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [serverQuickViewCounts, setServerQuickViewCounts] = useState<Record<string, number> | null>(null);
 
@@ -260,9 +262,14 @@ export function OrdersListing({
 
   useEffect(() => {
     if (!loadInitialFromApi) return;
+    if (page !== 1 && lastOrdersFilterKeyRef.current !== ordersFilterKey) {
+      lastOrdersFilterKeyRef.current = ordersFilterKey;
+      return;
+    }
+    lastOrdersFilterKeyRef.current = ordersFilterKey;
     const timer = window.setTimeout(() => void refreshOrders(), search.trim() ? 300 : 0);
     return () => window.clearTimeout(timer);
-  }, [loadInitialFromApi, refreshOrders, search]);
+  }, [loadInitialFromApi, ordersFilterKey, page, refreshOrders, search]);
 
   const selectQuickView = useCallback((targetView: OrdersView, customStatus?: string) => {
     setView(targetView);
