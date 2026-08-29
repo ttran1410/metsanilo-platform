@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, count, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, orderPayments, orders } from "@/db/schema";
 import { DomainError } from "./errors";
