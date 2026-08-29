@@ -930,7 +930,7 @@ function UserWorkspaceContent({
   );
 }
 
-export function MasterDetailUserWorkspace(props: {
+export function UsersWorkspace(props: {
   initialUsers: UserRow[];
   actorRole?: Role;
   actorId?: string;

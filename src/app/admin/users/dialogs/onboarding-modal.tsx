@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { Role } from "@/lib/permissions";
-import type { CreatedUser } from "../master-detail-workspace";
+import type { CreatedUser } from "../users-workspace";
 import { useAdminDialogFocus } from "../../presentation";
 import { validateEmail } from "@/lib/email";
 import { useUserOnboardingController } from "../actions/use-user-onboarding-controller";

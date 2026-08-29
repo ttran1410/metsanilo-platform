@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { updateUserPermission } from "./user-admin-actions";
 import type { Permission } from "@/lib/permissions";
-import type { UserRow } from "../master-detail-workspace";
+import type { UserRow } from "../users-workspace";
 
 export function usePermissionEditorController(selectedUser: UserRow | null, refresh: (id: string) => Promise<void>, setError: (message: string) => void, setMessage: (message: string) => void) {
   const [pendingByUser, setPendingByUser] = useState<Record<string, Partial<Record<Permission, boolean>>>>({});

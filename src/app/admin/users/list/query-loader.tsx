@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { Role } from "@/lib/permissions";
 import { AdminLoadingState } from "../../presentation";
 import { getAdminQuery } from "../../shared/query-cache";
-import { MasterDetailUserWorkspace, type UserRow } from "../master-detail-workspace";
+import { UsersWorkspace, type UserRow } from "../users-workspace";
 
 export function UserQueryLoader({ actorRole, actorId, canManageUsers, canAssignPermissions, canResetPasswords }: { actorRole: Role; actorId?: string; canManageUsers: boolean; canAssignPermissions: boolean; canResetPasswords: boolean }) {
   const searchParams = useSearchParams();
@@ -20,5 +20,5 @@ export function UserQueryLoader({ actorRole, actorId, canManageUsers, canAssignP
     void load();
   }, [searchParams]);
   if (!initialUsers) return <section className="shell py-8"><AdminLoadingState label="Loading Users &amp; Permissions Workspace…" /></section>;
-  return <MasterDetailUserWorkspace initialUsers={initialUsers} actorRole={actorRole} actorId={actorId} canManageUsers={canManageUsers} canAssignPermissions={canAssignPermissions} canResetPasswords={canResetPasswords} />;
+  return <UsersWorkspace initialUsers={initialUsers} actorRole={actorRole} actorId={actorId} canManageUsers={canManageUsers} canAssignPermissions={canAssignPermissions} canResetPasswords={canResetPasswords} />;
 }
