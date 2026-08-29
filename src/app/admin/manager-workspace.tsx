@@ -17,12 +17,12 @@ import { ManagerQueryToolbar } from "./manager-query-toolbar";
 import { ManagerSelectionToolbar } from "./manager-selection-toolbar";
 import { ManagerWorkspaceHeader } from "./manager-workspace-header";
 import { ManagerAvailabilityPanel } from "./manager-availability-panel";
-import { ManagerOrderList } from "./manager-order-list";
+import { ManagerOrderList } from "./manager/orders/order-list";
 import { ManagerBulkActionDialog } from "./manager-bulk-action-dialog";
-import { ManagerOrderTable } from "./manager-order-table";
-import { ManagerOrderCards } from "./manager-order-cards";
-import { ManagerOrderInspector } from "./manager-order-inspector";
-import { useManagerOrderActionController } from "./use-manager-order-action-controller";
+import { ManagerOrderTable } from "./manager/orders/order-table";
+import { ManagerOrderCards } from "./manager/orders/order-cards";
+import { ManagerOrderInspector } from "./manager/orders/order-inspector";
+import { useManagerOrderActionController } from "./manager/orders/use-order-action-controller";
 import { useManagerAvailabilityController } from "./use-manager-availability-controller";
 import { useManagerBulkActionController } from "./use-manager-bulk-action-controller";
 
