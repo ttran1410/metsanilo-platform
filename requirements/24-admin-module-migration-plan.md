@@ -6,6 +6,8 @@ This plan continues on `feature/split-admin-workspaces`. All module improvements
 
 Orders is the reference implementation for boundaries and verification. It is not a generic abstraction to copy into every module.
 
+For every later module, explicitly review every Orders improvement before deciding whether to apply it. “Not applicable” is a decision that must include a reason, not an omitted checklist item.
+
 ## Reference principles from Orders
 
 Each module must be evaluated independently against these principles:
@@ -20,6 +22,28 @@ Each module must be evaluated independently against these principles:
 8. Named business actions remain named where they improve safety and reviewability.
 9. Compatibility paths are preserved until all consumers are migrated and tested.
 10. Each module gets parity, permission, tenant, and response-envelope tests before the next module begins.
+
+## Orders improvement suitability checklist
+
+Each module phase must record the result for all of these Orders improvements:
+
+| Orders improvement | Apply by default | Suitability exception to document |
+| --- | --- | --- |
+| Typed Admin query/action boundary | Yes | Only if the module has no server data/action boundary, with the replacement named |
+| Mandatory actor and shop context | Yes | None for shop-scoped Admin data |
+| Shared JSON response/error envelope | Yes | Intentional file/download or stream response |
+| Server-side permission gate | Yes | None; browser flags are never authorization |
+| URL as source of truth | Yes for shareable state | State is deliberately transient or sensitive |
+| `_rsc` excluded from application contract | Yes | None |
+| One client loader for initial/refresh/filter reads | Yes where client loading is used | SSR is retained because it is materially better and no duplicate path exists |
+| Abort/stale-response protection | Yes for asynchronous client reads | No asynchronous client read exists |
+| Separate summary/count query | When summary cost/freshness differs | Counts are already part of a single bounded query and measurement supports keeping them together |
+| Request-scoped auth reuse | Yes when a request performs multiple Admin checks | Only one auth operation exists; never replace with global cache |
+| In-flight dedupe | Yes for shared shell or repeated resource reads | The request is an explicit user action that must never be coalesced |
+| Safe phase timing logs | Yes for server Admin routes | Only if an equivalent approved observability mechanism exists |
+| Workflow-based workspace decomposition | Yes when state/transition ownership differs | A genuinely small workflow with no independent state |
+
+At the end of each module phase, include a short decision table in the commit or implementation notes showing `applied`, `not applicable`, or `deferred` for every row.
 
 ## Global rules
 
