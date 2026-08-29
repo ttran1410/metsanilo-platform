@@ -25,3 +25,11 @@ export async function saveCustomer(input: CustomerSaveInput): Promise<{ ok: true
     return response.ok ? { ok: true } : { ok: false, message: body.message ?? "Could not save customer profile." };
   } catch { return { ok: false, message: "An unexpected network error occurred." }; }
 }
+
+export async function mergeCustomers(primaryId: string, duplicateId: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const response = await fetch(`/api/admin/customers/${primaryId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "merge", duplicateId }) });
+    const body = await response.json().catch(() => ({})) as { message?: string };
+    return response.ok ? { ok: true } : { ok: false, message: body.message ?? "Could not merge profiles." };
+  } catch { return { ok: false, message: "An unexpected network error occurred." }; }
+}

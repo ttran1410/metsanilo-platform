@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAdminDialogFocus } from "../presentation";
+import { mergeCustomers } from "./use-customer-record-action-controller";
 
 type CustomerConflict = {
   id: string;
@@ -17,11 +18,13 @@ export function MergeModal({
   duplicateCustomer,
   onClose,
   onMerged,
+  onMerge = mergeCustomers,
 }: {
   primaryCustomer: { id: string; name: string; mobile: string | null; email?: string | null };
   duplicateCustomer: CustomerConflict;
   onClose: () => void;
   onMerged: () => void;
+  onMerge?: (primaryId: string, duplicateId: string) => Promise<{ ok: true } | { ok: false; message: string }>;
 }) {
   const dialogRef = useAdminDialogFocus(true, onClose);
   const [busy, setBusy] = useState(false);
@@ -31,21 +34,9 @@ export function MergeModal({
     setBusy(true);
     setError("");
 
-    const response = await fetch(`/api/admin/customers/${primaryCustomer.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        action: "merge",
-        duplicateId: duplicateCustomer.id,
-      }),
-    });
-
-    const body = await response.json();
+    const result = await onMerge(primaryCustomer.id, duplicateCustomer.id);
     setBusy(false);
-
-    if (!response.ok) {
-      return setError(body.message ?? "Could not merge profiles.");
-    }
+    if (!result.ok) return setError(result.message);
 
     onMerged();
   }
