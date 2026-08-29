@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { CustomerAddressFields } from "@/app/customer-address-fields";
-import { getAdminOrderSources } from "../../../reference-data-cache";
+import { getAdminOrderSources } from "../../../shared/reference-data-cache";
 
 export type Product = {
   product: { id: string; nameFi: string; nameEn: string };

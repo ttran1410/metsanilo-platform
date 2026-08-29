@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus, Calendar, Trash2 } from "lucide-react";
 import { SeasonWorkflowDialogs } from "./season-workflow-dialogs";
 import { useSeasonMutationController } from "./use-season-mutation-controller";

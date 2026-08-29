@@ -1,4 +1,4 @@
-import { ManualOrdersModule } from "../manual-orders";
+import { ManualOrdersModule } from "./workspace";
 import { AdminRouteFrame } from "../route-frame";
 import { adminContext, hasAdminPermission } from "../portal-auth";
 export const dynamic = "force-dynamic";

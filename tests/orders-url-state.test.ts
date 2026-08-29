@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseOrdersUrlState, serializeOrdersUrlState } from "@/app/admin/orders-url-state";
+import { parseOrdersUrlState, serializeOrdersUrlState } from "@/app/admin/orders/list/orders-url-state";
 
 describe("Orders URL state", () => {
   it("parses shareable filters and restores defaults", () => {

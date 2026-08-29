@@ -45,13 +45,13 @@ export function serializeOrdersUrlState(current: URLSearchParams, state: OrdersU
   next.delete("_rsc");
   next.set("view", state.view);
   next.set("mode", state.mode);
-  state.query ? next.set("q", state.query) : next.delete("q");
-  state.from ? next.set("from", state.from) : next.delete("from");
-  state.to ? next.set("to", state.to) : next.delete("to");
-  state.preset !== "ALL" ? next.set("preset", state.preset) : next.delete("preset");
-  state.method !== "ALL" ? next.set("method", state.method) : next.delete("method");
-  state.status !== "ALL" ? next.set("status", state.status) : next.delete("status");
-  state.source !== "ALL" ? next.set("source", state.source) : next.delete("source");
-  state.entry !== "ALL" ? next.set("entry", state.entry) : next.delete("entry");
+  if (state.query) next.set("q", state.query); else next.delete("q");
+  if (state.from) next.set("from", state.from); else next.delete("from");
+  if (state.to) next.set("to", state.to); else next.delete("to");
+  if (state.preset !== "ALL") next.set("preset", state.preset); else next.delete("preset");
+  if (state.method !== "ALL") next.set("method", state.method); else next.delete("method");
+  if (state.status !== "ALL") next.set("status", state.status); else next.delete("status");
+  if (state.source !== "ALL") next.set("source", state.source); else next.delete("source");
+  if (state.entry !== "ALL") next.set("entry", state.entry); else next.delete("entry");
   return next;
 }

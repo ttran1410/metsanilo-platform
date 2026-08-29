@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, type Dispatch, type FormEvent, type ReactNode, type SetStateAction } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type {
   auditEntries,
   availability,
@@ -11,18 +11,18 @@ import type {
 } from "@/db/schema";
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminEmptyState } from "./presentation";
-import { OrdersListing } from "./orders-listing";
-import { getAdminOrderSources } from "./reference-data-cache";
+import { OrdersListing } from "./orders/list/orders-listing";
+import { getAdminOrderSources } from "./shared/reference-data-cache";
 import { ManagerQueryToolbar } from "./manager-query-toolbar";
 import { ManagerSelectionToolbar } from "./manager-selection-toolbar";
 import { ManagerWorkspaceHeader } from "./manager-workspace-header";
 import { ManagerAvailabilityPanel } from "./manager-availability-panel";
-import { ManagerOrderList } from "./manager-order-list";
+import { ManagerOrderList } from "./manager/orders/order-list";
 import { ManagerBulkActionDialog } from "./manager-bulk-action-dialog";
-import { ManagerOrderTable } from "./manager-order-table";
-import { ManagerOrderCards } from "./manager-order-cards";
-import { ManagerOrderInspector } from "./manager-order-inspector";
-import { useManagerOrderActionController } from "./use-manager-order-action-controller";
+import { ManagerOrderTable } from "./manager/orders/order-table";
+import { ManagerOrderCards } from "./manager/orders/order-cards";
+import { ManagerOrderInspector } from "./manager/orders/order-inspector";
+import { useManagerOrderActionController } from "./manager/orders/use-order-action-controller";
 import { useManagerAvailabilityController } from "./use-manager-availability-controller";
 import { useManagerBulkActionController } from "./use-manager-bulk-action-controller";
 

@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AdminNotice, AdminPageHeader } from "./presentation";
+import { AdminNotice, AdminPageHeader } from "../presentation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
-import { CustomerAddressFields } from "../customer-address-fields";
-import { getAdminOrderSources } from "./reference-data-cache";
-import { getAdminQuery } from "./admin-query-cache";
+import { CustomerAddressFields } from "@/app/customer-address-fields";
+import { getAdminOrderSources } from "../shared/reference-data-cache";
+import { getAdminQuery } from "../admin-query-cache";
 
 type OrderSource = { key: string; labelEn: string };
 

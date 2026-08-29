@@ -75,7 +75,6 @@ function ProductWorkspaceContent({
     if (searchQuery !== urlQuery) setSearchQuery(urlQuery);
   }, [searchQuery, setSearchQuery, urlQuery]);
   const [productsList, setProductsList] = useState(initialProducts);
-  const [loading, setLoading] = useState(loadInitialFromApi);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const productsRequestRef = useRef<AbortController | null>(null);
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
@@ -100,7 +99,7 @@ function ProductWorkspaceContent({
         if (!controller.signal.aborted) { setProductsList(Array.isArray(body.data) ? body.data : body.data.items ?? []); setServerTotal(Array.isArray(body.data) ? body.data.length : body.data.total ?? 0); }
       })
       .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) undefined; })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      .finally(() => undefined);
     return () => controller.abort();
   }, [currentPage, filterStatus, loadInitialFromApi, pageSize, searchQuery]);
 
@@ -828,61 +827,6 @@ function ProductWorkspaceContent({
       {/* ARCHIVE CONFIRMATION MODAL */}
       {selectedRow && <ProductWorkflowDialogs productName={selectedRow.product.nameFi} archiveOpen={showArchiveConfirm} restoreOpen={showUnarchiveConfirm} deleteOpen={showDeleteConfirm} onCancelArchive={() => setShowArchiveConfirm(false)} onCancelRestore={() => setShowUnarchiveConfirm(false)} onCancelDelete={() => setShowDeleteConfirm(false)} onArchive={() => { setShowArchiveConfirm(false); void handleToggleActive(false); }} onRestore={() => { setShowUnarchiveConfirm(false); void handleToggleActive(true); }} onDelete={() => { setShowDeleteConfirm(false); void handleDeleteOrArchive(); }} />}
 
-      {/* UN-ARCHIVE CONFIRMATION MODAL */}
-      {false && showUnarchiveConfirm && selectedRow && (
-        <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowUnarchiveConfirm(false)}>
-          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
-            <p className="eyebrow text-emerald-800">Confirm restore</p>
-            <h3 className="text-lg font-bold text-ink">Un-archive {selectedRow.product.nameFi}?</h3>
-            <p className="text-xs muted leading-relaxed">
-              Un-archiving restores this product to active status in your product catalog. Check availability dates to ensure storefront ordering is ready.
-            </p>
-            <div className="profile-actions justify-end gap-2 mt-2 pt-3 border-t border-line">
-              <button className="btn btn-secondary text-xs" type="button" onClick={() => setShowUnarchiveConfirm(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 shadow-md"
-                type="button"
-                onClick={() => {
-                  setShowUnarchiveConfirm(false);
-                  void handleToggleActive(true);
-                }}
-              >
-                <ArchiveRestore aria-hidden="true" /> Restore product
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* DELETE CONFIRMATION MODAL */}
-      {false && showDeleteConfirm && selectedRow && (
-        <div className="admin-dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setShowDeleteConfirm(false)}>
-          <div className="admin-dialog card max-w-md w-full p-5 flex flex-col gap-3 shadow-2xl rounded-2xl">
-            <p className="eyebrow text-danger">Confirm permanent delete</p>
-            <h3 className="text-lg font-bold text-ink">Delete {selectedRow.product.nameFi}?</h3>
-            <p className="text-xs muted leading-relaxed">
-              Permanently delete this product from the database? This action cannot be undone. If historical orders exist, deletion will be blocked and the product will be archived instead.
-            </p>
-            <div className="profile-actions justify-end gap-2 mt-2 pt-3 border-t border-line">
-              <button className="btn btn-secondary text-xs" type="button" onClick={() => setShowDeleteConfirm(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn btn-danger text-xs font-bold py-2 px-4 shadow-md"
-                type="button"
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  void handleDeleteOrArchive();
-                }}
-              >
-                <Trash2 aria-hidden="true" /> Delete permanently
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

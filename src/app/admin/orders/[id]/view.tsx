@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { AdminNotice, AdminStatusBadge, useAdminDialogFocus } from "../../presentation";
 import { getLifecycleSteps } from "@/domain/order-transitions";
 import { IconCopy } from "../../ui/admin-row-action-menu";
-import { useOrderDeleteActionController } from "../use-order-delete-action-controller";
-import { useOrderDetailActionController } from "../use-order-detail-action-controller";
+import { useOrderDeleteActionController } from "../actions/use-order-delete-action-controller";
+import { useOrderDetailActionController } from "../actions/use-order-detail-action-controller";
 
 type Snapshot = { address?: string; nameEn?: string; instructionsEn?: string };
 

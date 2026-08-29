@@ -1,4 +1,3 @@
-import { getAdminProductDetail } from "@/domain/admin-products-actions";
 import { AdminRouteFrame } from "../../../route-frame";
 import { adminContext, hasAdminPermission } from "../../../portal-auth";
 import { ProductEditView } from "./view";

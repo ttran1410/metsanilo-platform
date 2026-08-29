@@ -12,7 +12,7 @@ import { LinkIdentityModal } from "./link-identity-modal";
 import { EditReviewModal } from "./edit-review-modal";
 import { PublicationIdentityModal } from "./publication-identity-modal";
 import { parseReviewsUrlState, serializeReviewsUrlState, type ReviewTab } from "../reviews-url-state";
-import { getAdminOrderSources } from "../reference-data-cache";
+import { getAdminOrderSources } from "../shared/reference-data-cache";
 
 type Review = {
   id: string;

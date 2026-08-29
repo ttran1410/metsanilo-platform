@@ -8,7 +8,7 @@ import { AdminConfirmDialog, AdminNotice, AdminPageHeader } from "./presentation
 import { StorefrontThemeManager } from "./storefront-theme-manager";
 import { SettingsSectionTabs } from "./settings-section-tabs";
 import { parseSettingsUrlState, serializeSettingsUrlState } from "./settings-url-state";
-import { getAdminOrderSources } from "./reference-data-cache";
+import { getAdminOrderSources } from "./shared/reference-data-cache";
 
 type Method = {
   id?: string;

@@ -1,64 +1,31 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Download, Filter, List, PackageCheck, Plus, Store } from "lucide-react";
-import { AdminSearchField } from "./ui/admin-search-field";
-import type { orders } from "@/db/schema";
+import { Download, Filter } from "lucide-react";
+import { AdminSearchField } from "../../ui/admin-search-field";
 import { getOrderTriageReasons, orderTriageScore } from "@/domain/order-triage";
 import { getLegalOrderTransitions, type OrderStatus } from "@/domain/order-transitions";
-import { AdminNotice, AdminPageHeader, AdminStatusBadge, formatAdminMoney } from "./presentation";
-import { OrderInspector } from "./order-inspector";
-import { PickupTerminal } from "./orders/pickup-terminal";
-import { PackingKanban } from "./orders/packing-kanban";
-import { BatchPackingSlip } from "./orders/batch-packing-slip";
-import { AdminPagination } from "./ui/admin-pagination";
-import { AdminRowActionMenu, IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
+import { AdminNotice, AdminPageHeader } from "../../presentation";
+import { OrderInspector } from "../detail/order-inspector";
+import { PickupTerminal } from "../pickup-terminal";
+import { PackingKanban } from "../packing-kanban";
+import { BatchPackingSlip } from "../batch-packing-slip";
+import { OrderRecordRow } from "../order-record-row";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
-import { getAdminOrderSources } from "./reference-data-cache";
+import { getAdminOrderSources } from "../../shared/reference-data-cache";
+import { OrdersWorkspaceToolbar } from "../orders-workspace-toolbar";
+import type { OrdersSortField } from "./orders-record-list-contract";
+import { OrdersRecordList } from "./orders-record-list";
+import type { AdminOrder } from "../types/admin-order";
+import { useOrderBulkTransitionController } from "../actions/use-order-bulk-transition-controller";
+import { useOrderBulkActionController } from "../actions/use-order-bulk-action-controller";
 
 
-export type AdminOrder = typeof orders.$inferSelect & {
-  paidCents?: number;
-  outstandingCents?: number | null;
-  paymentStatus?: string;
-  archived?: boolean;
-  archivedAt?: string | null;
-  archivedBy?: string | null;
-};
+export type { AdminOrder } from "../types/admin-order";
 
-type SortField = "fulfillment" | "ref" | "customer" | "source" | "payment" | "status";
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
 export type { OrdersView } from "./orders-url-state";
-
-function formatOrderSourceBadge(order: AdminOrder) {
-  const srcMap: Record<string, { label: string }> = {
-    WEBSITE: { label: "Website" }, SMS: { label: "SMS" }, WHATSAPP: { label: "WhatsApp" },
-    FACEBOOK_MESSAGE: { label: "Facebook" }, FACEBOOK: { label: "Facebook" },
-    MANUAL: { label: "Phone" }, PHONE: { label: "Phone" }, HISTORICAL: { label: "Phone" },
-  };
-
-  const info = srcMap[order.orderSource?.toUpperCase() ?? "WEBSITE"] ?? {
-    label: order.orderSource ?? "Website",
-  };
-
-  return (
-    <div className="inline-flex items-center gap-1">
-      <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-muted border border-line inline-flex items-center gap-1 text-ink">
-        <span>{info.label}</span>
-      </span>
-      {order.historicalEntry && (
-        <span
-          className="text-xs cursor-help select-none"
-          title="Imported from Historical CSV record"
-        >
-          Historical
-        </span>
-      )}
-    </div>
-  );
-}
 
 const QUICK_VIEWS: Array<{ key: OrdersView; label: string }> = [
   { key: "TODAY", label: "Today" },
@@ -178,10 +145,10 @@ export function OrdersListing({
     { key: "MANUAL", labelEn: "Manual / Phone" },
   ]);
 
-  const [sortField, setSortField] = useState<SortField>("fulfillment");
+  const [sortField, setSortField] = useState<OrdersSortField>("fulfillment");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  function handleHeaderSort(field: SortField) {
+  function handleHeaderSort(field: OrdersSortField) {
     if (sortField === field) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -203,10 +170,10 @@ export function OrdersListing({
   const [lastUpdated, setLastUpdated] = useState<string | null>(initialLoadedAt ?? null);
   const [inspectingId, setInspectingId] = useState<string | null>(null);
   const ordersRequestRef = useRef<AbortController | null>(null);
-  const initialLoadCompleteRef = useRef(false);
+  const ordersFilterKey = `${search}|${from}|${to}|${method}|${status}|${source}|${entryType}|${view}|${archiveScope}`;
+  const lastOrdersFilterKeyRef = useRef(ordersFilterKey);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [serverQuickViewCounts, setServerQuickViewCounts] = useState<Record<string, number> | null>(null);
-  const [initialQueryReady, setInitialQueryReady] = useState(false);
 
   // Keep the controlled search input aligned when Next restores this workspace
   // from browser history or a shared URL without remounting the component.
@@ -259,7 +226,7 @@ export function OrdersListing({
     ordersRequestRef.current = controller;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ q: search.trim(), page: String(page), pageSize: String(limit), includeCounts: "true" });
+      const params = new URLSearchParams({ q: search.trim(), page: String(page), pageSize: String(limit) });
       if (view === "TRIAGE") params.set("triage", "true");
       if (view === "UNPAID") params.set("unpaid", "true");
       if (status !== "ALL") params.set("status", status === "FULFILLED" ? "PICKED_UP" : status === "READY_STAGE" ? "READY" : status);
@@ -274,7 +241,6 @@ export function OrdersListing({
       if (!response.ok) throw new Error(body.message ?? "Order refresh failed");
       setRows(Array.isArray(body.data) ? body.data : body.data.items ?? []);
       setServerTotal(Array.isArray(body.data) ? null : body.data.total ?? 0);
-      setServerQuickViewCounts(Array.isArray(body.data) ? null : body.data.quickViewCounts ?? null);
       setLastUpdated(new Date().toISOString());
       if (announce) setNotice("Order queue synced.");
     } catch (err) {
@@ -288,43 +254,24 @@ export function OrdersListing({
 
   useEffect(() => {
     if (!loadInitialFromApi) return;
-    const initial = window.setTimeout(() => { initialLoadCompleteRef.current = true; setInitialQueryReady(true); }, 0);
-    return () => window.clearTimeout(initial);
-  }, [loadInitialFromApi, refreshOrders]);
+    let cancelled = false;
+    void fetch("/api/admin/orders/counts", { cache: "no-store", headers: { "x-admin-request-scope": "orders-counts" } })
+      .then((response) => response.ok ? response.json() : null)
+      .then((body) => { if (!cancelled) setServerQuickViewCounts(body?.data ?? null); })
+      .catch(() => { if (!cancelled) setServerQuickViewCounts(null); });
+    return () => { cancelled = true; };
+  }, [loadInitialFromApi]);
 
   useEffect(() => {
-    if (!loadInitialFromApi || !initialLoadCompleteRef.current || !initialQueryReady) return;
-    const controller = new AbortController();
-    ordersRequestRef.current?.abort();
-    ordersRequestRef.current = controller;
-    setLoading(true);
-    const timer = window.setTimeout(async () => {
-      const params = new URLSearchParams({ q: search.trim(), page: String(page), pageSize: String(limit), includeCounts: "true" });
-      if (view === "TRIAGE") params.set("triage", "true");
-      if (view === "UNPAID") params.set("unpaid", "true");
-      if (status !== "ALL") params.set("status", status === "FULFILLED" ? "PICKED_UP" : status === "READY_STAGE" ? "READY" : status);
-      if (method !== "ALL") params.set("fulfillmentMethod", method);
-      if (source !== "ALL") params.set("source", source === "MANUAL" ? "MANUAL" : source);
-      if (entryType !== "ALL") params.set("historicalEntry", entryType === "HISTORICAL_ONLY" ? "true" : "false");
-      if (archiveScope !== "ALL") params.set("archived", archiveScope === "ARCHIVED_ONLY" ? "true" : "false");
-      if (from) params.set("from", from);
-      if (to) params.set("to", to);
-      try {
-        const response = await fetch(`/api/admin/orders?${params.toString()}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "orders-list" } });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message ?? "Order query failed");
-        setRows(body.data.items ?? []);
-        setServerTotal(body.data.total ?? 0);
-        setServerQuickViewCounts(body.data.quickViewCounts ?? null);
-        setLastUpdated(new Date().toISOString());
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) setError(error instanceof Error ? error.message : "Order query failed");
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }, search.trim() ? 300 : 0);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [archiveScope, entryType, from, initialQueryReady, limit, loadInitialFromApi, method, page, search, source, status, to, view]);
+    if (!loadInitialFromApi) return;
+    if (page !== 1 && lastOrdersFilterKeyRef.current !== ordersFilterKey) {
+      lastOrdersFilterKeyRef.current = ordersFilterKey;
+      return;
+    }
+    lastOrdersFilterKeyRef.current = ordersFilterKey;
+    const timer = window.setTimeout(() => void refreshOrders(), search.trim() ? 300 : 0);
+    return () => window.clearTimeout(timer);
+  }, [loadInitialFromApi, ordersFilterKey, page, refreshOrders, search]);
 
   const selectQuickView = useCallback((targetView: OrdersView, customStatus?: string) => {
     setView(targetView);
@@ -590,107 +537,9 @@ export function OrdersListing({
 
   const allSelected = visibleRows.length > 0 && visibleRows.every((order) => selected.includes(order.id));
 
-  async function confirmTransition() {
-    if (!pending) return;
-    setError("");
-    setNotice("");
+  const confirmTransition = useOrderBulkTransitionController({ pending, reason, onClearSelection: () => { setSelected([]); setPending(null); }, onComplete: setNotice, onError: setError, refresh: refreshOrders });
 
-    try {
-      for (const order of pending.orders) {
-        const response = await fetch(`/api/admin/orders/${order.id}`, {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            action: "transition",
-            status: pending.target,
-            expectedVersion: order.version,
-            reason: reason.trim() || undefined,
-          }),
-        });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message ?? `Transition failed for ${order.publicReference}`);
-      }
-      setNotice(`Updated ${pending.orders.length} order(s) to ${statusLabel(pending.target)}.`);
-      setSelected([]);
-      setPending(null);
-      await refreshOrders();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Batch transition failed.");
-    }
-  }
-
-  async function handleConfirmDeleteBatch() {
-    if (!pendingDelete || pendingDelete.deletable.length === 0) return;
-    setDeleting(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const ids = pendingDelete.deletable.map((o) => o.id);
-      const response = await fetch("/api/admin/orders/batch-delete", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-
-      const body = await response.json();
-      setDeleting(false);
-
-      if (!response.ok) {
-        throw new Error(body.message ?? "Batch delete failed.");
-      }
-
-      setNotice(
-        `Permanently deleted ${body.data.deletedCount} order(s).` +
-          (body.data.skippedPaidCount > 0 ? ` (${body.data.skippedPaidCount} paid order(s) were protected from deletion)` : "")
-      );
-      setSelected([]);
-      setPendingDelete(null);
-      await refreshOrders();
-    } catch (err) {
-      setDeleting(false);
-      setError(err instanceof Error ? err.message : "Batch delete failed.");
-    }
-  }
-
-  async function handleBatchArchive(action: "archive" | "unarchive") {
-    if (selected.length === 0) return;
-    setArchiving(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/admin/orders/batch-archive", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids: selected, action }),
-      });
-
-      const body = await response.json();
-      setArchiving(false);
-
-      if (!response.ok) {
-        throw new Error(body.message ?? "Batch archive operation failed.");
-      }
-
-      if (action === "archive") {
-        setNotice(
-          `Archived ${body.data.processedCount} order(s).` +
-            (body.data.skippedActiveCount > 0
-              ? ` (${body.data.skippedActiveCount} active in-flight order(s) could not be archived)`
-              : "")
-        );
-      } else {
-        setNotice(`Restored ${body.data.processedCount} order(s) from archive.`);
-      }
-
-      setSelected([]);
-      await refreshOrders();
-    } catch (err) {
-      setArchiving(false);
-      setError(err instanceof Error ? err.message : "Batch archive operation failed.");
-    }
-  }
+  const { confirmDelete: handleConfirmDeleteBatch, archive: handleBatchArchive } = useOrderBulkActionController({ selected, pendingDelete, onSelectedClear: () => setSelected([]), onDeletePendingClear: () => setPendingDelete(null), onDeletingChange: setDeleting, onArchivingChange: setArchiving, onNotice: setNotice, onError: setError, refresh: refreshOrders });
 
   return (
     <section className="admin-orders-workspace shell pb-10 flex flex-col gap-3">
@@ -702,48 +551,7 @@ export function OrdersListing({
           description={lastUpdated ? `Last synced ${new Date(lastUpdated).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Helsinki" })}` : undefined}
         />
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 3 SUB-VIEW SWITCHER PINS */}
-          <div className="orders-mode-switch" role="tablist" aria-label="Order workspace">
-            <button
-              type="button"
-              role="tab" aria-selected={workspaceMode === "TABLE"} className={workspaceMode === "TABLE" ? "is-active" : ""}
-              onClick={() => setWorkspaceMode("TABLE")}
-            >
-              <List aria-hidden="true" />Queue
-            </button>
-
-            <button
-              type="button"
-              role="tab" aria-selected={workspaceMode === "KANBAN"} className={workspaceMode === "KANBAN" ? "is-active" : ""}
-              onClick={() => setWorkspaceMode("KANBAN")}
-            >
-              <PackageCheck aria-hidden="true" />Packing
-            </button>
-
-            <button
-              type="button"
-              role="tab" aria-selected={workspaceMode === "TERMINAL"} className={workspaceMode === "TERMINAL" ? "is-active" : ""}
-              onClick={() => setWorkspaceMode("TERMINAL")}
-            >
-              <Store aria-hidden="true" />Pickup
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-secondary text-xs py-1.5 px-3 font-semibold"
-            onClick={() => setShowPackingSlip(true)}
-          >
-            <Download aria-hidden="true" />Packing slip
-          </button>
-
-          {canCreate && (
-            <Link className="btn text-xs py-1.5 px-3 font-bold" href="/admin/manual-orders">
-              <Plus aria-hidden="true" />New order
-            </Link>
-          )}
-        </div>
+        <OrdersWorkspaceToolbar mode={workspaceMode} canCreate={canCreate} onModeChange={setWorkspaceMode} onOpenPackingSlip={() => setShowPackingSlip(true)} />
       </div>
 
       {notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}
@@ -990,232 +798,9 @@ export function OrdersListing({
           )}
 
           {/* TABLE DATA DISPLAY */}
-          <div className="card admin-orders-table-wrap overflow-x-auto border border-line rounded-2xl">
-            <table className="admin-orders-table w-full text-left text-xs">
-              <thead className="bg-surface-muted border-b border-line text-muted uppercase font-bold text-[11px] tracking-wider">
-                <tr>
-                  <th className="p-3 w-10">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={(e) => setSelected(e.target.checked ? visibleRows.map((r) => r.id) : [])}
-                    />
-                  </th>
-                  {([
-                    { key: "ref", label: "Order Ref" },
-                    { key: "customer", label: "Customer" },
-                    { key: "fulfillment", label: "Fulfillment" },
-                    { key: "source", label: "Source" },
-                  ] satisfies Array<{ key: SortField; label: string }>).map((col) => (
-                    <th
-                      key={col.key}
-                      className="p-3 cursor-pointer select-none hover:bg-slate-200/60 transition-colors"
-                      onClick={() => handleHeaderSort(col.key)}
-                    >
-                      <div className="inline-flex items-center gap-1">
-                        <span>{col.label}</span>
-                        <span className={`text-[10px] font-bold ${sortField === col.key ? "text-primary opacity-100" : "text-slate-400 opacity-40"}`}>
-                          {sortField === col.key ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
-                        </span>
-                      </div>
-                    </th>
-                  ))}
-                  <th className="p-3">Items &amp; Vol</th>
-                  {([
-                    { key: "payment", label: "Payment" },
-                    { key: "status", label: "Status" },
-                  ] satisfies Array<{ key: SortField; label: string }>).map((col) => (
-                    <th
-                      key={col.key}
-                      className="p-3 cursor-pointer select-none hover:bg-slate-200/60 transition-colors"
-                      onClick={() => handleHeaderSort(col.key)}
-                    >
-                      <div className="inline-flex items-center gap-1">
-                        <span>{col.label}</span>
-                        <span className={`text-[10px] font-bold ${sortField === col.key ? "text-primary opacity-100" : "text-slate-400 opacity-40"}`}>
-                          {sortField === col.key ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
-                        </span>
-                      </div>
-                    </th>
-                  ))}
-                  <th className="p-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
+          <OrdersRecordList allSelected={allSelected} onToggleAll={(checked) => setSelected(checked ? visibleRows.map((r) => r.id) : [])} sortField={sortField} sortDirection={sortDirection} onSort={handleHeaderSort} page={page} limit={limit} total={serverTotal ?? sortedRows.length} onPageChange={setPage} onLimitChange={setLimit}>
                 {visibleRows.map((order) => {
-                  const isPaid = (order.outstandingCents ?? 0) <= 0;
-                  const isDelivery = order.fulfillmentMethod === "DELIVERY";
-                  const mapsUrl = isDelivery
-                    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                        (order.streetAddress ? `${order.streetAddress}, ` : "") + (order.city || "Pori") + ", Finland"
-                      )}`
-                    : null;
-
-                  return (
-                    <tr key={order.id} className="hover:bg-surface-muted/40 transition-colors">
-                      <td data-label="Select" className="p-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(order.id)}
-                          onChange={(e) =>
-                            setSelected((cur) =>
-                              e.target.checked ? [...cur, order.id] : cur.filter((id) => id !== order.id)
-                            )
-                          }
-                        />
-                      </td>
-
-                      <td data-label="Order" className="p-3 font-bold">
-                        <div className="inline-flex items-center gap-1.5">
-                          <Link className="text-primary hover:underline font-mono" href={`/admin/orders/${order.id}`}>
-                            {order.publicReference}
-                          </Link>
-                          <button
-                            type="button"
-                            title="Copy Order Reference"
-                            className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void navigator.clipboard.writeText(order.publicReference);
-                              setNotice(`Copied ${order.publicReference} to clipboard.`);
-                            }}
-                          >
-                            <IconCopy className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <span className="muted block text-[11px] font-normal">{order.createdAt.slice(0, 10)}</span>
-                      </td>
-
-                      <td data-label="Customer" className="p-3">
-                        {order.customerId ? (
-                          <Link
-                            className="text-primary hover:underline font-bold block w-fit"
-                            href={`/admin/customers/${order.customerId}`}
-                            title="View customer detail"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {order.customerName}
-                          </Link>
-                        ) : (
-                          <strong className="text-ink block font-bold">{order.customerName}</strong>
-                        )}
-                        <div className="inline-flex items-center gap-1">
-                          <span className="muted text-[11px]">{order.mobile}</span>
-                          {order.mobile && (
-                            <button
-                              type="button"
-                              title="Copy Customer Mobile Phone"
-                              className="p-0.5 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors inline-flex items-center justify-center cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (order.mobile) {
-                                  void navigator.clipboard.writeText(order.mobile);
-                                  setNotice(`Copied ${order.mobile} to clipboard.`);
-                                }
-                              }}
-                            >
-                              <IconCopy className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-
-                      <td data-label="Fulfillment" className="p-3">
-                        <span className="font-bold block text-ink">
-                          {order.fulfillmentMethod === "PICKUP" ? "Pickup" : "Delivery"}
-                        </span>
-                        <span className="muted text-[11px] block">{order.fulfillmentDate}</span>
-                        {isDelivery && mapsUrl && (
-                          <a
-                            href={mapsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[10px] font-bold text-blue-700 hover:underline inline-flex items-center gap-1 mt-0.5"
-                          >
-                            Open route
-                          </a>
-                        )}
-                      </td>
-
-                      <td data-label="Source" className="p-3">
-                        {formatOrderSourceBadge(order)}
-                      </td>
-
-                      <td data-label="Order" className="p-3">
-                        <span className="font-bold text-ink block">{order.packageLabelFi}</span>
-                        <span className="muted text-[11px] block font-mono">{(order.volumeMl / 1000).toFixed(1)} L</span>
-                      </td>
-
-                      <td data-label="Payment" className="p-3">
-                        <span className={`font-bold block ${isPaid ? "text-emerald-700" : "text-amber-800"}`}>
-                          {formatAdminMoney(order.finalTotalCents ?? order.itemSubtotalCents)}
-                        </span>
-                        <span className="muted text-[11px] block">{isPaid ? "Paid" : "Unpaid"}</span>
-                      </td>
-
-                      <td data-label="Status" className="p-3">
-                        <div className="flex flex-col items-start gap-1">
-                          <AdminStatusBadge status={order.status} />
-                          {order.archived && (
-                            <span className="text-[10px] font-bold text-purple-900 bg-purple-100 px-1.5 py-0.2 rounded border border-purple-300">
-                              Archived
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td data-label="Actions" className="p-3 text-right">
-                        <AdminRowActionMenu
-                          items={[
-                            {
-                              id: "view-details",
-                              label: "View Details",
-                              icon: <IconEye />,
-                              onClick: () => setInspectingId(order.id),
-                            },
-                            ...(canUpdate
-                              ? [
-                                  {
-                                    id: "edit-order",
-                                    label: "Edit Order",
-                                    icon: <IconPencil />,
-                                    onClick: () => router.push(`/admin/orders/${order.id}/edit`),
-                                  },
-                                ]
-                              : []),
-                            ...(canTransition && getNextQuickAction(order)
-                              ? [
-                                  {
-                                    id: "quick-transition",
-                                    label: getNextQuickAction(order)!.label,
-                                    icon: <span className="text-emerald-600 font-bold">→</span>,
-                                    onClick: () => {
-                                      const quick = getNextQuickAction(order)!;
-                                      setPending({ target: quick.target, orders: [order] });
-                                    },
-                                  },
-                                ]
-                              : []),
-                            {
-                              id: "delete-order",
-                              label: "Delete Order",
-                              icon: <IconTrash />,
-                              danger: true,
-                              disabled: !canDelete,
-                              onClick: () => {
-                                setSelected([order.id]);
-                                const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0;
-                                setPendingDelete({
-                                  deletable: isPaidOrder ? [] : [order],
-                                  skippedPaid: isPaidOrder ? [order] : [],
-                                });
-                              },
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  );
+                  return <OrderRecordRow key={order.id} order={order} selected={selected.includes(order.id)} canUpdate={canUpdate} canTransition={canTransition} canDelete={canDelete} nextAction={getNextQuickAction(order)} onToggleSelected={(checked) => setSelected((cur) => checked ? [...cur, order.id] : cur.filter((id) => id !== order.id))} onCopy={(value) => { void navigator.clipboard.writeText(value); setNotice(`Copied ${value} to clipboard.`); }} onInspect={() => setInspectingId(order.id)} onEdit={() => router.push(`/admin/orders/${order.id}/edit`)} onQuickTransition={(target) => setPending({ target, orders: [order] })} onDelete={() => { setSelected([order.id]); const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0; setPendingDelete({ deletable: isPaidOrder ? [] : [order], skippedPaid: isPaidOrder ? [order] : [] }); }} />;
                 })}
 
                 {visibleRows.length === 0 && (
@@ -1227,18 +812,7 @@ export function OrdersListing({
                     </td>
                   </tr>
                 )}
-              </tbody>
-            </table>
-          </div>
-
-          <AdminPagination
-            page={page}
-            limit={limit}
-            total={serverTotal ?? sortedRows.length}
-            onPageChange={setPage}
-            onLimitChange={(newLimit) => setLimit(newLimit)}
-            itemLabel="orders"
-          />
+          </OrdersRecordList>
         </div>
       )}
 

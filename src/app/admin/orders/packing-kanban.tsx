@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CircleCheck, MapPin, PackageCheck, Play, Truck } from "lucide-react";
-import type { AdminOrder } from "../orders-listing";
+import type { AdminOrder } from "./types/admin-order";
 import { AdminNotice } from "../presentation";
 
 function cleanLitres(ml: number) {
