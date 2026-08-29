@@ -203,10 +203,8 @@ export function OrdersListing({
   const [lastUpdated, setLastUpdated] = useState<string | null>(initialLoadedAt ?? null);
   const [inspectingId, setInspectingId] = useState<string | null>(null);
   const ordersRequestRef = useRef<AbortController | null>(null);
-  const initialLoadCompleteRef = useRef(false);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [serverQuickViewCounts, setServerQuickViewCounts] = useState<Record<string, number> | null>(null);
-  const [initialQueryReady, setInitialQueryReady] = useState(false);
 
   // Keep the controlled search input aligned when Next restores this workspace
   // from browser history or a shared URL without remounting the component.
@@ -288,43 +286,9 @@ export function OrdersListing({
 
   useEffect(() => {
     if (!loadInitialFromApi) return;
-    const initial = window.setTimeout(() => { initialLoadCompleteRef.current = true; setInitialQueryReady(true); }, 0);
-    return () => window.clearTimeout(initial);
-  }, [loadInitialFromApi, refreshOrders]);
-
-  useEffect(() => {
-    if (!loadInitialFromApi || !initialLoadCompleteRef.current || !initialQueryReady) return;
-    const controller = new AbortController();
-    ordersRequestRef.current?.abort();
-    ordersRequestRef.current = controller;
-    setLoading(true);
-    const timer = window.setTimeout(async () => {
-      const params = new URLSearchParams({ q: search.trim(), page: String(page), pageSize: String(limit), includeCounts: "true" });
-      if (view === "TRIAGE") params.set("triage", "true");
-      if (view === "UNPAID") params.set("unpaid", "true");
-      if (status !== "ALL") params.set("status", status === "FULFILLED" ? "PICKED_UP" : status === "READY_STAGE" ? "READY" : status);
-      if (method !== "ALL") params.set("fulfillmentMethod", method);
-      if (source !== "ALL") params.set("source", source === "MANUAL" ? "MANUAL" : source);
-      if (entryType !== "ALL") params.set("historicalEntry", entryType === "HISTORICAL_ONLY" ? "true" : "false");
-      if (archiveScope !== "ALL") params.set("archived", archiveScope === "ARCHIVED_ONLY" ? "true" : "false");
-      if (from) params.set("from", from);
-      if (to) params.set("to", to);
-      try {
-        const response = await fetch(`/api/admin/orders?${params.toString()}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "orders-list" } });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message ?? "Order query failed");
-        setRows(body.data.items ?? []);
-        setServerTotal(body.data.total ?? 0);
-        setServerQuickViewCounts(body.data.quickViewCounts ?? null);
-        setLastUpdated(new Date().toISOString());
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) setError(error instanceof Error ? error.message : "Order query failed");
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }, search.trim() ? 300 : 0);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [archiveScope, entryType, from, initialQueryReady, limit, loadInitialFromApi, method, page, search, source, status, to, view]);
+    const timer = window.setTimeout(() => void refreshOrders(), search.trim() ? 300 : 0);
+    return () => window.clearTimeout(timer);
+  }, [loadInitialFromApi, refreshOrders, search]);
 
   const selectQuickView = useCallback((targetView: OrdersView, customStatus?: string) => {
     setView(targetView);
