@@ -1,4 +1,4 @@
-import { ProductModule } from "../products";
+import { ProductModule } from "./products-module";
 import { AdminRouteFrame } from "../route-frame";
 import { adminContext, hasAdminPermission } from "../portal-auth";
 export const dynamic = "force-dynamic";

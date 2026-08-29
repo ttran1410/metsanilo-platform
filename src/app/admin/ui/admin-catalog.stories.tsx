@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
-import { ProductModule } from "../products";
+import { ProductModule } from "../products/products-module";
 import { AdminEmptyState, AdminNotice, AdminPageHeader } from "../presentation";
 import type { packages, products } from "@/db/schema";
 

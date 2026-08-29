@@ -1,6 +1,6 @@
 "use client";
 
-import { MasterDetailWorkspace, type ProductRow } from "./products/master-detail-workspace";
+import { MasterDetailWorkspace, type ProductRow } from "./master-detail-workspace";
 
 export function ProductModule({
   initialProducts,
