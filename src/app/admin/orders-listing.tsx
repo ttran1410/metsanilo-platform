@@ -16,8 +16,8 @@ import { OrderRecordRow } from "./orders/order-record-row";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
-import type { OrdersSortField } from "./orders/orders-record-list-contract";
-import { OrdersRecordList } from "./orders/orders-record-list";
+import type { OrdersSortField } from "./orders/list/orders-record-list-contract";
+import { OrdersRecordList } from "./orders/list/orders-record-list";
 import { useOrderBulkTransitionController } from "./orders/use-order-bulk-transition-controller";
 import { useOrderBulkActionController } from "./orders/use-order-bulk-action-controller";
 
