@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { OrderEditForm, type AvailabilityItem, type Order, type Product } from "./view";
+import { OrderEditForm, type AvailabilityItem, type Order, type Product } from "./order-edit-view";
 
 export function OrderEditQueryLoader({ orderId }: { orderId: string }) {
   const [data, setData] = useState<{ detail: { order: Order }; products: Product[]; availabilityList: AvailabilityItem[] } | null>(null);

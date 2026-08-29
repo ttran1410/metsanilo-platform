@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { OrderDetailView } from "./view";
+import { OrderDetailView } from "./order-detail-view";
 
 export function OrderDetailQueryLoader({ orderId, initialNotice, canDelete }: { orderId: string; initialNotice?: string; canDelete?: boolean }) {
   const [detail, setDetail] = useState<Parameters<typeof OrderDetailView>[0]["initial"] | null>(null);
