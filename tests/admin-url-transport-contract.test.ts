@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { serializeCustomersUrlState } from "@/app/admin/customers-url-state";
+import { serializeCustomersUrlState } from "@/app/admin/customers/url-state";
 import { serializeUsersUrlState } from "@/app/admin/users-url-state";
 import { serializeProductsUrlState } from "@/app/admin/products-url-state";
 import { serializeReviewsUrlState } from "@/app/admin/reviews-url-state";

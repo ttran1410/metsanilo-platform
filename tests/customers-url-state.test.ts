@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCustomersUrlState, serializeCustomersUrlState } from "@/app/admin/customers-url-state";
+import { parseCustomersUrlState, serializeCustomersUrlState } from "@/app/admin/customers/url-state";
 
 describe("Customers URL state", () => {
   it("parses selection, filters, sort and presentation state", () => {
