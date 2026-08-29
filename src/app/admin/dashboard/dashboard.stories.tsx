@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
-import { AdminOverview } from "./overview";
-import type { DashboardData } from "./dashboard";
-import { AdminEmptyState, AdminLoadingState, AdminNotice, AdminPageHeader } from "./presentation";
+import { AdminDashboard } from "./dashboard-workspace";
+import type { DashboardData } from "./types";
+import { AdminEmptyState, AdminLoadingState, AdminNotice, AdminPageHeader } from "../presentation";
 
 const fixture: DashboardData = {
   businessDate: "Thursday, 20 August",
@@ -31,7 +31,7 @@ const fixture: DashboardData = {
   activity: [],
 };
 
-const meta = { title: "Admin / Overview", component: AdminOverview, parameters: { layout: "fullscreen" }, tags: ["autodocs"] } satisfies Meta<typeof AdminOverview>;
+const meta = { title: "Admin / Dashboard", component: AdminDashboard, parameters: { layout: "fullscreen" }, tags: ["autodocs"] } satisfies Meta<typeof AdminDashboard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const HarvestDay: Story = { args: { initialData: fixture } };
@@ -40,9 +40,9 @@ export const QuietDay: Story = { args: { initialData: { ...fixture, attentionCou
 function OverviewStateDemo({ state }: { state: "loading" | "error" | "permission" | "mutation" | "mobile" }) {
   const [notice, setNotice] = useState(state === "mutation" ? "Order MN-1042 confirmed." : "");
   if (state === "loading") return <main className="admin-overview"><AdminLoadingState label="Loading today's operations..." /></main>;
-  if (state === "error") return <main className="admin-overview"><div className="admin-overview-error" role="alert"><strong>Overview unavailable</strong><span>Dashboard data could not be loaded.</span><button className="btn btn-secondary" type="button">Try again</button></div></main>;
+  if (state === "error") return <main className="admin-overview"><div className="admin-overview-error" role="alert"><strong>Dashboard unavailable</strong><span>Dashboard data could not be loaded.</span><button className="btn btn-secondary" type="button">Try again</button></div></main>;
   if (state === "permission") return <main className="shell py-10"><AdminNotice tone="error" live>You do not have access to the dashboard.</AdminNotice></main>;
-  if (state === "mobile") return <div className="max-w-sm"><AdminOverview initialData={fixture} /></div>;
+  if (state === "mobile") return <div className="max-w-sm"><AdminDashboard initialData={fixture} /></div>;
   return <main className="admin-page-shell p-6"><AdminPageHeader eyebrow="LIVE OPERATIONS" title="Overview feedback" description="Mutation feedback remains visible while the dashboard refreshes." />{notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}<AdminEmptyState title="No overdue orders" description="The queue is clear for now." /><button type="button" className="btn" onClick={() => setNotice("Dashboard refreshed from the authoritative response.")}>Refresh overview</button></main>;
 }
 

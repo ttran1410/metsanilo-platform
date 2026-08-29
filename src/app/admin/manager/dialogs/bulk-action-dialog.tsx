@@ -1,6 +1,6 @@
 "use client";
 
-import { AdminConfirmDialog } from "./presentation";
+import { AdminConfirmDialog } from "../../presentation";
 
 export function ManagerBulkActionDialog({ open, selectedCount, action, onCancel, onConfirm }: {
   open: boolean;

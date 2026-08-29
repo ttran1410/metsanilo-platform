@@ -20,7 +20,7 @@ import { usePermissionEditorController } from "./actions/use-permission-editor-c
 import { useUserAccountActionController } from "./actions/use-user-account-action-controller";
 import { useUserProfileEditorController } from "./actions/use-user-profile-editor-controller";
 import { parseUsersUrlState, serializeUsersUrlState } from "./url-state";
-import { getAdminQuery, invalidateAdminQuery } from "../admin-query-cache";
+import { getAdminQuery, invalidateAdminQuery } from "../shared/query-cache";
 
 export type UserRow = {
   id: string;

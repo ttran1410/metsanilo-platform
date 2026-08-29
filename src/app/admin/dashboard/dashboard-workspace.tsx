@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { AdminLoadingState, AdminStatusBadge, formatAdminMoney } from "./presentation";
-import type { DashboardData } from "./dashboard";
-import { useOverviewActionController } from "./use-overview-action-controller";
+import { AdminLoadingState, AdminStatusBadge, formatAdminMoney } from "../presentation";
+import type { DashboardData } from "./types";
+import { useDashboardOverviewActionController } from "./use-dashboard-overview-action-controller";
 
 const stages = [
   ["intake", "New", "awaiting review", "NEW"],
@@ -15,13 +15,13 @@ const stages = [
   ["done", "Done", "fulfilled", "DELIVERED"],
 ] as const;
 
-export function AdminOverview({ initialData }: { initialData?: DashboardData }) {
+export function AdminDashboard({ initialData }: { initialData?: DashboardData }) {
   const [data, setData] = useState<DashboardData | null>(initialData ?? null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState("");
   const [runningAutomation, setRunningAutomation] = useState(false);
-  const overviewActions = useOverviewActionController({ setError, setNotice, reload: () => void load(true) });
+  const overviewActions = useDashboardOverviewActionController({ setError, setNotice, reload: () => void load(true) });
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setRefreshing(true);
@@ -48,7 +48,7 @@ export function AdminOverview({ initialData }: { initialData?: DashboardData }) 
   function quickConfirm(orderId: string, reference: string, expectedVersion = 1) { void overviewActions.quickConfirm(orderId, reference, expectedVersion); }
   function runAutomation() { setRunningAutomation(true); void overviewActions.runAutomation().finally(() => setRunningAutomation(false)); }
 
-  if (error && !data) return <main className="admin-overview"><div className="admin-overview-error" role="alert"><strong>Overview unavailable</strong><span>{error}</span><button className="btn btn-secondary" type="button" onClick={() => void load()}>Try again</button></div></main>;
+  if (error && !data) return <main className="admin-overview"><div className="admin-overview-error" role="alert"><strong>Dashboard unavailable</strong><span>{error}</span><button className="btn btn-secondary" type="button" onClick={() => void load()}>Try again</button></div></main>;
   if (!data) return <main className="admin-overview"><AdminLoadingState label="Loading today’s operations…" /></main>;
 
   const hasOrderAttention = data.attentionCount > 0;

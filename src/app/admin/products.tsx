@@ -1,13 +1,6 @@
 "use client";
 
-import type { packages, products } from "@/db/schema";
-import { MasterDetailWorkspace } from "./products/master-detail-workspace";
-
-type ProductRow = {
-  product: typeof products.$inferSelect;
-  packages: Array<typeof packages.$inferSelect>;
-  media?: Array<{ id: string; attachmentId?: string; url: string; altFi: string; altEn: string; isPrimary: boolean }>;
-};
+import { MasterDetailWorkspace, type ProductRow } from "./products/master-detail-workspace";
 
 export function ProductModule({
   initialProducts,

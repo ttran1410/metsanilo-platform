@@ -10,21 +10,21 @@ import type {
   products,
 } from "@/db/schema";
 import type { AvailabilityWorkspace } from "@/domain/availability";
-import { AdminEmptyState } from "./presentation";
-import { OrdersListing } from "./orders/list/orders-listing";
-import { getAdminOrderSources } from "./shared/reference-data-cache";
-import { ManagerQueryToolbar } from "./manager-query-toolbar";
-import { ManagerSelectionToolbar } from "./manager-selection-toolbar";
-import { ManagerWorkspaceHeader } from "./manager-workspace-header";
-import { ManagerAvailabilityPanel } from "./manager-availability-panel";
-import { ManagerOrderList } from "./manager/orders/order-list";
-import { ManagerBulkActionDialog } from "./manager-bulk-action-dialog";
-import { ManagerOrderTable } from "./manager/orders/order-table";
-import { ManagerOrderCards } from "./manager/orders/order-cards";
-import { ManagerOrderInspector } from "./manager/orders/order-inspector";
-import { useManagerOrderActionController } from "./manager/orders/use-order-action-controller";
-import { useManagerAvailabilityController } from "./use-manager-availability-controller";
-import { useManagerBulkActionController } from "./use-manager-bulk-action-controller";
+import { AdminEmptyState } from "../../presentation";
+import { OrdersListing } from "../../orders/list/orders-listing";
+import { getAdminOrderSources } from "../../shared/reference-data-cache";
+import { ManagerQueryToolbar } from "./query-toolbar";
+import { ManagerSelectionToolbar } from "./selection-toolbar";
+import { ManagerWorkspaceHeader } from "./header";
+import { ManagerAvailabilityPanel } from "../availability/panel";
+import { ManagerOrderList } from "../orders/order-list";
+import { ManagerBulkActionDialog } from "../dialogs/bulk-action-dialog";
+import { ManagerOrderTable } from "../orders/order-table";
+import { ManagerOrderCards } from "../orders/order-cards";
+import { ManagerOrderInspector } from "../orders/order-inspector";
+import { useManagerOrderActionController } from "../orders/use-order-action-controller";
+import { useManagerAvailabilityController } from "../actions/use-availability-controller";
+import { useManagerBulkActionController } from "../actions/use-bulk-action-controller";
 
 type Order = typeof orders.$inferSelect;
 type AvailabilityRow = {

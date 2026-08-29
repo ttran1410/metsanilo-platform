@@ -1,6 +1,6 @@
 "use client";
 
-import { AdminNotice, AdminPageHeader } from "./presentation";
+import { AdminNotice, AdminPageHeader } from "../../presentation";
 
 export function ManagerWorkspaceHeader({ title, description, message, messageTone }: {
   title: string;

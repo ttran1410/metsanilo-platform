@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from "next/link";
 import { CalendarRange, Download, ExternalLink, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { AdminEmptyState, AdminLoadingState, AdminNotice, AdminPageHeader } from "../presentation";
-import { getAdminQuery } from "../admin-query-cache";
+import { getAdminQuery } from "../shared/query-cache";
 
 type ReportKey = "sales" | "capacity" | "payments" | "customers";
 type ReportData = {

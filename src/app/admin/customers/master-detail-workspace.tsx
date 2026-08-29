@@ -18,7 +18,7 @@ import { CustomerInspector } from "./detail/customer-inspector";
 import { parseCustomersUrlState, serializeCustomersUrlState } from "./url-state";
 import { useCustomerContactActionController } from "./actions/use-customer-contact-action-controller";
 import { useCustomerRecordActionController } from "./actions/use-customer-record-action-controller";
-import { getAdminQuery, invalidateAdminQuery } from "../admin-query-cache";
+import { getAdminQuery, invalidateAdminQuery } from "../shared/query-cache";
 import type { CustomerRow } from "./types/customer-row";
 import type { CustomerProfile } from "./types/customer-profile";
 export type { CustomerRow } from "./types/customer-row";

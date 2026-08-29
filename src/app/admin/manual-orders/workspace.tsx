@@ -7,7 +7,7 @@ import { AdminNotice, AdminPageHeader } from "../presentation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { CustomerAddressFields } from "@/app/customer-address-fields";
 import { getAdminOrderSources } from "../shared/reference-data-cache";
-import { getAdminQuery } from "../admin-query-cache";
+import { getAdminQuery } from "../shared/query-cache";
 
 type OrderSource = { key: string; labelEn: string };
 
