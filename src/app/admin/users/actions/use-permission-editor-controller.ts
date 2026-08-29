@@ -36,7 +36,7 @@ export function usePermissionEditorController(selectedUser: UserRow | null, refr
     let saved = 0;
     try {
       for (const [permission, granted] of changes) {
-        const result = await updateUserPermission(selectedUser.id, permission, granted);
+        const result = await updateUserPermission({ userId: selectedUser.id, permission, granted });
         if (!result.ok) throw new Error(result.message ?? `Could not update ${permission}.`);
         saved += 1;
       }

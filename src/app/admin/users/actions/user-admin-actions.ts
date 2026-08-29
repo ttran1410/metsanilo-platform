@@ -1,6 +1,6 @@
 "use client";
 
-import type { Role } from "@/lib/permissions";
+import type { Permission, Role } from "@/lib/permissions";
 
 export type UserActionResult<T = unknown> = { ok: boolean; status: number; data?: T; code?: string; message?: string };
 
@@ -23,8 +23,10 @@ export function updateUserRole(input: UserRoleUpdateInput) {
   return requestUser(input.userId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "update", displayName: input.displayName, role: input.nextRole }) });
 }
 export function resetUserPermissions(userId: string) { return requestUser(userId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reset_permissions" }) }); }
-export async function updateUserPermission(userId: string, permission: string, granted: boolean) {
-  const response = await fetch(`/api/admin/users/${userId}/permissions`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ permission, granted }) });
+export type UserPermissionUpdateCommand = { userId: string; permission: Permission; granted: boolean };
+
+export async function updateUserPermission(command: UserPermissionUpdateCommand) {
+  const response = await fetch(`/api/admin/users/${command.userId}/permissions`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ permission: command.permission, granted: command.granted }) });
   const body = await response.json().catch(() => ({})) as { data?: unknown; code?: string; message?: string };
   return { ok: response.ok, status: response.status, data: body.data, code: body.code, message: body.message } satisfies UserActionResult;
 }

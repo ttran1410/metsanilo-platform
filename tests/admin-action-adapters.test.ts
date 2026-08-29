@@ -29,7 +29,7 @@ describe("admin mutation action adapters", () => {
     expect(fetchMock).toHaveBeenLastCalledWith("/api/admin/users/u1/password", expect.objectContaining({ method: "POST" }));
     await inviteUser({ displayName: "A", email: "a@example.com", role: "STAFF", password: "secret" });
     expect(fetchMock).toHaveBeenLastCalledWith("/api/admin/users", expect.objectContaining({ method: "POST" }));
-    await updateUserPermission("u1", "orders.read", true);
+    await updateUserPermission({ userId: "u1", permission: "orders.read", granted: true });
     expect(fetchMock).toHaveBeenLastCalledWith("/api/admin/users/u1/permissions", expect.objectContaining({ method: "PUT" }));
   });
 
