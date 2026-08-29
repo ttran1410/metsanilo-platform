@@ -80,7 +80,7 @@ export async function getAdminOrdersForExport(database: Database, context: Admin
   return orders.filter((order) => selected.has(order.id));
 }
 
-export async function getAdminOrders(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminOrdersQueryFilters; includeCounts?: boolean }) {
+export async function getAdminOrders(database: Database, context: AdminActionContext, query?: { list?: AdminListQuery; filters?: AdminOrdersQueryFilters }) {
   assertAdminActionContext(context);
   if (query?.list) {
     if (query.filters?.triage || query.filters?.unpaid) {
@@ -99,37 +99,10 @@ export async function getAdminOrders(database: Database, context: AdminActionCon
         return true;
       });
       const result = paged(filtered.slice(query.list.offset, query.list.offset + query.list.pageSize), filtered.length, query.list);
-      if (!query.includeCounts) return result;
-      const shop = await database.query.shops.findFirst({ where: (table, { eq }) => eq(table.id, context.shop.id), columns: { timezone: true } });
-      const date = todayInTimezone(shop?.timezone ?? "Europe/Helsinki");
-      const active = all.filter((order) => !order.archived);
-      return { ...result, quickViewCounts: {
-        TODAY: active.filter((order) => order.fulfillmentDate === date).length,
-        TRIAGE: active.filter((order) => getOrderTriageReasons(order).length > 0).length,
-        NEEDS_CONFIRMATION: active.filter((order) => order.status === "NEW").length,
-        PICKUP_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "PICKUP").length,
-        DELIVERY_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "DELIVERY").length,
-        UNPAID: active.filter((order) => order.paymentStatus === "UNPAID").length,
-        ALL: active.length,
-        ARCHIVED: all.filter((order) => Boolean(order.archived)).length,
-      } };
+      return result;
     }
     const result = await searchManagerOrders(database, query.list, query.filters);
-    if (!query.includeCounts) return result;
-    const all = await listManagerOrdersWithPaymentSummary(database);
-    const shop = await database.query.shops.findFirst({ where: (table, { eq }) => eq(table.id, context.shop.id), columns: { timezone: true } });
-    const date = todayInTimezone(shop?.timezone ?? "Europe/Helsinki");
-    const active = all.filter((order) => !order.archived);
-    return { ...result, quickViewCounts: {
-      TODAY: active.filter((order) => order.fulfillmentDate === date).length,
-      TRIAGE: active.filter((order) => getOrderTriageReasons(order).length > 0).length,
-      NEEDS_CONFIRMATION: active.filter((order) => order.status === "NEW").length,
-      PICKUP_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "PICKUP").length,
-      DELIVERY_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "DELIVERY").length,
-      UNPAID: active.filter((order) => order.paymentStatus === "UNPAID").length,
-      ALL: active.length,
-      ARCHIVED: all.filter((order) => Boolean(order.archived)).length,
-    } };
+    return result;
   }
   return listManagerOrdersWithPaymentSummary(database);
 }
