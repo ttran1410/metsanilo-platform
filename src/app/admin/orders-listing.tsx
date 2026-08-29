@@ -943,54 +943,7 @@ export function OrdersListing({
                       </td>
 
                       <td data-label="Actions" className="p-3 text-right">
-                        <OrderRowActions
-                          items={[
-                            {
-                              id: "view-details",
-                              label: "View Details",
-                              icon: <IconEye />,
-                              onClick: () => setInspectingId(order.id),
-                            },
-                            ...(canUpdate
-                              ? [
-                                  {
-                                    id: "edit-order",
-                                    label: "Edit Order",
-                                    icon: <IconPencil />,
-                                    onClick: () => router.push(`/admin/orders/${order.id}/edit`),
-                                  },
-                                ]
-                              : []),
-                            ...(canTransition && getNextQuickAction(order)
-                              ? [
-                                  {
-                                    id: "quick-transition",
-                                    label: getNextQuickAction(order)!.label,
-                                    icon: <span className="text-emerald-600 font-bold">→</span>,
-                                    onClick: () => {
-                                      const quick = getNextQuickAction(order)!;
-                                      setPending({ target: quick.target, orders: [order] });
-                                    },
-                                  },
-                                ]
-                              : []),
-                            {
-                              id: "delete-order",
-                              label: "Delete Order",
-                              icon: <IconTrash />,
-                              danger: true,
-                              disabled: !canDelete,
-                              onClick: () => {
-                                setSelected([order.id]);
-                                const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0;
-                                setPendingDelete({
-                                  deletable: isPaidOrder ? [] : [order],
-                                  skippedPaid: isPaidOrder ? [order] : [],
-                                });
-                              },
-                            },
-                          ]}
-                        />
+                        <OrderRowActions order={order} canUpdate={canUpdate} canTransition={canTransition} canDelete={canDelete} nextAction={getNextQuickAction(order)} onInspect={() => setInspectingId(order.id)} onEdit={() => router.push(`/admin/orders/${order.id}/edit`)} onQuickTransition={(target) => setPending({ target, orders: [order] })} onDelete={() => { setSelected([order.id]); const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0; setPendingDelete({ deletable: isPaidOrder ? [] : [order], skippedPaid: isPaidOrder ? [order] : [] }); }} />
                       </td>
                     </tr>
                   );
