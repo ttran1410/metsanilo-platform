@@ -12,7 +12,7 @@ import {
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
-import { UserQueryToolbar, type UserRoleFilter } from "./user-query-toolbar";
+import { UserQueryToolbar } from "./user-query-toolbar";
 import { UserWorkspaceProvider, useUserWorkspace } from "./user-workspace-provider";
 import { UserActionDialogs } from "./user-action-dialogs";
 import { UserProfileEditDialog } from "./user-profile-edit-dialog";

@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, authAccounts, authUsers, users } from "@/db/schema";
-import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { hashPassword, randomPassword } from "./passwords";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";

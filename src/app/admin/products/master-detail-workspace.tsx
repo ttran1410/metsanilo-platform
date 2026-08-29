@@ -75,7 +75,6 @@ function ProductWorkspaceContent({
     if (searchQuery !== urlQuery) setSearchQuery(urlQuery);
   }, [searchQuery, setSearchQuery, urlQuery]);
   const [productsList, setProductsList] = useState(initialProducts);
-  const [loading, setLoading] = useState(loadInitialFromApi);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const productsRequestRef = useRef<AbortController | null>(null);
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
@@ -100,7 +99,7 @@ function ProductWorkspaceContent({
         if (!controller.signal.aborted) { setProductsList(Array.isArray(body.data) ? body.data : body.data.items ?? []); setServerTotal(Array.isArray(body.data) ? body.data.length : body.data.total ?? 0); }
       })
       .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) undefined; })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      .finally(() => undefined);
     return () => controller.abort();
   }, [currentPage, filterStatus, loadInitialFromApi, pageSize, searchQuery]);
 
