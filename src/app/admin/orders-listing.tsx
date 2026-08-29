@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Download, Filter, List, PackageCheck, Plus, Store } from "lucide-react";
+import { Download, Filter } from "lucide-react";
 import { AdminSearchField } from "./ui/admin-search-field";
 import type { orders } from "@/db/schema";
 import { getOrderTriageReasons, orderTriageScore } from "@/domain/order-triage";
@@ -17,6 +17,7 @@ import { AdminPagination } from "./ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 import { getAdminOrderSources } from "./reference-data-cache";
+import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
 
 
 export type AdminOrder = typeof orders.$inferSelect & {
@@ -666,48 +667,7 @@ export function OrdersListing({
           description={lastUpdated ? `Last synced ${new Date(lastUpdated).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Helsinki" })}` : undefined}
         />
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 3 SUB-VIEW SWITCHER PINS */}
-          <div className="orders-mode-switch" role="tablist" aria-label="Order workspace">
-            <button
-              type="button"
-              role="tab" aria-selected={workspaceMode === "TABLE"} className={workspaceMode === "TABLE" ? "is-active" : ""}
-              onClick={() => setWorkspaceMode("TABLE")}
-            >
-              <List aria-hidden="true" />Queue
-            </button>
-
-            <button
-              type="button"
-              role="tab" aria-selected={workspaceMode === "KANBAN"} className={workspaceMode === "KANBAN" ? "is-active" : ""}
-              onClick={() => setWorkspaceMode("KANBAN")}
-            >
-              <PackageCheck aria-hidden="true" />Packing
-            </button>
-
-            <button
-              type="button"
-              role="tab" aria-selected={workspaceMode === "TERMINAL"} className={workspaceMode === "TERMINAL" ? "is-active" : ""}
-              onClick={() => setWorkspaceMode("TERMINAL")}
-            >
-              <Store aria-hidden="true" />Pickup
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-secondary text-xs py-1.5 px-3 font-semibold"
-            onClick={() => setShowPackingSlip(true)}
-          >
-            <Download aria-hidden="true" />Packing slip
-          </button>
-
-          {canCreate && (
-            <Link className="btn text-xs py-1.5 px-3 font-bold" href="/admin/manual-orders">
-              <Plus aria-hidden="true" />New order
-            </Link>
-          )}
-        </div>
+        <OrdersWorkspaceToolbar mode={workspaceMode} canCreate={canCreate} onModeChange={setWorkspaceMode} onOpenPackingSlip={() => setShowPackingSlip(true)} />
       </div>
 
       {notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}
