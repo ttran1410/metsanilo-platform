@@ -164,7 +164,7 @@ function CustomerWorkspaceContent({
   const searchParams = useSearchParams();
   const rawList = Array.isArray(initialCustomers) ? initialCustomers : (initialCustomers?.items ?? []);
   const [customersList, setCustomersList] = useState<CustomerRow[]>(rawList);
-  const customersRequestRef = useRef<AbortController | null>(null);
+  const profileRequestRef = useRef<AbortController | null>(null);
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterChip, setFilterChip, sortMode, setSortMode, workspaceView, setWorkspaceView, mobileView, setMobileView } = useCustomerQuery();
   const urlQuery = parseCustomersUrlState(searchParams).searchQuery;
 
@@ -202,13 +202,17 @@ function CustomerWorkspaceContent({
   const [savingNote, setSavingNote] = useState(false);
 
   async function loadProfile(id: string, showDetail = true) {
+    profileRequestRef.current?.abort();
+    const controller = new AbortController();
+    profileRequestRef.current = controller;
     setSelectedId(id);
     if (showDetail) setMobileView("detail");
     setLoadingProfile(true);
     setError("");
     try {
-      const response = await fetch(`/api/admin/customers/${id}`);
+      const response = await fetch(`/api/admin/customers/${id}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "customer-detail" } });
       const body = await response.json();
+      if (controller.signal.aborted) return;
       setLoadingProfile(false);
       if (response.ok && body.data) {
         setProfile(body.data);
@@ -216,17 +220,18 @@ function CustomerWorkspaceContent({
       } else {
         setError(body.message ?? "Could not load customer profile.");
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       setLoadingProfile(false);
       setError("Network error while loading profile.");
     }
   }
 
+  useEffect(() => () => profileRequestRef.current?.abort(), []);
+
   // Reload customer list & current profile
   async function refreshList(currentIdToSelect?: string) {
-    customersRequestRef.current?.abort();
     invalidateAdminQuery("customers-list");
-    const controller = new AbortController();
     try {
       const params = new URLSearchParams();
       for (const key of ["q", "filter", "sort", "page", "limit"]) {
