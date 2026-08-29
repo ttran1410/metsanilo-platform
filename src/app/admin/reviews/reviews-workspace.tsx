@@ -52,7 +52,7 @@ function maskContact(contact: string | null) {
   return compact.length > 7 ? `${compact.slice(0, 4)} ••• ${compact.slice(-4)}` : compact;
 }
 
-export function ReviewsManager({
+export function ReviewsWorkspace({
   initial,
   loadInitialFromApi = false,
   canCreate,
