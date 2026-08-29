@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ChevronDown, ChevronUp, ExternalLink, MessageSquare, Pencil, Phone, Share2, X } from "lucide-react";
 import type { orders } from "@/db/schema";
-import { AdminLoadingState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "./presentation";
-import { OrderActionBar } from "./orders/detail/order-action-bar";
-import { IconCopy } from "./ui/admin-row-action-menu";
-import { useOrderNoteActionController } from "./orders/use-order-note-action-controller";
-import { useOrderStatusActionController } from "./use-order-status-action-controller";
+import { AdminLoadingState, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../../presentation";
+import { OrderActionBar } from "./order-action-bar";
+import { IconCopy } from "../../ui/admin-row-action-menu";
+import { useOrderNoteActionController } from "../use-order-note-action-controller";
+import { useOrderStatusActionController } from "../../use-order-status-action-controller";
 
 type Order = typeof orders.$inferSelect & { paidCents?: number; outstandingCents?: number | null; paymentStatus?: string };
 type Detail = {

@@ -8,7 +8,7 @@ import type { orders } from "@/db/schema";
 import { getOrderTriageReasons, orderTriageScore } from "@/domain/order-triage";
 import { getLegalOrderTransitions, type OrderStatus } from "@/domain/order-transitions";
 import { AdminNotice, AdminPageHeader } from "./presentation";
-import { OrderInspector } from "./order-inspector";
+import { OrderInspector } from "./orders/detail/order-inspector";
 import { PickupTerminal } from "./orders/pickup-terminal";
 import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
