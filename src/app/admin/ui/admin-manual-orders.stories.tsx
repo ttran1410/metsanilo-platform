@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { ManualOrdersModule } from "../manual-orders";
+import { ManualOrdersModule } from "../manual-orders/workspace";
 import { AdminEmptyState, AdminNotice, AdminPageHeader } from "../presentation";
 
 const products = [
