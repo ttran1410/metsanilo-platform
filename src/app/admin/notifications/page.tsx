@@ -1,6 +1,6 @@
 import { AdminRouteFrame } from "../route-frame";
 import { adminContext, hasAdminPermission } from "../portal-auth";
-import { NotificationsInbox } from "./workspace";
+import { NotificationsWorkspace } from "./notifications-workspace";
 import { parseNotificationsUrlState } from "./url-state";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function NotificationsPage({
   ]);
   return (
     <AdminRouteFrame permission="notifications.read">
-      <NotificationsInbox
+      <NotificationsWorkspace
         initialData={{ items: [], page: urlState.page, pageSize: 20, total: 0, unreadCount: 0, matchingUnreadCount: 0, categories: [] }}
         initialFilters={filters}
         permissions={{ canReadOrders, canReadAvailability, canReadReviews }}

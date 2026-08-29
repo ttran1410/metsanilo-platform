@@ -64,7 +64,7 @@ function SeverityIcon({ severity }: { severity: NotificationSeverity }) {
   return <Info aria-hidden="true" />;
 }
 
-export function NotificationsInbox({
+export function NotificationsWorkspace({
   initialData,
   initialFilters,
   permissions,
