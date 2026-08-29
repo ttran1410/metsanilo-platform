@@ -1,6 +1,7 @@
 "use client";
 
 import { anonymizeCustomerRecord } from "./customer-retention-admin-actions";
+import { mergeCustomerProfiles } from "./customer-merge-admin-actions";
 
 export function useCustomerRecordActionController({ setError, setMessage, refresh }: { setError: (message: string) => void; setMessage: (message: string) => void; refresh: (customerId?: string) => Promise<void> }) {
   async function request(path: string, init: RequestInit, fallback: string, success: string, customerId?: string) {
@@ -37,8 +38,7 @@ export async function saveCustomer(input: CustomerSaveInput): Promise<{ ok: true
 
 export async function mergeCustomers(primaryId: string, duplicateId: string): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
-    const response = await fetch(`/api/admin/customers/${primaryId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "merge", duplicateId }) });
-    const body = await response.json().catch(() => ({})) as { message?: string };
-    return response.ok ? { ok: true } : { ok: false, message: body.message ?? "Could not merge profiles." };
-  } catch { return { ok: false, message: "An unexpected network error occurred." }; }
+    await mergeCustomerProfiles(primaryId, duplicateId);
+    return { ok: true };
+  } catch (error) { return { ok: false, message: error instanceof Error ? error.message : "An unexpected network error occurred." }; }
 }
