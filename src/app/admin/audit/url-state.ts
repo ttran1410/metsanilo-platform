@@ -20,13 +20,13 @@ export function parseAuditUrlState(params: URLSearchParams) {
 export function serializeAuditUrlState(current: URLSearchParams, state: { selectedAuditId: string | null; searchQuery: string; severityFilter: AuditSeverity | "ALL"; categoryFilter: AuditCategory | "ALL"; actorFilter: string; dateRange: AuditDateRange; currentPage: number }) {
   const next = new URLSearchParams(current.toString());
   next.delete("_rsc");
-  state.searchQuery ? next.set("q", state.searchQuery) : next.delete("q");
+  if (state.searchQuery) next.set("q", state.searchQuery); else next.delete("q");
   next.delete("search");
-  state.severityFilter !== "ALL" ? next.set("severity", state.severityFilter) : next.delete("severity");
-  state.categoryFilter !== "ALL" ? next.set("category", state.categoryFilter) : next.delete("category");
-  state.actorFilter !== "ALL" ? next.set("actor", state.actorFilter) : next.delete("actor");
-  state.dateRange !== "7d" ? next.set("dateRange", state.dateRange) : next.delete("dateRange");
-  state.currentPage > 1 ? next.set("page", String(state.currentPage)) : next.delete("page");
-  state.selectedAuditId ? next.set("audit", state.selectedAuditId) : next.delete("audit");
+  if (state.severityFilter !== "ALL") next.set("severity", state.severityFilter); else next.delete("severity");
+  if (state.categoryFilter !== "ALL") next.set("category", state.categoryFilter); else next.delete("category");
+  if (state.actorFilter !== "ALL") next.set("actor", state.actorFilter); else next.delete("actor");
+  if (state.dateRange !== "7d") next.set("dateRange", state.dateRange); else next.delete("dateRange");
+  if (state.currentPage > 1) next.set("page", String(state.currentPage)); else next.delete("page");
+  if (state.selectedAuditId) next.set("audit", state.selectedAuditId); else next.delete("audit");
   return next;
 }

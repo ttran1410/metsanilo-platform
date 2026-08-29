@@ -17,11 +17,11 @@ export function parseProductsUrlState(params: URLSearchParams, fallbackSelectedI
 export function serializeProductsUrlState(current: URLSearchParams, state: { selectedId: string; searchQuery: string; filterStatus: ProductFilterStatus; activeTab: ProductTab; viewMode: ProductView; page: number }) {
   const next = new URLSearchParams(current.toString());
   next.delete("_rsc");
-  state.selectedId ? next.set("product", state.selectedId) : next.delete("product");
-  state.searchQuery ? next.set("q", state.searchQuery) : next.delete("q");
-  state.filterStatus !== "all" ? next.set("status", state.filterStatus) : next.delete("status");
-  state.activeTab !== "general" ? next.set("tab", state.activeTab) : next.delete("tab");
-  state.viewMode !== "split" ? next.set("view", state.viewMode) : next.delete("view");
-  state.page > 1 ? next.set("page", String(state.page)) : next.delete("page");
+  if (state.selectedId) next.set("product", state.selectedId); else next.delete("product");
+  if (state.searchQuery) next.set("q", state.searchQuery); else next.delete("q");
+  if (state.filterStatus !== "all") next.set("status", state.filterStatus); else next.delete("status");
+  if (state.activeTab !== "general") next.set("tab", state.activeTab); else next.delete("tab");
+  if (state.viewMode !== "split") next.set("view", state.viewMode); else next.delete("view");
+  if (state.page > 1) next.set("page", String(state.page)); else next.delete("page");
   return next;
 }

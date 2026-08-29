@@ -1,12 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { packages } from "@/db/schema";
 import { PackageModal } from "./package-modal";
-import { AdminConfirmDialog } from "../presentation";
+import { AdminConfirmDialog } from "../../presentation";
 import { usePackageActionController } from "./use-package-action-controller";
-
-type PackageRow = typeof packages.$inferSelect;
+import type { AdminProductPackage } from "../types/package";
 
 export function PricingLadder({
   productId,
@@ -15,12 +13,12 @@ export function PricingLadder({
   onRefresh,
 }: {
   productId: string;
-  packagesList: PackageRow[];
+  packagesList: AdminProductPackage[];
   canEdit: boolean;
   onRefresh: () => void;
 }) {
   const [showModal, setShowModal] = useState(false);
-  const [editingPkg, setEditingPkg] = useState<PackageRow | null>(null);
+  const [editingPkg, setEditingPkg] = useState<AdminProductPackage | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const actions = usePackageActionController({ onRefresh, onError: setError });

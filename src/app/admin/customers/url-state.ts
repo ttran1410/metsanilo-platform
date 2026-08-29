@@ -13,11 +13,11 @@ export function parseCustomersUrlState(params: URLSearchParams) {
 export function serializeCustomersUrlState(current: URLSearchParams, state: { selectedId: string; searchQuery: string; filterChip: CustomerFilter; sortMode: CustomerSort; workspaceView: CustomerView; page: number }) {
   const next = new URLSearchParams(current.toString());
   next.delete("_rsc");
-  state.selectedId ? next.set("customer", state.selectedId) : next.delete("customer");
-  state.searchQuery ? next.set("q", state.searchQuery) : next.delete("q");
-  state.filterChip !== "all" ? next.set("filter", state.filterChip) : next.delete("filter");
-  state.sortMode !== "recent" ? next.set("sort", state.sortMode) : next.delete("sort");
-  state.workspaceView !== "split" ? next.set("view", state.workspaceView) : next.delete("view");
-  state.page > 1 ? next.set("page", String(state.page)) : next.delete("page");
+  if (state.selectedId) next.set("customer", state.selectedId); else next.delete("customer");
+  if (state.searchQuery) next.set("q", state.searchQuery); else next.delete("q");
+  if (state.filterChip !== "all") next.set("filter", state.filterChip); else next.delete("filter");
+  if (state.sortMode !== "recent") next.set("sort", state.sortMode); else next.delete("sort");
+  if (state.workspaceView !== "split") next.set("view", state.workspaceView); else next.delete("view");
+  if (state.page > 1) next.set("page", String(state.page)); else next.delete("page");
   return next;
 }

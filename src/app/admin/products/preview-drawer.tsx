@@ -3,12 +3,13 @@
 import { useState } from "react";
 import type { packages, products } from "@/db/schema";
 import { AdminStatusBadge } from "../presentation";
+import type { AdminProductMedia } from "./types/media";
 
 
 type ProductRow = {
   product: typeof products.$inferSelect;
   packages: Array<typeof packages.$inferSelect>;
-  media?: Array<{ id: string; attachmentId?: string; url: string; altFi: string; altEn: string; isPrimary: boolean }>;
+  media?: AdminProductMedia[];
 };
 
 export function PreviewDrawer({

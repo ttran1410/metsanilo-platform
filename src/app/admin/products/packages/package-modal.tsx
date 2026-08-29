@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { packages } from "@/db/schema";
-import { AdminNotice, useAdminDialogFocus } from "../presentation";
+import { AdminNotice, useAdminDialogFocus } from "../../presentation";
 import { usePackageEditorController } from "./use-package-editor-controller";
-
-type PackageRow = typeof packages.$inferSelect;
+import type { AdminProductPackage } from "../types/package";
 
 export function PackageModal({
   productId,
@@ -14,7 +12,7 @@ export function PackageModal({
   onSaved,
 }: {
   productId: string;
-  editingPackage?: PackageRow | null;
+  editingPackage?: AdminProductPackage | null;
   onClose: () => void;
   onSaved: () => void;
 }) {

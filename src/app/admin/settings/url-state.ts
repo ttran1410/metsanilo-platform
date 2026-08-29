@@ -8,6 +8,6 @@ export function parseSettingsUrlState(params: URLSearchParams): SettingsSection 
 export function serializeSettingsUrlState(current: URLSearchParams, section: SettingsSection) {
   const next = new URLSearchParams(current.toString());
   next.delete("_rsc");
-  section === "identity" ? next.delete("section") : next.set("section", section);
+  if (section === "identity") next.delete("section"); else next.set("section", section);
   return next;
 }

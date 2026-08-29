@@ -11,9 +11,9 @@ export function parseUsersUrlState(params: URLSearchParams, fallbackSelectedId =
 export function serializeUsersUrlState(current: URLSearchParams, state: { selectedId: string; searchQuery: string; roleFilter: UserRoleFilter; page: number }) {
   const next = new URLSearchParams(current.toString());
   next.delete("_rsc");
-  state.searchQuery ? next.set("q", state.searchQuery) : next.delete("q");
-  state.roleFilter !== "ALL" ? next.set("role", state.roleFilter) : next.delete("role");
-  state.selectedId ? next.set("user", state.selectedId) : next.delete("user");
-  state.page > 1 ? next.set("page", String(state.page)) : next.delete("page");
+  if (state.searchQuery) next.set("q", state.searchQuery); else next.delete("q");
+  if (state.roleFilter !== "ALL") next.set("role", state.roleFilter); else next.delete("role");
+  if (state.selectedId) next.set("user", state.selectedId); else next.delete("user");
+  if (state.page > 1) next.set("page", String(state.page)); else next.delete("page");
   return next;
 }

@@ -26,10 +26,10 @@ import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-paginat
 import { AdminRowActionMenu, IconEye, IconLink } from "../ui/admin-row-action-menu";
 
 import { BilingualEditor } from "./bilingual-editor";
-import { MediaGalleryTab } from "./media-gallery-tab";
+import { MediaGalleryTab } from "./media/media-gallery-tab";
 import { PreviewDrawer } from "./preview-drawer";
-import { PricingLadder } from "./pricing-ladder";
-import { SeasonTracker } from "./season-tracker";
+import { PricingLadder } from "./packages/pricing-ladder";
+import { SeasonTracker } from "./seasons/season-tracker";
 import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-toolbar";
 import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspace-provider";
 import { ProductWorkflowDialogs } from "./product-workflow-dialogs";

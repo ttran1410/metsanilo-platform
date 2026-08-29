@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type Dispatch, type SetStateAction } from "react";
-import type { SeasonItem } from "./season-tracker";
+import type { AdminProductSeason as SeasonItem } from "../types/season";
 
 type SeasonSummary = { availabilityDays: number; plannedVolumeMl: number; reservedVolumeMl: number; remainingVolumeMl: number; orderCount: number; orderedVolumeMl: number };
 

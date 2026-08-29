@@ -5,18 +5,9 @@ import { Plus, Calendar, Trash2 } from "lucide-react";
 import { SeasonWorkflowDialogs } from "./season-workflow-dialogs";
 import { useSeasonMutationController } from "./use-season-mutation-controller";
 import { useSeasonQueryController } from "./use-season-query-controller";
+import type { AdminProductSeason } from "../types/season";
 
-export type SeasonItem = {
-  id: string;
-  productId: string;
-  nameFi: string;
-  nameEn: string;
-  startDate: string;
-  endDate: string;
-  status: "UPCOMING" | "ACTIVE" | "PAUSED" | "COMPLETED";
-  targetVolumeMl?: number | null;
-  notes?: string | null;
-};
+export type SeasonItem = AdminProductSeason;
 
 type SeasonSummary = {
   availabilityDays: number;

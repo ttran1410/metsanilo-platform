@@ -3,24 +3,18 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { AdminNotice, AdminStatusBadge } from "../../presentation";
-import { PackageModal } from "../package-modal";
+import { PackageModal } from "../packages/package-modal";
 import { ProductPreviewModal } from "../preview-modal";
-import { useProductMediaActionController } from "../use-product-media-action-controller";
-import { usePackageActionController } from "../use-package-action-controller";
+import { useProductMediaActionController } from "../media/use-product-media-action-controller";
+import { usePackageActionController } from "../packages/use-package-action-controller";
+import type { AdminProductMedia } from "../types/media";
 
 import type { packages, products } from "@/db/schema";
 
 type Product = {
   product: typeof products.$inferSelect;
   packages: Array<typeof packages.$inferSelect>;
-  media: Array<{
-    id: string;
-    attachmentId: string;
-    url: string;
-    altFi: string;
-    altEn: string;
-    isPrimary: boolean;
-  }>;
+  media: Array<AdminProductMedia & { attachmentId: string }>;
 };
 
 

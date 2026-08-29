@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { packages } from "@/db/schema";
+import type { AdminProductPackage } from "../types/package";
 
-type PackageRow = typeof packages.$inferSelect;
-
-export function usePackageEditorController({ productId, editingPackage, values, onClose, onSaved }: { productId: string; editingPackage?: PackageRow | null; values: { labelFi: string; labelEn: string; volumeLitres: string; priceEuros: string; active: boolean; isDefault: boolean }; onClose: () => void; onSaved: () => void }) {
+export function usePackageEditorController({ productId, editingPackage, values, onClose, onSaved }: { productId: string; editingPackage?: AdminProductPackage | null; values: { labelFi: string; labelEn: string; volumeLitres: string; priceEuros: string; active: boolean; isDefault: boolean }; onClose: () => void; onSaved: () => void }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 

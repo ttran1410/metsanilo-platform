@@ -2,15 +2,7 @@
 
 import { useState, type DragEvent } from "react";
 import { useMediaGalleryController } from "./use-media-gallery-controller";
-
-type MediaAsset = {
-  id: string;
-  attachmentId?: string;
-  url: string;
-  altFi: string;
-  altEn: string;
-  isPrimary: boolean;
-};
+import type { AdminProductMedia } from "../types/media";
 
 export function MediaGalleryTab({
   productId,
@@ -19,7 +11,7 @@ export function MediaGalleryTab({
   onRefresh,
 }: {
   productId: string;
-  mediaList: MediaAsset[];
+  mediaList: AdminProductMedia[];
   canMedia: boolean;
   onRefresh: () => void;
 }) {
@@ -35,7 +27,7 @@ export function MediaGalleryTab({
     void reorderMedia(next);
   }
 
-  function dropImage(event: DragEvent<HTMLElement>, target: MediaAsset) {
+  function dropImage(event: DragEvent<HTMLElement>, target: AdminProductMedia) {
     event.preventDefault();
     if (!draggingId || draggingId === target.attachmentId) return;
     const next = [...mediaList];

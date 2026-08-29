@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
-import type { SeasonItem } from "./season-tracker";
+import type { AdminProductSeason as SeasonItem } from "../types/season";
 
 function addDays(dateStr: string, days: number) { const date = new Date(`${dateStr}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + days); return date.toISOString().slice(0, 10); }
 
