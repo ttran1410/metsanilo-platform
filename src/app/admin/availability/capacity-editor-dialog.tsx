@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminNotice, useAdminDialogFocus } from "../presentation";
 
@@ -11,12 +11,8 @@ function litres(value: number) {
 }
 
 export function CapacityEditorDialog({ editing, error, onClose, onSave }: { editing: AvailabilityRow | null; error: string; onClose: () => void; onSave: (row: AvailabilityRow, capacityMl: number) => Promise<void> }) {
-  const [capacityLitres, setCapacityLitres] = useState(0);
+  const [capacityLitres, setCapacityLitres] = useState(() => editing?.availability.capacityMl ? editing.availability.capacityMl / 1000 : 0);
   const dialogRef = useAdminDialogFocus<HTMLFormElement>(editing !== null, onClose);
-
-  useEffect(() => {
-    if (editing) setCapacityLitres(editing.availability.capacityMl / 1000);
-  }, [editing]);
 
   if (!editing) return null;
   const capacityMl = Math.round(capacityLitres * 1000);

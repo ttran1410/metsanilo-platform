@@ -851,7 +851,7 @@ export function AvailabilityWorkspace({
         transitions can evolve independently from the calendar renderer.
       */}
       {/* EDIT AVAILABILITY MODAL */}
-      <CapacityEditorDialog editing={editing} error={error} onClose={() => setEditing(null)} onSave={saveAvailability} />
+      <CapacityEditorDialog key={editing?.availability.id ?? "closed"} editing={editing} error={error} onClose={() => setEditing(null)} onSave={saveAvailability} />
     </main>
   );
 }
