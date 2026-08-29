@@ -19,83 +19,13 @@ import { parseCustomersUrlState, serializeCustomersUrlState } from "../customers
 import { useCustomerContactActionController } from "./use-customer-contact-action-controller";
 import { useCustomerRecordActionController } from "./use-customer-record-action-controller";
 import { getAdminQuery, invalidateAdminQuery } from "../admin-query-cache";
-
-export type CustomerRow = {
-  id: string;
-  name: string;
-  mobile: string | null;
-  email?: string | null;
-  matchStatus: string;
-  marketingConsent: boolean;
-  marketingConsentStatus: string;
-  marketingConsentAt?: string | null;
-  marketingConsentSource?: string | null;
-  marketingConsentUpdatedBy?: string | null;
-  notes?: string | null;
-  facebookProfile?: string | null;
-  contactConfirmationExpiresAt?: string | null;
-  contactConfirmedAt?: string | null;
-  contactConfirmedBy?: string | null;
-  contactConfirmationChannel?: string | null;
-  retentionHoldUntil?: string | null;
-  retentionHoldReason?: string | null;
-  updatedAt: string;
-  metrics?: {
-    totalOrders: number;
-    completedOrders: number;
-    noShowCount: number;
-    reliabilityRatePercent: number;
-    lifetimeLitres: number;
-    totalSpendCents: number;
-    lastFulfillmentDate: string | null;
-    isVip: boolean;
-    preferredMethod: "PICKUP" | "DELIVERY";
-    reviewCount?: number;
-    averageRating?: number | null;
-    primaryAddress?: string | null;
-  };
-};
-
-type OrderItem = {
-  id: string;
-  publicReference: string;
-  productId?: string;
-  productNameFi: string;
-  packageLabelFi: string;
-  status: string;
-  fulfillmentDate: string;
-  fulfillmentMethod: "PICKUP" | "DELIVERY";
-  volumeMl: number;
-  finalTotalCents?: number | null;
-  itemSubtotalCents?: number;
-  createdAt: string;
-};
-
-type ReviewItem = {
-  id: string;
-  rating: number;
-  originalText: string;
-  displayText?: string | null;
-  status: string;
-  featured: boolean;
-  verifiedBuyer: boolean;
-  orderId?: string | null;
-  sellerReplyText?: string | null;
-  sellerRepliedAt?: string | null;
-  createdAt: string;
-};
+import type { CustomerRow } from "./types/customer-row";
+import type { CustomerProfile, OrderItem, ReviewItem } from "./types/customer-profile";
+export type { CustomerRow } from "./types/customer-row";
 
 type CustomerTableSortField = "name" | "volume" | "spend" | "status";
 
-type ProfileData = {
-  customer: CustomerRow;
-  orders: OrderItem[];
-  reviews?: ReviewItem[];
-  timelineByYear: Record<string, OrderItem[]>;
-  audit: Array<{ id: string; action: string; actor: string; createdAt: string }>;
-  metrics: NonNullable<CustomerRow["metrics"]>;
-  identityConflicts: Array<{ id: string; name: string; mobile: string | null; email?: string | null }>;
-};
+type ProfileData = CustomerProfile;
 
 type CustomerQueryContextValue = {
   selectedId: string; setSelectedId: (value: string) => void;
