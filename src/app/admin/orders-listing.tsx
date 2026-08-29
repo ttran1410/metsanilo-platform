@@ -13,7 +13,8 @@ import { OrderInspector } from "./order-inspector";
 import { PickupTerminal } from "./orders/pickup-terminal";
 import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
-import { AdminRowActionMenu, IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
+import { IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
+import { OrderRowActions } from "./orders/order-row-actions";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
@@ -942,7 +943,7 @@ export function OrdersListing({
                       </td>
 
                       <td data-label="Actions" className="p-3 text-right">
-                        <AdminRowActionMenu
+                        <OrderRowActions
                           items={[
                             {
                               id: "view-details",
