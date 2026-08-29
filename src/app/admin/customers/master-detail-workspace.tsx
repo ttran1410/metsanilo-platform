@@ -20,7 +20,7 @@ import { useCustomerContactActionController } from "./use-customer-contact-actio
 import { useCustomerRecordActionController } from "./use-customer-record-action-controller";
 import { getAdminQuery, invalidateAdminQuery } from "../admin-query-cache";
 import type { CustomerRow } from "./types/customer-row";
-import type { CustomerProfile, OrderItem, ReviewItem } from "./types/customer-profile";
+import type { CustomerProfile } from "./types/customer-profile";
 export type { CustomerRow } from "./types/customer-row";
 
 type CustomerTableSortField = "name" | "volume" | "spend" | "status";
@@ -268,6 +268,9 @@ function CustomerWorkspaceContent({
       void loadProfile(first.id, false);
     }, 0);
     return () => window.clearTimeout(timer);
+  // loadProfile is intentionally kept local to this workspace; adding it here would
+  // recreate the function on every render and retrigger the selection effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredCustomers, selectedId]);
 
   useEffect(() => {
