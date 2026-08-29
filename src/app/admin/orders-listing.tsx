@@ -8,14 +8,15 @@ import { AdminSearchField } from "./ui/admin-search-field";
 import type { orders } from "@/db/schema";
 import { getOrderTriageReasons, orderTriageScore } from "@/domain/order-triage";
 import { getLegalOrderTransitions, type OrderStatus } from "@/domain/order-transitions";
-import { AdminNotice, AdminPageHeader, AdminStatusBadge, formatAdminMoney } from "./presentation";
+import { AdminNotice, AdminPageHeader } from "./presentation";
 import { OrderInspector } from "./order-inspector";
 import { PickupTerminal } from "./orders/pickup-terminal";
 import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
-import { IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
+import { IconCopy } from "./ui/admin-row-action-menu";
 import { OrderRowActions } from "./orders/order-row-actions";
 import { OrderRowStatusCell } from "./orders/order-row-status-cell";
+import { OrderRowSummaryCells } from "./orders/order-row-summary-cells";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
@@ -36,34 +37,6 @@ export type AdminOrder = typeof orders.$inferSelect & {
 
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
 export type { OrdersView } from "./orders-url-state";
-
-function formatOrderSourceBadge(order: AdminOrder) {
-  const srcMap: Record<string, { label: string }> = {
-    WEBSITE: { label: "Website" }, SMS: { label: "SMS" }, WHATSAPP: { label: "WhatsApp" },
-    FACEBOOK_MESSAGE: { label: "Facebook" }, FACEBOOK: { label: "Facebook" },
-    MANUAL: { label: "Phone" }, PHONE: { label: "Phone" }, HISTORICAL: { label: "Phone" },
-  };
-
-  const info = srcMap[order.orderSource?.toUpperCase() ?? "WEBSITE"] ?? {
-    label: order.orderSource ?? "Website",
-  };
-
-  return (
-    <div className="inline-flex items-center gap-1">
-      <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-surface-muted border border-line inline-flex items-center gap-1 text-ink">
-        <span>{info.label}</span>
-      </span>
-      {order.historicalEntry && (
-        <span
-          className="text-xs cursor-help select-none"
-          title="Imported from Historical CSV record"
-        >
-          Historical
-        </span>
-      )}
-    </div>
-  );
-}
 
 const QUICK_VIEWS: Array<{ key: OrdersView; label: string }> = [
   { key: "TODAY", label: "Today" },
@@ -822,14 +795,6 @@ export function OrdersListing({
           {/* TABLE DATA DISPLAY */}
           <OrdersRecordList allSelected={allSelected} onToggleAll={(checked) => setSelected(checked ? visibleRows.map((r) => r.id) : [])} sortField={sortField} sortDirection={sortDirection} onSort={handleHeaderSort} page={page} limit={limit} total={serverTotal ?? sortedRows.length} onPageChange={setPage} onLimitChange={setLimit}>
                 {visibleRows.map((order) => {
-                  const isPaid = (order.outstandingCents ?? 0) <= 0;
-                  const isDelivery = order.fulfillmentMethod === "DELIVERY";
-                  const mapsUrl = isDelivery
-                    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                        (order.streetAddress ? `${order.streetAddress}, ` : "") + (order.city || "Pori") + ", Finland"
-                      )}`
-                    : null;
-
                   return (
                     <tr key={order.id} className="hover:bg-surface-muted/40 transition-colors">
                       <td data-label="Select" className="p-3">
@@ -899,38 +864,7 @@ export function OrdersListing({
                         </div>
                       </td>
 
-                      <td data-label="Fulfillment" className="p-3">
-                        <span className="font-bold block text-ink">
-                          {order.fulfillmentMethod === "PICKUP" ? "Pickup" : "Delivery"}
-                        </span>
-                        <span className="muted text-[11px] block">{order.fulfillmentDate}</span>
-                        {isDelivery && mapsUrl && (
-                          <a
-                            href={mapsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[10px] font-bold text-blue-700 hover:underline inline-flex items-center gap-1 mt-0.5"
-                          >
-                            Open route
-                          </a>
-                        )}
-                      </td>
-
-                      <td data-label="Source" className="p-3">
-                        {formatOrderSourceBadge(order)}
-                      </td>
-
-                      <td data-label="Order" className="p-3">
-                        <span className="font-bold text-ink block">{order.packageLabelFi}</span>
-                        <span className="muted text-[11px] block font-mono">{(order.volumeMl / 1000).toFixed(1)} L</span>
-                      </td>
-
-                      <td data-label="Payment" className="p-3">
-                        <span className={`font-bold block ${isPaid ? "text-emerald-700" : "text-amber-800"}`}>
-                          {formatAdminMoney(order.finalTotalCents ?? order.itemSubtotalCents)}
-                        </span>
-                        <span className="muted text-[11px] block">{isPaid ? "Paid" : "Unpaid"}</span>
-                      </td>
+                      <OrderRowSummaryCells order={order} />
 
                       <OrderRowStatusCell order={order} />
 
