@@ -27,7 +27,7 @@ export function useUserProfileEditorController({ editingUser, actorId, actorRole
     const displayName = String(formData.get("displayName") ?? "").trim();
     const role = String(formData.get("role") ?? "") as Role;
     try {
-      const result = await updateUserRole({ userId: editingUser.id, displayName, currentRole: editingUser.role, nextRole: role, actorId, actorRole: actorRole ?? editingUser.role });
+      const result = await updateUserRole({ userId: editingUser.id, displayName, nextRole: role });
       if (!result.ok) return setError(result.message ?? "Could not update user profile.");
       closeEditor();
       setMessage(`User profile updated for ${displayName}.`);

@@ -33,10 +33,9 @@ describe("admin mutation action adapters", () => {
     expect(fetchMock).toHaveBeenLastCalledWith("/api/admin/users/u1/permissions", expect.objectContaining({ method: "PUT" }));
   });
 
-  it("blocks self downgrade before sending a role request", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch");
-    const result = await updateUserRole({ userId: "u1", displayName: "Admin", currentRole: "ADMIN", nextRole: "STAFF", actorId: "u1", actorRole: "ADMIN" });
-    expect(result).toMatchObject({ ok: false, status: 403, code: "SELF_ROLE_CHANGE_FORBIDDEN" });
-    expect(fetchMock).not.toHaveBeenCalled();
+  it("sends the typed role command and leaves self-downgrade enforcement to the server", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: { id: "u1" } }), { status: 200 }));
+    await updateUserRole({ userId: "u1", displayName: "Admin", nextRole: "STAFF" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/users/u1", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ action: "update", displayName: "Admin", role: "STAFF" }) }));
   });
 });

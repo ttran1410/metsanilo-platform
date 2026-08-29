@@ -17,13 +17,9 @@ export async function resetUserPassword(userId: string): Promise<UserActionResul
   const body = await response.json().catch(() => ({})) as { data?: { temporaryPassword: string }; code?: string; message?: string };
   return { ok: response.ok, status: response.status, data: body.data, code: body.code, message: body.message };
 }
-export type UserRoleUpdateInput = { userId: string; displayName: string; currentRole: Role; nextRole: Role; actorId?: string; actorRole: Role };
+export type UserRoleUpdateInput = { userId: string; displayName: string; nextRole: Role };
 
 export function updateUserRole(input: UserRoleUpdateInput) {
-  const isSelf = input.actorId !== undefined && input.actorId === input.userId;
-  if (isSelf && (input.actorRole === "ADMIN" || input.actorRole === "MANAGER") && input.nextRole !== input.actorRole) {
-    return Promise.resolve<UserActionResult>({ ok: false, status: 403, code: "SELF_ROLE_CHANGE_FORBIDDEN", message: "You cannot change your own Admin or Manager role." });
-  }
   return requestUser(input.userId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "update", displayName: input.displayName, role: input.nextRole }) });
 }
 export function resetUserPermissions(userId: string) { return requestUser(userId, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reset_permissions" }) }); }
