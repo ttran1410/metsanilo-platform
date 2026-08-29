@@ -18,8 +18,8 @@ import { OrdersWorkspaceToolbar } from "../orders-workspace-toolbar";
 import type { OrdersSortField } from "./orders-record-list-contract";
 import { OrdersRecordList } from "./orders-record-list";
 import type { AdminOrder } from "../types/admin-order";
-import { useOrderBulkTransitionController } from "../use-order-bulk-transition-controller";
-import { useOrderBulkActionController } from "../use-order-bulk-action-controller";
+import { useOrderBulkTransitionController } from "../actions/use-order-bulk-transition-controller";
+import { useOrderBulkActionController } from "../actions/use-order-bulk-action-controller";
 
 
 export type { AdminOrder } from "../types/admin-order";
