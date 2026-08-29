@@ -32,7 +32,7 @@ import { AdminEmptyState, AdminNotice } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconEye, IconLink } from "../ui/admin-row-action-menu";
 import { DiffInspectorDrawer } from "./diff-inspector-drawer";
-import { parseAuditUrlState, serializeAuditUrlState } from "../audit-url-state";
+import { parseAuditUrlState, serializeAuditUrlState } from "./url-state";
 
 function ActionTypeIcon({ name }: { name: string }) {
   const props = { className: "w-3.5 h-3.5 stroke-[1.8] shrink-0" };

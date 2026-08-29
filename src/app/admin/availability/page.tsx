@@ -5,7 +5,7 @@ import { adminContext, hasAdminPermission } from "../portal-auth";
 import { AdminRouteFrame } from "../route-frame";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
-import { parseAvailabilityUrlState } from "../availability-url-state";
+import { parseAvailabilityUrlState } from "./url-state";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

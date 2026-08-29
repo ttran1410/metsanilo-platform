@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseNotificationsUrlState, serializeNotificationsUrlState } from "@/app/admin/notifications-url-state";
+import { parseNotificationsUrlState, serializeNotificationsUrlState } from "@/app/admin/notifications/url-state";
 
 describe("Notifications URL state", () => {
   it("parses state, category, severity, query and page", () => {

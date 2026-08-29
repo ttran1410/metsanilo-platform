@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSettingsUrlState, serializeSettingsUrlState } from "@/app/admin/settings-url-state";
+import { parseSettingsUrlState, serializeSettingsUrlState } from "@/app/admin/settings/url-state";
 
 describe("Settings URL state", () => {
   it("parses a shareable settings section", () => {

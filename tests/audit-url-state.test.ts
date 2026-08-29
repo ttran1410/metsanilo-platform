@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAuditUrlState, serializeAuditUrlState } from "@/app/admin/audit-url-state";
+import { parseAuditUrlState, serializeAuditUrlState } from "@/app/admin/audit/url-state";
 
 describe("Audit URL state", () => {
   it("parses the canonical q parameter and audit filters", () => {

@@ -1,7 +1,7 @@
 import { AdminRouteFrame } from "../route-frame";
 import { adminContext, hasAdminPermission } from "../portal-auth";
 import { NotificationsInbox } from "./workspace";
-import { parseNotificationsUrlState } from "../notifications-url-state";
+import { parseNotificationsUrlState } from "./url-state";
 
 export const dynamic = "force-dynamic";
 

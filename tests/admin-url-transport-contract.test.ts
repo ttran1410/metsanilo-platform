@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { serializeCustomersUrlState } from "@/app/admin/customers/url-state";
-import { serializeUsersUrlState } from "@/app/admin/users-url-state";
-import { serializeProductsUrlState } from "@/app/admin/products-url-state";
-import { serializeReviewsUrlState } from "@/app/admin/reviews-url-state";
-import { serializeAvailabilityUrlState } from "@/app/admin/availability-url-state";
-import { serializeAuditUrlState } from "@/app/admin/audit-url-state";
-import { serializeSettingsUrlState } from "@/app/admin/settings-url-state";
+import { serializeUsersUrlState } from "@/app/admin/users/url-state";
+import { serializeProductsUrlState } from "@/app/admin/products/url-state";
+import { serializeReviewsUrlState } from "@/app/admin/reviews/url-state";
+import { serializeAvailabilityUrlState } from "@/app/admin/availability/url-state";
+import { serializeAuditUrlState } from "@/app/admin/audit/url-state";
+import { serializeSettingsUrlState } from "@/app/admin/settings/url-state";
 
 describe("Admin application URL transport contract", () => {
   it("never serializes Next's _rsc transport parameter", () => {

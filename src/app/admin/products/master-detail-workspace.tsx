@@ -35,7 +35,7 @@ import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspa
 import { ProductWorkflowDialogs } from "./product-workflow-dialogs";
 import { useProductEditorController } from "./use-product-editor-controller";
 import { useProductActionController } from "./use-product-action-controller";
-import { parseProductsUrlState, serializeProductsUrlState } from "../products-url-state";
+import { parseProductsUrlState, serializeProductsUrlState } from "./url-state";
 
 export type ProductRow = {
   product: typeof products.$inferSelect;

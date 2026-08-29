@@ -19,7 +19,7 @@ import { UserProfileEditDialog } from "./user-profile-edit-dialog";
 import { usePermissionEditorController } from "./use-permission-editor-controller";
 import { useUserAccountActionController } from "./use-user-account-action-controller";
 import { useUserProfileEditorController } from "./use-user-profile-editor-controller";
-import { parseUsersUrlState, serializeUsersUrlState } from "../users-url-state";
+import { parseUsersUrlState, serializeUsersUrlState } from "./url-state";
 import { getAdminQuery, invalidateAdminQuery } from "../admin-query-cache";
 
 export type UserRow = {

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Bell, CheckCheck, Circle, CircleCheck, Clock3, ExternalLink, Inbox, Info, Search } from "lucide-react";
 import type { NotificationFilters, NotificationSeverity, NotificationStateFilter } from "@/domain/notifications";
 import { AdminConfirmDialog, AdminNotice, AdminPageHeader } from "../presentation";
-import { serializeNotificationsUrlState } from "../notifications-url-state";
+import { serializeNotificationsUrlState } from "./url-state";
 
 type NotificationItem = {
   id: string;

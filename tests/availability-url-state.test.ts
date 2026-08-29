@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAvailabilityUrlState, serializeAvailabilityUrlState } from "@/app/admin/availability-url-state";
+import { parseAvailabilityUrlState, serializeAvailabilityUrlState } from "@/app/admin/availability/url-state";
 
 describe("Availability URL state", () => {
   it("parses view, product, season and start date", () => {

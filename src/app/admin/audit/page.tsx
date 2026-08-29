@@ -3,7 +3,7 @@ import { getAuditMetrics } from "@/domain/audit";
 import { MasterAuditWorkspace } from "./master-audit-workspace";
 import { AdminRouteFrame } from "../route-frame";
 import { adminContext, hasAdminPermission } from "../portal-auth";
-import { parseAuditUrlState } from "../audit-url-state";
+import { parseAuditUrlState } from "./url-state";
 
 export const dynamic = "force-dynamic";
 

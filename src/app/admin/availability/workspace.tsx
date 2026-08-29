@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { parseAvailabilityUrlState, serializeAvailabilityUrlState } from "../availability-url-state";
+import { parseAvailabilityUrlState, serializeAvailabilityUrlState } from "./url-state";
 import { useRouter } from "next/navigation";
 import { CalendarRange, ChevronLeft, ChevronRight, Eye, Info, LoaderCircle, LockKeyhole, Minus, Pencil, Plus, UnlockKeyhole } from "lucide-react";
 import { calculateCapacityAdjustment } from "@/domain/capacity";

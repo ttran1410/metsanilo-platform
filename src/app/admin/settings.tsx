@@ -7,7 +7,7 @@ import { Building2, CreditCard, ExternalLink, Image as ImageIcon, Inbox, LoaderC
 import { AdminConfirmDialog, AdminNotice, AdminPageHeader } from "./presentation";
 import { StorefrontThemeManager } from "./storefront-theme-manager";
 import { SettingsSectionTabs } from "./settings-section-tabs";
-import { parseSettingsUrlState, serializeSettingsUrlState } from "./settings-url-state";
+import { parseSettingsUrlState, serializeSettingsUrlState } from "./settings/url-state";
 import { getAdminOrderSources } from "./shared/reference-data-cache";
 
 type Method = {
