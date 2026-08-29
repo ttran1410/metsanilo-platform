@@ -1,6 +1,6 @@
 import { AdminRouteFrame } from "../../../route-frame";
 import { adminContext, hasAdminPermission } from "../../../portal-auth";
-import { ProductEditView } from "./view";
+import { ProductEditView } from "./product-edit-view";
 
 export const dynamic = "force-dynamic";
 

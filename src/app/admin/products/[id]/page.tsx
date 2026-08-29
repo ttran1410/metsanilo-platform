@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AdminRouteFrame } from "../../route-frame";
 import { adminContext, hasAdminPermission } from "../../portal-auth";
-import { ProductDetailView } from "./view";
+import { ProductDetailView } from "./product-detail-view";
 
 export const dynamic = "force-dynamic";
 
