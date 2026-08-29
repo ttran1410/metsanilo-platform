@@ -7,7 +7,7 @@ import { AdminNotice, AdminStatusBadge, useAdminDialogFocus } from "../../presen
 import { getLifecycleSteps } from "@/domain/order-transitions";
 import { IconCopy } from "../../ui/admin-row-action-menu";
 import { useOrderDeleteActionController } from "../actions/use-order-delete-action-controller";
-import { useOrderDetailActionController } from "../actions/use-order-detail-action-controller";
+import { useOrderDetailActionController, type OrderDetailActionCommand } from "../actions/use-order-detail-action-controller";
 
 type Snapshot = { address?: string; nameEn?: string; instructionsEn?: string };
 
@@ -188,7 +188,7 @@ export function OrderDetailView({ initial, initialNotice = "", canDelete = false
             }
           : { type: values.get("type"), nextAction: values.get("nextAction"), note: values.get("note"), rescheduledDate: values.get("rescheduledDate") || undefined };
 
-      const result = await submitOrderAction(detail.order.id, kind, payload);
+      const result = await submitOrderAction({ orderId: detail.order.id, kind, payload } as OrderDetailActionCommand);
       if (!result.ok) return;
 
       formElement.reset();

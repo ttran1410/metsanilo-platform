@@ -1,9 +1,15 @@
 "use client";
 
 type ActionKind = "note" | "payment" | "pricing" | "exception";
+export type OrderDetailActionCommand =
+  | { orderId: string; kind: "note"; payload: { body: string } }
+  | { orderId: string; kind: "payment"; payload: { amountCents: number; method: string; reference?: string } }
+  | { orderId: string; kind: "pricing"; payload: { expectedVersion: number; itemSubtotalCents: number; deliveryFeeCents: number | null; reason: unknown } }
+  | { orderId: string; kind: "exception"; payload: { type: unknown; nextAction: unknown; note: unknown; rescheduledDate?: string } };
 
 export function useOrderDetailActionController({ onError }: { onError: (message: string) => void }) {
-  return async function submit(orderId: string, kind: ActionKind, payload: unknown) {
+  return async function submit(command: OrderDetailActionCommand) {
+    const { orderId, kind, payload } = command;
     const endpoint = kind === "note" ? "notes" : kind === "payment" ? "payment" : kind === "pricing" ? "pricing" : "delivery-exception";
     try {
       const response = await fetch(`/api/admin/orders/${orderId}/${endpoint}`, { method: kind === "pricing" ? "PUT" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
