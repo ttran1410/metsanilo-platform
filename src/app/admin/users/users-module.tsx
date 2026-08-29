@@ -1,7 +1,7 @@
 "use client";
 
 import type { Role } from "@/lib/permissions";
-import { UserQueryLoader } from "./users/list/query-loader";
+import { UserQueryLoader } from "./list/query-loader";
 
 export function UserModule({
   actorRole = "MANAGER",
