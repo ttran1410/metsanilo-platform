@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Building2, CreditCard, ExternalLink, Image as ImageIcon, Inbox, LoaderCircle, LockKeyhole, MapPin, Palette, Pause, Phone, Play, Plus, Save, ShieldAlert, Store, Trash2, UploadCloud, type LucideIcon } from "lucide-react";
@@ -120,7 +121,7 @@ function ImageDropzone({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
         <div className="settings-asset-preview">
           <div className="w-20 h-20 relative flex items-center justify-center rounded-xl overflow-hidden bg-surface border border-line p-2 shadow-2xs">
-            <img src={displayUrl} alt={label} className="max-w-full max-h-full object-contain" />
+            <Image src={displayUrl} alt={label} width={80} height={80} unoptimized className="max-w-full max-h-full object-contain" />
           </div>
           <span className="text-[10px] font-bold text-ink/70 mt-1.5 truncate max-w-[140px]">
             {currentUrl ? "Custom asset active" : "Default brand asset"}

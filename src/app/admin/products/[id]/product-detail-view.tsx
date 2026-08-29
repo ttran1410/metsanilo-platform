@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { AdminNotice, AdminStatusBadge } from "../../presentation";
 import { PackageModal } from "../packages/package-modal";
 import { ProductPreviewModal } from "../preview-modal";
@@ -435,7 +436,7 @@ export function ProductDetailView({
                   }`}
                 >
                   <div className="relative aspect-square w-full bg-surface-muted overflow-hidden">
-                    <img src={image.url} alt={image.altFi || "Product photo"} className="w-full h-full object-cover" />
+                    <Image src={image.url} alt={image.altFi || "Product photo"} width={640} height={640} unoptimized className="w-full h-full object-cover" />
 
                     {image.isPrimary && (
                       <span className="absolute top-1.5 left-1.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-700 text-on-primary shadow-sm">

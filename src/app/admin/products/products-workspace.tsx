@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import type { packages, products } from "@/db/schema";
 import {
   Archive,
@@ -318,7 +319,7 @@ function ProductWorkspaceContent({
                       <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-lg overflow-hidden bg-surface-muted border border-line shrink-0 flex items-center justify-center">
                           {primaryImg ? (
-                            <img src={primaryImg.url} alt={row.product.nameFi} className="w-full h-full object-cover" />
+                            <Image src={primaryImg.url} alt={row.product.nameFi} width={36} height={36} unoptimized className="w-full h-full object-cover" />
                           ) : (
                             <ImageIcon className="admin-placeholder-icon" aria-hidden="true" />
                           )}
@@ -488,7 +489,7 @@ function ProductWorkspaceContent({
                       {/* Thumbnail Avatar */}
                       <div className="w-11 h-11 rounded-lg overflow-hidden bg-surface-muted border border-line shrink-0 flex items-center justify-center">
                         {primaryImg ? (
-                          <img src={primaryImg.url} alt={row.product.nameFi} className="w-full h-full object-cover" />
+                          <Image src={primaryImg.url} alt={row.product.nameFi} width={44} height={44} unoptimized className="w-full h-full object-cover" />
                         ) : (
                           <ImageIcon className="admin-placeholder-icon" aria-hidden="true" />
                         )}

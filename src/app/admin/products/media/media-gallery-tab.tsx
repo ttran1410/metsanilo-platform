@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, type DragEvent } from "react";
 import { useMediaGalleryController } from "./use-media-gallery-controller";
 import type { AdminProductMedia } from "../types/media";
@@ -70,7 +71,7 @@ export function MediaGalleryTab({
           >
             {/* Square Aspect Ratio Crop */}
             <div className="relative aspect-square w-full bg-surface-muted overflow-hidden">
-              <img src={image.url} alt={image.altFi || "Product photo"} className="w-full h-full object-cover" />
+              <Image src={image.url} alt={image.altFi || "Product photo"} width={640} height={640} unoptimized className="w-full h-full object-cover" />
 
               {image.isPrimary && (
                 <span className="absolute top-2 left-2 text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-700 text-on-primary shadow-md">
