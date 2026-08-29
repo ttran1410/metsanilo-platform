@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { parseAvailabilityUrlState, serializeAvailabilityUrlState } from "./url-state";
 import { useRouter } from "next/navigation";
@@ -17,33 +17,13 @@ import { useCutoffActionController } from "./actions/use-cutoff-action-controlle
 import { useFreezeActionController } from "./actions/use-freeze-action-controller";
 import { useSaveAvailabilityActionController } from "./actions/use-save-availability-action-controller";
 import { CapacityEditorDialog } from "./dialogs/capacity-editor-dialog";
+import { useAvailabilityQueryController } from "./query/use-availability-query-controller";
 
 type Workspace = AvailabilityWorkspace;
 type AvailabilityRow = Workspace["rows"][number];
 type QueueItem = Workspace["queues"]["picking"][number];
 type OrdersByDate = Record<string, DateOrdersEntry>;
 type ViewMode = "WEEK" | "MONTH" | "TABLE";
-
-const availabilityQueryCache = new Map<string, { startedAt: number; promise: Promise<{ ok: boolean; data?: Workspace }> }>();
-
-function fetchAvailabilityQuery(path: string) {
-  const now = Date.now();
-  const cached = availabilityQueryCache.get(path);
-  if (cached && now - cached.startedAt < 2_000) return cached.promise;
-  const promise = fetch(path)
-    .then(async (response) => {
-      const body = await response.json();
-      return { ok: response.ok, data: body.data as Workspace | undefined };
-    })
-    .finally(() => {
-      window.setTimeout(() => {
-        const current = availabilityQueryCache.get(path);
-        if (current?.promise === promise) availabilityQueryCache.delete(path);
-      }, 2_000);
-    });
-  availabilityQueryCache.set(path, { startedAt: now, promise });
-  return promise;
-}
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -112,7 +92,6 @@ export function AvailabilityWorkspace({
   canSoldOut: boolean;
   canCutoffOverride: boolean;
 }) {
-  const [workspace, setWorkspace] = useState(initialWorkspace);
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialUrlState = parseAvailabilityUrlState(searchParams);
@@ -132,23 +111,11 @@ export function AvailabilityWorkspace({
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const { workspace, workspaceLoading, fetchWorkspaceForDates } = useAvailabilityQueryController({ initialWorkspace, loadInitialFromApi, viewMode, currentStartDate, productFilter, seasonFilter, onError: setError });
   const [adjustingAvailabilityId, setAdjustingAvailabilityId] = useState<string | null>(null);
-  const workspaceRequestId = useRef(0);
-  const initialLoadStartedRef = useRef(false);
   const updateCutoff = useCutoffActionController({ onError: setError, onSuccess: (value) => { setMessage(value === "OPEN" ? "Same-day cutoff override enabled for this date." : "Same-day cutoff override cleared."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7); } });
   const updateFreeze = useFreezeActionController({ onError: setError, onSuccess: (locked, reason) => { setFreezingRow(null); setMessage(locked ? `Date ${freezingRow?.availability.businessDate ?? ""} frozen (${reason}).` : "Date reopened."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7); } });
   const saveAvailabilityAction = useSaveAvailabilityActionController({ onError: setError, onSuccess: () => { setEditing(null); setMessage("Availability saved."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7); } });
-
-  useEffect(() => {
-    if (loadInitialFromApi && !initialLoadStartedRef.current) {
-      initialLoadStartedRef.current = true;
-      const days = viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30;
-      queueMicrotask(() => void fetchWorkspaceForDates(currentStartDate, days));
-    }
-    // Initial JSON load intentionally runs once for URL-derived state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadInitialFromApi]);
 
   useEffect(() => {
     const next = serializeAvailabilityUrlState(searchParams, { viewMode, productFilter, seasonFilter, startDate: currentStartDate });
@@ -160,28 +127,6 @@ export function AvailabilityWorkspace({
   const today = workspace.today;
   const selectedProduct = workspace.products.find((product) => product.id === productFilter);
   const selectedSeasons = selectedProduct?.seasons ?? [];
-
-  async function fetchWorkspaceForDates(start: string, days = 7, requestedProductId = productFilter) {
-    const requestId = ++workspaceRequestId.current;
-    setWorkspaceLoading(true);
-    try {
-      const query = new URLSearchParams({
-        startDate: start,
-        days: days.toString(),
-        productId: requestedProductId,
-        ...(seasonFilter !== "ALL" ? { seasonId: seasonFilter } : {}),
-      });
-      const result = await fetchAvailabilityQuery(`/api/admin/availability?${query}`);
-      if (requestId !== workspaceRequestId.current) return;
-      if (result.ok && result.data) {
-        setWorkspace(result.data);
-      }
-    } catch {
-      if (requestId === workspaceRequestId.current) setError("Could not refresh availability data.");
-    } finally {
-      if (requestId === workspaceRequestId.current) setWorkspaceLoading(false);
-    }
-  }
 
   function handleNavigate(direction: -1 | 1) {
     if (viewMode === "WEEK") {
