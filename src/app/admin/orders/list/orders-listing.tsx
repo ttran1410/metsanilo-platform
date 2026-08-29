@@ -13,7 +13,7 @@ import { PackingKanban } from "../packing-kanban";
 import { BatchPackingSlip } from "../batch-packing-slip";
 import { OrderRecordRow } from "../order-record-row";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
-import { getAdminOrderSources } from "../../reference-data-cache";
+import { getAdminOrderSources } from "../../shared/reference-data-cache";
 import { OrdersWorkspaceToolbar } from "../orders-workspace-toolbar";
 import type { OrdersSortField } from "./orders-record-list-contract";
 import { OrdersRecordList } from "./orders-record-list";

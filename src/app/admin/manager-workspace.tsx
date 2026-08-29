@@ -12,7 +12,7 @@ import type {
 import type { AvailabilityWorkspace } from "@/domain/availability";
 import { AdminEmptyState } from "./presentation";
 import { OrdersListing } from "./orders/list/orders-listing";
-import { getAdminOrderSources } from "./reference-data-cache";
+import { getAdminOrderSources } from "./shared/reference-data-cache";
 import { ManagerQueryToolbar } from "./manager-query-toolbar";
 import { ManagerSelectionToolbar } from "./manager-selection-toolbar";
 import { ManagerWorkspaceHeader } from "./manager-workspace-header";

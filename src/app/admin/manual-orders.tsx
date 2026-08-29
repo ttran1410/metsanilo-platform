@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AdminNotice, AdminPageHeader } from "./presentation";
 import { normalizeEmail, normalizeMobile } from "@/domain/order-input";
 import { CustomerAddressFields } from "../customer-address-fields";
-import { getAdminOrderSources } from "./reference-data-cache";
+import { getAdminOrderSources } from "./shared/reference-data-cache";
 import { getAdminQuery } from "./admin-query-cache";
 
 type OrderSource = { key: string; labelEn: string };
