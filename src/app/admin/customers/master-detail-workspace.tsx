@@ -15,7 +15,7 @@ import { CustomerSavedViews } from "./customer-saved-views";
 import { CustomerWorkspaceHeader } from "./customer-workspace-header";
 import { CustomerRecordList } from "./customer-record-list";
 import { CustomerInspector } from "./customer-inspector";
-import { parseCustomersUrlState, serializeCustomersUrlState } from "../customers-url-state";
+import { parseCustomersUrlState, serializeCustomersUrlState } from "./url-state";
 import { useCustomerContactActionController } from "./use-customer-contact-action-controller";
 import { useCustomerRecordActionController } from "./use-customer-record-action-controller";
 import { getAdminQuery, invalidateAdminQuery } from "../admin-query-cache";
