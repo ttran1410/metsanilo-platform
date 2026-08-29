@@ -919,53 +919,6 @@ export function OrdersListing({
             <table className="admin-orders-table w-full text-left text-xs">
               <thead className="bg-surface-muted border-b border-line text-muted uppercase font-bold text-[11px] tracking-wider">
                 <OrdersTableHeader allSelected={allSelected} onToggleAll={(checked) => setSelected(checked ? visibleRows.map((r) => r.id) : [])} sortField={sortField} sortDirection={sortDirection} onSort={handleHeaderSort} />
-                {false && <tr>
-                  <th className="p-3 w-10">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={(e) => setSelected(e.target.checked ? visibleRows.map((r) => r.id) : [])}
-                    />
-                  </th>
-                  {([
-                    { key: "ref", label: "Order Ref" },
-                    { key: "customer", label: "Customer" },
-                    { key: "fulfillment", label: "Fulfillment" },
-                    { key: "source", label: "Source" },
-                  ] satisfies Array<{ key: OrdersSortField; label: string }>).map((col) => (
-                    <th
-                      key={col.key}
-                      className="p-3 cursor-pointer select-none hover:bg-slate-200/60 transition-colors"
-                      onClick={() => handleHeaderSort(col.key)}
-                    >
-                      <div className="inline-flex items-center gap-1">
-                        <span>{col.label}</span>
-                        <span className={`text-[10px] font-bold ${sortField === col.key ? "text-primary opacity-100" : "text-slate-400 opacity-40"}`}>
-                          {sortField === col.key ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
-                        </span>
-                      </div>
-                    </th>
-                  ))}
-                  <th className="p-3">Items &amp; Vol</th>
-                  {([
-                    { key: "payment", label: "Payment" },
-                    { key: "status", label: "Status" },
-                  ] satisfies Array<{ key: OrdersSortField; label: string }>).map((col) => (
-                    <th
-                      key={col.key}
-                      className="p-3 cursor-pointer select-none hover:bg-slate-200/60 transition-colors"
-                      onClick={() => handleHeaderSort(col.key)}
-                    >
-                      <div className="inline-flex items-center gap-1">
-                        <span>{col.label}</span>
-                        <span className={`text-[10px] font-bold ${sortField === col.key ? "text-primary opacity-100" : "text-slate-400 opacity-40"}`}>
-                          {sortField === col.key ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
-                        </span>
-                      </div>
-                    </th>
-                  ))}
-                  <th className="p-3 text-right">Actions</th>
-                </tr>}
               </thead>
               <tbody className="divide-y divide-line">
                 {visibleRows.map((order) => {
