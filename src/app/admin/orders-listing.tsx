@@ -15,6 +15,7 @@ import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
 import { IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
 import { OrderRowActions } from "./orders/order-row-actions";
+import { OrderRowStatusCell } from "./orders/order-row-status-cell";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
@@ -931,16 +932,7 @@ export function OrdersListing({
                         <span className="muted text-[11px] block">{isPaid ? "Paid" : "Unpaid"}</span>
                       </td>
 
-                      <td data-label="Status" className="p-3">
-                        <div className="flex flex-col items-start gap-1">
-                          <AdminStatusBadge status={order.status} />
-                          {order.archived && (
-                            <span className="text-[10px] font-bold text-purple-900 bg-purple-100 px-1.5 py-0.2 rounded border border-purple-300">
-                              Archived
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                      <OrderRowStatusCell order={order} />
 
                       <td data-label="Actions" className="p-3 text-right">
                         <OrderRowActions order={order} canUpdate={canUpdate} canTransition={canTransition} canDelete={canDelete} nextAction={getNextQuickAction(order)} onInspect={() => setInspectingId(order.id)} onEdit={() => router.push(`/admin/orders/${order.id}/edit`)} onQuickTransition={(target) => setPending({ target, orders: [order] })} onDelete={() => { setSelected([order.id]); const isPaidOrder = (order.outstandingCents ?? 0) <= 0 || order.paymentStatus === "PAID" || (order.paidCents ?? 0) > 0; setPendingDelete({ deletable: isPaidOrder ? [] : [order], skippedPaid: isPaidOrder ? [order] : [] }); }} />
