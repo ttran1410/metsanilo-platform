@@ -23,3 +23,11 @@ export type OrdersRecordListActions = Readonly<{
   onPageChange: (page: number) => void;
   onLimitChange: (limit: number) => void;
 }>;
+
+export type OrdersRecordRowActions = Readonly<{
+  onToggleSelected: (orderId: string, selected: boolean) => void;
+  onInspect: (orderId: string) => void;
+  onQuickAction: (order: AdminOrder, target: OrderStatus) => void;
+  onDelete: (order: AdminOrder) => void;
+  onCopy: (value: string, label: string) => void;
+}>;
