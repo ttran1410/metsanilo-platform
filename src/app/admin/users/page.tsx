@@ -1,4 +1,4 @@
-import { UserModule } from "../users";
+import { UserModule } from "./users-module";
 import { AdminRouteFrame } from "../route-frame";
 import { AdminPageHeader } from "../presentation";
 import { adminContext, hasAdminPermission } from "../portal-auth";

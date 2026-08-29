@@ -1,16 +1,10 @@
 import { z } from "zod";
-import { db } from "@/db/client";
-import { requirePermission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
-import {
-  listNotifications,
-  markFilteredNotificationsRead,
-  markNotificationReadState,
-  type NotificationFilters,
-  type NotificationSeverity,
-  type NotificationStateFilter,
-} from "@/domain/notifications";
+import { type NotificationFilters, type NotificationSeverity, type NotificationStateFilter } from "@/domain/notifications";
+import { getAdminNotifications, markAdminFilteredNotificationsRead, markAdminNotificationReadState } from "@/domain/admin-notification-actions";
+import { env } from "@/lib/env";
 import { failure, success } from "../../response";
+import { executeAdmin, parseJson } from "../module";
 
 export const runtime = "nodejs";
 
@@ -43,36 +37,43 @@ function filtersFromUrl(url: URL): NotificationFilters {
 
 export async function GET(request: Request) {
   try {
-    await requirePermission(db(), request, "notifications.read");
-    const url = new URL(request.url);
-    const filters = filtersFromUrl(url);
-    const data = await listNotifications(db(), {
-      ...filters,
-      page: Number(url.searchParams.get("page") || 1),
-      pageSize: url.searchParams.get("view") === "recent" ? 6 : 20,
+    const result = await executeAdmin(request, {
+      permission: "notifications.read",
+      parse: async () => new URL(request.url),
+      run: async (url, { database, context }) => {
+        const filters = filtersFromUrl(url);
+        return getAdminNotifications(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, {
+          ...filters,
+          page: Number(url.searchParams.get("page") || 1),
+          pageSize: url.searchParams.get("view") === "recent" ? 6 : 20,
+          recent: url.searchParams.get("view") === "recent",
+        });
+      },
     });
-    return success(url.searchParams.get("view") === "recent" ? data.items : data);
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(db(), request, "notifications.read");
-    const body = await request.json().catch(() => ({}));
-    const parsed = mutation.safeParse(body);
-    if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid notification action", 422);
-    if (parsed.data.action === "read" || parsed.data.action === "unread") {
-      return success(await markNotificationReadState(
-        db(),
-        parsed.data.id,
-        parsed.data.action === "read",
-        actor.email ?? actor.id,
-      ));
-    }
-    return success(await markFilteredNotificationsRead(db(), parsed.data.filters, actor.email ?? actor.id));
+    const result = await executeAdmin(request, {
+      permission: "notifications.read",
+      parse: async (incoming) => {
+        const parsed = mutation.safeParse(await parseJson<unknown>(incoming));
+        if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid notification action", 422);
+        return parsed.data;
+      },
+      run: async (input, { database, context: { actor } }) => {
+        if (input.action === "read" || input.action === "unread") {
+          return markAdminNotificationReadState(database, { actor, shop: { id: env().SHOP_ID } }, input.id, input.action === "read");
+        }
+        return markAdminFilteredNotificationsRead(database, { actor, shop: { id: env().SHOP_ID } }, input.filters);
+      },
+    });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

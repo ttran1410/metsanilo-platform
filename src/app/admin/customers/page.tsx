@@ -1,4 +1,4 @@
-import { CustomersModule } from "../customers";
+import { CustomersModule } from "./customers-module";
 import { AdminRouteFrame } from "../route-frame";
 import { adminContext, hasAdminPermission } from "../portal-auth";
 export const dynamic = "force-dynamic";

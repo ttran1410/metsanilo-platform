@@ -13,6 +13,8 @@ import { createProduct, deleteProduct } from "@/domain/products";
 import { planAvailability, previewAvailabilityPlan, previewAvailabilityUpdate } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
 import { listPaymentMethods, setPaymentMethod } from "@/domain/payment-methods";
+import { getAdminOrderEditData } from "@/domain/admin-order-actions";
+import { getAdminProductDetail } from "@/domain/admin-products-actions";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-test-"));
 let databaseUrl = "";
@@ -167,6 +169,16 @@ describe("public order transaction and API", () => {
 });
 
 describe("product module", () => {
+  it("returns product detail with impact and availability rows in one scoped query", async () => {
+    const result = await getAdminProductDetail(database, { actor: { id: "admin", role: "ADMIN", shopId: "shop-main" }, shop: { id: "shop-main" } }, "product-berries");
+
+    expect(result).toMatchObject({ product: { id: "product-berries" }, impact: { activeOrders: expect.any(Number), availabilityRows: expect.any(Number) }, });
+  });
+
+  it("rejects product detail queries with a mismatched actor/shop context", async () => {
+    await expect(getAdminProductDetail(database, { actor: { id: "other-admin", role: "ADMIN", shopId: "shop-other" }, shop: { id: "shop-main" } }, "product-berries"))
+      .rejects.toThrow("Admin action context shop mismatch");
+  });
   it("creates a bilingual product with a package and refuses deletion after use", async () => {
     const created = await createProduct(database, {
       code: "MUSHROOMS", slug: "mushrooms", nameFi: "Sienet", nameEn: "Mushrooms",
@@ -235,6 +247,15 @@ describe("availability planning", () => {
 });
 
 describe("order operations", () => {
+  it("returns the complete scoped order edit query contract", async () => {
+    const receipt = await submitOrder(database, pickupInput("order-edit-query"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    const result = await getAdminOrderEditData(database, { actor: { id: "admin", role: "ADMIN", shopId: "shop-main" }, shop: { id: "shop-main" } }, order.id);
+
+    expect(result.detail.order.id).toBe(order.id);
+    expect(result.products.length).toBeGreaterThan(0);
+    expect(result.availabilityList.length).toBeGreaterThan(0);
+  });
   it("returns filtered queue read models and non-mutating capacity previews", async () => {
     const created = await createExternalOrder(database, { ...pickupInput("queue-preview"), source: "PHONE", status: "CONFIRMED" });
     const confirmed = created;
@@ -463,6 +484,14 @@ describe("order operations", () => {
 
 
 describe("shop roles and permissions", () => {
+  it("denies a staff actor without the requested permission", async () => {
+    const adminRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("manager:secret").toString("base64")}` } });
+    await createUser(database, adminRequest, { email: "permission-staff@example.com", password: "Perm!pass123", displayName: "Permission Staff", role: "STAFF" });
+    const staffRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("permission-staff@example.com:secret").toString("base64")}` } });
+
+    await expect(requirePermission(database, staffRequest, "delivery.override")).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
+  });
+
   it("seeds Manager and Staff operational defaults", async () => {
     resetEnvForTests();
     const adminRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("manager:secret").toString("base64")}` } });

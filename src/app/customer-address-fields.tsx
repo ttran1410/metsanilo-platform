@@ -38,7 +38,6 @@ export function CustomerAddressFields({
   const streetLabel = locale === "en" ? "Street address" : "Katuosoite";
   const postalLabel = locale === "en" ? "Postal code" : "Postinumero";
   const cityLabel = locale === "en" ? "City" : "Postitoimipaikka";
-  const optionalText = locale === "en" ? "Optional" : "Valinnainen";
 
   const gridContent = (
     <div className={`customer-address-grid ${className}`}>

@@ -1,0 +1,802 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { parseAvailabilityUrlState, serializeAvailabilityUrlState } from "./url-state";
+import { useRouter } from "next/navigation";
+import { CalendarRange, ChevronLeft, ChevronRight, Eye, Info, LoaderCircle, LockKeyhole, Minus, Pencil, Plus, UnlockKeyhole } from "lucide-react";
+import { calculateCapacityAdjustment } from "@/domain/capacity";
+import type { AvailabilityWorkspace } from "@/domain/availability";
+import { AdminNotice, AdminPageHeader, AdminStatusBadge } from "../presentation";
+import { AdminPagination } from "../ui/admin-pagination";
+import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
+import { BatchPlannerPanel } from "./planning/batch-planner-panel";
+import { type DateOrdersEntry } from "./dialogs/date-inspector-drawer";
+import { AvailabilityWorkflowDialogs } from "./dialogs/availability-workflow-dialogs";
+import { useCutoffActionController } from "./actions/use-cutoff-action-controller";
+import { useFreezeActionController } from "./actions/use-freeze-action-controller";
+import { useSaveAvailabilityActionController } from "./actions/use-save-availability-action-controller";
+import { CapacityEditorDialog } from "./dialogs/capacity-editor-dialog";
+import { useAvailabilityQueryController } from "./query/use-availability-query-controller";
+
+type Workspace = AvailabilityWorkspace;
+type AvailabilityRow = Workspace["rows"][number];
+type QueueItem = Workspace["queues"]["picking"][number];
+type OrdersByDate = Record<string, DateOrdersEntry>;
+type ViewMode = "WEEK" | "MONTH" | "TABLE";
+
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function litres(value: number) {
+  return `${(value / 1000).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} L`;
+}
+
+function formatDay(date: string) {
+  const parsed = new Date(`${date}T12:00:00Z`);
+  return { weekday: dayNames[parsed.getUTCDay()], short: `${parsed.getUTCDate()}.${parsed.getUTCMonth() + 1}.` };
+}
+
+function fillTone(utilization: number, soldOut: boolean) {
+  if (soldOut || utilization >= 100) return "danger";
+  if (utilization >= 75) return "warning";
+  return "success";
+}
+
+function addDays(date: string, days: number) {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function addMonths(dateStr: string, months: number): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  d.setUTCDate(1);
+  return d.toISOString().slice(0, 10);
+}
+
+function getStartOfWeek(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  const day = d.getUTCDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diffToMonday);
+  return d.toISOString().slice(0, 10);
+}
+
+function getStartOfMonth(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  d.setUTCDate(1);
+  return d.toISOString().slice(0, 10);
+}
+
+function getDaysInMonth(dateStr: string): number {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function AvailabilityWorkspace({
+  initialWorkspace,
+  loadInitialFromApi = false,
+  canManage,
+  canSoldOut,
+  canCutoffOverride,
+}: {
+  initialWorkspace: Workspace;
+  loadInitialFromApi?: boolean;
+  canManage: boolean;
+  canSoldOut: boolean;
+  canCutoffOverride: boolean;
+}) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const initialUrlState = parseAvailabilityUrlState(searchParams);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialUrlState.viewMode);
+  const [productFilter, setProductFilter] = useState(initialUrlState.productFilter);
+  const [seasonFilter, setSeasonFilter] = useState(initialUrlState.seasonFilter);
+
+  // The server anchors and snaps every view's start date (see page.tsx).
+  // Adopt its answer instead of recomputing from the browser clock.
+  const [currentStartDate, setCurrentStartDate] = useState(() => initialWorkspace.startDate ?? getStartOfWeek(todayStr()));
+  const [inspectingDate, setInspectingDate] = useState<string | null>(null);
+  const [freezingRow, setFreezingRow] = useState<AvailabilityRow | null>(null);
+
+  const [editing, setEditing] = useState<AvailabilityRow | null>(null);
+  const [batchPanelOpen, setBatchPanelOpen] = useState(false);
+
+
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const { workspace, workspaceLoading, fetchWorkspaceForDates } = useAvailabilityQueryController({ initialWorkspace, loadInitialFromApi, viewMode, currentStartDate, productFilter, seasonFilter, onError: setError });
+  const [adjustingAvailabilityId, setAdjustingAvailabilityId] = useState<string | null>(null);
+  const updateCutoff = useCutoffActionController({ onError: setError, onSuccess: (value) => { setMessage(value === "OPEN" ? "Same-day cutoff override enabled for this date." : "Same-day cutoff override cleared."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7); } });
+  const updateFreeze = useFreezeActionController({ onError: setError, onSuccess: (locked, reason) => { setFreezingRow(null); setMessage(locked ? `Date ${freezingRow?.availability.businessDate ?? ""} frozen (${reason}).` : "Date reopened."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7); } });
+  const saveAvailabilityAction = useSaveAvailabilityActionController({ onError: setError, onSuccess: () => { setEditing(null); setMessage("Availability saved."); void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7); } });
+
+  useEffect(() => {
+    const next = serializeAvailabilityUrlState(searchParams, { viewMode, productFilter, seasonFilter, startDate: currentStartDate });
+    const applicationParams = new URLSearchParams(searchParams.toString());
+    applicationParams.delete("_rsc");
+    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+  }, [currentStartDate, productFilter, router, searchParams, seasonFilter, viewMode]);
+
+  const today = workspace.today;
+  const selectedProduct = workspace.products.find((product) => product.id === productFilter);
+  const selectedSeasons = selectedProduct?.seasons ?? [];
+
+  function handleNavigate(direction: -1 | 1) {
+    if (viewMode === "WEEK") {
+      const nextStart = addDays(currentStartDate, direction * 7);
+      setCurrentStartDate(nextStart);
+      void fetchWorkspaceForDates(nextStart, 7);
+    } else if (viewMode === "MONTH") {
+      const nextStart = addMonths(currentStartDate, direction);
+      setCurrentStartDate(nextStart);
+      const daysCount = getDaysInMonth(nextStart);
+      void fetchWorkspaceForDates(nextStart, daysCount);
+    } else {
+      const nextStart = addDays(currentStartDate, direction * 30);
+      setCurrentStartDate(nextStart);
+      void fetchWorkspaceForDates(nextStart, 30);
+    }
+  }
+
+  function handleProductFilterChange(productId: string) {
+    setTablePage(1);
+    setProductFilter(productId);
+    setSeasonFilter("ALL");
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30, productId);
+  }
+
+  function handleSeasonFilterChange(seasonId: string) {
+    setTablePage(1);
+    setSeasonFilter(seasonId);
+    void fetchWorkspaceForDates(currentStartDate, viewMode === "WEEK" ? 7 : viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 30);
+  }
+
+  function handleViewModeChange(mode: ViewMode) {
+    setViewMode(mode);
+    if (mode === "WEEK") {
+      const monday = getStartOfWeek(currentStartDate);
+      setCurrentStartDate(monday);
+      void fetchWorkspaceForDates(monday, 7);
+    } else if (mode === "MONTH") {
+      const monthStart = getStartOfMonth(currentStartDate);
+      setCurrentStartDate(monthStart);
+      const daysCount = getDaysInMonth(monthStart);
+      void fetchWorkspaceForDates(monthStart, daysCount);
+    } else {
+      void fetchWorkspaceForDates(currentStartDate, 30);
+    }
+  }
+
+  // Pagination state for Dense Table view
+  const [tablePage, setTablePage] = useState(1);
+  const [tableLimit, setTableLimit] = useState(20);
+
+  const rows = useMemo(() => {
+    return workspace.rows.filter((row) => {
+      if (productFilter !== "ALL" && row.product.id !== productFilter) return false;
+      if (seasonFilter !== "ALL" && row.availability.seasonId !== seasonFilter) return false;
+      return true;
+    });
+  }, [workspace.rows, productFilter, seasonFilter]);
+
+  const paginatedRows = useMemo(() => {
+    return rows.slice((tablePage - 1) * tableLimit, tablePage * tableLimit);
+  }, [rows, tablePage, tableLimit]);
+
+  function editableRow(dayRows: AvailabilityRow[]) {
+    return dayRows.find((row) => row.availability.capacityMl > 0 || row.availability.reservedMl > 0) ?? dayRows[0];
+  }
+
+  // Daily cards calculation
+  const dateCards = useMemo(() => {
+    return workspace.dates.map((date) => {
+      const dayRows = rows.filter((row) => row.availability.businessDate === date);
+      const capacity = dayRows.reduce((sum, row) => sum + row.availability.capacityMl, 0);
+      const reserved = dayRows.reduce((sum, row) => sum + row.availability.reservedMl, 0);
+      const utilization = capacity ? Math.round((reserved / capacity) * 100) : 0;
+      const soldOut = dayRows.length > 0 && dayRows.every((row) => row.soldOut);
+      const mixedAvailability = dayRows.some((row) => row.soldOut) && !soldOut;
+      const freezeReason = dayRows.find((r) => r.availability.manualSoldOutReason)?.availability.manualSoldOutReason;
+      const isPast = date < today;
+      const isUnplanned = dayRows.length === 0;
+
+      // Check product harvest window if filtered
+      const selectedProduct = workspace.products.find((p) => p.id === productFilter);
+      const isOffSeason = selectedProduct
+        ? (selectedProduct.availableFrom && date < selectedProduct.availableFrom) ||
+          (selectedProduct.availableThrough && date > selectedProduct.availableThrough)
+        : false;
+
+      return { date, dayRows, capacity, reserved, utilization, soldOut, mixedAvailability, freezeReason, isPast, isUnplanned, isOffSeason };
+    });
+  }, [workspace.dates, rows, today, productFilter, workspace.products]);
+
+  // Overall Capacity Summary
+  const windowCapacityTotalMl = useMemo(() => dateCards.reduce((sum, d) => sum + d.capacity, 0), [dateCards]);
+  const windowReservedTotalMl = useMemo(() => dateCards.reduce((sum, d) => sum + d.reserved, 0), [dateCards]);
+  const windowUtilization = windowCapacityTotalMl > 0 ? Math.round((windowReservedTotalMl / windowCapacityTotalMl) * 100) : 0;
+
+  function openCapacityEditor(row: AvailabilityRow) {
+    setError("");
+    setMessage("");
+    setEditing(row);
+  }
+
+  async function adjustCapacity(row: AvailabilityRow, deltaMl: number) {
+    if (adjustingAvailabilityId) return;
+    let nextCapacityMl: number;
+    try { nextCapacityMl = calculateCapacityAdjustment(row.availability.capacityMl, row.availability.reservedMl, deltaMl); }
+    catch { return setError(`Cannot reduce below the ${litres(row.availability.reservedMl)} already reserved.`); }
+    setError("");
+    setAdjustingAvailabilityId(row.availability.id);
+    try {
+      const response = await fetch(`/api/admin/availability/${row.availability.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ expectedVersion: row.availability.version, capacityMl: nextCapacityMl, manualSoldOut: row.availability.manualSoldOut, acceptsOrders: row.availability.acceptsOrders, cutoffOverride: row.availability.cutoffOverride, soldOutReason: row.availability.manualSoldOutReason ?? undefined, source: "QUICK_ADJUST" }),
+      });
+      const body = await response.json();
+      if (!response.ok) return setError(body.message ?? "Could not adjust capacity.");
+      setMessage(`${deltaMl > 0 ? "Added" : "Removed"} 5 L for ${row.product.nameFi} on ${row.availability.businessDate}.`);
+      await fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : viewMode === "TABLE" ? 30 : 7);
+    } finally {
+      setAdjustingAvailabilityId(null);
+    }
+  }
+
+  function requestCapacityAdjustment(row: AvailabilityRow, deltaMl: number) {
+    void adjustCapacity(row, deltaMl);
+  }
+
+  // Emergency Freeze Lock
+  async function handleConfirmFreeze(reason: string) {
+    if (!freezingRow) return;
+    setError("");
+    setMessage("");
+    if (freezingRow.soldOut && freezingRow.availability.capacityMl <= freezingRow.availability.reservedMl) {
+      setFreezingRow(null);
+      return setError("Increase capacity before reopening this date. Remaining capacity must fit at least one active package.");
+    }
+
+    await updateFreeze({ id: freezingRow.availability.id, version: freezingRow.availability.version, capacityMl: freezingRow.availability.capacityMl, reservedMl: freezingRow.availability.reservedMl, soldOut: freezingRow.soldOut, businessDate: freezingRow.availability.businessDate }, reason);
+  }
+
+  async function handleCutoffOverride(row: AvailabilityRow, value: "OPEN" | "CLOSED" | null) {
+    await updateCutoff({ id: row.availability.id, version: row.availability.version, capacityMl: row.availability.capacityMl, manualSoldOut: row.availability.manualSoldOut, acceptsOrders: row.availability.acceptsOrders, manualSoldOutReason: row.availability.manualSoldOutReason }, value);
+  }
+
+  async function saveAvailability(row: AvailabilityRow, capacityMl: number) {
+    setError("");
+    setMessage("");
+    if (!Number.isFinite(capacityMl) || capacityMl < row.availability.reservedMl) {
+      return setError(`Capacity cannot be lower than the ${litres(row.availability.reservedMl)} already reserved.`);
+    }
+
+    await saveAvailabilityAction({ id: row.availability.id, version: row.availability.version, capacityMl, manualSoldOut: row.availability.manualSoldOut, soldOutReason: row.availability.manualSoldOutReason });
+  }
+
+  const inspectedDayRow = inspectingDate ? editableRow(rows.filter((r) => r.availability.businessDate === inspectingDate)) : null;
+  const inspectedOrdersData = inspectingDate && workspace.ordersByDate
+    ? (workspace.ordersByDate as OrdersByDate)[inspectingDate]
+    : undefined;
+  const inspectedProductName = productFilter === "ALL" ? "All products" : inspectedDayRow?.product.nameFi ?? "Selected product";
+  const batchCapacityDefaults = useMemo(() => {
+    if (productFilter === "ALL") return {};
+    const capacities = rows
+      .filter((row) => row.product.id === productFilter && row.availability.capacityMl > 0)
+      .map((row) => row.availability.capacityMl / 1000);
+    if (!capacities.length || capacities.some((capacity) => capacity !== capacities[0])) return {};
+    return { [productFilter]: capacities[0] };
+  }, [productFilter, rows]);
+
+  return (
+    <main className="shell py-8 availability-workspace availability-planner flex flex-col gap-4" aria-busy={workspaceLoading}>
+      <AdminPageHeader
+        eyebrow="Operations"
+        title="Harvest availability"
+        description="See what can still be promised, then safely adjust one product and business date at a time."
+        actions={
+          canManage ? (
+            <button className="btn" type="button" onClick={() => setBatchPanelOpen((prev) => !prev)}>
+              <CalendarRange aria-hidden="true" />{batchPanelOpen ? "Close batch plan" : "Plan capacity"}
+            </button>
+          ) : undefined
+        }
+      />
+
+      {message && <AdminNotice tone="success" live>{message}</AdminNotice>}
+      {error && <AdminNotice tone="error" live>{error}</AdminNotice>}
+
+      {/* EXPANDABLE IN-PAGE BATCH PLANNER PANEL */}
+      {batchPanelOpen && canManage && (
+        <BatchPlannerPanel
+          initialStartDate={workspace.startDate < workspace.today ? workspace.today : workspace.startDate}
+          initialEndDate={workspace.endDate < workspace.today ? workspace.today : workspace.endDate}
+          products={workspace.products}
+          capacityDefaults={batchCapacityDefaults}
+          initialProductId={productFilter !== "ALL" ? productFilter : undefined}
+          seasonId={productFilter !== "ALL" && seasonFilter !== "ALL" ? seasonFilter : undefined}
+          onClose={() => setBatchPanelOpen(false)}
+          onApplied={() => {
+            setBatchPanelOpen(false);
+            setMessage("Batch capacity planning applied successfully.");
+            void fetchWorkspaceForDates(currentStartDate, viewMode === "MONTH" ? getDaysInMonth(currentStartDate) : 7);
+          }}
+        />
+      )}
+
+      {/* TOP CONTROLS & MULTI-VIEW SELECTOR BAR */}
+      <section className="card availability-toolbar">
+        <div className="availability-toolbar-primary">
+          {/* View Mode Tabs */}
+          <div className="availability-view-tabs" role="tablist" aria-label="Availability view">
+            {[
+              { key: "WEEK", label: "Week" },
+              { key: "MONTH", label: "Month" },
+              { key: "TABLE", label: "Table" },
+            ].map((mode) => (
+              <button
+                key={mode.key}
+                type="button"
+                role="tab"
+                aria-selected={viewMode === mode.key}
+                className={viewMode === mode.key ? "is-active" : ""}
+                onClick={() => handleViewModeChange(mode.key as ViewMode)}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
+          <label className="availability-filter-field"><span className="availability-product-label">Product {canManage && <span className="availability-product-hint" data-tooltip="Quick adjustments apply to one product. Select a product to add or remove 5 L." aria-label="Quick adjustments apply to one product. Select a product to add or remove 5 litres." role="img" tabIndex={0}><Info aria-hidden="true" /></span>}<LoaderCircle className={`availability-loading-icon ${workspaceLoading ? "is-visible" : ""}`} aria-label={workspaceLoading ? "Refreshing availability" : undefined} /></span><select value={productFilter} onChange={(event) => handleProductFilterChange(event.target.value)}><option value="ALL">All products</option>{workspace.products.map((product) => <option value={product.id} key={product.id}>{product.nameFi}</option>)}</select></label>
+
+          {productFilter !== "ALL" && selectedSeasons.length > 0 && (
+            <label className="availability-filter-field">
+              <span>Season</span>
+              <select
+                value={seasonFilter}
+                onChange={(event) => handleSeasonFilterChange(event.target.value)}
+              >
+                <option value="ALL">All seasons</option>
+                {selectedSeasons.map((season) => (
+                  <option key={season.id} value={season.id}>{season.nameFi}</option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+
+        {/* Dynamic Navigation & Summary Line */}
+        <div className="availability-window-bar">
+          <div className="availability-window-navigation">
+            <button type="button" className="btn btn-secondary" onClick={() => handleNavigate(-1)} aria-label={viewMode === "WEEK" ? "Previous week" : viewMode === "MONTH" ? "Previous month" : "Previous range"}>
+              <ChevronLeft aria-hidden="true" /> <span>Previous</span>
+            </button>
+            <strong>
+              {workspace.startDate} – {workspace.endDate}
+            </strong>
+            <button type="button" className="btn btn-secondary" onClick={() => handleNavigate(1)} aria-label={viewMode === "WEEK" ? "Next week" : viewMode === "MONTH" ? "Next month" : "Next range"}>
+              <span>Next</span> <ChevronRight aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="availability-window-summary" aria-label="Planning window totals">
+            <span><small>Capacity</small><strong>{litres(windowCapacityTotalMl)}</strong></span>
+            <span><small>Reserved</small><strong>{litres(windowReservedTotalMl)} · {windowUtilization}%</strong></span>
+            <span><small>Remaining</small><strong>{litres(Math.max(0, windowCapacityTotalMl - windowReservedTotalMl))}</strong></span>
+          </div>
+        </div>
+      </section>
+
+      {workspaceLoading ? (
+        <section className="card py-12 text-center" role="status" aria-live="polite">
+          <LoaderCircle className="mx-auto mb-3 h-6 w-6 animate-spin" aria-hidden="true" />
+          <p className="font-semibold">Loading availability…</p>
+        </section>
+      ) : (
+        <>
+      {/* VIEW MODE 1: CALENDAR WEEK TIMELINE VIEW (MON-SUN) */}
+      {viewMode === "WEEK" && (
+        <section className="availability-day-grid">
+          {dateCards.map((day) => {
+            const tone = fillTone(day.utilization, day.soldOut);
+            const remainingLitres = Math.max(0, day.capacity - day.reserved);
+            const dayOrders = workspace.ordersByDate
+              ? (workspace.ordersByDate as OrdersByDate)[day.date]
+              : undefined;
+
+            return (
+              <article
+                key={day.date}
+                className={`card availability-day-card ${
+                  day.isPast
+                    ? "bg-slate-100/60 border-slate-200 opacity-75"
+                    : day.isOffSeason
+                    ? "bg-slate-50 border-dashed border-slate-300 text-slate-400"
+                    : day.isUnplanned
+                    ? "bg-surface border-dashed border-slate-300"
+                    : day.soldOut
+                    ? "bg-slate-100/80 border-slate-300"
+                    : tone === "danger"
+                    ? "bg-rose-50/50 border-rose-300"
+                    : tone === "warning"
+                    ? "bg-amber-50/50 border-amber-300"
+                    : "bg-surface border-line"
+                }`}
+              >
+                <div>
+                  {/* Card Date Header */}
+                  <div className="flex items-start justify-between gap-1 border-b border-line/60 pb-2">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider muted block">
+                        {formatDay(day.date).weekday}
+                      </span>
+                      <h3 className="text-base font-bold text-ink">{formatDay(day.date).short}</h3>
+                    </div>
+
+                    <AdminStatusBadge
+                      status={
+                        day.isPast
+                          ? "EXPIRED"
+                          : day.isOffSeason
+                          ? "EXPIRED"
+                          : day.isUnplanned
+                          ? "NEW"
+                          : day.soldOut
+                          ? "CANCELLED"
+                          : day.mixedAvailability
+                          ? "CAPACITY_NEAR_LIMIT"
+                          : day.utilization >= 75
+                          ? "CAPACITY_NEAR_LIMIT"
+                          : "CONFIRMED"
+                      }
+                      label={
+                        day.isPast
+                          ? "Past"
+                          : day.isOffSeason
+                          ? "Off-Season"
+                          : day.isUnplanned
+                          ? "Unplanned"
+                          : day.soldOut
+                          ? "Sold Out"
+                          : day.mixedAvailability
+                          ? "Mixed availability"
+                          : day.utilization >= 75
+                          ? `${day.utilization}% Near`
+                          : `${day.utilization}%`
+                      }
+                    />
+                  </div>
+
+                  <div className="availability-day-facts">
+                    <div><span>Remaining</span><strong>{litres(remainingLitres)}</strong></div>
+                    <div><span>Capacity</span><strong>{litres(day.capacity)}</strong></div>
+                    <div><span>Reserved</span><strong>{litres(day.reserved)} · {day.utilization}%</strong></div>
+                  </div>
+
+                  {/* Visual Utilization Bar */}
+                  <div className="w-full h-2.5 rounded-full bg-line/60 overflow-hidden p-0.5 mb-2">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        day.isPast || day.isOffSeason || day.soldOut
+                          ? "bg-slate-400"
+                          : day.utilization >= 90
+                          ? "bg-rose-600"
+                          : day.utilization >= 75
+                          ? "bg-amber-500"
+                          : "bg-emerald-600"
+                      }`}
+                      style={{ width: `${Math.min(100, day.utilization)}%` }}
+                    />
+                  </div>
+
+                  {/* Order Breakdown Chips */}
+                  {dayOrders && dayOrders.orders.length > 0 ? (
+                    <div className="flex flex-col gap-1 text-[11px] bg-surface-muted/50 p-2 rounded-lg border border-line">
+                      <span className="font-bold text-ink">{dayOrders.orders.length} order(s)</span>
+                      <span className="muted">{dayOrders.pickupCount} pickup · {dayOrders.deliveryCount} delivery</span>
+                    </div>
+                  ) : day.isUnplanned ? (
+                    <span className="text-[11px] text-slate-500 italic block">No capacity set for this date</span>
+                  ) : (
+                    <span className="text-[11px] muted italic block">No orders yet</span>
+                  )}
+
+                  {day.freezeReason && (
+                    <span className="text-[10px] text-amber-900 bg-amber-100 p-1.5 rounded font-medium block mt-1">
+                      Lock reason: {day.freezeReason}
+                    </span>
+                  )}
+                </div>
+
+                {/* Card Action Controls */}
+                <div className="availability-day-actions">
+                  {day.dayRows[0] && !day.isPast ? (
+                    <>
+                      <button type="button" className="btn btn-secondary" onClick={() => setInspectingDate(day.date)}><Eye aria-hidden="true" />Inspect</button>
+                      {productFilter !== "ALL" && canManage && (
+                        <>
+                          {editableRow(day.dayRows) && <div className="availability-quick-adjust" aria-label="Quickly adjust capacity by 5 litres">
+                            <button type="button" className="btn btn-secondary availability-quick-adjust-button" aria-label="Remove 5 litres" disabled={adjustingAvailabilityId !== null || editableRow(day.dayRows)!.availability.capacityMl - 5000 < editableRow(day.dayRows)!.availability.reservedMl} onClick={() => requestCapacityAdjustment(editableRow(day.dayRows)!, -5000)}><Minus aria-hidden="true" />5 L</button>
+                            <button type="button" className="btn btn-secondary availability-quick-adjust-button" aria-label="Add 5 litres" disabled={adjustingAvailabilityId !== null} onClick={() => requestCapacityAdjustment(editableRow(day.dayRows)!, 5000)}><Plus aria-hidden="true" />5 L</button>
+                          </div>}
+                          <button type="button" className="btn btn-secondary" onClick={() => { const row = editableRow(day.dayRows); if (row) openCapacityEditor(row); }}><Pencil aria-hidden="true" />Edit capacity</button>
+                        </>
+                      )}
+                      {productFilter !== "ALL" && canSoldOut && (
+                        <button
+                          type="button"
+                          className={`btn ${day.soldOut ? "btn-secondary" : "btn-danger"}`}
+                          onClick={() => setFreezingRow(day.dayRows[0])}
+                        >
+                          {day.soldOut ? <UnlockKeyhole aria-hidden="true" /> : <LockKeyhole aria-hidden="true" />}{day.soldOut ? "Reopen" : "Freeze"}
+                        </button>
+                      )}
+                    </>
+                  ) : day.isUnplanned && canManage && !day.isPast ? (
+                    <button
+                      type="button"
+                      className="btn text-[11px] font-bold py-1 px-2.5 w-full shadow-2xs"
+                      onClick={() => setBatchPanelOpen(true)}
+                    >
+                      Set capacity
+                    </button>
+                  ) : (
+                    <span className="text-[10px] muted italic">Read-only history</span>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      {/* VIEW MODE 2: MONTH CALENDAR HEATMAP */}
+      {viewMode === "MONTH" && (
+        <section className="card p-4 md:p-5 flex flex-col gap-4 border border-line">
+          <div className="flex items-center justify-between border-b border-line pb-3">
+            <div>
+              <span className="eyebrow">MONTHLY SEASON OVERVIEW</span>
+              <h3 className="text-base font-bold text-ink">Calendar Month Capacity Heatmap</h3>
+            </div>
+
+            <div className="flex items-center gap-4 text-xs font-semibold">
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500" /> 0–75% Healthy</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-500" /> 76–95% Near</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-rose-600" /> 96–100% Full</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-slate-400" /> Locked</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-2.5">
+            {dateCards.map((day) => {
+              const remainingLitres = Math.max(0, day.capacity - day.reserved);
+              const tone = fillTone(day.utilization, day.soldOut);
+
+              return (
+                <button
+                  type="button"
+                  key={day.date}
+                  className={`availability-month-day ${
+                    day.isPast
+                      ? "bg-slate-200 text-slate-700 border-slate-300 opacity-75"
+                      : day.isUnplanned
+                      ? "bg-white text-slate-600 border-dashed border-slate-300"
+                      : day.soldOut
+                      ? "bg-slate-200 text-slate-800 border-slate-300"
+                      : tone === "danger"
+                      ? "bg-rose-600 text-on-primary border-rose-700 shadow-xs"
+                      : tone === "warning"
+                      ? "bg-amber-500 text-on-primary border-amber-600 shadow-xs"
+                      : "bg-emerald-600 text-on-primary border-emerald-700 shadow-xs"
+                  }`}
+                  onClick={() => setInspectingDate(day.date)}
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-90 block">
+                    {formatDay(day.date).weekday} {formatDay(day.date).short}
+                  </span>
+
+                  <span className="text-lg font-bold ops-tabular block">{litres(remainingLitres)}</span>
+                  <span className="text-[10px] font-semibold opacity-90 block">
+                    {day.isPast ? "Past Date" : day.isUnplanned ? "Unplanned" : day.soldOut ? "Locked" : `${day.utilization}% Reserved`}
+                  </span>
+                  <span className="text-[10px] font-medium opacity-80 block">
+                    {litres(day.capacity)} capacity · {litres(day.reserved)} reserved
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* VIEW MODE 3: DENSE TABLE VIEW (STANDARDIZED WITH ADMINROWACTIONMENU) */}
+      {viewMode === "TABLE" && (
+        <section className="card p-4 overflow-x-auto border border-line">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-surface-muted border-b border-line text-muted uppercase font-bold text-[11px]">
+              <tr>
+                <th className="p-3">Business Date</th>
+                <th className="p-3">Product</th>
+                <th className="p-3 text-right">Capacity (L)</th>
+                <th className="p-3 text-right">Reserved (L)</th>
+                <th className="p-3 text-right">Remaining (L)</th>
+                <th className="p-3 text-center">Fill Rate</th>
+                <th className="p-3 text-center">Status</th>
+                {canManage && <th className="p-3 text-right">Actions</th>}
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-line">
+              {paginatedRows.map((row) => {
+                const remainingLitres = Math.max(0, row.availability.capacityMl - row.availability.reservedMl);
+
+                return (
+                  <tr key={row.availability.id} className="hover:bg-surface-muted/50 transition-colors">
+                    <td data-label="Business date" className="p-3 font-bold text-ink ops-tabular">
+                      {row.availability.businessDate} ({formatDay(row.availability.businessDate).weekday})
+                    </td>
+                    <td data-label="Product" className="p-3 font-semibold text-ink">{row.product.nameFi}</td>
+                    <td data-label="Capacity" className="p-3 text-right font-bold text-ink ops-tabular">
+                      {litres(row.availability.capacityMl)}
+                    </td>
+                    <td data-label="Reserved" className="p-3 text-right font-semibold text-primary ops-tabular">
+                      {litres(row.availability.reservedMl)}
+                    </td>
+                    <td data-label="Remaining" className="p-3 text-right font-bold text-emerald-700 ops-tabular">
+                      {litres(remainingLitres)}
+                    </td>
+                    <td data-label="Fill rate" className="p-3 text-center font-bold ops-tabular">{row.utilization}%</td>
+                    <td data-label="Status" className="p-3 text-center">
+                      <AdminStatusBadge
+                        status={row.soldOut ? "CANCELLED" : row.utilization >= 75 ? "CAPACITY_NEAR_LIMIT" : "CONFIRMED"}
+                        label={row.soldOut ? "Sold out" : row.utilization >= 75 ? "Near limit" : "Open"}
+                      />
+                    </td>
+                    {canManage && (
+                      <td data-label="Actions" className="p-3 text-right">
+                        <AdminRowActionMenu
+                          items={[
+                            {
+                              id: "add-five-litres",
+                              label: "Add 5 L",
+                              icon: <Plus aria-hidden="true" />,
+                              disabled: adjustingAvailabilityId !== null,
+                              onClick: () => requestCapacityAdjustment(row, 5000),
+                            },
+                            {
+                              id: "remove-five-litres",
+                              label: "Remove 5 L",
+                              icon: <Minus aria-hidden="true" />,
+                              disabled: adjustingAvailabilityId !== null || row.availability.capacityMl - 5000 < row.availability.reservedMl,
+                              onClick: () => requestCapacityAdjustment(row, -5000),
+                            },
+                            {
+                              id: "edit-capacity",
+                              label: "Edit Capacity",
+                              icon: <IconPencil />,
+                              onClick: () => openCapacityEditor(row),
+                            },
+                            {
+                              id: "inspect-date",
+                              label: "Inspect Date & Orders",
+                              icon: <IconEye />,
+                              onClick: () => setInspectingDate(row.availability.businessDate),
+                            },
+                            ...(canSoldOut
+                              ? [
+                                  {
+                                    id: "toggle-lock",
+                                    label: row.soldOut ? "Reopen Date" : "Emergency Freeze",
+                                    icon: <IconLock />,
+                                    danger: !row.soldOut,
+                                    onClick: () => setFreezingRow(row),
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <AdminPagination
+            page={tablePage}
+            limit={tableLimit}
+            total={rows.length}
+            onPageChange={setTablePage}
+            onLimitChange={setTableLimit}
+            itemLabel="availability dates"
+          />
+        </section>
+      )}
+
+      {/* FULFILLMENT QUEUES SUMMARY */}
+      <section className="availability-queues mt-2">
+        <div className="admin-section-heading">
+          <div>
+            <p className="admin-section-kicker">FULFILMENT QUEUES</p>
+            <h2>Active Order Pipeline ({workspace.startDate} – {workspace.endDate})</h2>
+          </div>
+        </div>
+        <div className="availability-queue-grid">
+          {([
+            ["picking", "Picking Queue", workspace.queues.picking],
+            ["pickup", "Pickup Ready Queue", workspace.queues.pickup],
+            ["delivery", "Delivery Dispatch Queue", workspace.queues.delivery],
+          ] as Array<[string, string, QueueItem[]]>).map(([key, title, queue]) => (
+            <article className="card availability-queue-card p-4 border border-line" key={key}>
+              <div className="flex items-center justify-between gap-2 border-b border-line pb-2 mb-2">
+                <h3 className="font-bold text-ink text-sm">{title}</h3>
+                <span className="font-bold text-primary text-base ops-tabular">{queue.length}</span>
+              </div>
+              {queue.length ? (
+                <ul className="divide-y divide-line text-xs">
+                  {queue.slice(0, 4).map((item) => (
+                    <li key={item.id} className="py-2 flex items-center justify-between">
+                      <a className="font-bold text-primary hover:underline" href={`/admin/orders/${item.id}`}>
+                        {item.publicReference}
+                      </a>
+                      <span className="muted">
+                        {item.customerName} · {item.quantity}×
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs muted py-2">No orders in this queue.</p>
+              )}
+              <a className="btn btn-secondary text-xs mt-2 text-center font-bold" href={`/admin/orders?view=${key}`}>
+                Open queue ↗
+              </a>
+            </article>
+          ))}
+        </div>
+      </section>
+
+        </>
+      )}
+
+      {/* DATE INSPECTOR DRAWER */}
+      <AvailabilityWorkflowDialogs
+        inspectingDate={inspectingDate}
+        freezingRow={freezingRow}
+        capacityMl={dateCards.find((d) => d.date === inspectingDate)?.capacity ?? 0}
+        reservedMl={dateCards.find((d) => d.date === inspectingDate)?.reserved ?? 0}
+        soldOut={dateCards.find((d) => d.date === inspectingDate)?.soldOut ?? false}
+        soldOutReason={dateCards.find((d) => d.date === inspectingDate)?.freezeReason}
+        productName={inspectedProductName}
+        ordersData={inspectedOrdersData}
+        canManage={canManage}
+        canSoldOut={canSoldOut && productFilter !== "ALL"}
+        onCloseInspector={() => setInspectingDate(null)}
+        onEditCapacity={productFilter !== "ALL" && inspectedDayRow ? () => openCapacityEditor(inspectedDayRow) : undefined}
+        onFreeze={() => { if (inspectedDayRow) setFreezingRow(inspectedDayRow); }}
+        cutoffOverride={inspectedDayRow?.availability.cutoffOverride}
+        onCutoffOverride={canCutoffOverride && productFilter !== "ALL" && inspectedDayRow ? (value) => void handleCutoffOverride(inspectedDayRow, value) : undefined}
+        onQuickAdjust={canManage && productFilter !== "ALL" && inspectedDayRow ? (delta) => requestCapacityAdjustment(inspectedDayRow, delta) : undefined}
+        quickAdjustDisabled={adjustingAvailabilityId !== null}
+        onCloseFreeze={() => setFreezingRow(null)}
+        onConfirmFreeze={(reason) => void handleConfirmFreeze(reason)}
+      />
+      {/*
+        The capacity editor remains local because it owns the draft and form ref.
+        The inspector and freeze workflows are isolated above so their state and
+        transitions can evolve independently from the calendar renderer.
+      */}
+      {/* EDIT AVAILABILITY MODAL */}
+      <CapacityEditorDialog key={editing?.availability.id ?? "closed"} editing={editing} error={error} onClose={() => setEditing(null)} onSave={saveAvailability} />
+    </main>
+  );
+}

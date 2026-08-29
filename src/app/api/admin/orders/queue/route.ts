@@ -1,21 +1,15 @@
-import { db } from "@/db/client";
-import { requirePermission } from "@/domain/access";
-import { getOrderQueue } from "@/domain/orders";
+import { getAdminOrderQueue } from "@/domain/admin-order-actions";
+import { env } from "@/lib/env";
 import { failure, success } from "../../../response";
+import { executeAdmin } from "../../module";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    await requirePermission(db(), request, "orders.read");
-    const url = new URL(request.url);
-    return success(await getOrderQueue(db(), {
-      productId: url.searchParams.get("productId") ?? undefined,
-      seasonId: url.searchParams.get("seasonId") ?? undefined,
-      from: url.searchParams.get("from") ?? undefined,
-      to: url.searchParams.get("to") ?? undefined,
-    }));
+    const result = await executeAdmin(request, { permission: "orders.read", parse: async () => new URL(request.url).searchParams, run: async (params, { database, context }) => getAdminOrderQueue(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, { productId: params.get("productId") ?? undefined, seasonId: params.get("seasonId") ?? undefined, from: params.get("from") ?? undefined, to: params.get("to") ?? undefined }) });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

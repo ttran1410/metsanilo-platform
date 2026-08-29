@@ -1,4 +1,4 @@
-import { OperationsSettings } from "../settings";
+import { OperationsSettings } from "./settings-module";
 import { AdminRouteFrame } from "../route-frame";
 import { adminContext, hasAdminPermission } from "../portal-auth";
 export const dynamic = "force-dynamic";

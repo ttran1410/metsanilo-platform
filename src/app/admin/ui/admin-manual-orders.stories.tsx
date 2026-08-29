@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { ManualOrdersModule } from "../manual-orders";
+import { ManualOrdersWorkspace } from "../manual-orders/manual-orders-workspace";
 import { AdminEmptyState, AdminNotice, AdminPageHeader } from "../presentation";
 
 const products = [
@@ -14,9 +14,9 @@ const products = [
 
 const meta = {
   title: "Admin / Manual Orders",
-  component: ManualOrdersModule,
+  component: ManualOrdersWorkspace,
   parameters: { layout: "fullscreen" },
-} satisfies Meta<typeof ManualOrdersModule>;
+} satisfies Meta<typeof ManualOrdersWorkspace>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

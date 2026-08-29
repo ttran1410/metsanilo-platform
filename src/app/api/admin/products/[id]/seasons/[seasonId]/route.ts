@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { db } from "@/db/client";
-import { requirePermission } from "@/domain/access";
+import { parseJson } from "../../../../module";
 import { DomainError } from "@/domain/errors";
-import { deleteHarvestSeason, extendHarvestSeason, getHarvestSeasonSummary, updateHarvestSeason } from "@/domain/seasons";
+import { deleteAdminSeason, extendAdminSeason, getAdminSeasonSummary, updateAdminSeason } from "@/domain/admin-season-actions";
 import { failure, success } from "../../../../../response";
+import { executeAdmin } from "../../../../module";
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -12,13 +13,12 @@ export async function GET(
   context: { params: Promise<{ id: string; seasonId: string }> }
 ) {
   try {
-    await requirePermission(db(), request, "catalog.product.read");
     const { id, seasonId } = await context.params;
-    const summary = await getHarvestSeasonSummary(db(), seasonId);
+    const summary = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => ({ id, seasonId }), run: async ({ seasonId: selectedSeasonId }, { database, context }) => getAdminSeasonSummary(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, selectedSeasonId) });
     if (summary.season.productId !== id) throw new DomainError("NOT_FOUND", "Harvest season not found", 404);
     return success(summary);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -39,36 +39,11 @@ export async function PATCH(
   context: { params: Promise<{ id: string; seasonId: string }> }
 ) {
   try {
-    const actor = await requirePermission(db(), request, "catalog.product.write");
-    const actorName = actor.email ?? actor.username ?? actor.id;
     const { seasonId } = await context.params;
-
-    const parsed = updateSeasonSchema.safeParse(await request.json());
-    if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season update payload", 422);
-
-    if (parsed.data.action === "extend") {
-      const extended = await extendHarvestSeason(db(), seasonId, parsed.data.additionalDays ?? 7, actorName);
-      return success(extended);
-    }
-
-    const updated = await updateHarvestSeason(
-      db(),
-      seasonId,
-      {
-        nameFi: parsed.data.nameFi,
-        nameEn: parsed.data.nameEn,
-        startDate: parsed.data.startDate,
-        endDate: parsed.data.endDate,
-        status: parsed.data.status,
-        targetVolumeMl: parsed.data.targetVolumeMl,
-        notes: parsed.data.notes,
-      },
-      actorName
-    );
-
-    return success(updated);
+    const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async (incoming) => { const parsed = updateSeasonSchema.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season update payload", 422); return parsed.data; }, run: async (input, { database, context: { actor } }) => input.action === "extend" ? extendAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, seasonId, input.additionalDays ?? 7) : updateAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, seasonId, { nameFi: input.nameFi, nameEn: input.nameEn, startDate: input.startDate, endDate: input.endDate, status: input.status, targetVolumeMl: input.targetVolumeMl, notes: input.notes }) });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -77,13 +52,10 @@ export async function DELETE(
   context: { params: Promise<{ id: string; seasonId: string }> }
 ) {
   try {
-    const actor = await requirePermission(db(), request, "catalog.product.write");
-    const actorName = actor.email ?? actor.username ?? actor.id;
     const { seasonId } = await context.params;
-
-    await deleteHarvestSeason(db(), seasonId, actorName);
-    return success({ deleted: true });
+    const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async () => seasonId, run: async (id, { database, context: { actor } }) => { await deleteAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, id); return { deleted: true }; } });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, isNotNull, like, lte, or, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, gt, isNotNull, like, lt, lte, or, inArray } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, orderPayments, orders, products, reviews, users, userPermissions } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -60,7 +60,7 @@ export async function searchUsers(database: Database, query: AdminListQuery, fil
   return paged(items, total, query);
 }
 
-export async function searchManagerOrders(database: Database, query: AdminListQuery, filters?: { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; from?: string; to?: string }) {
+export async function searchManagerOrders(database: Database, query: AdminListQuery, filters?: { status?: string; fulfillmentMethod?: string; productId?: string; seasonId?: string; archived?: boolean; historicalEntry?: boolean; source?: string; from?: string; to?: string }) {
   const shopId = env().SHOP_ID;
   const filter = and(
     eq(orders.shopId, shopId),
@@ -69,6 +69,8 @@ export async function searchManagerOrders(database: Database, query: AdminListQu
     filters?.productId ? eq(orders.productId, filters.productId) : undefined,
     filters?.seasonId ? eq(orders.seasonId, filters.seasonId) : undefined,
     filters?.archived === undefined ? undefined : eq(orders.archived, filters.archived),
+    filters?.historicalEntry === undefined ? undefined : eq(orders.historicalEntry, filters.historicalEntry),
+    filters?.source ? eq(orders.orderSource, filters.source as typeof orders.orderSource.enumValues[number]) : undefined,
     filters?.from ? gte(orders.fulfillmentDate, filters.from) : undefined,
     filters?.to ? lte(orders.fulfillmentDate, filters.to) : undefined,
     query.q
@@ -94,10 +96,14 @@ export async function searchManagerOrders(database: Database, query: AdminListQu
   return paged(items, total, query);
 }
 
-export async function searchManagerProducts(database: Database, query: AdminListQuery) {
+export async function searchManagerProducts(database: Database, query: AdminListQuery, filters?: { status?: "in_season" | "upcoming" | "archived" }) {
   const shopId = env().SHOP_ID;
+  const today = new Date().toISOString().slice(0, 10);
   const filter = and(
     eq(products.shopId, shopId),
+    filters?.status === "in_season" ? and(eq(products.active, true), lte(products.availableFrom, today), gte(products.availableThrough, today)) : undefined,
+    filters?.status === "upcoming" ? and(eq(products.active, true), gt(products.availableFrom, today)) : undefined,
+    filters?.status === "archived" ? or(eq(products.active, false), lt(products.availableThrough, today)) : undefined,
     query.q ? or(like(products.nameFi, contains(query.q)), like(products.nameEn, contains(query.q)), like(products.code, contains(query.q)), like(products.slug, contains(query.q))) : undefined,
   );
   const [{ total }] = await database.select({ total: count() }).from(products).where(filter);

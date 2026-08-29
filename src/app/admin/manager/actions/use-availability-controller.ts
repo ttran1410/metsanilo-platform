@@ -1,0 +1,15 @@
+"use client";
+
+import type { FormEvent, Dispatch, SetStateAction } from "react";
+import type { availability, products } from "@/db/schema";
+
+type AvailabilityRow = { availability: typeof availability.$inferSelect; product: typeof products.$inferSelect };
+
+export function useManagerAvailabilityController({ setAvailabilityRows, setMessage, feedback }: { setAvailabilityRows: Dispatch<SetStateAction<AvailabilityRow[]>>; setMessage: (message: string) => void; feedback: (text: string, tone: "success" | "error") => void }) {
+  async function save(row: AvailabilityRow, form: HTMLFormElement) {
+    const values = new FormData(form); setMessage("");
+    try { const response = await fetch(`/api/admin/availability/${encodeURIComponent(row.availability.id)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ expectedVersion: row.availability.version, capacityMl: Math.round(Number(values.get("capacityLitres")) * 1000), manualSoldOut: values.get("manualSoldOut") === "on", soldOutReason: values.get("soldOutReason") }) }); const body = await response.json(); if (!response.ok) return feedback(body.code ?? "Request failed", "error"); setAvailabilityRows((rows) => rows.map((item) => item.availability.id === row.availability.id ? { ...item, availability: body.data } : item)); setMessage(`Availability ${row.availability.businessDate} saved.`); } catch { feedback("Network error while saving availability.", "error"); }
+  }
+  async function plan(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const values = new FormData(event.currentTarget); try { const response = await fetch("/api/admin/availability/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ productId: values.get("productId"), frequency: values.get("frequency"), startDate: values.get("startDate"), endDate: values.get("endDate"), dates: String(values.get("dates") ?? "").split(",").map((date) => date.trim()).filter(Boolean), capacityMl: Math.round(Number(values.get("capacityLitres")) * 1000), manualSoldOut: values.get("manualSoldOut") === "on", soldOutReason: values.get("soldOutReason") }) }); const body = await response.json(); if (!response.ok) return feedback(body.code ?? body.message ?? "Request failed", "error"); const planned = body.data as Array<typeof availability.$inferSelect>; setAvailabilityRows((rows) => { const byId = new Map(rows.map((row) => [row.availability.id, row])); const product = rows.find((row) => row.product.id === String(values.get("productId")))?.product; for (const item of planned) { const existing = byId.get(item.id); if (existing) byId.set(item.id, { ...existing, availability: item }); else if (product) byId.set(item.id, { availability: item, product }); } return [...byId.values()].sort((a, b) => a.availability.businessDate.localeCompare(b.availability.businessDate)); }); setMessage(`${planned.length} availability date(s) planned.`); } catch { feedback("Network error while planning availability.", "error"); } }
+  return { save, plan };
+}

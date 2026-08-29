@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { db } from "@/db/client";
-import { updateAvailability } from "@/domain/availability";
+import { updateAdminAvailability } from "@/domain/admin-availability-actions";
+import { executeAdmin, authenticateAdminAny, parseJson } from "../../module";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
-import { requirePermission } from "@/domain/access";
 
 export const runtime = "nodejs";
 
@@ -19,12 +18,14 @@ const command = z.object({
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const parsed = command.safeParse(await request.json());
+    await authenticateAdminAny(request, ["availability.write", "availability.sold_out", "availability.cutoff.override"]);
+    const parsed = command.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability command", 422);
     const { id } = await params;
-    const actor = await requirePermission(db(), request, parsed.data.cutoffOverride !== undefined ? "availability.cutoff.override" : parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write");
-    return success(await updateAvailability(db(), { id, ...parsed.data, actor: actor.email ?? actor.id }));
+    const permission = parsed.data.cutoffOverride !== undefined ? "availability.cutoff.override" : parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write";
+    const result = await executeAdmin(request, { permission, parse: async () => parsed.data, run: async (input, { database, context }) => updateAdminAvailability(database, { actor: context.actor, shop: { id: context.shop.shopId } }, id, input) });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

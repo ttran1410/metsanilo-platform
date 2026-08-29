@@ -1,23 +1,10 @@
 import { z } from "zod";
-import { db } from "@/db/client";
-import {
-  confirmManualReview,
-  bulkModerateReviews,
-  createManualReview,
-  deleteReview,
-  linkReviewToCustomerOrOrder,
-  listManagerReviews,
-  getManagerReviewDetail,
-  moderateReview,
-  replyToReview,
-  updateFullReview,
-  updateReviewPublicationIdentity,
-} from "@/domain/reviews";
-import { currentUser, hasUserPermission, requirePermission } from "@/domain/access";
 import { failure, success } from "../../response";
-import { fromZodError } from "@/domain/errors";
+import { DomainError, fromZodError } from "@/domain/errors";
 import { adminQueryParam, hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
-import { searchManagerReviews } from "@/domain/admin-search";
+import { authenticateAdmin, executeAdmin, parseJson } from "../module";
+import { bulkModerateAdminReviews, confirmAdminReview, createAdminReview, deleteAdminReview, getAdminReviewDetail, getAdminReviews, linkAdminReviewIdentity, moderateAdminReview, replyAdminToReview, updateAdminReview, updateAdminReviewPublicationIdentity } from "@/domain/admin-review-actions";
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -42,12 +29,20 @@ const commandSchema = z.object({
   consentNote: z.string().max(500).optional(),
 });
 
+async function authenticateReviewMutation(request: Request) {
+  try {
+    return { actor: (await authenticateAdmin(request, "reviews.moderate")).actor, canModerate: true };
+  } catch {
+    return { actor: (await authenticateAdmin(request, "reviews.write")).actor, canModerate: false };
+  }
+}
+
 export async function GET(request: Request) {
   try {
-    await requirePermission(db(), request, "reviews.read");
+    const result = await executeAdmin(request, { permission: "reviews.read", parse: async () => undefined, run: async (_input, { database, context }) => {
     if (hasListQuery(request)) {
       const rating = adminQueryParam(request, "rating");
-      return success(await searchManagerReviews(db(), parseAdminListQuery(request), {
+      return getAdminReviews(database, { actor: context.actor, shop: { id: context.shop.shopId } }, { list: parseAdminListQuery(request), filters: {
         status: adminQueryParam(request, "status"),
         rating: rating ? Number(rating) : undefined,
         verification: adminQueryParam(request, "verification"),
@@ -55,20 +50,23 @@ export async function GET(request: Request) {
         source: adminQueryParam(request, "source"),
         featured: adminQueryParam(request, "featured") === undefined ? undefined : adminQueryParam(request, "featured") === "true",
         hasReply: adminQueryParam(request, "hasReply") === "true" ? true : undefined,
-      }));
+      } });
     }
     const id = new URL(request.url).searchParams.get("id");
-    return success(id ? await getManagerReviewDetail(db(), id) : await listManagerReviews(db()));
+    return id ? getAdminReviewDetail(database, { actor: context.actor, shop: { id: context.shop.shopId } }, id) : getAdminReviews(database, { actor: context.actor, shop: { id: context.shop.shopId } });
+    } });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(db(), request, "reviews.create");
-    const parsed = z
-      .object({
+    const result = await executeAdmin(request, {
+      permission: "reviews.create",
+      parse: async (incoming) => {
+        const parsed = z.object({
         displayName: z.string().min(2).max(80),
         isAnonymous: z.boolean().optional(),
         reviewerName: z.string().max(80).optional(),
@@ -79,29 +77,26 @@ export async function POST(request: Request) {
         verifiedBuyer: z.boolean().optional(),
         acknowledgementSource: z.string().max(80).optional(),
         publicationConsentNote: z.string().max(500).optional(),
-      })
-      .safeParse(await request.json());
+        }).safeParse(await parseJson<unknown>(incoming));
 
-    if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid manual review payload"));
+      if (!parsed.success) throw fromZodError(parsed.error, "Invalid manual review payload");
 
-    if (parsed.data.verifiedBuyer && (!parsed.data.orderId || !parsed.data.orderId.trim())) {
-      return failure({
-        message: "Order Reference, Phone, Facebook Profile, or Email proof is required when marking as Verified Buyer.",
-        code: "VALIDATION_ERROR",
-        status: 422,
-      });
-    }
-
-    const actorName = actor.email ?? actor.username ?? actor.id;
-    return success(await createManualReview(db(), { ...parsed.data, actor: actorName }), 201);
+      if (parsed.data.verifiedBuyer && (!parsed.data.orderId || !parsed.data.orderId.trim())) {
+        throw new DomainError("VALIDATION_ERROR", "Order proof is required when marking as Verified Buyer.", 422);
+      }
+      return parsed.data;
+      },
+      run: async (input, { database, context }) => createAdminReview(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, input),
+    });
+    return success(result, 201);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
 export async function PUT(request: Request) {
   try {
-    const actor = await requirePermission(db(), request, "reviews.moderate");
+    await authenticateAdmin(request, "reviews.moderate");
     const parsed = z
       .object({
         id: z.string().min(1),
@@ -119,60 +114,50 @@ export async function PUT(request: Request) {
         orderId: z.string().optional(),
         verifiedBuyer: z.boolean().optional(),
       })
-      .safeParse(await request.json());
+      .safeParse(await parseJson<unknown>(request));
 
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid edit review payload"));
 
-    const actorName = actor.email ?? actor.username ?? actor.id;
-    if (parsed.data.action === "publication_identity") {
-      const updatedIdentity = await updateReviewPublicationIdentity(db(), {
-        id: parsed.data.id,
-        isAnonymous: parsed.data.isAnonymous ?? false,
-        reviewerName: parsed.data.reviewerName,
-        consentSource: parsed.data.consentSource ?? "",
-        consentNote: parsed.data.consentNote ?? "",
-        actor: actorName,
+    const result = await executeAdmin(request, { permission: "reviews.moderate", parse: async () => parsed.data, run: async (input, { database, context }) => {
+    const actionContext = { actor: context.actor, shop: { id: context.shop.shopId } };
+    if (input.action === "publication_identity") {
+      const updatedIdentity = await updateAdminReviewPublicationIdentity(database, actionContext, {
+        id: input.id, isAnonymous: input.isAnonymous ?? false, reviewerName: input.reviewerName,
+        consentSource: input.consentSource ?? "", consentNote: input.consentNote ?? "",
       });
       const reviewFields = {
-        displayName: parsed.data.displayName,
-        rating: parsed.data.rating,
-        source: parsed.data.source,
-        acknowledgementSource: parsed.data.acknowledgementSource,
-        originalText: parsed.data.originalText,
-        displayText: parsed.data.displayText,
-        orderId: parsed.data.orderId,
-        verifiedBuyer: parsed.data.verifiedBuyer,
+        displayName: input.displayName, rating: input.rating, source: input.source, acknowledgementSource: input.acknowledgementSource,
+        originalText: input.originalText, displayText: input.displayText, orderId: input.orderId, verifiedBuyer: input.verifiedBuyer,
       };
       const hasReviewEdits = Object.values(reviewFields).some((value) => value !== undefined);
       return success(hasReviewEdits
-        ? await updateFullReview(db(), { id: parsed.data.id, ...reviewFields, actor: actorName })
+        ? await updateAdminReview(database, actionContext, { id: input.id, ...reviewFields })
         : updatedIdentity);
     }
-    return success(await updateFullReview(db(), { ...parsed.data, actor: actorName }));
+    return updateAdminReview(database, actionContext, input);
+    } });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
 export async function DELETE(request: Request) {
   try {
-    const actor = await requirePermission(db(), request, "reviews.moderate");
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     if (!id) return failure({ message: "Review ID required", code: "VALIDATION_ERROR", status: 400 });
-
-    const actorName = actor.email ?? actor.username ?? actor.id;
-    return success(await deleteReview(db(), { id, actor: actorName }));
+    const result = await executeAdmin(request, { permission: "reviews.moderate", parse: async () => ({ id }), run: async (input, { database, context: { actor } }) => deleteAdminReview(database, { actor, shop: { id: env().SHOP_ID } }, input) });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const actor = await currentUser(db(), request);
-    const canModerate = await hasUserPermission(db(), actor, "reviews.moderate");
-    const payload = await request.json();
+    const { canModerate } = await authenticateReviewMutation(request);
+    const payload = await parseJson<Record<string, unknown>>(request);
     const bulk = z.object({
       action: z.literal("bulk_moderate"),
       ids: z.array(z.string().min(1)).min(1).max(100),
@@ -181,71 +166,47 @@ export async function PATCH(request: Request) {
       rejectionReason: z.enum(["SPAM", "PROFANITY", "UNRELATED", "COMPETITOR", "OTHER"]).optional(),
     }).safeParse(payload);
     if (bulk.success) {
-      const actorName = actor.email ?? actor.username ?? actor.id;
-      return success(await bulkModerateReviews(db(), { ...bulk.data, actor: actorName }));
+      if (!canModerate) return failure({ message: "Permission required: reviews.moderate", code: "FORBIDDEN", status: 403 });
+      const result = await executeAdmin(request, { permission: "reviews.moderate", parse: async () => bulk.data, run: async (input, { database, context }) => bulkModerateAdminReviews(database, { actor: context.actor, shop: { id: context.shop.shopId } }, input) });
+      return success(result);
     }
 
     const parsed = commandSchema.safeParse(payload);
     if (!parsed.success) return failure(fromZodError(parsed.error, "Invalid review moderation payload"));
 
-    const actorName = actor.email ?? actor.username ?? actor.id;
-
     if (parsed.data.action === "publication_identity") {
-      const allowed = canModerate || (await hasUserPermission(db(), actor, "reviews.write"));
-      if (!allowed) return failure({ message: "Permission required: reviews.write", code: "FORBIDDEN", status: 403 });
-      return success(await updateReviewPublicationIdentity(db(), {
-        id: parsed.data.id,
-        isAnonymous: parsed.data.isAnonymous ?? false,
-        reviewerName: parsed.data.reviewerName,
-        consentSource: parsed.data.consentSource ?? "",
-        consentNote: parsed.data.consentNote ?? "",
-        actor: actorName,
-      }));
+      const result = await executeAdmin(request, { permission: "reviews.write", parse: async () => parsed.data, run: async (input, { database, context }) => updateAdminReviewPublicationIdentity(database, { actor: context.actor, shop: { id: context.shop.shopId } }, {
+        id: input.id, isAnonymous: input.isAnonymous ?? false, reviewerName: input.reviewerName,
+        consentSource: input.consentSource ?? "", consentNote: input.consentNote ?? "",
+      }) });
+      return success(result);
     }
 
     if (!canModerate) return failure({ message: "Permission required: reviews.moderate", code: "FORBIDDEN", status: 403 });
 
     if (parsed.data.action === "link_identity" || (parsed.data.orderId !== undefined || parsed.data.customerId !== undefined)) {
-      return success(
-        await linkReviewToCustomerOrOrder(db(), {
-          reviewId: parsed.data.id,
-          orderId: parsed.data.orderId,
-          customerId: parsed.data.customerId,
-          verifiedBuyer: parsed.data.verifiedBuyer,
-          actor: actorName,
-        }),
-      );
+      const result = await executeAdmin(request, { permission: "reviews.moderate", parse: async () => parsed.data, run: async (input, { database, context }) => linkAdminReviewIdentity(database, { actor: context.actor, shop: { id: context.shop.shopId } }, {
+          reviewId: input.id, orderId: input.orderId, customerId: input.customerId, verifiedBuyer: input.verifiedBuyer,
+        }) });
+      return success(result);
     }
 
     if (parsed.data.sellerReplyText !== undefined) {
-      return success(await replyToReview(db(), { id: parsed.data.id, replyText: parsed.data.sellerReplyText, actor: actorName }));
+      const result = await executeAdmin(request, { permission: "reviews.moderate", parse: async () => parsed.data, run: async (input, { database, context }) => replyAdminToReview(database, { actor: context.actor, shop: { id: context.shop.shopId } }, { id: input.id, replyText: input.sellerReplyText! }) });
+      return success(result);
     }
 
     if (parsed.data.confirmSource) {
-      return success(
-        await confirmManualReview(db(), {
-          id: parsed.data.id,
-          source: parsed.data.confirmSource,
-          note: parsed.data.confirmNote,
-          actor: actorName,
-        }),
-      );
+      const result = await executeAdmin(request, { permission: "reviews.moderate", parse: async () => parsed.data, run: async (input, { database, context }) => confirmAdminReview(database, { actor: context.actor, shop: { id: context.shop.shopId } }, { id: input.id, source: input.confirmSource!, note: input.confirmNote }) });
+      return success(result);
     }
 
-    return success(
-      await moderateReview(db(), {
-        id: parsed.data.id,
-        status: parsed.data.status,
-        displayText: parsed.data.displayText,
-        reason: parsed.data.reason,
-        rejectionReason: parsed.data.rejectionReason,
-        featured: parsed.data.featured,
-        featuredUntil: parsed.data.featuredUntil,
-        verifiedBuyer: parsed.data.verifiedBuyer,
-        actor: actorName,
-      }),
-    );
+    const result = await executeAdmin(request, { permission: "reviews.moderate", parse: async () => parsed.data, run: async (input, { database, context }) => moderateAdminReview(database, { actor: context.actor, shop: { id: context.shop.shopId } }, {
+      id: input.id, status: input.status, displayText: input.displayText, reason: input.reason,
+      rejectionReason: input.rejectionReason, featured: input.featured, featuredUntil: input.featuredUntil, verifiedBuyer: input.verifiedBuyer,
+    }) });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

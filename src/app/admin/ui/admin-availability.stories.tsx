@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
 import type { AvailabilityWorkspace as AvailabilityData } from "@/domain/availability";
-import { AvailabilityWorkspace } from "../availability/workspace";
+import { AvailabilityWorkspace } from "../availability/availability-workspace";
 import { AdminNotice, AdminPageHeader } from "../presentation";
 
 const dates = ["2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-26"];

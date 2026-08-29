@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ChevronDown, Mail, MessageSquare, Phone, ShieldCheck } from "lucide-react";
 import { formatDecimal, isLocale, type Locale } from "@/lib/format";
 import { LocaleDocument } from "./locale-document";
@@ -62,7 +63,7 @@ export function InfoPage({
         <div className="shell storefront-nav">
           <Link className="brand-lockup" href={`/${locale}`}>
             {logoUrl ? (
-              <img src={logoUrl} alt="Metsänilo" className="h-7 w-auto object-contain" />
+              <Image src={logoUrl} alt="Metsänilo" width={140} height={28} unoptimized className="h-7 w-auto object-contain" />
             ) : (
               <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
             )}

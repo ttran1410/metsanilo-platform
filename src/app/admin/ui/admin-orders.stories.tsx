@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
-import { OrdersListing, type AdminOrder, type OrdersView } from "../orders-listing";
+import { OrdersListing, type AdminOrder, type OrdersView } from "../orders/list/orders-listing";
 import { AdminEmptyState, AdminNotice, AdminPageHeader } from "../presentation";
 
 const baseOrder: AdminOrder = {

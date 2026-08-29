@@ -1,0 +1,5 @@
+import type { CustomerRow } from "./customer-row";
+
+export type OrderItem = { id: string; publicReference: string; productId?: string; productNameFi: string; packageLabelFi: string; status: string; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY"; volumeMl: number; finalTotalCents?: number | null; itemSubtotalCents?: number; createdAt: string };
+export type ReviewItem = { id: string; rating: number; originalText: string; displayText?: string | null; status: string; featured: boolean; verifiedBuyer: boolean; orderId?: string | null; sellerReplyText?: string | null; sellerRepliedAt?: string | null; createdAt: string };
+export type CustomerProfile = { customer: CustomerRow; orders: OrderItem[]; reviews?: ReviewItem[]; timelineByYear: Record<string, OrderItem[]>; audit: Array<{ id: string; action: string; actor: string; createdAt: string }>; metrics: NonNullable<CustomerRow["metrics"]>; identityConflicts: Array<{ id: string; name: string; mobile: string | null; email?: string | null }> };

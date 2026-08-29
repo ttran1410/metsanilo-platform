@@ -39,6 +39,48 @@ function formatAlertCount(count: number) {
   return count > 99 ? "99+" : String(count);
 }
 
+let navigationSummaryPromise: Promise<{ triageCount: number; unreadCount: number } | null> | null = null;
+let navigationSummaryFetchedAt = 0;
+let navigationOrderSearchPromise: Promise<OrderResult[]> | null = null;
+
+type NavigationSummaryCache = {
+  promise: Promise<{ triageCount: number; unreadCount: number } | null>;
+  fetchedAt: number;
+};
+
+function fetchNavigationSummary() {
+  const now = Date.now();
+  const browserCache = typeof window !== "undefined"
+    ? (window as Window & { __metsaniloNavigationSummary?: NavigationSummaryCache }).__metsaniloNavigationSummary
+    : undefined;
+  if (browserCache && now - browserCache.fetchedAt < 15_000) return browserCache.promise;
+  if (navigationSummaryPromise && now - navigationSummaryFetchedAt < 15_000) return navigationSummaryPromise;
+  navigationSummaryFetchedAt = now;
+  navigationSummaryPromise = fetch("/api/admin/navigation-summary", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-summary" } })
+    .then(async (response) => {
+      if (!response.ok) return null;
+      const body = await response.json();
+      return { triageCount: body.data?.triageCount ?? 0, unreadCount: body.data?.unreadCount ?? 0 };
+    })
+    .catch(() => null);
+  if (typeof window !== "undefined") {
+    (window as Window & { __metsaniloNavigationSummary?: NavigationSummaryCache }).__metsaniloNavigationSummary = { promise: navigationSummaryPromise, fetchedAt: now };
+  }
+  return navigationSummaryPromise;
+}
+
+function fetchNavigationOrderSearch() {
+  if (navigationOrderSearchPromise) return navigationOrderSearchPromise;
+  navigationOrderSearchPromise = fetch("/api/admin/orders", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-command-search" } })
+    .then(async (response) => {
+      if (!response.ok) return [];
+      const body = await response.json();
+      return Array.isArray(body.data) ? body.data as OrderResult[] : [];
+    })
+    .catch(() => []);
+  return navigationOrderSearchPromise;
+}
+
 function NavIcon({ id }: { id: string }) {
   const props = { className: "w-4 h-4 stroke-[1.8]" };
   switch (id) {
@@ -100,7 +142,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
     setAlertsOpen(true);
     setAlertsLoading(true);
     try {
-      const response = await fetch("/api/admin/notifications?view=recent&state=UNREAD", { cache: "no-store" });
+      const response = await fetch("/api/admin/notifications?view=recent&state=UNREAD", { cache: "no-store", headers: { "x-admin-request-scope": "navigation-alerts" } });
       const body = await response.json();
       if (response.ok) setAlerts(body.data ?? []);
     } finally {
@@ -109,7 +151,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
   }
 
   async function markAlertsRead(id?: string) {
-    await fetch("/api/admin/notifications", {
+    await fetch(id ? `/api/admin/notifications/${id}/read` : "/api/admin/notifications", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(id
@@ -126,11 +168,10 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
   useEffect(() => {
     async function refreshBadges() {
       try {
-        const response = await fetch("/api/admin/dashboard", { cache: "no-store" });
-        if (!response.ok) return;
-        const body = await response.json();
-        setTriageCount(body.data.attentionCount ?? body.data.overdueNew?.length ?? 0);
-        setUnreadCount(body.data.unreadNotifications ?? 0);
+        const summary = await fetchNavigationSummary();
+        if (!summary) return;
+        setTriageCount(summary.triageCount);
+        setUnreadCount(summary.unreadCount);
       } catch { /* Badges are supplementary. */ }
     }
     void refreshBadges();
@@ -142,11 +183,7 @@ export function AdminNavigation({ role, displayName, email, items }: { role: Rol
 
   useEffect(() => {
     if (!paletteOpen || orders.length) return;
-    const initial = window.setTimeout(() => void fetch("/api/admin/orders", { cache: "no-store" }).then(async (response) => {
-      if (!response.ok) return;
-      const body = await response.json();
-      setOrders(body.data);
-    }).catch(() => undefined), 0);
+    const initial = window.setTimeout(() => void fetchNavigationOrderSearch().then(setOrders), 0);
     return () => window.clearTimeout(initial);
   }, [orders.length, paletteOpen]);
 

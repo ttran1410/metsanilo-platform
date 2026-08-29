@@ -1,8 +1,7 @@
-import { db } from "@/db/client";
-import { requirePermission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { getReport, reportCsv, type ReportKey } from "@/domain/reports";
 import { failure, success } from "../../../response";
+import { executeAdmin } from "../../module";
 
 export const runtime = "nodejs";
 
@@ -23,20 +22,21 @@ export async function GET(request: Request, context: { params: Promise<{ report:
     const { report: rawReport } = await context.params;
     if (!(rawReport in permissions)) throw new DomainError("NOT_FOUND", "Report not found", 404);
     const report = rawReport as ReportKey;
-    await requirePermission(db(), request, permissions[report]);
-    const url = new URL(request.url);
+    const result = await executeAdmin(request, { permission: permissions[report], parse: async () => new URL(request.url).searchParams, run: async (params, { database }) => {
     const today = new Date().toISOString().slice(0, 10);
-    const from = validDate(url.searchParams.get("from"), today);
-    const to = validDate(url.searchParams.get("to"), today);
+    const from = validDate(params.get("from"), today);
+    const to = validDate(params.get("to"), today);
     if (from > to) throw new DomainError("VALIDATION_ERROR", "Report start date cannot be after end date", 422);
-    const reportFilters = { from, to, productId: url.searchParams.get("productId") || undefined, method: (url.searchParams.get("method") as "PICKUP" | "DELIVERY" | null) ?? undefined, source: url.searchParams.get("source") || undefined, outcome: url.searchParams.get("outcome") || undefined, groupBy: (url.searchParams.get("groupBy") as "day" | "week" | "month" | null) ?? "day" };
-    const data = await getReport(db(), reportFilters);
+    const reportFilters = { from, to, productId: params.get("productId") || undefined, method: (params.get("method") as "PICKUP" | "DELIVERY" | null) ?? undefined, source: params.get("source") || undefined, outcome: params.get("outcome") || undefined, groupBy: (params.get("groupBy") as "day" | "week" | "month" | null) ?? "day" };
+    const data = await getReport(database, reportFilters);
     const previous = previousPeriod(from, to);
-    const previousData = await getReport(db(), { ...reportFilters, ...previous });
+    const previousData = await getReport(database, { ...reportFilters, ...previous });
     const comparison = { from: previous.from, to: previous.to, fulfilledSalesCents: previousData.sales.fulfilledSalesCents, fulfilledLitresMl: previousData.sales.fulfilledLitresMl, fulfilledOrders: previousData.sales.fulfilledOrders, capacityUtilizationPercent: previousData.capacity.utilizationPercent };
-    if (url.searchParams.get("format") === "csv") {
+    if (params.get("format") === "csv") {
       return new Response(reportCsv(data, report), { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="metsanilo-${report}-${from}-${to}.csv"` } });
     }
     return success({ ...data, comparison });
-  } catch (error) { return failure(error); }
+    } });
+    return result;
+  } catch (error) { return failure(error, request); }
 }

@@ -1,0 +1,365 @@
+import { describe, expect, it } from "vitest";
+import { parseJson } from "@/app/api/admin/module";
+import { PUT as updatePaymentMethod } from "@/app/api/admin/payment-methods/[method]/route";
+import { PATCH as updateFulfillmentLocation } from "@/app/api/admin/fulfillment-locations/[id]/route";
+import { DELETE as deletePaymentMethod } from "@/app/api/admin/payment-methods/route";
+import { DELETE as deleteFulfillmentLocation } from "@/app/api/admin/fulfillment-locations/route";
+import { GET as getProducts } from "@/app/api/admin/products/route";
+import { GET as getOrders } from "@/app/api/admin/orders/route";
+import { GET as getReviews } from "@/app/api/admin/reviews/route";
+import { GET as getCustomers } from "@/app/api/admin/customers/route";
+import { GET as getUsers } from "@/app/api/admin/users/route";
+import { GET as getAvailability } from "@/app/api/admin/availability/route";
+import { GET as getNotifications } from "@/app/api/admin/notifications/route";
+import { GET as getAudit } from "@/app/api/admin/audit/route";
+import { GET as getSettings } from "@/app/api/admin/contact/route";
+import { GET as getDashboard } from "@/app/api/admin/dashboard/route";
+import { GET as getNavigationSummary } from "@/app/api/admin/navigation-summary/route";
+import { GET as getMedia } from "@/app/api/admin/media/route";
+import { GET as getTheme } from "@/app/api/admin/storefront-theme/route";
+import { POST as runAutomation } from "@/app/api/admin/automation/run/route";
+import { GET as getOrderMember } from "@/app/api/admin/orders/[id]/route";
+import { POST as updateOrderStatus } from "@/app/api/admin/orders/[id]/status/route";
+import { POST as addOrderNote } from "@/app/api/admin/orders/[id]/notes/route";
+import { POST as recordOrderPayment } from "@/app/api/admin/orders/[id]/payment/route";
+import { POST as refundOrder } from "@/app/api/admin/orders/[id]/refund/route";
+import { PUT as updateOrderPricing } from "@/app/api/admin/orders/[id]/pricing/route";
+import { PATCH as updateOrderMember } from "@/app/api/admin/orders/[id]/route";
+import { GET as getCustomerMember } from "@/app/api/admin/customers/[id]/route";
+import { POST as anonymizeCustomer } from "@/app/api/admin/customers/[id]/route";
+import { PATCH as updateCustomerMember } from "@/app/api/admin/customers/[id]/route";
+import { POST as confirmContact } from "@/app/api/admin/customers/[id]/contact-confirmation/route";
+import { GET as getUserMember } from "@/app/api/admin/users/[id]/route";
+import { PATCH as updateUser } from "@/app/api/admin/users/[id]/route";
+import { POST as resetPassword } from "@/app/api/admin/users/[id]/password/route";
+import { PUT as updatePermission } from "@/app/api/admin/users/[id]/permissions/route";
+import { GET as getProductMember } from "@/app/api/admin/products/[id]/route";
+import { DELETE as deleteProduct } from "@/app/api/admin/products/[id]/route";
+import { PATCH as reorderProducts } from "@/app/api/admin/products/route";
+import { PATCH as updateProductMember } from "@/app/api/admin/products/[id]/route";
+import { PATCH as reorderPackages } from "@/app/api/admin/products/[id]/packages/route";
+import { GET as getSeasons } from "@/app/api/admin/products/[id]/seasons/route";
+import { PUT as updateReviewVisibility } from "@/app/api/admin/reviews/visibility/route";
+import { PUT as updateAvailability } from "@/app/api/admin/availability/[id]/route";
+import { POST as publishTheme } from "@/app/api/admin/storefront-theme/drafts/[draftId]/publish/route";
+import { POST as rollbackTheme } from "@/app/api/admin/storefront-theme/versions/[versionId]/rollback/route";
+import { POST as planAvailability } from "@/app/api/admin/availability/plan/route";
+import { POST as uploadMedia } from "@/app/api/admin/media/route";
+import { PATCH as updateMedia, DELETE as deleteMedia } from "@/app/api/admin/media/[id]/route";
+import { POST as markNotificationRead } from "@/app/api/admin/notifications/[id]/read/route";
+import { GET as getAvailabilityDuplicates } from "@/app/api/admin/availability/duplicates/route";
+import { POST as previewAvailability } from "@/app/api/admin/availability/[id]/preview/route";
+import { POST as resolveCustomerIdentity } from "@/app/api/admin/customers/[id]/identity/route";
+import { POST as holdCustomer } from "@/app/api/admin/customers/[id]/retention-hold/route";
+import { POST as deliveryException } from "@/app/api/admin/orders/[id]/delivery-exception/route";
+import { PUT as deliveryFee } from "@/app/api/admin/orders/[id]/delivery-fee/route";
+import { POST as pickupConfirm } from "@/app/api/admin/orders/[id]/pickup-confirm/route";
+import { POST as orderPreview } from "@/app/api/admin/orders/[id]/preview/route";
+import { GET as getOrderQueue } from "@/app/api/admin/orders/queue/route";
+import { POST as createHistoricalOrder } from "@/app/api/admin/orders/historical/route";
+import { POST as createExternalOrder } from "@/app/api/admin/orders/external/route";
+import { GET as exportOrders } from "@/app/api/admin/orders/export/route";
+import { GET as exportAudit } from "@/app/api/admin/audit/export/route";
+import { PUT as setPaymentMethod, DELETE as removePaymentMethod } from "@/app/api/admin/payment-methods/route";
+import { POST as createFulfillmentLocation, PATCH as editFulfillmentLocation, DELETE as removeFulfillmentLocation } from "@/app/api/admin/fulfillment-locations/route";
+import { POST as createOrderSource, PATCH as editOrderSource, DELETE as removeOrderSource } from "@/app/api/admin/order-sources/route";
+import { DELETE as deleteThemeDraft } from "@/app/api/admin/storefront-theme/drafts/[draftId]/route";
+import { POST as renewContact } from "@/app/api/admin/customers/[id]/contact-confirmation/renew/route";
+import { GET as retentionReview } from "@/app/api/admin/customers/retention-review/route";
+import { POST as markNotificationUnread } from "@/app/api/admin/notifications/[id]/unread/route";
+import { PATCH as updatePackage, DELETE as deletePackage } from "@/app/api/admin/packages/[id]/route";
+import { POST as createSeason } from "@/app/api/admin/products/[id]/seasons/route";
+import { PATCH as updateSeason, DELETE as deleteSeason } from "@/app/api/admin/products/[id]/seasons/[seasonId]/route";
+
+describe("admin request module contract", () => {
+  it("parses valid JSON bodies", async () => {
+    await expect(parseJson(new Request("http://localhost", { method: "POST", body: JSON.stringify({ action: "update" }) }))).resolves.toEqual({ action: "update" });
+  });
+
+  it("turns malformed JSON into a validation error", async () => {
+    await expect(parseJson(new Request("http://localhost", { method: "POST", body: "{" }))).rejects.toMatchObject({ code: "VALIDATION_ERROR", status: 422 });
+  });
+
+  it("keeps compatibility member routes on the JSON error envelope", async () => {
+    const payment = await updatePaymentMethod(new Request("http://localhost/api/admin/payment-methods/CASH", { method: "PUT", body: "{" }), { params: Promise.resolve({ method: "CASH" }) });
+    const fulfillment = await updateFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations/location-1", { method: "PATCH", body: "{" }), { params: Promise.resolve({ id: "location-1" }) });
+    expect(payment.status).toBe(401);
+    expect(fulfillment.status).toBe(401);
+    expect(payment.headers.get("content-type")).toContain("application/json");
+    expect(fulfillment.headers.get("content-type")).toContain("application/json");
+    expect((await payment.json())).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    expect((await fulfillment.json())).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("keeps Settings operational mutations behind authentication", async () => {
+    const payment = await updatePaymentMethod(new Request("http://localhost/api/admin/payment-methods/CASH", { method: "PUT", body: JSON.stringify({ method: "CASH", enabled: true }) }), { params: Promise.resolve({ method: "CASH" }) });
+    const fulfillment = await updateFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations/location-1", { method: "PATCH", body: JSON.stringify({ id: "location-1", nameFi: "Pori", nameEn: "Pori", type: "PICKUP", address: "Market street 1" }) }), { params: Promise.resolve({ id: "location-1" }) });
+    for (const response of [payment, fulfillment]) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Storefront theme transitions behind authentication", async () => {
+    const publish = await publishTheme(new Request("http://localhost/api/admin/storefront-theme/drafts/draft-1", { method: "POST" }), { params: Promise.resolve({ draftId: "draft-1" }) });
+    const rollback = await rollbackTheme(new Request("http://localhost/api/admin/storefront-theme/versions/version-1", { method: "POST" }), { params: Promise.resolve({ versionId: "version-1" }) });
+    for (const response of [publish, rollback]) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps canonical DELETE requests behind authentication", async () => {
+    const payment = await deletePaymentMethod(new Request("http://localhost/api/admin/payment-methods", { method: "DELETE" }));
+    const fulfillment = await deleteFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations", { method: "DELETE" }));
+    expect(payment.status).toBe(401);
+    expect(fulfillment.status).toBe(401);
+    expect(await payment.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    expect(await fulfillment.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("keeps canonical collection reads behind authentication", async () => {
+    const responses = await Promise.all([
+      getProducts(new Request("http://localhost/api/admin/products")),
+      getOrders(new Request("http://localhost/api/admin/orders")),
+      getReviews(new Request("http://localhost/api/admin/reviews")),
+      getCustomers(new Request("http://localhost/api/admin/customers")),
+      getUsers(new Request("http://localhost/api/admin/users")),
+      getAvailability(new Request("http://localhost/api/admin/availability")),
+      getNotifications(new Request("http://localhost/api/admin/notifications")),
+      getAudit(new Request("http://localhost/api/admin/audit")),
+      getSettings(new Request("http://localhost/api/admin/contact")),
+      getDashboard(new Request("http://localhost/api/admin/dashboard")),
+      getNavigationSummary(new Request("http://localhost/api/admin/navigation-summary")),
+      getMedia(new Request("http://localhost/api/admin/media")),
+      getTheme(new Request("http://localhost/api/admin/storefront-theme")),
+      runAutomation(new Request("http://localhost/api/admin/automation/run", { method: "POST" })),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Order member and action routes behind authentication", async () => {
+    const params = Promise.resolve({ id: "order-1" });
+    const responses = await Promise.all([
+      getOrderMember(new Request("http://localhost/api/admin/orders/order-1"), { params }),
+      updateOrderStatus(new Request("http://localhost/api/admin/orders/order-1/status", { method: "POST", body: "{}" }), { params }),
+      addOrderNote(new Request("http://localhost/api/admin/orders/order-1/notes", { method: "POST", body: "{}" }), { params }),
+      recordOrderPayment(new Request("http://localhost/api/admin/orders/order-1/payment", { method: "POST", body: "{}" }), { params }),
+      refundOrder(new Request("http://localhost/api/admin/orders/order-1/refund", { method: "POST", body: "{}" }), { params }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Customer and User member/action routes behind authentication", async () => {
+    const customerParams = Promise.resolve({ id: "customer-1" });
+    const userParams = Promise.resolve({ id: "user-1" });
+    const responses = await Promise.all([
+      getCustomerMember(new Request("http://localhost/api/admin/customers/customer-1"), { params: customerParams }),
+      anonymizeCustomer(new Request("http://localhost/api/admin/customers/customer-1", { method: "POST" }), { params: customerParams }),
+      confirmContact(new Request("http://localhost/api/admin/customers/customer-1/contact-confirmation", { method: "POST", body: JSON.stringify({ channel: "PHONE" }) }), { params: customerParams }),
+      getUserMember(new Request("http://localhost/api/admin/users/user-1"), { params: userParams }),
+      updateUser(new Request("http://localhost/api/admin/users/user-1", { method: "PATCH", body: JSON.stringify({ action: "update", displayName: "Test User" }) }), { params: userParams }),
+      resetPassword(new Request("http://localhost/api/admin/users/user-1/password", { method: "POST" }), { params: userParams }),
+      updatePermission(new Request("http://localhost/api/admin/users/user-1/permissions", { method: "PUT", body: JSON.stringify({ permission: "orders.read", granted: true }) }), { params: userParams }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Product, Review, and Availability action routes behind authentication", async () => {
+    const productParams = Promise.resolve({ id: "product-1" });
+    const responses = await Promise.all([
+      getProductMember(new Request("http://localhost/api/admin/products/product-1"), { params: productParams }),
+      deleteProduct(new Request("http://localhost/api/admin/products/product-1", { method: "DELETE" }), { params: productParams }),
+      reorderPackages(new Request("http://localhost/api/admin/products/product-1/packages", { method: "PATCH", body: JSON.stringify({ packageIds: [] }) }), { params: productParams }),
+      getSeasons(new Request("http://localhost/api/admin/products/product-1/seasons"), { params: productParams }),
+      updateReviewVisibility(new Request("http://localhost/api/admin/reviews/visibility", { method: "PUT", body: JSON.stringify({ visible: true }) })),
+      updateAvailability(new Request("http://localhost/api/admin/availability/availability-1", { method: "PUT", body: JSON.stringify({ expectedVersion: 1, capacityMl: 1000, manualSoldOut: false }) }), { params: Promise.resolve({ id: "availability-1" }) }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps remaining operational mutations behind authentication", async () => {
+    const responses = await Promise.all([
+      planAvailability(new Request("http://localhost/api/admin/availability/plan", { method: "POST", body: "{}" })),
+      uploadMedia(new Request("http://localhost/api/admin/media", { method: "POST" })),
+      updateMedia(new Request("http://localhost/api/admin/media/media-1", { method: "PATCH", body: "{}" }), { params: Promise.resolve({ id: "media-1" }) }),
+      deleteMedia(new Request("http://localhost/api/admin/media/media-1", { method: "DELETE" }), { params: Promise.resolve({ id: "media-1" }) }),
+      markNotificationRead(new Request("http://localhost/api/admin/notifications/notification-1/read", { method: "POST" }), { params: Promise.resolve({ id: "notification-1" }) }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps remaining preview and customer resolution routes behind authentication", async () => {
+    const responses = await Promise.all([
+      getAvailabilityDuplicates(new Request("http://localhost/api/admin/availability/duplicates")),
+      previewAvailability(new Request("http://localhost/api/admin/availability/a1/preview", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "a1" }) }),
+      resolveCustomerIdentity(new Request("http://localhost/api/admin/customers/c1/identity", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "c1" }) }),
+      holdCustomer(new Request("http://localhost/api/admin/customers/c1/retention-hold", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "c1" }) }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps remaining Order action routes behind authentication", async () => {
+    const params = Promise.resolve({ id: "order-1" });
+    const responses = await Promise.all([
+      deliveryException(new Request("http://localhost/api/admin/orders/order-1/delivery-exception", { method: "POST", body: "{}" }), { params }),
+      deliveryFee(new Request("http://localhost/api/admin/orders/order-1/delivery-fee", { method: "PUT", body: "{}" }), { params }),
+      pickupConfirm(new Request("http://localhost/api/admin/orders/order-1/pickup-confirm", { method: "POST", body: "{}" }), { params }),
+      orderPreview(new Request("http://localhost/api/admin/orders/order-1/preview", { method: "POST", body: "{}" }), { params }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Order and Audit operational compatibility routes behind authentication", async () => {
+    const responses = await Promise.all([
+      getOrderQueue(new Request("http://localhost/api/admin/orders/queue")),
+      createHistoricalOrder(new Request("http://localhost/api/admin/orders/historical", { method: "POST", body: "{}" })),
+      createExternalOrder(new Request("http://localhost/api/admin/orders/external", { method: "POST", body: "{}" })),
+      exportOrders(new Request("http://localhost/api/admin/orders/export")),
+      exportAudit(new Request("http://localhost/api/admin/audit/export")),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps remaining Customer and Notification routes behind authentication", async () => {
+    const responses = await Promise.all([
+      renewContact(new Request("http://localhost/api/admin/customers/c1/contact-confirmation/renew", { method: "POST" }), { params: Promise.resolve({ id: "c1" }) }),
+      retentionReview(new Request("http://localhost/api/admin/customers/retention-review")),
+      markNotificationUnread(new Request("http://localhost/api/admin/notifications/n1/unread", { method: "POST" }), { params: Promise.resolve({ id: "n1" }) }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps Product package and season mutations behind authentication", async () => {
+    const productParams = Promise.resolve({ id: "product-1" });
+    const seasonParams = Promise.resolve({ id: "product-1", seasonId: "season-1" });
+    const responses = await Promise.all([
+      updatePackage(new Request("http://localhost/api/admin/packages/package-1", { method: "PATCH", body: "{}" }), { params: Promise.resolve({ id: "package-1" }) }),
+      deletePackage(new Request("http://localhost/api/admin/packages/package-1", { method: "DELETE" }), { params: Promise.resolve({ id: "package-1" }) }),
+      createSeason(new Request("http://localhost/api/admin/products/product-1/seasons", { method: "POST", body: "{}" }), { params: productParams }),
+      updateSeason(new Request("http://localhost/api/admin/products/product-1/seasons/season-1", { method: "PATCH", body: "{}" }), { params: seasonParams }),
+      deleteSeason(new Request("http://localhost/api/admin/products/product-1/seasons/season-1", { method: "DELETE" }), { params: seasonParams }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("keeps remaining Settings operational mutations behind authentication", async () => {
+    const responses = await Promise.all([
+      setPaymentMethod(new Request("http://localhost/api/admin/payment-methods", { method: "PUT", body: "{}" })),
+      removePaymentMethod(new Request("http://localhost/api/admin/payment-methods?method=CASH", { method: "DELETE" })),
+      createFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations", { method: "POST", body: "{}" })),
+      editFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations", { method: "PATCH", body: "{}" })),
+      removeFulfillmentLocation(new Request("http://localhost/api/admin/fulfillment-locations?id=l1", { method: "DELETE" })),
+      createOrderSource(new Request("http://localhost/api/admin/order-sources", { method: "POST", body: "{}" })),
+      editOrderSource(new Request("http://localhost/api/admin/order-sources", { method: "PATCH", body: "{}" })),
+      removeOrderSource(new Request("http://localhost/api/admin/order-sources?id=s1", { method: "DELETE" })),
+      deleteThemeDraft(new Request("http://localhost/api/admin/storefront-theme/drafts/d1", { method: "DELETE" }), { params: Promise.resolve({ draftId: "d1" }) }),
+    ]);
+    for (const response of responses) {
+      expect(response.status).toBe(401);
+      expect(response.headers.get("content-type")).toContain("application/json");
+      expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+    }
+  });
+
+  it("authenticates Availability commands before parsing malformed input", async () => {
+    const response = await updateAvailability(new Request("http://localhost/api/admin/availability/availability-1", { method: "PUT", body: "{" }), { params: Promise.resolve({ id: "availability-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("authenticates Product collection commands before parsing malformed input", async () => {
+    const response = await reorderProducts(new Request("http://localhost/api/admin/products", { method: "PATCH", body: "{" }));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("authenticates Order member commands before parsing malformed input", async () => {
+    const response = await updateOrderMember(new Request("http://localhost/api/admin/orders/order-1", { method: "PATCH", body: "{" }), { params: Promise.resolve({ id: "order-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("authenticates Customer member commands before parsing malformed input", async () => {
+    const response = await updateCustomerMember(new Request("http://localhost/api/admin/customers/customer-1", { method: "PATCH", body: "{" }), { params: Promise.resolve({ id: "customer-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("authenticates User member commands before parsing malformed input", async () => {
+    const response = await updateUser(new Request("http://localhost/api/admin/users/user-1", { method: "PATCH", body: "{" }), { params: Promise.resolve({ id: "user-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("authenticates User permission commands before parsing malformed input", async () => {
+    const response = await updatePermission(new Request("http://localhost/api/admin/users/user-1/permissions", { method: "PUT", body: "{" }), { params: Promise.resolve({ id: "user-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("authenticates Order pricing commands before parsing malformed input", async () => {
+    const response = await updateOrderPricing(new Request("http://localhost/api/admin/orders/order-1/pricing", { method: "PUT", body: "{" }), { params: Promise.resolve({ id: "order-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("authenticates Product member commands before parsing malformed input", async () => {
+    const response = await updateProductMember(new Request("http://localhost/api/admin/products/product-1", { method: "PATCH", body: "{" }), { params: Promise.resolve({ id: "product-1" }) });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
+  });
+
+  it("preserves a valid correlation ID through an authenticated route failure", async () => {
+    const response = await getProducts(new Request("http://localhost/api/admin/products", {
+      headers: { "x-correlation-id": "123e4567-e89b-12d3-a456-426614174000" },
+    }));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      code: "UNAUTHORIZED",
+      correlationId: "123e4567-e89b-12d3-a456-426614174000",
+    });
+  });
+});

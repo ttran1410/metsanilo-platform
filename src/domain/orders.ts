@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, availability, customers, fulfillmentLocations, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -75,10 +75,9 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
   }
 
   const input: OrderInput = parsed.data;
-  let mobile: string | null = null;
   if (input.mobile && input.mobile.trim()) {
     try {
-      mobile = normalizeMobile(input.mobile);
+      normalizeMobile(input.mobile);
     } catch {
       throw new DomainError("VALIDATION_ERROR", "Invalid phone", 422, { mobile: "INVALID_PHONE" });
     }

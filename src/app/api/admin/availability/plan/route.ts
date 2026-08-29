@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { db } from "@/db/client";
-import { planAvailability, previewAvailabilityPlan } from "@/domain/availability";
+import { executeAdmin, authenticateAdminAny, parseJson } from "../../module";
+import { planAdminAvailability, previewAdminAvailabilityPlan } from "@/domain/admin-availability-actions";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
-import { requirePermission } from "@/domain/access";
 
 export const runtime = "nodejs";
 
@@ -22,12 +21,13 @@ const command = z.object({
 
 export async function POST(request: Request) {
   try {
-    const parsed = command.safeParse(await request.json());
+    await authenticateAdminAny(request, ["availability.write", "availability.sold_out"]);
+    const parsed = command.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability plan", 422);
-    const actor = await requirePermission(db(), request, parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write");
-    if (parsed.data.preview) return success(await previewAvailabilityPlan(db(), parsed.data));
-    return success(await planAvailability(db(), { ...parsed.data, actor: actor.email ?? actor.id }));
+    const permission = parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write";
+    const result = await executeAdmin(request, { permission, parse: async () => parsed.data, run: async (input, { database, context }) => { const actionContext = { actor: context.actor, shop: { id: context.shop.shopId } }; return input.preview ? previewAdminAvailabilityPlan(database, actionContext, input) : planAdminAvailability(database, actionContext, input); } });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

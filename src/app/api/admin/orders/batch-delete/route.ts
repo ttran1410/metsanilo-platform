@@ -1,18 +1,17 @@
-import { db } from "@/db/client";
-import { adminContext } from "@/app/admin/portal-auth";
-import { requirePermission } from "@/domain/access";
 import { failure, success } from "../../../response";
-import { deleteManagerOrder } from "@/domain/orders";
+import { deleteAdminOrder } from "@/domain/admin-order-actions";
+import { env } from "@/lib/env";
 import { DomainError } from "@/domain/errors";
+import { executeAdmin, parseJson } from "../../module";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const { actor } = await adminContext();
-    await requirePermission(db(), request, "orders.delete");
-
-    const { ids } = await request.json();
+    const result = await executeAdmin(request, {
+      permission: "orders.delete",
+      parse: async (incoming) => parseJson<{ ids?: unknown }>(incoming),
+      run: async ({ ids }, { database, context: { actor } }) => {
     if (!Array.isArray(ids) || ids.length === 0) {
       throw new DomainError("VALIDATION_ERROR", "No order IDs provided for deletion.", 422);
     }
@@ -22,7 +21,7 @@ export async function POST(request: Request) {
 
     for (const id of ids) {
       try {
-        await deleteManagerOrder(db(), id, actor.email ?? undefined);
+        await deleteAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, id);
         deletedIds.push(id);
       } catch (err: unknown) {
         if (err instanceof DomainError && (err.code === "PAYMENT_EXISTS" || err.status === 400)) {
@@ -33,13 +32,16 @@ export async function POST(request: Request) {
       }
     }
 
-    return success({
+    return {
       deletedCount: deletedIds.length,
       deletedIds,
       skippedPaidCount: skippedPaidIds.length,
       skippedPaidIds,
+    };
+      },
     });
+    return success(result);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

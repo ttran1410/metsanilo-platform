@@ -1,17 +1,20 @@
 import { z } from "zod";
-import { db } from "@/db/client";
-import { PERMISSIONS, setUserPermission } from "@/domain/access";
+import { PERMISSIONS, type Permission } from "@/domain/access";
+import { updateUserPermission } from "@/domain/admin-users-actions";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../../response";
+import { authenticateAdminAny, executeAdmin, parseJson } from "../../../module";
 
 export const runtime = "nodejs";
 const command = z.object({ permission: z.enum(PERMISSIONS), granted: z.boolean() });
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const parsed = command.safeParse(await request.json());
+    await authenticateAdminAny(request, ["shop_permissions.assign"]);
+    const parsed = command.safeParse(await parseJson<unknown>(request));
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid permission", 422);
     const { id } = await params;
-    return success(await setUserPermission(db(), request, { userId: id, ...parsed.data }));
-  } catch (error) { return failure(error); }
+    const result = await executeAdmin(request, { permission: "shop_permissions.assign", parse: async () => ({ userId: id, permission: parsed.data.permission as Permission, granted: parsed.data.granted }), run: async (input, { database, context: { actor, shop } }) => updateUserPermission(database, { actor, shop: { id: shop.shopId }, request }, input) });
+    return success(result);
+  } catch (error) { return failure(error, request); }
 }

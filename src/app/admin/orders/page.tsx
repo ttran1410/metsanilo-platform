@@ -1,13 +1,11 @@
-import { db } from "@/db/client";
-import { listManagerOrdersWithPaymentSummary } from "@/domain/orders";
-import { OrdersListing, type OrdersView } from "../orders-listing";
+import { OrdersListing, type OrdersView } from "../orders/list/orders-listing";
 import { adminContext, hasAdminPermission } from "../portal-auth";
 import { AdminRouteFrame } from "../route-frame";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export default async function OrdersPage({ searchParams }: { searchParams?: Promise<{ view?: string; status?: string }> }) {
+export default async function OrdersPage({ searchParams }: { searchParams?: Promise<{ view?: string; status?: string; created?: string }> }) {
   const { request } = await adminContext();
   const allowed = await hasAdminPermission(request, "orders.read");
   if (!allowed) return <AdminRouteFrame><main className="shell py-10"><p className="card" role="alert">You do not have access to orders.</p></main></AdminRouteFrame>;
@@ -15,16 +13,14 @@ export default async function OrdersPage({ searchParams }: { searchParams?: Prom
   const requestedView = query?.view?.toUpperCase();
   const validViews = new Set<OrdersView>(["TRIAGE", "ALL", "TODAY", "NEEDS_CONFIRMATION", "PICKUP_TODAY", "DELIVERY_TODAY", "UNPAID", "ARCHIVED"]);
   const initialView = validViews.has(requestedView as OrdersView) ? requestedView as OrdersView : undefined;
-  const initialOrders = await listManagerOrdersWithPaymentSummary(db());
-  const loadedAt = new Date().toISOString();
   return (
     <AdminRouteFrame>
       <OrdersListing
         key={`${initialView ?? "TODAY"}:${query?.status?.toUpperCase() ?? "ALL"}`}
-        initialOrders={initialOrders}
-        initialLoadedAt={loadedAt}
+        loadInitialFromApi
         initialView={initialView}
         initialStatus={query?.status?.toUpperCase() ?? "ALL"}
+        initialCreatedId={query?.created}
         canExport={await hasAdminPermission(request, "orders.export")}
         canCreate={await hasAdminPermission(request, "orders.create")}
         canTransition={await hasAdminPermission(request, "orders.transition")}

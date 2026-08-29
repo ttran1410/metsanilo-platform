@@ -5,9 +5,9 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { eq } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
-import { availability, customers, orders, packages, products, shops } from "@/db/schema";
+import { availability, orders, packages, products, shops } from "@/db/schema";
 import { confirmCustomerContact, createCustomer, findRetentionEligibleCustomers, getCustomerProfile, renewCustomerContact, setCustomerRetentionHold, updateCustomer } from "@/domain/customers";
-import { createExternalOrder, createHistoricalOrder } from "@/domain/operations";
+import { createHistoricalOrder } from "@/domain/operations";
 import { submitOrder } from "@/domain/orders";
 import { resetEnvForTests } from "@/lib/env";
 

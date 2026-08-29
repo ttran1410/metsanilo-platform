@@ -1,23 +1,21 @@
-import { db } from "@/db/client";
-import { requirePermission } from "@/domain/access";
-import { listManagerOrdersWithPaymentSummary } from "@/domain/orders";
+import { getAdminOrdersForExport } from "@/domain/admin-order-actions";
+import { env } from "@/lib/env";
 import { failure } from "../../../response";
+import { executeAdmin } from "../../module";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    await requirePermission(db(), request, "orders.export");
-    const { searchParams } = new URL(request.url);
-    const idsParam = searchParams.get("ids");
-    const selectedIds = idsParam ? idsParam.split(",").filter(Boolean) : [];
-
-    let ordersList = await listManagerOrdersWithPaymentSummary(db());
-
-    if (selectedIds.length > 0) {
-      const idSet = new Set(selectedIds);
-      ordersList = ordersList.filter((o) => idSet.has(o.id));
-    }
+    const ordersList = await executeAdmin(request, {
+      permission: "orders.export",
+      parse: async () => new URL(request.url).searchParams,
+      run: async (searchParams, { database, context }) => {
+        const idsParam = searchParams.get("ids");
+        const selectedIds = idsParam ? idsParam.split(",").filter(Boolean) : [];
+        return getAdminOrdersForExport(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, selectedIds);
+      },
+    });
 
     const headers = [
       "Public Reference",
@@ -70,6 +68,6 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

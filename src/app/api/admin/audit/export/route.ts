@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "@/db/client";
 import { listAuditEntries } from "@/domain/audit";
-import { authenticateAdmin } from "@/app/api/admin/module";
+import { executeAdmin } from "@/app/api/admin/module";
 import { failure } from "@/app/api/response";
 import type { AuditCategory, AuditSeverity } from "@/domain/audit";
 
@@ -9,9 +8,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-  await authenticateAdmin(request, "audit.export");
-
-  const { searchParams } = new URL(request.url);
+  const result = await executeAdmin(request, {
+    permission: "audit.export",
+    parse: async () => new URL(request.url).searchParams,
+    run: async (searchParams, { database }) => {
   const format = searchParams.get("format") ?? "csv";
   const search = searchParams.get("search") ?? "";
   const severity = (searchParams.get("severity") ?? "ALL") as AuditSeverity | "ALL";
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const dateRange = (searchParams.get("dateRange") ?? "all") as "24h" | "7d" | "30d" | "all";
 
   // Fetch all matching records without pagination for full export
-  const result = await listAuditEntries(db(), {
+  const result = await listAuditEntries(database, {
     page: 1,
     limit: 10000,
     search,
@@ -68,5 +68,8 @@ export async function GET(request: Request) {
       "content-disposition": `attachment; filename="security-audit-export-${todayStr}.csv"`,
     },
   });
-  } catch (error) { return failure(error); }
+    },
+  });
+  return result;
+  } catch (error) { return failure(error, request); }
 }

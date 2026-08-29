@@ -1,13 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import type { packages, products } from "@/db/schema";
 import { AdminStatusBadge, useAdminDialogFocus } from "../presentation";
+import type { AdminProductMedia } from "./types/media";
 
 type ProductRow = {
   product: typeof products.$inferSelect;
   packages: Array<typeof packages.$inferSelect>;
-  media?: Array<{ id: string; attachmentId?: string; url: string; altFi: string; altEn: string; isPrimary: boolean }>;
+  media?: AdminProductMedia[];
 };
 
 export function ProductPreviewModal({ row, onClose }: { row: ProductRow; onClose: () => void }) {
@@ -42,7 +44,7 @@ export function ProductPreviewModal({ row, onClose }: { row: ProductRow; onClose
           {/* Media Header */}
           <div className="relative rounded-xl overflow-hidden bg-surface-muted border border-line aspect-[4/3] flex items-center justify-center">
             {primaryMedia ? (
-              <img src={primaryMedia.url} alt={primaryMedia.altFi || row.product.nameFi} className="w-full h-full object-cover" />
+              <Image src={primaryMedia.url} alt={primaryMedia.altFi || row.product.nameFi} width={800} height={600} unoptimized className="w-full h-full object-cover" />
             ) : (
               <div className="text-center p-6 muted">
                 <span className="text-3xl block mb-1">🫐</span>

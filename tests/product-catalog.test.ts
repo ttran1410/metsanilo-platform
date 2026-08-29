@@ -6,6 +6,7 @@ import { migrate } from "drizzle-orm/libsql/migrator";
 import { createDatabaseConnection, type Database } from "@/db/client";
 import { availability, harvestSeasons, shops } from "@/db/schema";
 import { createProduct, getProductReadiness, listManagerProducts, reorderProducts, setProductActive } from "@/domain/products";
+import { searchManagerProducts } from "@/domain/admin-search";
 import { getPublicCatalog } from "@/domain/availability";
 import { resetEnvForTests } from "@/lib/env";
 
@@ -14,6 +15,12 @@ let databaseUrl = "";
 let database: Database;
 let closeDatabase: () => void;
 let testNumber = 0;
+
+function dateOffset(days: number) {
+  const value = new Date();
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
 
 beforeEach(async () => {
   testNumber += 1;
@@ -50,6 +57,27 @@ afterAll(() => {
 });
 
 describe("Product Catalog Reordering & Archiving", () => {
+  it("filters products by status and search with pagination metadata", async () => {
+    const create = (code: string, name: string, from: string, through: string, active = true) => createProduct(database, {
+      code, slug: code.toLowerCase(), nameFi: name, nameEn: name, descriptionFi: "", descriptionEn: "", availableFrom: from, availableThrough: through,
+      active, showOnHomepage: true, showOnReserve: true, packages: [{ labelFi: "Box", labelEn: "Box", volumeMl: 1000, priceCents: 1000, active: true }],
+    });
+    await create("INSEASON", "In season", dateOffset(-1), dateOffset(1));
+    await create("UPCOMING", "Upcoming", dateOffset(2), dateOffset(4));
+    await create("ARCHIVED", "Archived", dateOffset(-4), dateOffset(-2));
+
+    const query = { q: "", page: 1, pageSize: 10, offset: 0 };
+    const inSeason = await searchManagerProducts(database, query, { status: "in_season" });
+    const upcoming = await searchManagerProducts(database, query, { status: "upcoming" });
+    const archived = await searchManagerProducts(database, query, { status: "archived" });
+    const search = await searchManagerProducts(database, { ...query, q: "Upcoming" });
+    expect(inSeason.items).toHaveLength(1);
+    expect(upcoming.items).toHaveLength(1);
+    expect(archived.items).toHaveLength(1);
+    expect(search.items[0]?.product.code).toBe("UPCOMING");
+    expect(upcoming.totalPages).toBe(1);
+  });
+
   it("creates products, reorders them, and reflects reorder on manager & public catalog", async () => {
     const p1 = await createProduct(database, {
       code: "STRAWBERRY",
