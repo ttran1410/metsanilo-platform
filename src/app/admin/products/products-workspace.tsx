@@ -831,7 +831,7 @@ function ProductWorkspaceContent({
   );
 }
 
-export function MasterDetailWorkspace(props: { initialProducts: ProductRow[]; canManageProducts: boolean; loadInitialFromApi?: boolean }) {
+export function ProductsWorkspace(props: { initialProducts: ProductRow[]; canManageProducts: boolean; loadInitialFromApi?: boolean }) {
   const searchParams = useSearchParams();
   const urlState = parseProductsUrlState(searchParams, props.initialProducts[0]?.product.id ?? "");
   return <ProductWorkspaceProvider initialSelectedId={urlState.selectedId} initialSearchQuery={urlState.searchQuery} initialFilterStatus={urlState.filterStatus} initialActiveTab={urlState.activeTab} initialViewMode={urlState.viewMode}><ProductWorkspaceContent {...props} /></ProductWorkspaceProvider>;

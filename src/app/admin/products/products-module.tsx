@@ -1,6 +1,6 @@
 "use client";
 
-import { MasterDetailWorkspace, type ProductRow } from "./master-detail-workspace";
+import { ProductsWorkspace, type ProductRow } from "./products-workspace";
 
 export function ProductModule({
   initialProducts,
@@ -11,5 +11,5 @@ export function ProductModule({
   canManageProducts: boolean;
   loadInitialFromApi?: boolean;
 }) {
-  return <MasterDetailWorkspace initialProducts={initialProducts} canManageProducts={canManageProducts} loadInitialFromApi={loadInitialFromApi} />;
+  return <ProductsWorkspace initialProducts={initialProducts} canManageProducts={canManageProducts} loadInitialFromApi={loadInitialFromApi} />;
 }
