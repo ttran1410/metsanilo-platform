@@ -1,0 +1,28 @@
+"use client";
+
+import type { ReactNode } from "react";
+import { AdminPagination } from "../ui/admin-pagination";
+import { OrdersTableHeader } from "./orders-table-header";
+import type { OrdersSortField } from "./orders-record-list-contract";
+
+export function OrdersRecordList({ allSelected, onToggleAll, sortField, sortDirection, onSort, children, page, limit, total, onPageChange, onLimitChange }: {
+  allSelected: boolean;
+  onToggleAll: (selected: boolean) => void;
+  sortField: OrdersSortField;
+  sortDirection: "asc" | "desc";
+  onSort: (field: OrdersSortField) => void;
+  children: ReactNode;
+  page: number;
+  limit: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  onLimitChange: (limit: number) => void;
+}) {
+  return <div className="card admin-orders-table-wrap overflow-x-auto border border-line rounded-2xl">
+    <table className="admin-orders-table w-full text-left text-xs">
+      <thead className="bg-surface-muted border-b border-line text-muted uppercase font-bold text-[11px] tracking-wider"><OrdersTableHeader allSelected={allSelected} onToggleAll={onToggleAll} sortField={sortField} sortDirection={sortDirection} onSort={onSort} /></thead>
+      <tbody className="divide-y divide-line">{children}</tbody>
+    </table>
+    <AdminPagination page={page} limit={limit} total={total} onPageChange={onPageChange} onLimitChange={onLimitChange} itemLabel="orders" />
+  </div>;
+}

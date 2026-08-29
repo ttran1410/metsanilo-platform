@@ -13,13 +13,12 @@ import { OrderInspector } from "./order-inspector";
 import { PickupTerminal } from "./orders/pickup-terminal";
 import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
-import { AdminPagination } from "./ui/admin-pagination";
 import { AdminRowActionMenu, IconCopy, IconEye, IconPencil, IconTrash } from "./ui/admin-row-action-menu";
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
 import type { OrdersSortField } from "./orders/orders-record-list-contract";
-import { OrdersTableHeader } from "./orders/orders-table-header";
+import { OrdersRecordList } from "./orders/orders-record-list";
 
 
 export type AdminOrder = typeof orders.$inferSelect & {
@@ -915,12 +914,7 @@ export function OrdersListing({
           )}
 
           {/* TABLE DATA DISPLAY */}
-          <div className="card admin-orders-table-wrap overflow-x-auto border border-line rounded-2xl">
-            <table className="admin-orders-table w-full text-left text-xs">
-              <thead className="bg-surface-muted border-b border-line text-muted uppercase font-bold text-[11px] tracking-wider">
-                <OrdersTableHeader allSelected={allSelected} onToggleAll={(checked) => setSelected(checked ? visibleRows.map((r) => r.id) : [])} sortField={sortField} sortDirection={sortDirection} onSort={handleHeaderSort} />
-              </thead>
-              <tbody className="divide-y divide-line">
+          <OrdersRecordList allSelected={allSelected} onToggleAll={(checked) => setSelected(checked ? visibleRows.map((r) => r.id) : [])} sortField={sortField} sortDirection={sortDirection} onSort={handleHeaderSort} page={page} limit={limit} total={serverTotal ?? sortedRows.length} onPageChange={setPage} onLimitChange={setLimit}>
                 {visibleRows.map((order) => {
                   const isPaid = (order.outstandingCents ?? 0) <= 0;
                   const isDelivery = order.fulfillmentMethod === "DELIVERY";
@@ -1106,18 +1100,7 @@ export function OrdersListing({
                     </td>
                   </tr>
                 )}
-              </tbody>
-            </table>
-          </div>
-
-          <AdminPagination
-            page={page}
-            limit={limit}
-            total={serverTotal ?? sortedRows.length}
-            onPageChange={setPage}
-            onLimitChange={(newLimit) => setLimit(newLimit)}
-            itemLabel="orders"
-          />
+          </OrdersRecordList>
         </div>
       )}
 
