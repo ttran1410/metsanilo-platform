@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Boxes, ChevronDown, ClipboardList, Gauge, KeyRound, LockKeyhole, MapPinned, Pencil, Plus, RefreshCcw, Save, ShieldAlert, ShieldCheck, ShoppingBasket, Store, UserRoundX, UsersRound, type LucideIcon } from "lucide-react";
 import {
@@ -254,20 +254,27 @@ function UserWorkspaceContent({
   }, [usersList, selectedId]);
 
   // Load user sessions & audit
+  const extrasRequestRef = useRef<AbortController | null>(null);
   async function loadUserExtras(id: string) {
+    extrasRequestRef.current?.abort();
+    const controller = new AbortController();
     setSelectedId(id);
     setMobileView("detail");
     try {
-      const response = await fetch(`/api/admin/users/${id}`);
+      const response = await fetch(`/api/admin/users/${id}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "user-detail" } });
       const body = await response.json();
+      if (controller.signal.aborted) return;
       if (response.ok && body.data) {
         setSessions(body.data.sessions ?? []);
         setAudit(body.data.audit ?? []);
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       /* ignore */
     }
   }
+
+  useEffect(() => () => extrasRequestRef.current?.abort(), []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
