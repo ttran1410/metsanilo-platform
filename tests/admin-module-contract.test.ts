@@ -351,4 +351,15 @@ describe("admin request module contract", () => {
     expect(response.status).toBe(401);
     expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED", correlationId: expect.any(String) });
   });
+
+  it("preserves a valid correlation ID through an authenticated route failure", async () => {
+    const response = await getProducts(new Request("http://localhost/api/admin/products", {
+      headers: { "x-correlation-id": "123e4567-e89b-12d3-a456-426614174000" },
+    }));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      code: "UNAUTHORIZED",
+      correlationId: "123e4567-e89b-12d3-a456-426614174000",
+    });
+  });
 });

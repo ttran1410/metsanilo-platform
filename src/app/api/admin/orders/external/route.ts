@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { hasUserPermission } from "@/domain/access";
-import { createExternalOrder } from "@/domain/operations";
+import { createAdminExternalOrder } from "@/domain/admin-order-operations-actions";
 import { fromZodError } from "@/domain/errors";
 import { failure, success } from "../../../response";
 import { executeAdmin, parseJson } from "../../module";
@@ -11,7 +10,7 @@ const command = z.object({ productId: z.string(), packageId: z.string(), quantit
 
 export async function POST(request: Request) {
   try {
-    const result = await executeAdmin(request, { permission: "orders.create", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw fromZodError(parsed.error, "Invalid external order payload"); return parsed.data; }, run: async (input, { database, context: { actor } }) => { const allowDateOverride = await hasUserPermission(database, actor, "orders.override_closed_date"); return createExternalOrder(database, { ...input, allowDateOverride }); } });
+    const result = await executeAdmin(request, { permission: "orders.create", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw fromZodError(parsed.error, "Invalid external order payload"); return parsed.data; }, run: async (input, { database, context }) => createAdminExternalOrder(database, { actor: context.actor, shop: { id: context.shop.shopId } }, input) });
     return success(result, 201);
   } catch (error) {
     return failure(error, request);

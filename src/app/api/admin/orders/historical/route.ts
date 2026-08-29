@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createHistoricalOrder } from "@/domain/operations";
+import { createAdminHistoricalOrder } from "@/domain/admin-order-operations-actions";
 import { fromZodError } from "@/domain/errors";
 import { failure, success } from "../../../response";
 import { executeAdmin, parseJson } from "../../module";
@@ -10,7 +10,7 @@ const command = z.object({ productId: z.string(), packageId: z.string(), quantit
 
 export async function POST(request: Request) {
   try {
-    const result = await executeAdmin(request, { permission: "orders.create", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw fromZodError(parsed.error, "Invalid historical order payload"); return parsed.data; }, run: async (input, { database }) => createHistoricalOrder(database, input) });
+    const result = await executeAdmin(request, { permission: "orders.create", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw fromZodError(parsed.error, "Invalid historical order payload"); return parsed.data; }, run: async (input, { database, context }) => createAdminHistoricalOrder(database, { actor: context.actor, shop: { id: context.shop.shopId } }, input) });
     return success(result, 201);
   } catch (error) {
     return failure(error, request);

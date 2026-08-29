@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, customers, orders } from "@/db/schema";
 import { DomainError } from "./errors";
-import { anonymizeCustomer, clearCustomerRetentionHold, confirmCustomerContact, createCustomer, getCustomerProfile, listCustomers, mergeCustomers, renewCustomerContact, setCustomerRetentionHold, updateCustomer } from "./customers";
+import { anonymizeCustomer, clearCustomerRetentionHold, confirmCustomerContact, createCustomer, findRetentionEligibleCustomers, getCustomerProfile, listCustomers, mergeCustomers, renewCustomerContact, setCustomerRetentionHold, updateCustomer } from "./customers";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
 
 function actorName(context: AdminActionContext) { assertAdminActionContext(context); return context.actor.email ?? context.actor.id; }
@@ -17,6 +17,11 @@ export async function getAdminCustomers(database: Database, context: AdminAction
 export async function getAdminCustomerProfile(database: Database, context: AdminActionContext, id: string) {
   assertAdminActionContext(context);
   return getCustomerProfile(database, id);
+}
+
+export async function getAdminRetentionEligibleCustomers(database: Database, context: AdminActionContext) {
+  assertAdminActionContext(context);
+  return findRetentionEligibleCustomers(database);
 }
 
 export type AdminCustomerCommand =
