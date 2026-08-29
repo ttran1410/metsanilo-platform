@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { DomainError } from "@/domain/errors";
-import { env } from "@/lib/env";
 import {
   isStorefrontThemeKey,
 } from "@/domain/storefront-themes";
@@ -18,7 +17,7 @@ export async function GET(request: Request) {
     return success(await executeAdmin(request, {
       permission: "settings.read",
       parse: async () => undefined,
-      run: async (_input, { database, context }) => getAdminStorefrontTheme(database, { actor: context.actor, shop: { id: env().SHOP_ID } }),
+      run: async (_input, { database, context }) => getAdminStorefrontTheme(database, { actor: context.actor, shop: { id: context.shop.shopId } }),
     }));
   } catch (error) {
     return failure(error, request);
@@ -30,13 +29,13 @@ export async function PUT(request: Request) {
     const result = await executeAdmin(request, {
       permission: "theme.manage",
       parse: async (incoming) => parseJson<{ themeKey?: unknown }>(incoming),
-      run: async (body, { database, context: { actor } }) => {
+      run: async (body, { database, context }) => {
     if (!isStorefrontThemeKey(body.themeKey)) {
       throw new DomainError("VALIDATION_ERROR", "Select one of the supported storefront themes", 422, {
         themeKey: "Unsupported storefront theme",
       });
     }
-    return saveAdminStorefrontThemeDraft(database, { actor, shop: { id: env().SHOP_ID } }, body.themeKey);
+    return saveAdminStorefrontThemeDraft(database, { actor: context.actor, shop: { id: context.shop.shopId } }, body.themeKey);
       },
     });
     return success(result);
@@ -50,14 +49,14 @@ export async function POST(request: Request) {
     const result = await executeAdmin(request, {
       permission: "theme.manage",
       parse: async (incoming) => parseJson<unknown>(incoming),
-      run: async (body, { database, context: { actor } }) => {
+      run: async (body, { database, context }) => {
     const publish = publishCommand.safeParse(body);
     if (publish.success) {
-      return publishAdminStorefrontThemeDraft(database, { actor, shop: { id: env().SHOP_ID } }, publish.data.draftId);
+      return publishAdminStorefrontThemeDraft(database, { actor: context.actor, shop: { id: context.shop.shopId } }, publish.data.draftId);
     }
     const rollback = rollbackCommand.safeParse(body);
     if (rollback.success) {
-      return rollbackAdminStorefrontTheme(database, { actor, shop: { id: env().SHOP_ID } }, rollback.data.versionId);
+      return rollbackAdminStorefrontTheme(database, { actor: context.actor, shop: { id: context.shop.shopId } }, rollback.data.versionId);
     }
     throw new DomainError("VALIDATION_ERROR", "Invalid theme lifecycle action", 422);
       },
@@ -73,11 +72,11 @@ export async function DELETE(request: Request) {
     const result = await executeAdmin(request, {
       permission: "theme.manage",
       parse: async () => new URL(request.url).searchParams.get("draftId"),
-      run: async (draftId, { database, context: { actor } }) => {
+      run: async (draftId, { database, context }) => {
     if (!draftId || !z.string().uuid().safeParse(draftId).success) {
       throw new DomainError("VALIDATION_ERROR", "A valid draft ID is required", 422);
     }
-    return discardAdminStorefrontThemeDraft(database, { actor, shop: { id: env().SHOP_ID } }, draftId);
+    return discardAdminStorefrontThemeDraft(database, { actor: context.actor, shop: { id: context.shop.shopId } }, draftId);
       },
     });
     return success(result);
