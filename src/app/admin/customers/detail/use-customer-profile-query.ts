@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { CustomerProfile } from "../types/customer-profile";
 
-export function useCustomerProfileQuery({ onSelect, onShowDetail, onError }: {
+export function useCustomerProfileQuery({ onSelect, onShowDetail, onError, onProfileLoaded }: {
   onSelect: (id: string) => void;
   onShowDetail: () => void;
   onError: (message: string) => void;
+  onProfileLoaded?: (profile: CustomerProfile) => void;
 }) {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -23,7 +24,10 @@ export function useCustomerProfileQuery({ onSelect, onShowDetail, onError }: {
       const body = await response.json();
       if (controller.signal.aborted) return;
       setLoadingProfile(false);
-      if (response.ok && body.data) setProfile(body.data);
+      if (response.ok && body.data) {
+        setProfile(body.data);
+        onProfileLoaded?.(body.data);
+      }
       else onError(body.message ?? "Could not load customer profile.");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;

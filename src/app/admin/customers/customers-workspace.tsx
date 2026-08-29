@@ -126,11 +126,8 @@ function CustomerWorkspaceContent({
   const [editingNoteText, setEditingNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
-  const { profile, setProfile, loadingProfile, loadProfile } = useCustomerProfileQuery({ onSelect: setSelectedId, onShowDetail: () => setMobileView("detail"), onError: setError });
-
-  useEffect(() => {
-    if (profile) setEditingNoteText(profile.customer.notes ?? "");
-  }, [profile]);
+  const profileQuery = useCustomerProfileQuery({ onSelect: setSelectedId, onShowDetail: () => setMobileView("detail"), onError: setError, onProfileLoaded: (loadedProfile) => setEditingNoteText(loadedProfile.customer.notes ?? "") });
+  const { profile, setProfile, loadingProfile, loadProfile } = profileQuery;
 
   // Reload customer list & current profile
   async function refreshList(currentIdToSelect?: string) {
@@ -160,7 +157,6 @@ function CustomerWorkspaceContent({
   useEffect(() => {
     if (selectedId && !profile) {
       // This initial fetch hydrates profile state from the server-provided list.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       void loadProfile(selectedId, false);
     }
     // The initial profile is intentionally loaded once from the server-provided list.
