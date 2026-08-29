@@ -47,7 +47,7 @@ function CustomerWorkspaceProvider({ initialCustomers, initial, children }: { in
   return <CustomerQueryContext.Provider value={{ selectedId, setSelectedId, searchQuery, setSearchQuery, filterChip, setFilterChip, sortMode, setSortMode, workspaceView, setWorkspaceView, mobileView, setMobileView }}>{children}</CustomerQueryContext.Provider>;
 }
 
-export function MasterDetailCustomerWorkspace(props: Parameters<typeof CustomerWorkspaceContent>[0]) {
+export function CustomersWorkspace(props: Parameters<typeof CustomerWorkspaceContent>[0]) {
   const rawList = Array.isArray(props.initialCustomers) ? props.initialCustomers : props.initialCustomers.items;
   const searchParams = useSearchParams();
   const urlState = parseCustomersUrlState(searchParams);

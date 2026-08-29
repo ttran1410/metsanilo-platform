@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminLoadingState } from "../../presentation";
-import { MasterDetailCustomerWorkspace, type CustomerRow } from "../master-detail-workspace";
+import { CustomersWorkspace, type CustomerRow } from "../customers-workspace";
 import { getAdminQuery } from "../../shared/query-cache";
 
 export function CustomerQueryLoader({ canEdit, canAnonymize, canRetention }: { canEdit: boolean; canAnonymize: boolean; canRetention: boolean }) {
@@ -19,5 +19,5 @@ export function CustomerQueryLoader({ canEdit, canAnonymize, canRetention }: { c
     void load();
   }, [searchParams]);
   if (!initialCustomers) return <section className="shell py-8"><AdminLoadingState label="Loading Customer 360 Workspace…" /></section>;
-  return <MasterDetailCustomerWorkspace initialCustomers={initialCustomers} canEdit={canEdit} canAnonymize={canAnonymize} canRetention={canRetention} />;
+  return <CustomersWorkspace initialCustomers={initialCustomers} canEdit={canEdit} canAnonymize={canAnonymize} canRetention={canRetention} />;
 }

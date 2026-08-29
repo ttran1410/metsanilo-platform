@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
-import { MasterDetailCustomerWorkspace } from "../customers/master-detail-workspace";
+import { CustomersWorkspace } from "../customers/customers-workspace";
 import { AdminEmptyState, AdminNotice, AdminPageHeader } from "../presentation";
 
 const initialCustomers = [{
@@ -8,7 +8,7 @@ const initialCustomers = [{
 }];
 
 function CustomersStory({ canEdit = true, canAnonymize = true, canRetention = true }: { canEdit?: boolean; canAnonymize?: boolean; canRetention?: boolean }) {
-  return <MasterDetailCustomerWorkspace initialCustomers={initialCustomers} canEdit={canEdit} canAnonymize={canAnonymize} canRetention={canRetention} />;
+  return <CustomersWorkspace initialCustomers={initialCustomers} canEdit={canEdit} canAnonymize={canAnonymize} canRetention={canRetention} />;
 }
 
 const meta = { title: "Admin / Customers", component: CustomersStory, parameters: { layout: "fullscreen" }, argTypes: { canEdit: { control: "boolean" }, canAnonymize: { control: "boolean" } } } satisfies Meta<typeof CustomersStory>;
