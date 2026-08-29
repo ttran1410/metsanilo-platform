@@ -1,6 +1,6 @@
 "use client";
 
-import { CustomerQueryLoader } from "./customers/list/query-loader";
+import { CustomerQueryLoader } from "./list/query-loader";
 
 export function CustomersModule({
   canEdit,
