@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, orders } from "@/db/schema";
+import { auditEntries, orderPayments, orders } from "@/db/schema";
 import { DomainError } from "./errors";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
 import { getManagerOrder, getOrderQueue, listManagerOrdersWithPaymentSummary } from "./orders";
@@ -21,20 +21,36 @@ export type AdminOrderQuickViewCounts = {
 
 export async function getAdminOrderQuickViewCounts(database: Database, context: AdminActionContext): Promise<AdminOrderQuickViewCounts> {
   assertAdminActionContext(context);
-  const all = await listManagerOrdersWithPaymentSummary(database);
   const shop = await database.query.shops.findFirst({ where: (table, { eq }) => eq(table.id, context.shop.id), columns: { timezone: true } });
   const date = todayInTimezone(shop?.timezone ?? "Europe/Helsinki");
-  const active = all.filter((order) => !order.archived);
-  return {
-    TODAY: active.filter((order) => order.fulfillmentDate === date).length,
-    TRIAGE: active.filter((order) => getOrderTriageReasons(order).length > 0).length,
-    NEEDS_CONFIRMATION: active.filter((order) => order.status === "NEW").length,
-    PICKUP_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "PICKUP").length,
-    DELIVERY_TODAY: active.filter((order) => order.fulfillmentDate === date && order.fulfillmentMethod === "DELIVERY").length,
-    UNPAID: active.filter((order) => order.paymentStatus === "UNPAID").length,
-    ALL: active.length,
-    ARCHIVED: all.filter((order) => Boolean(order.archived)).length,
-  };
+  const active = eq(orders.archived, false);
+  const [today, confirmation, pickup, delivery, all, archived] = await Promise.all([
+    database.select({ value: count() }).from(orders).where(and(eq(orders.shopId, context.shop.id), active, eq(orders.fulfillmentDate, date))),
+    database.select({ value: count() }).from(orders).where(and(eq(orders.shopId, context.shop.id), active, eq(orders.status, "NEW"))),
+    database.select({ value: count() }).from(orders).where(and(eq(orders.shopId, context.shop.id), active, eq(orders.fulfillmentDate, date), eq(orders.fulfillmentMethod, "PICKUP"))),
+    database.select({ value: count() }).from(orders).where(and(eq(orders.shopId, context.shop.id), active, eq(orders.fulfillmentDate, date), eq(orders.fulfillmentMethod, "DELIVERY"))),
+    database.select({ value: count() }).from(orders).where(and(eq(orders.shopId, context.shop.id), active)),
+    database.select({ value: count() }).from(orders).where(and(eq(orders.shopId, context.shop.id), eq(orders.archived, true))),
+  ]);
+  const cutoff = new Date(Date.now() - 15 * 60_000).toISOString();
+  const candidates = await database.select().from(orders).where(and(
+    eq(orders.shopId, context.shop.id), active,
+    or(
+      and(eq(orders.status, "NEW"), lte(orders.createdAt, cutoff)),
+      lt(orders.fulfillmentDate, date),
+      and(eq(orders.fulfillmentMethod, "DELIVERY"), or(isNull(orders.streetAddress), isNull(orders.postalCode), isNull(orders.city), eq(orders.streetAddress, ""), eq(orders.postalCode, ""), eq(orders.city, ""))),
+      and(eq(orders.fulfillmentMethod, "DELIVERY"), isNull(orders.deliveryFeeCents)),
+      inArray(orders.status, ["CANCELLED_BY_CUSTOMER", "REJECTED", "NO_SHOW"]),
+      inArray(orders.status, ["READY", "OUT_FOR_DELIVERY", "PICKED_UP", "DELIVERED"]),
+    ),
+  ));
+  const activeTotals = await database.select({ id: orders.id, finalTotalCents: orders.finalTotalCents }).from(orders).where(and(eq(orders.shopId, context.shop.id), active));
+  const payments = activeTotals.length ? await database.select().from(orderPayments).where(and(eq(orderPayments.shopId, context.shop.id), inArray(orderPayments.orderId, activeTotals.map((order) => order.id)))) : [];
+  const paid = new Map<string, number>();
+  for (const payment of payments) if (payment.kind === "PAYMENT") paid.set(payment.orderId, (paid.get(payment.orderId) ?? 0) + payment.amountCents);
+  const triage = candidates.filter((order) => getOrderTriageReasons({ ...order, paymentStatus: order.finalTotalCents === null ? "PENDING_FEE" : (order.finalTotalCents - (paid.get(order.id) ?? 0)) > 0 ? "UNPAID" : "PAID" }).length > 0).length;
+  const unpaid = activeTotals.filter((order) => order.finalTotalCents !== null && order.finalTotalCents > (paid.get(order.id) ?? 0)).length;
+  return { TODAY: Number(today[0]?.value ?? 0), TRIAGE: triage, NEEDS_CONFIRMATION: Number(confirmation[0]?.value ?? 0), PICKUP_TODAY: Number(pickup[0]?.value ?? 0), DELIVERY_TODAY: Number(delivery[0]?.value ?? 0), UNPAID: unpaid, ALL: Number(all[0]?.value ?? 0), ARCHIVED: Number(archived[0]?.value ?? 0) };
 }
 export async function getAdminOrderDetail(database: Database, context: AdminActionContext, orderId: string) {
   assertAdminActionContext(context);
