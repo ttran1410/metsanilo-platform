@@ -19,6 +19,7 @@ import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type D
 import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
 import type { OrdersSortField } from "./orders/orders-record-list-contract";
+import { OrdersTableHeader } from "./orders/orders-table-header";
 
 
 export type AdminOrder = typeof orders.$inferSelect & {
@@ -917,7 +918,8 @@ export function OrdersListing({
           <div className="card admin-orders-table-wrap overflow-x-auto border border-line rounded-2xl">
             <table className="admin-orders-table w-full text-left text-xs">
               <thead className="bg-surface-muted border-b border-line text-muted uppercase font-bold text-[11px] tracking-wider">
-                <tr>
+                <OrdersTableHeader allSelected={allSelected} onToggleAll={(checked) => setSelected(checked ? visibleRows.map((r) => r.id) : [])} sortField={sortField} sortDirection={sortDirection} onSort={handleHeaderSort} />
+                {false && <tr>
                   <th className="p-3 w-10">
                     <input
                       type="checkbox"
@@ -963,7 +965,7 @@ export function OrdersListing({
                     </th>
                   ))}
                   <th className="p-3 text-right">Actions</th>
-                </tr>
+                </tr>}
               </thead>
               <tbody className="divide-y divide-line">
                 {visibleRows.map((order) => {
