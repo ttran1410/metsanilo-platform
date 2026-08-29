@@ -18,6 +18,7 @@ import { AdminRowActionMenu, IconCopy, IconEye, IconPencil, IconTrash } from "./
 import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
 import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
+import type { OrdersSortField } from "./orders/orders-record-list-contract";
 
 
 export type AdminOrder = typeof orders.$inferSelect & {
@@ -29,7 +30,6 @@ export type AdminOrder = typeof orders.$inferSelect & {
   archivedBy?: string | null;
 };
 
-type SortField = "fulfillment" | "ref" | "customer" | "source" | "payment" | "status";
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
 export type { OrdersView } from "./orders-url-state";
 
@@ -179,10 +179,10 @@ export function OrdersListing({
     { key: "MANUAL", labelEn: "Manual / Phone" },
   ]);
 
-  const [sortField, setSortField] = useState<SortField>("fulfillment");
+  const [sortField, setSortField] = useState<OrdersSortField>("fulfillment");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  function handleHeaderSort(field: SortField) {
+  function handleHeaderSort(field: OrdersSortField) {
     if (sortField === field) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -930,7 +930,7 @@ export function OrdersListing({
                     { key: "customer", label: "Customer" },
                     { key: "fulfillment", label: "Fulfillment" },
                     { key: "source", label: "Source" },
-                  ] satisfies Array<{ key: SortField; label: string }>).map((col) => (
+                  ] satisfies Array<{ key: OrdersSortField; label: string }>).map((col) => (
                     <th
                       key={col.key}
                       className="p-3 cursor-pointer select-none hover:bg-slate-200/60 transition-colors"
@@ -948,7 +948,7 @@ export function OrdersListing({
                   {([
                     { key: "payment", label: "Payment" },
                     { key: "status", label: "Status" },
-                  ] satisfies Array<{ key: SortField; label: string }>).map((col) => (
+                  ] satisfies Array<{ key: OrdersSortField; label: string }>).map((col) => (
                     <th
                       key={col.key}
                       className="p-3 cursor-pointer select-none hover:bg-slate-200/60 transition-colors"
