@@ -1,10 +1,10 @@
 "use client";
 
-import { AdminRowActionMenu, IconCopy, IconEye, IconPencil, IconTrash, type ActionMenuItem } from "../ui/admin-row-action-menu";
-import type { AdminOrder } from "../orders-listing";
+import { AdminRowActionMenu, IconEye, IconPencil, IconTrash, type ActionMenuItem } from "../ui/admin-row-action-menu";
+import type { AdminOrder } from "./types/admin-order";
 import type { OrderStatus } from "@/domain/order-transitions";
 
-export function OrderRowActions({ order, canUpdate, canTransition, canDelete, nextAction, onInspect, onEdit, onQuickTransition, onDelete }: { order: AdminOrder; canUpdate: boolean; canTransition: boolean; canDelete: boolean; nextAction: { target: OrderStatus; label: string } | null; onInspect: () => void; onEdit: () => void; onQuickTransition: (target: OrderStatus) => void; onDelete: () => void }) {
+export function OrderRowActions({ canUpdate, canTransition, canDelete, nextAction, onInspect, onEdit, onQuickTransition, onDelete }: { order: AdminOrder; canUpdate: boolean; canTransition: boolean; canDelete: boolean; nextAction: { target: OrderStatus; label: string } | null; onInspect: () => void; onEdit: () => void; onQuickTransition: (target: OrderStatus) => void; onDelete: () => void }) {
   const items: ActionMenuItem[] = [
     { id: "view-details", label: "View Details", icon: <IconEye />, onClick: onInspect },
     ...(canUpdate ? [{ id: "edit-order", label: "Edit Order", icon: <IconPencil />, onClick: onEdit }] : []),

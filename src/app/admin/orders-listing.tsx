@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Download, Filter } from "lucide-react";
 import { AdminSearchField } from "./ui/admin-search-field";
-import type { orders } from "@/db/schema";
 import { getOrderTriageReasons, orderTriageScore } from "@/domain/order-triage";
 import { getLegalOrderTransitions, type OrderStatus } from "@/domain/order-transitions";
 import { AdminNotice, AdminPageHeader } from "./presentation";
@@ -18,18 +17,12 @@ import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
 import type { OrdersSortField } from "./orders/list/orders-record-list-contract";
 import { OrdersRecordList } from "./orders/list/orders-record-list";
+import type { AdminOrder } from "./orders/types/admin-order";
 import { useOrderBulkTransitionController } from "./orders/use-order-bulk-transition-controller";
 import { useOrderBulkActionController } from "./orders/use-order-bulk-action-controller";
 
 
-export type AdminOrder = typeof orders.$inferSelect & {
-  paidCents?: number;
-  outstandingCents?: number | null;
-  paymentStatus?: string;
-  archived?: boolean;
-  archivedAt?: string | null;
-  archivedBy?: string | null;
-};
+export type { AdminOrder } from "./orders/types/admin-order";
 
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
 export type { OrdersView } from "./orders-url-state";

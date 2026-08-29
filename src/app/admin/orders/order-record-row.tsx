@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { IconCopy } from "../ui/admin-row-action-menu";
 import type { OrderStatus } from "@/domain/order-transitions";
-import type { AdminOrder } from "../orders-listing";
+import type { AdminOrder } from "./types/admin-order";
 import { OrderRowActions } from "./order-row-actions";
 import { OrderRowStatusCell } from "./order-row-status-cell";
 import { OrderRowSummaryCells } from "./order-row-summary-cells";

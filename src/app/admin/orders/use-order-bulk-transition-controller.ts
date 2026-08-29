@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import type { OrderStatus } from "@/domain/order-transitions";
-import type { AdminOrder } from "../orders-listing";
+import type { AdminOrder } from "./types/admin-order";
 
 export function useOrderBulkTransitionController({ pending, reason, onClearSelection, onComplete, onError, refresh }: { pending: { target: OrderStatus; orders: AdminOrder[] } | null; reason: string; onClearSelection: () => void; onComplete: (message: string) => void; onError: (message: string) => void; refresh: () => Promise<void> }) {
   return useCallback(async () => {

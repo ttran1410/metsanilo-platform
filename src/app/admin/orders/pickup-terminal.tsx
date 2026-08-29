@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Banknote, CircleCheck, CreditCard, PackageCheck, Phone, Search, Smartphone } from "lucide-react";
-import type { AdminOrder } from "../orders-listing";
+import type { AdminOrder } from "./types/admin-order";
 import { AdminConfirmDialog, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
 
 function cleanLitres(ml: number) {

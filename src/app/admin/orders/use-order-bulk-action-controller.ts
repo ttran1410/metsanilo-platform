@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import type { AdminOrder } from "../orders-listing";
+import type { AdminOrder } from "./types/admin-order";
 
 export function useOrderBulkActionController({ selected, pendingDelete, onSelectedClear, onDeletePendingClear, onDeletingChange, onArchivingChange, onNotice, onError, refresh }: { selected: string[]; pendingDelete: { deletable: AdminOrder[]; skippedPaid: AdminOrder[] } | null; onSelectedClear: () => void; onDeletePendingClear: () => void; onDeletingChange: (value: boolean) => void; onArchivingChange: (value: boolean) => void; onNotice: (message: string) => void; onError: (message: string) => void; refresh: () => Promise<void> }) {
   const confirmDelete = useCallback(async () => {

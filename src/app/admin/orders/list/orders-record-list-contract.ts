@@ -1,5 +1,5 @@
 import type { OrderStatus } from "@/domain/order-transitions";
-import type { AdminOrder } from "../../orders-listing";
+import type { AdminOrder } from "../types/admin-order";
 
 export type OrdersSortField = "fulfillment" | "ref" | "customer" | "source" | "payment" | "status";
 export type OrdersRecordListState = Readonly<{ rows: AdminOrder[]; selectedIds: string[]; sortField: OrdersSortField; sortDirection: "asc" | "desc"; page: number; limit: number; total: number }>;
