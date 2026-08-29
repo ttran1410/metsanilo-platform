@@ -6,10 +6,8 @@ import { updateUserRole } from "./user-admin-actions";
 
 type EditableUser = { id: string; displayName: string; role: Role };
 
-export function useUserProfileEditorController({ editingUser, actorId, actorRole, closeEditor, setError, setMessage, refreshUser }: {
+export function useUserProfileEditorController({ editingUser, closeEditor, setError, setMessage, refreshUser }: {
   editingUser: EditableUser | null;
-  actorId?: string;
-  actorRole?: Role;
   closeEditor: () => void;
   setError: (message: string) => void;
   setMessage: (message: string) => void;

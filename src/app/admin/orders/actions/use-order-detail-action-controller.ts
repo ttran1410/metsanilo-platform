@@ -1,6 +1,5 @@
 "use client";
 
-type ActionKind = "note" | "payment" | "pricing" | "exception";
 export type OrderDetailActionCommand =
   | { orderId: string; kind: "note"; payload: { body: string } }
   | { orderId: string; kind: "payment"; payload: { amountCents: number; method: string; reference?: string } }

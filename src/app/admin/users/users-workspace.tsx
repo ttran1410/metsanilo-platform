@@ -363,8 +363,6 @@ function UserWorkspaceContent({
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const { savingEdit, handleSaveUserEdit } = useUserProfileEditorController({
     editingUser,
-    actorId,
-    actorRole,
     closeEditor: () => setEditingUser(null),
     setError,
     setMessage,
