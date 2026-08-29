@@ -1,4 +1,4 @@
-import type { AdminOrder } from "./types/admin-order";
+import type { AdminOrder } from "../types/admin-order";
 
 export function formatOrderSourceBadge(order: AdminOrder) {
   const labels: Record<string, string> = { WEBSITE: "Website", SMS: "SMS", WHATSAPP: "WhatsApp", FACEBOOK_MESSAGE: "Facebook", FACEBOOK: "Facebook", MANUAL: "Phone", PHONE: "Phone", HISTORICAL: "Phone" };

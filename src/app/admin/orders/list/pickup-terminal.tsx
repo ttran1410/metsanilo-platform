@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Banknote, CircleCheck, CreditCard, PackageCheck, Phone, Search, Smartphone } from "lucide-react";
-import type { AdminOrder } from "./types/admin-order";
-import { AdminConfirmDialog, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../presentation";
+import type { AdminOrder } from "../types/admin-order";
+import { AdminConfirmDialog, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../../presentation";
 
 function cleanLitres(ml: number) {
   return `${(ml / 1000).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} L`;

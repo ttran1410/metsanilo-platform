@@ -1,6 +1,6 @@
-import { formatAdminMoney } from "../presentation";
+import { formatAdminMoney } from "../../presentation";
 import { formatOrderSourceBadge } from "./order-row-summary-utils";
-import type { AdminOrder } from "./types/admin-order";
+import type { AdminOrder } from "../types/admin-order";
 
 export function OrderRowSummaryCells({ order }: { order: AdminOrder }) {
   const isPaid = (order.outstandingCents ?? 0) <= 0;

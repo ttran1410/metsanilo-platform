@@ -1,7 +1,7 @@
 "use client";
 
-import { AdminRowActionMenu, IconEye, IconPencil, IconTrash, type ActionMenuItem } from "../ui/admin-row-action-menu";
-import type { AdminOrder } from "./types/admin-order";
+import { AdminRowActionMenu, IconEye, IconPencil, IconTrash, type ActionMenuItem } from "../../ui/admin-row-action-menu";
+import type { AdminOrder } from "../types/admin-order";
 import type { OrderStatus } from "@/domain/order-transitions";
 
 export function OrderRowActions({ canUpdate, canTransition, canDelete, nextAction, onInspect, onEdit, onQuickTransition, onDelete }: { order: AdminOrder; canUpdate: boolean; canTransition: boolean; canDelete: boolean; nextAction: { target: OrderStatus; label: string } | null; onInspect: () => void; onEdit: () => void; onQuickTransition: (target: OrderStatus) => void; onDelete: () => void }) {

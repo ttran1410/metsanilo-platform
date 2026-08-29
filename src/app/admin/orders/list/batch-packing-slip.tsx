@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { AdminOrder } from "./types/admin-order";
+import type { AdminOrder } from "../types/admin-order";
 
 function formatLitres(ml: number) {
   return `${(ml / 1000).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} L`;
