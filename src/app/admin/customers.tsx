@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminLoadingState } from "./presentation";
 import { MasterDetailCustomerWorkspace, type CustomerRow } from "./customers/master-detail-workspace";
@@ -16,13 +16,10 @@ export function CustomersModule({
   canRetention: boolean;
 }) {
   const searchParams = useSearchParams();
-  const requestRef = useRef<AbortController | null>(null);
   const [initialCustomers, setInitialCustomers] = useState<CustomerRow[] | { items: CustomerRow[]; summary?: { totalCustomers: number; vipCount: number; totalLitres: number; consentCount: number } } | null>(null);
 
   useEffect(() => {
     async function load() {
-      requestRef.current?.abort();
-      const controller = new AbortController();
       try {
         const params = new URLSearchParams();
         for (const key of ["q", "filter", "sort", "page", "limit"]) {
@@ -40,7 +37,6 @@ export function CustomersModule({
       }
     }
     void load();
-    return () => requestRef.current?.abort();
   }, [searchParams]);
 
   if (!initialCustomers) {
