@@ -1,4 +1,4 @@
-import { OrdersListing, type OrdersView } from "../orders-listing";
+import { OrdersListing, type OrdersView } from "../orders/list/orders-listing";
 import { adminContext, hasAdminPermission } from "../portal-auth";
 import { AdminRouteFrame } from "../route-frame";
 

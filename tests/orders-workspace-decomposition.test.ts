@@ -10,7 +10,7 @@ describe("Orders workspace decomposition contract", () => {
     expect(workspace).toContain('import { OrderRecordRow } from "../order-record-row";');
     expect(workspace).toContain("return <OrderRecordRow key={order.id}");
     expect(workspace).not.toContain("<tr key={order.id} className=\"hover:bg-surface-muted/40 transition-colors\">");
-    expect(source("src/app/admin/orders-listing.tsx")).toContain('export { OrdersListing } from "./orders/list/orders-listing";');
+    expect(source("src/app/admin/orders/page.tsx")).toContain('from "../orders/list/orders-listing"');
   });
 
   it("keeps row presentation and actions inside the row component", () => {
