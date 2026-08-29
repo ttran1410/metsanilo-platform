@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Banknote, CircleCheck, CreditCard, PackageCheck, Phone, Search, Smartphone } from "lucide-react";
 import type { AdminOrder } from "../types/admin-order";
 import { AdminConfirmDialog, AdminNotice, AdminStatusBadge, formatAdminMoney } from "../../presentation";
+import { recordOrderPayment, transitionOrder } from "../actions/order-admin-actions";
 
 function cleanLitres(ml: number) {
   return `${(ml / 1000).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} L`;
@@ -58,19 +59,8 @@ export function PickupTerminal({ orders, canTransition, canRecordPayment, onRefr
     setNotice("");
     const { order } = pending;
     try {
-      const response = pending.type === "PICKUP"
-        ? await fetch(`/api/admin/orders/${order.id}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ action: "transition", status: "PICKED_UP", expectedVersion: order.version }),
-          })
-        : await fetch(`/api/admin/orders/${order.id}/payment`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ amountCents: paymentAmount(order), method: pending.method, reference: `Pickup desk ${pending.method} ${order.publicReference}` }),
-          });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.message ?? (pending.type === "PICKUP" ? "Could not confirm pickup." : "Could not record payment."));
+      if (pending.type === "PICKUP") await transitionOrder({ orderId: order.id, status: "PICKED_UP", expectedVersion: order.version });
+      else await recordOrderPayment({ orderId: order.id, amountCents: paymentAmount(order), method: pending.method, reference: `Pickup desk ${pending.method} ${order.publicReference}` });
       setNotice(pending.type === "PICKUP"
         ? `Pickup confirmed for ${order.customerName} (${order.publicReference}).`
         : `${formatAdminMoney(paymentAmount(order))} recorded via ${pending.method} for ${order.publicReference}.`);
