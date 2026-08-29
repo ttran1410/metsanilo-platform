@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Download, List, PackageCheck, Plus, Store } from "lucide-react";
-import type { WorkspaceMode } from "../orders-url-state";
+import type { WorkspaceMode } from "./list/orders-url-state";
 
 export function OrdersWorkspaceToolbar({ mode, canCreate, onModeChange, onOpenPackingSlip }: { mode: WorkspaceMode; canCreate: boolean; onModeChange: (mode: WorkspaceMode) => void; onOpenPackingSlip: () => void }) {
   return <div className="flex flex-wrap items-center gap-2">

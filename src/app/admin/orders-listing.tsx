@@ -12,7 +12,7 @@ import { PickupTerminal } from "./orders/pickup-terminal";
 import { PackingKanban } from "./orders/packing-kanban";
 import { BatchPackingSlip } from "./orders/batch-packing-slip";
 import { OrderRecordRow } from "./orders/order-record-row";
-import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders-url-state";
+import { parseOrdersUrlState, serializeOrdersUrlState, type ArchiveScope, type DatePreset, type EntryTypeFilter, type OrdersView, type WorkspaceMode } from "./orders/list/orders-url-state";
 import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
 import type { OrdersSortField } from "./orders/list/orders-record-list-contract";
@@ -25,7 +25,7 @@ import { useOrderBulkActionController } from "./orders/use-order-bulk-action-con
 export type { AdminOrder } from "./orders/types/admin-order";
 
 type PendingAction = { target: OrderStatus; orders: AdminOrder[] };
-export type { OrdersView } from "./orders-url-state";
+export type { OrdersView } from "./orders/list/orders-url-state";
 
 const QUICK_VIEWS: Array<{ key: OrdersView; label: string }> = [
   { key: "TODAY", label: "Today" },
