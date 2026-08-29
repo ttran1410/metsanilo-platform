@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { AdminLoadingState, AdminStatusBadge, formatAdminMoney } from "../presentation";
-import type { DashboardData } from "./types";
+import type { DashboardData } from "./dashboard-data";
 import { useDashboardOverviewActionController } from "./use-dashboard-overview-action-controller";
 
 const stages = [

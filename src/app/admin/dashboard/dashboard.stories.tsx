@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
 import { AdminDashboard } from "./dashboard-workspace";
-import type { DashboardData } from "./types";
+import type { DashboardData } from "./dashboard-data";
 import { AdminEmptyState, AdminLoadingState, AdminNotice, AdminPageHeader } from "../presentation";
 
 const fixture: DashboardData = {
