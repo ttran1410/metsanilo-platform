@@ -3,10 +3,16 @@ import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, customers, orders } from "@/db/schema";
 import { DomainError } from "./errors";
-import { anonymizeCustomer, clearCustomerRetentionHold, confirmCustomerContact, createCustomer, mergeCustomers, renewCustomerContact, setCustomerRetentionHold, updateCustomer } from "./customers";
+import { anonymizeCustomer, clearCustomerRetentionHold, confirmCustomerContact, createCustomer, listCustomers, mergeCustomers, renewCustomerContact, setCustomerRetentionHold, updateCustomer } from "./customers";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
 
 function actorName(context: AdminActionContext) { assertAdminActionContext(context); return context.actor.email ?? context.actor.id; }
+
+export type AdminCustomersQuery = Parameters<typeof listCustomers>[1];
+export async function getAdminCustomers(database: Database, context: AdminActionContext, query?: AdminCustomersQuery) {
+  assertAdminActionContext(context);
+  return listCustomers(database, query);
+}
 
 export type AdminCustomerCommand =
   | { action: "update"; id: string; values: AdminCustomerUpdateInput }

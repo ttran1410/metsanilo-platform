@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { listCustomers } from "@/domain/customers";
-import { createAdminCustomer } from "@/domain/admin-customer-actions";
+import { createAdminCustomer, getAdminCustomers } from "@/domain/admin-customer-actions";
 import { env } from "@/lib/env";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../response";
@@ -18,13 +17,13 @@ const createSchema = z.object({
 
 export async function GET(request: Request) {
   try {
-    const result = await executeAdmin(request, { permission: "customers.read", parse: async () => new URL(request.url).searchParams, run: async (searchParams, { database }) => {
+    const result = await executeAdmin(request, { permission: "customers.read", parse: async () => new URL(request.url).searchParams, run: async (searchParams, { database, context }) => {
     const q = searchParams.get("q") ?? searchParams.get("search") ?? "";
     const filter = (searchParams.get("filter") ?? "all") as "all" | "vip" | "conflicts" | "consent";
     const sort = (searchParams.get("sort") ?? "recent") as "spend_desc" | "litres_desc" | "recent" | "name_asc";
     const page = Math.max(1, Number(searchParams.get("page") ?? 1));
     const limit = Math.max(1, Math.min(250, Number(searchParams.get("limit") ?? 150)));
-    return listCustomers(database, {
+    return getAdminCustomers(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, {
         search: q,
         filter,
         sort,
