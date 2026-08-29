@@ -1,6 +1,6 @@
 "use client";
 
-import { AdminSearchField } from "../ui/admin-search-field";
+import { AdminSearchField } from "../../ui/admin-search-field";
 
 export type UserRoleFilter = "ALL" | "ADMIN" | "MANAGER" | "STAFF" | "CONTENT_CREATOR";
 

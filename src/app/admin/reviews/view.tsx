@@ -8,9 +8,9 @@ import { AdminSearchField } from "../ui/admin-search-field";
 import { AdminConfirmDialog, AdminEmptyState, AdminNotice, AdminPageHeader, useAdminDialogFocus } from "../presentation";
 import { AdminPagination } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconLink, IconLock, IconPencil, IconTrash, IconUser } from "../ui/admin-row-action-menu";
-import { LinkIdentityModal } from "./link-identity-modal";
-import { EditReviewModal } from "./edit-review-modal";
-import { PublicationIdentityModal } from "./publication-identity-modal";
+import { LinkIdentityModal } from "./dialogs/link-identity-modal";
+import { EditReviewModal } from "./dialogs/edit-review-modal";
+import { PublicationIdentityModal } from "./dialogs/publication-identity-modal";
 import { parseReviewsUrlState, serializeReviewsUrlState, type ReviewTab } from "./url-state";
 import { getAdminOrderSources } from "../shared/reference-data-cache";
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { AvailabilityWorkspace } from "@/domain/availability";
-import { AdminNotice, useAdminDialogFocus } from "../presentation";
+import { AdminNotice, useAdminDialogFocus } from "../../presentation";
 
 type AvailabilityRow = AvailabilityWorkspace["rows"][number];
 

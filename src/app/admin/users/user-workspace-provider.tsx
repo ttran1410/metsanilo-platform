@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import type { UserRoleFilter } from "./user-query-toolbar";
+import type { UserRoleFilter } from "./list/user-query-toolbar";
 
 type UserWorkspaceContextValue = {
   selectedId: string;

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, ExternalLink, History, Palette, RotateCcw, Trash2 } from "lucide-react";
-import { AdminConfirmDialog, AdminNotice } from "./presentation";
+import { AdminConfirmDialog, AdminNotice } from "../presentation";
 import type { StorefrontThemeKey } from "@/domain/storefront-themes";
 
 type ThemeVersion = {

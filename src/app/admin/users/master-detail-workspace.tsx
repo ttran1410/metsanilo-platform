@@ -12,13 +12,13 @@ import {
 import { AdminEmptyState, AdminNotice, AdminStatusBadge } from "../presentation";
 import { AdminPagination, AdminSidebarInfiniteFooter } from "../ui/admin-pagination";
 import { AdminRowActionMenu, IconEye, IconLock, IconPencil } from "../ui/admin-row-action-menu";
-import { UserQueryToolbar } from "./user-query-toolbar";
+import { UserQueryToolbar } from "./list/user-query-toolbar";
 import { UserWorkspaceProvider, useUserWorkspace } from "./user-workspace-provider";
-import { UserActionDialogs } from "./user-action-dialogs";
-import { UserProfileEditDialog } from "./user-profile-edit-dialog";
-import { usePermissionEditorController } from "./use-permission-editor-controller";
-import { useUserAccountActionController } from "./use-user-account-action-controller";
-import { useUserProfileEditorController } from "./use-user-profile-editor-controller";
+import { UserActionDialogs } from "./dialogs/user-action-dialogs";
+import { UserProfileEditDialog } from "./dialogs/user-profile-edit-dialog";
+import { usePermissionEditorController } from "./actions/use-permission-editor-controller";
+import { useUserAccountActionController } from "./actions/use-user-account-action-controller";
+import { useUserProfileEditorController } from "./actions/use-user-profile-editor-controller";
 import { parseUsersUrlState, serializeUsersUrlState } from "./url-state";
 import { getAdminQuery, invalidateAdminQuery } from "../admin-query-cache";
 

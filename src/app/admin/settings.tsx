@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Building2, CreditCard, ExternalLink, Image as ImageIcon, Inbox, LoaderCircle, LockKeyhole, MapPin, Palette, Pause, Phone, Play, Plus, Save, ShieldAlert, Store, Trash2, UploadCloud, type LucideIcon } from "lucide-react";
 import { AdminConfirmDialog, AdminNotice, AdminPageHeader } from "./presentation";
-import { StorefrontThemeManager } from "./storefront-theme-manager";
-import { SettingsSectionTabs } from "./settings-section-tabs";
+import { StorefrontThemeManager } from "./settings/storefront-theme-manager";
+import { SettingsSectionTabs } from "./settings/settings-section-tabs";
 import { parseSettingsUrlState, serializeSettingsUrlState } from "./settings/url-state";
 import { getAdminOrderSources } from "./shared/reference-data-cache";
 

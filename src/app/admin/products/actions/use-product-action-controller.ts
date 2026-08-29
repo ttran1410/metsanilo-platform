@@ -1,7 +1,7 @@
 "use client";
 
 import { archiveProduct, deleteProduct, reorderProducts, restoreProduct } from "./product-admin-actions";
-import type { ProductRow } from "./master-detail-workspace";
+import type { ProductRow } from "../master-detail-workspace";
 
 type ProductActionControllerOptions = {
   productsList: ProductRow[];

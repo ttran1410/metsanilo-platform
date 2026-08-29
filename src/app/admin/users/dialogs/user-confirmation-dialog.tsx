@@ -1,6 +1,6 @@
 "use client";
 
-import { AdminConfirmDialog } from "../presentation";
+import { AdminConfirmDialog } from "../../presentation";
 
 export function UserConfirmationDialog({ confirmation, onCancel, onConfirm }: {
   confirmation: { title: string; description: string; confirmLabel: string; destructive?: boolean } | null;

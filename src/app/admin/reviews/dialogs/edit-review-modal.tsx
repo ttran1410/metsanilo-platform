@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useAdminDialogFocus } from "../presentation";
+import { useAdminDialogFocus } from "../../presentation";
 
 export type ReviewItem = {
   id: string;

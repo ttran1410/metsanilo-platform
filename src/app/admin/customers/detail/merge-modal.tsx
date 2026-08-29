@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAdminDialogFocus } from "../presentation";
-import { mergeCustomers } from "./use-customer-record-action-controller";
+import { useAdminDialogFocus } from "../../presentation";
+import { mergeCustomers } from "../actions/use-customer-record-action-controller";
 
 type CustomerConflict = {
   id: string;

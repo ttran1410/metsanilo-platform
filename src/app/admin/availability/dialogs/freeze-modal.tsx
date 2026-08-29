@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LockKeyhole, X } from "lucide-react";
-import { useAdminDialogFocus } from "../presentation";
+import { useAdminDialogFocus } from "../../presentation";
 
 const REASON_PRESETS = [
   "Unsafe weather / Sääeste",

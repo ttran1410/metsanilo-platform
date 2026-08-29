@@ -1,7 +1,7 @@
 "use client";
 
 import { Copy } from "lucide-react";
-import { useAdminDialogFocus } from "../presentation";
+import { useAdminDialogFocus } from "../../presentation";
 
 export function UserPasswordDialog({ createdInfo, onDismiss, onCopy }: {
   createdInfo: { user: { displayName: string; email?: string | null }; tempPassword: string } | null;

@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { ReviewItem } from "./edit-review-modal";
-import { useAdminDialogFocus } from "../presentation";
+import { useAdminDialogFocus } from "../../presentation";
 
 export function PublicationIdentityModal({
   review,

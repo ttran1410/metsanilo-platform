@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import type { ReviewItem } from "./edit-review-modal";
-import { useAdminDialogFocus } from "../presentation";
+import { useAdminDialogFocus } from "../../presentation";
 
 type OrderItem = {
   id: string;

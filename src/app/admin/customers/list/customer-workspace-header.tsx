@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { AdminPageHeader } from "../presentation";
+import { AdminPageHeader } from "../../presentation";
 
 export function CustomerWorkspaceHeader({ count, canEdit, onCreate }: { count: number; canEdit: boolean; onCreate: () => void }) {
   return (

@@ -2,10 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import type { Role } from "@/lib/permissions";
-import type { CreatedUser } from "./master-detail-workspace";
-import { useAdminDialogFocus } from "../presentation";
+import type { CreatedUser } from "../master-detail-workspace";
+import { useAdminDialogFocus } from "../../presentation";
 import { validateEmail } from "@/lib/email";
-import { useUserOnboardingController } from "./use-user-onboarding-controller";
+import { useUserOnboardingController } from "../actions/use-user-onboarding-controller";
 
 const ROLE_PRESETS: Array<{ key: Role; label: string; description: string }> = [
   {

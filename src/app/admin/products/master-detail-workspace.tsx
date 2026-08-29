@@ -32,9 +32,9 @@ import { PricingLadder } from "./packages/pricing-ladder";
 import { SeasonTracker } from "./seasons/season-tracker";
 import { ProductQueryToolbar, type ProductFilterOption } from "./product-query-toolbar";
 import { ProductWorkspaceProvider, useProductWorkspace } from "./product-workspace-provider";
-import { ProductWorkflowDialogs } from "./product-workflow-dialogs";
-import { useProductEditorController } from "./use-product-editor-controller";
-import { useProductActionController } from "./use-product-action-controller";
+import { ProductWorkflowDialogs } from "./dialogs/product-workflow-dialogs";
+import { useProductEditorController } from "./actions/use-product-editor-controller";
+import { useProductActionController } from "./actions/use-product-action-controller";
 import { parseProductsUrlState, serializeProductsUrlState } from "./url-state";
 
 export type ProductRow = {

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useAdminDialogFocus } from "../presentation";
-import { saveCustomer, type CustomerSaveInput } from "./use-customer-record-action-controller";
+import { useAdminDialogFocus } from "../../presentation";
+import { saveCustomer, type CustomerSaveInput } from "../actions/use-customer-record-action-controller";
 
 export type CustomerModalProps = {
   editingCustomer?: {

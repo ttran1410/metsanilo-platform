@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { updateProduct } from "./product-admin-actions";
-import type { ProductRow } from "./master-detail-workspace";
+import type { ProductRow } from "../master-detail-workspace";
 
 type ProductEditorValues = {
   code: string;

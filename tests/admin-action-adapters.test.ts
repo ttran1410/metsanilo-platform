@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { archiveProduct, deleteProduct, restoreProduct, updateProduct } from "@/app/admin/products/product-admin-actions";
-import { inviteUser, resetUserPassword, updateUserPermission, updateUserRole, updateUserStatus } from "@/app/admin/users/user-admin-actions";
+import { archiveProduct, deleteProduct, restoreProduct, updateProduct } from "@/app/admin/products/actions/product-admin-actions";
+import { inviteUser, resetUserPassword, updateUserPermission, updateUserRole, updateUserStatus } from "@/app/admin/users/actions/user-admin-actions";
 
 afterEach(() => vi.restoreAllMocks());
 
