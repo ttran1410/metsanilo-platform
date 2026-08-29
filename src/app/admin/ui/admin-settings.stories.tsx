@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
-import { OperationsSettings } from "../settings";
+import { OperationsSettings } from "../settings/settings-module";
 import { AdminNotice, AdminPageHeader } from "../presentation";
 
 function SettingsStory({ canManageSettings = true }: { canManageSettings?: boolean }) {
