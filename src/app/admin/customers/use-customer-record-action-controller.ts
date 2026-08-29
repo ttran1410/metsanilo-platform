@@ -15,3 +15,13 @@ export function useCustomerRecordActionController({ setError, setMessage, refres
     anonymize: (customerId: string) => request(`/api/admin/customers/${customerId}`, { method: "POST" }, "Anonymization failed.", "Customer personal contact data anonymized. Order ledger totals preserved for accounting."),
   };
 }
+
+export type CustomerSaveInput = { id?: string; name: string; mobile: string; email: string; facebookProfile: string; streetAddress: string; postalCode: string; city: string; preferredMethod: "PICKUP" | "DELIVERY"; preferredLanguage: "FI" | "EN"; marketingConsent: boolean; notes: string };
+
+export async function saveCustomer(input: CustomerSaveInput): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const response = await fetch(input.id ? `/api/admin/customers/${input.id}` : "/api/admin/customers", { method: input.id ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...input, ...(input.id ? { action: "update" } : {}) }) });
+    const body = await response.json().catch(() => ({})) as { message?: string };
+    return response.ok ? { ok: true } : { ok: false, message: body.message ?? "Could not save customer profile." };
+  } catch { return { ok: false, message: "An unexpected network error occurred." }; }
+}

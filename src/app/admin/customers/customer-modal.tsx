@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAdminDialogFocus } from "../presentation";
+import { saveCustomer, type CustomerSaveInput } from "./use-customer-record-action-controller";
 
 export type CustomerModalProps = {
   editingCustomer?: {
@@ -20,12 +21,14 @@ export type CustomerModalProps = {
   } | null;
   onClose: () => void;
   onSaved: () => void;
+  onSave?: (input: CustomerSaveInput) => Promise<{ ok: true } | { ok: false; message: string }>;
 };
 
 export function CustomerModal({
   editingCustomer,
   onClose,
   onSaved,
+  onSave = saveCustomer,
 }: CustomerModalProps) {
   const isEditing = Boolean(editingCustomer);
   const dialogRef = useAdminDialogFocus(true, onClose);
@@ -54,10 +57,8 @@ export function CustomerModal({
     setBusy(true);
 
     try {
-      const url = editingCustomer ? `/api/admin/customers/${editingCustomer.id}` : "/api/admin/customers";
-      const method = editingCustomer ? "PATCH" : "POST";
-      const payload = {
-        ...(editingCustomer ? { action: "update" } : {}),
+      const payload: CustomerSaveInput = {
+        ...(editingCustomer ? { id: editingCustomer.id } : {}),
         name: name.trim(),
         mobile: mobile.trim(),
         email: email.trim(),
@@ -71,18 +72,9 @@ export function CustomerModal({
         notes: notes.trim(),
       };
 
-      const response = await fetch(url, {
-        method,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const body = await response.json();
+      const result = await onSave(payload);
       setBusy(false);
-
-      if (!response.ok) {
-        return setError(body.message ?? "Could not save customer profile.");
-      }
+      if (!result.ok) return setError(result.message);
 
       onSaved();
       onClose();
