@@ -19,6 +19,7 @@ import { getAdminOrderSources } from "./reference-data-cache";
 import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
 import type { OrdersSortField } from "./orders/orders-record-list-contract";
 import { OrdersRecordList } from "./orders/orders-record-list";
+import { useOrderBulkTransitionController } from "./orders/use-order-bulk-transition-controller";
 
 
 export type AdminOrder = typeof orders.$inferSelect & {
@@ -555,34 +556,7 @@ export function OrdersListing({
 
   const allSelected = visibleRows.length > 0 && visibleRows.every((order) => selected.includes(order.id));
 
-  async function confirmTransition() {
-    if (!pending) return;
-    setError("");
-    setNotice("");
-
-    try {
-      for (const order of pending.orders) {
-        const response = await fetch(`/api/admin/orders/${order.id}`, {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            action: "transition",
-            status: pending.target,
-            expectedVersion: order.version,
-            reason: reason.trim() || undefined,
-          }),
-        });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message ?? `Transition failed for ${order.publicReference}`);
-      }
-      setNotice(`Updated ${pending.orders.length} order(s) to ${statusLabel(pending.target)}.`);
-      setSelected([]);
-      setPending(null);
-      await refreshOrders();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Batch transition failed.");
-    }
-  }
+  const confirmTransition = useOrderBulkTransitionController({ pending, reason, onClearSelection: () => { setSelected([]); setPending(null); }, onComplete: setNotice, onError: setError, refresh: refreshOrders });
 
   async function handleConfirmDeleteBatch() {
     if (!pendingDelete || pendingDelete.deletable.length === 0) return;
