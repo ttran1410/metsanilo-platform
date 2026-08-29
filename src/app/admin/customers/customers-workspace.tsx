@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdminSearchField } from "../ui/admin-search-field";
@@ -15,17 +15,15 @@ import { CustomerSavedViews } from "./list/customer-saved-views";
 import { CustomerWorkspaceHeader } from "./list/customer-workspace-header";
 import { CustomerRecordList } from "./list/customer-record-list";
 import { CustomerInspector } from "./detail/customer-inspector";
+import { useCustomerProfileQuery } from "./detail/use-customer-profile-query";
 import { parseCustomersUrlState, serializeCustomersUrlState } from "./url-state";
 import { useCustomerContactActionController } from "./actions/use-customer-contact-action-controller";
 import { useCustomerRecordActionController } from "./actions/use-customer-record-action-controller";
 import { getAdminQuery, invalidateAdminQuery } from "../shared/query-cache";
 import type { CustomerRow } from "./types/customer-row";
-import type { CustomerProfile } from "./types/customer-profile";
 export type { CustomerRow } from "./types/customer-row";
 
 type CustomerTableSortField = "name" | "volume" | "spend" | "status";
-
-type ProfileData = CustomerProfile;
 
 type CustomerQueryContextValue = {
   selectedId: string; setSelectedId: (value: string) => void;
@@ -94,7 +92,6 @@ function CustomerWorkspaceContent({
   const searchParams = useSearchParams();
   const rawList = Array.isArray(initialCustomers) ? initialCustomers : (initialCustomers?.items ?? []);
   const [customersList, setCustomersList] = useState<CustomerRow[]>(rawList);
-  const profileRequestRef = useRef<AbortController | null>(null);
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterChip, setFilterChip, sortMode, setSortMode, workspaceView, setWorkspaceView, mobileView, setMobileView } = useCustomerQuery();
   const urlQuery = parseCustomersUrlState(searchParams).searchQuery;
 
@@ -114,8 +111,6 @@ function CustomerWorkspaceContent({
     }
   }
 
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -131,33 +126,11 @@ function CustomerWorkspaceContent({
   const [editingNoteText, setEditingNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
-  async function loadProfile(id: string, showDetail = true) {
-    profileRequestRef.current?.abort();
-    const controller = new AbortController();
-    profileRequestRef.current = controller;
-    setSelectedId(id);
-    if (showDetail) setMobileView("detail");
-    setLoadingProfile(true);
-    setError("");
-    try {
-      const response = await fetch(`/api/admin/customers/${id}`, { cache: "no-store", signal: controller.signal, headers: { "x-admin-request-scope": "customer-detail" } });
-      const body = await response.json();
-      if (controller.signal.aborted) return;
-      setLoadingProfile(false);
-      if (response.ok && body.data) {
-        setProfile(body.data);
-        setEditingNoteText(body.data.customer.notes ?? "");
-      } else {
-        setError(body.message ?? "Could not load customer profile.");
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setLoadingProfile(false);
-      setError("Network error while loading profile.");
-    }
-  }
+  const { profile, setProfile, loadingProfile, loadProfile } = useCustomerProfileQuery({ onSelect: setSelectedId, onShowDetail: () => setMobileView("detail"), onError: setError });
 
-  useEffect(() => () => profileRequestRef.current?.abort(), []);
+  useEffect(() => {
+    if (profile) setEditingNoteText(profile.customer.notes ?? "");
+  }, [profile]);
 
   // Reload customer list & current profile
   async function refreshList(currentIdToSelect?: string) {
