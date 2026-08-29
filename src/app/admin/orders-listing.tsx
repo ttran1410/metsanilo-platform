@@ -20,6 +20,7 @@ import { OrdersWorkspaceToolbar } from "./orders/orders-workspace-toolbar";
 import type { OrdersSortField } from "./orders/orders-record-list-contract";
 import { OrdersRecordList } from "./orders/orders-record-list";
 import { useOrderBulkTransitionController } from "./orders/use-order-bulk-transition-controller";
+import { useOrderBulkActionController } from "./orders/use-order-bulk-action-controller";
 
 
 export type AdminOrder = typeof orders.$inferSelect & {
@@ -558,78 +559,7 @@ export function OrdersListing({
 
   const confirmTransition = useOrderBulkTransitionController({ pending, reason, onClearSelection: () => { setSelected([]); setPending(null); }, onComplete: setNotice, onError: setError, refresh: refreshOrders });
 
-  async function handleConfirmDeleteBatch() {
-    if (!pendingDelete || pendingDelete.deletable.length === 0) return;
-    setDeleting(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const ids = pendingDelete.deletable.map((o) => o.id);
-      const response = await fetch("/api/admin/orders/batch-delete", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-
-      const body = await response.json();
-      setDeleting(false);
-
-      if (!response.ok) {
-        throw new Error(body.message ?? "Batch delete failed.");
-      }
-
-      setNotice(
-        `Permanently deleted ${body.data.deletedCount} order(s).` +
-          (body.data.skippedPaidCount > 0 ? ` (${body.data.skippedPaidCount} paid order(s) were protected from deletion)` : "")
-      );
-      setSelected([]);
-      setPendingDelete(null);
-      await refreshOrders();
-    } catch (err) {
-      setDeleting(false);
-      setError(err instanceof Error ? err.message : "Batch delete failed.");
-    }
-  }
-
-  async function handleBatchArchive(action: "archive" | "unarchive") {
-    if (selected.length === 0) return;
-    setArchiving(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await fetch("/api/admin/orders/batch-archive", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids: selected, action }),
-      });
-
-      const body = await response.json();
-      setArchiving(false);
-
-      if (!response.ok) {
-        throw new Error(body.message ?? "Batch archive operation failed.");
-      }
-
-      if (action === "archive") {
-        setNotice(
-          `Archived ${body.data.processedCount} order(s).` +
-            (body.data.skippedActiveCount > 0
-              ? ` (${body.data.skippedActiveCount} active in-flight order(s) could not be archived)`
-              : "")
-        );
-      } else {
-        setNotice(`Restored ${body.data.processedCount} order(s) from archive.`);
-      }
-
-      setSelected([]);
-      await refreshOrders();
-    } catch (err) {
-      setArchiving(false);
-      setError(err instanceof Error ? err.message : "Batch archive operation failed.");
-    }
-  }
+  const { confirmDelete: handleConfirmDeleteBatch, archive: handleBatchArchive } = useOrderBulkActionController({ selected, pendingDelete, onSelectedClear: () => setSelected([]), onDeletePendingClear: () => setPendingDelete(null), onDeletingChange: setDeleting, onArchivingChange: setArchiving, onNotice: setNotice, onError: setError, refresh: refreshOrders });
 
   return (
     <section className="admin-orders-workspace shell pb-10 flex flex-col gap-3">
