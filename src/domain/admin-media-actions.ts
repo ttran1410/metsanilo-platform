@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { del, put } from "@vercel/blob";
 import { and, count, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, mediaAttachments, mediaAssets, products, shops } from "@/db/schema";
 import { DomainError } from "./errors";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
+import { removeMedia, storeMedia } from "@/lib/media-storage";
 
 export type AdminMediaMetadataInput = { attachmentId: string; altFi: string; altEn: string };
 
@@ -60,7 +60,7 @@ export async function deleteAdminMedia(database: Database, context: AdminActionC
   const row = await database.select({ attachment: mediaAttachments, asset: mediaAssets }).from(mediaAttachments).innerJoin(mediaAssets, eq(mediaAssets.id, mediaAttachments.assetId)).where(and(eq(mediaAttachments.assetId, assetId), eq(mediaAttachments.shopId, context.shop.id))).limit(1);
   if (!row[0]) throw new DomainError("NOT_FOUND", "Image not found", 404);
   if (row[0].attachment.isPrimary) throw new DomainError("PRIMARY_MEDIA_REQUIRED", "Choose another primary image before deleting this image", 409);
-  await del(row[0].asset.url);
+  await removeMedia(row[0].asset);
   await database.delete(mediaAttachments).where(and(eq(mediaAttachments.assetId, assetId), eq(mediaAttachments.shopId, context.shop.id)));
   await database.delete(mediaAssets).where(and(eq(mediaAssets.id, assetId), eq(mediaAssets.shopId, context.shop.id)));
   await database.insert(auditEntries).values({ id: randomUUID(), shopId: context.shop.id, actor: context.actor.email ?? context.actor.id, action: "media.deleted", entityType: "product", entityId: row[0].attachment.productId ?? "", detailsJson: JSON.stringify({ assetId }), createdAt: new Date().toISOString() });
@@ -81,13 +81,13 @@ export async function uploadAdminMedia(database: Database, context: AdminActionC
   const total = Number(existing[0]?.total ?? 0);
   if (input.productId && total >= 4) throw new DomainError("MEDIA_LIMIT", "A product can have at most 4 images", 409);
   const now = new Date().toISOString(); const assetId = randomUUID(); const attachmentId = randomUUID();
-  const blob = await put(`${input.productId ? `products/${input.productId}` : `pages/${input.pageKey}`}/${input.file.name}`, input.file, { access: "public", addRandomSuffix: true, contentType: input.file.type });
-  await database.insert(mediaAssets).values({ id: assetId, shopId: context.shop.id, url: blob.url, pathname: blob.pathname, mimeType: input.file.type, sizeBytes: input.file.size, altFi: input.altFi, altEn: input.altEn, captionFi: "", captionEn: "", active: true, createdAt: now });
+  const media = await storeMedia({ pathname: `${input.productId ? `products/${input.productId}` : `pages/${input.pageKey}`}/${input.file.name}`, file: input.file });
+  await database.insert(mediaAssets).values({ id: assetId, shopId: context.shop.id, url: media.url, pathname: media.pathname, mimeType: input.file.type, sizeBytes: input.file.size, altFi: input.altFi, altEn: input.altEn, captionFi: "", captionEn: "", active: true, createdAt: now });
   await database.insert(mediaAttachments).values({ id: attachmentId, shopId: context.shop.id, assetId, productId: input.productId, pageKey: input.pageKey, sortOrder: total, isPrimary: total === 0 });
-  if (input.pageKey === "logo") await database.update(shops).set({ logoUrl: blob.url }).where(eq(shops.id, context.shop.id));
-  if (input.pageKey === "favicon") await database.update(shops).set({ faviconUrl: blob.url }).where(eq(shops.id, context.shop.id));
+  if (input.pageKey === "logo") await database.update(shops).set({ logoUrl: media.url }).where(eq(shops.id, context.shop.id));
+  if (input.pageKey === "favicon") await database.update(shops).set({ faviconUrl: media.url }).where(eq(shops.id, context.shop.id));
   await database.insert(auditEntries).values({ id: randomUUID(), shopId: context.shop.id, actor: context.actor.email ?? context.actor.id, action: "media.uploaded", entityType: input.pageKey ? "page_media" : "product", entityId: input.pageKey ?? input.productId!, detailsJson: JSON.stringify({ assetId, sizeBytes: input.file.size, pageKey: input.pageKey }), createdAt: now });
-  return { ...blob, id: assetId, altFi: input.altFi, altEn: input.altEn, attachmentId };
+  return { ...media, id: assetId, altFi: input.altFi, altEn: input.altEn, attachmentId };
 }
 
 export async function deleteAdminMediaAttachment(database: Database, context: AdminActionContext, attachmentId: string) {

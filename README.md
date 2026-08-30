@@ -81,6 +81,8 @@ cp .env.example .env.local
 Configure `.env.local` with your database and shop settings:
 ```env
 TURSO_DATABASE_URL=file:local.db
+MEDIA_STORAGE=local
+MEDIA_LOCAL_DIR=public/uploads
 SHOP_ID=shop-main
 SHOP_SLUG=metsanilo
 BETTER_AUTH_SECRET=your-32-character-secret-key
