@@ -305,10 +305,13 @@ function UserWorkspaceContent({
   // Filter Master Roster
 
   useEffect(() => {
-    const next = serializeUsersUrlState(searchParams, { searchQuery, roleFilter, selectedId, page: currentPage });
-    const applicationParams = new URLSearchParams(searchParams.toString());
-    applicationParams.delete("_rsc");
-    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const timer = window.setTimeout(() => {
+      const next = serializeUsersUrlState(searchParams, { searchQuery, roleFilter, selectedId, page: currentPage });
+      const applicationParams = new URLSearchParams(searchParams.toString());
+      applicationParams.delete("_rsc");
+      if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    }, 300);
+    return () => window.clearTimeout(timer);
   }, [currentPage, roleFilter, router, searchParams, searchQuery, selectedId]);
 
   useEffect(() => {

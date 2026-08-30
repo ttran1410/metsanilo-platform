@@ -87,6 +87,7 @@ export function ReviewsWorkspace({
   useEffect(() => {
     if (!loadInitialFromApi) return;
     const controller = new AbortController();
+    const timer = window.setTimeout(() => {
     reviewsRequestRef.current?.abort();
     reviewsRequestRef.current = controller;
     const params = new URLSearchParams({ q: searchQuery.trim(), page: String(currentPage), pageSize: String(pageSize) });
@@ -101,7 +102,8 @@ export function ReviewsWorkspace({
       })
       .catch((error) => { if (!(error instanceof DOMException && error.name === "AbortError")) setErrorMsg(error instanceof Error ? error.message : "Reviews unavailable"); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
+    }, 300);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [activeTab, currentPage, loadInitialFromApi, pageSize, searchQuery]);
   const [masterVisible, setMasterVisible] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
@@ -130,10 +132,13 @@ export function ReviewsWorkspace({
   ]);
 
   useEffect(() => {
-    const next = serializeReviewsUrlState(searchParams, { searchQuery, activeTab, currentPage });
-    const applicationParams = new URLSearchParams(searchParams.toString());
-    applicationParams.delete("_rsc");
-    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const timer = window.setTimeout(() => {
+      const next = serializeReviewsUrlState(searchParams, { searchQuery, activeTab, currentPage });
+      const applicationParams = new URLSearchParams(searchParams.toString());
+      applicationParams.delete("_rsc");
+      if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    }, 300);
+    return () => window.clearTimeout(timer);
   }, [activeTab, currentPage, router, searchParams, searchQuery]);
 
   useEffect(() => {

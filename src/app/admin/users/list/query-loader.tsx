@@ -11,13 +11,13 @@ export function UserQueryLoader({ actorRole, actorId, canManageUsers, canAssignP
   const searchParams = useSearchParams();
   const [initialUsers, setInitialUsers] = useState<UserRow[] | null>(null);
   useEffect(() => {
-    async function load() {
+    const timer = window.setTimeout(async () => {
       const params = new URLSearchParams();
       for (const key of ["q", "role", "page", "limit"]) { const value = searchParams.get(key); if (value) params.set(key, value); }
       const data = await getAdminQuery<UserRow[] | { items?: UserRow[] }>(`/api/admin/users?${params.toString()}`, "users-list");
       setInitialUsers(Array.isArray(data) ? data : data?.items ?? []);
-    }
-    void load();
+    }, 300);
+    return () => window.clearTimeout(timer);
   }, [searchParams]);
   if (!initialUsers) return <section className="shell py-8"><AdminLoadingState label="Loading Users &amp; Permissions Workspace…" /></section>;
   return <UsersWorkspace initialUsers={initialUsers} actorRole={actorRole} actorId={actorId} canManageUsers={canManageUsers} canAssignPermissions={canAssignPermissions} canResetPasswords={canResetPasswords} />;

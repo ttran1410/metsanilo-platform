@@ -50,7 +50,7 @@ const updateSchema = z.object({
   orderSource: z.string().optional(),
   facebookProfile: z.string().nullable().optional(),
   customerName: z.string().trim().min(2).max(120).optional(),
-  mobile: z.string().trim().min(7).max(40).optional(),
+  mobile: z.string().trim().min(7).max(40).nullable().optional(),
   email: z.string().nullable().optional(),
   streetAddress: z.string().nullable().optional(),
   postalCode: z.string().nullable().optional(),

@@ -195,10 +195,13 @@ export function OrdersListing({
   }, [initialCreatedId, router, rows, searchParams]);
 
   useEffect(() => {
-    const next = serializeOrdersUrlState(searchParams, { view, mode: workspaceMode, query: search, from, to, preset: datePreset, method, status, source, entry: entryType });
-    const applicationParams = new URLSearchParams(searchParams.toString());
-    applicationParams.delete("_rsc");
-    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const timer = window.setTimeout(() => {
+      const next = serializeOrdersUrlState(searchParams, { view, mode: workspaceMode, query: search, from, to, preset: datePreset, method, status, source, entry: entryType });
+      const applicationParams = new URLSearchParams(searchParams.toString());
+      applicationParams.delete("_rsc");
+      if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    }, 300);
+    return () => window.clearTimeout(timer);
   }, [datePreset, entryType, from, method, router, search, searchParams, source, status, to, view, workspaceMode]);
 
   function getNextQuickAction(order: AdminOrder): { target: OrderStatus; label: string } | null {

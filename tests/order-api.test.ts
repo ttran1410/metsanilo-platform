@@ -467,9 +467,11 @@ describe("order operations", () => {
       expectedVersion: pickedUp.version,
       orderSource: "FACEBOOK_MESSAGE",
       facebookProfile: "facebook.com/john.doe",
+      mobile: null,
     });
     expect(updated.orderSource).toBe("FACEBOOK_MESSAGE");
     expect(updated.facebookProfile).toBe("facebook.com/john.doe");
+    expect(updated.mobile).toBeNull();
 
     // Attempting to change core fields (quantity) on DELIVERED order throws ORDER_LOCKED error
     await expect(
