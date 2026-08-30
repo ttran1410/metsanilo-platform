@@ -9,6 +9,7 @@ import { DomainError } from "./errors";
 import { normalizeEmail, normalizeMobile, orderInputSchema, type OrderInput } from "./order-input";
 import { assertPaymentMethodEnabled, type PaymentMethod } from "./payment-methods";
 import { getHarvestSeasonForDate } from "./seasons";
+import { resolveAvailabilityForDate, resolveSeasonForAvailability } from "./availability-resolver";
 
 const nowIso = () => new Date().toISOString();
 const publicReference = () => `R-${randomBytes(5).toString("hex").toUpperCase()}`;
@@ -450,17 +451,17 @@ export async function previewManagerOrderUpdate(database: Database, input: Manag
   const packageRow = await database.query.packages.findFirst({ where: and(eq(packages.id, packageId), eq(packages.productId, productId), eq(packages.shopId, shopId)) });
   if (!packageRow) throw new DomainError("NOT_FOUND", "Product package not found", 404);
   const nextVolumeMl = packageRow.volumeMl * quantity;
-  const nextSeasonId = (await getHarvestSeasonForDate(database, productId, fulfillmentDate))?.id ?? null;
-  const currentSeasonId = current.seasonId ?? (await getHarvestSeasonForDate(database, current.productId, current.fulfillmentDate))?.id ?? null;
+  const nextSeasonId = (await resolveSeasonForAvailability(database, { shopId, productId, businessDate: fulfillmentDate }))?.id ?? null;
+  const currentSeasonId = (await resolveSeasonForAvailability(database, { shopId, productId: current.productId, businessDate: current.fulfillmentDate, seasonId: current.seasonId }))?.id ?? null;
   const capacityChanged = current.productId !== productId || current.fulfillmentDate !== fulfillmentDate || current.volumeMl !== nextVolumeMl;
-  const target = capacityChanged ? await database.query.availability.findFirst({ where: and(eq(availability.shopId, shopId), eq(availability.productId, productId), nextSeasonId ? eq(availability.seasonId, nextSeasonId) : isNull(availability.seasonId), eq(availability.businessDate, fulfillmentDate)) }) : null;
+  const target = capacityChanged ? await resolveAvailabilityForDate(database, { shopId, productId, businessDate: fulfillmentDate, seasonId: nextSeasonId }) : null;
 
   return {
     orderId: current.id,
     expectedVersion: current.version,
     current: { productId: current.productId, fulfillmentDate: current.fulfillmentDate, volumeMl: current.volumeMl, seasonId: currentSeasonId, itemSubtotalCents: current.itemSubtotalCents },
     next: { productId, fulfillmentDate, volumeMl: nextVolumeMl, seasonId: nextSeasonId, itemSubtotalCents: packageRow.priceCents * quantity },
-    capacity: { changed: capacityChanged, releaseMl: capacityChanged ? current.volumeMl : 0, reserveMl: capacityChanged ? nextVolumeMl : 0, targetAvailableMl: target ? Math.max(0, target.capacityMl - target.reservedMl) : null, canReserve: !capacityChanged || Boolean(target && target.acceptsOrders && !target.manualSoldOut && target.capacityMl - target.reservedMl >= nextVolumeMl) },
+    capacity: { changed: capacityChanged, releaseMl: capacityChanged ? current.volumeMl : 0, reserveMl: capacityChanged ? nextVolumeMl : 0, targetAvailableMl: target ? Math.max(0, target.row.capacityMl - target.row.reservedMl) : null, canReserve: !capacityChanged || Boolean(target && target.row.acceptsOrders && !target.row.manualSoldOut && target.row.capacityMl - target.row.reservedMl >= nextVolumeMl), availabilitySource: target?.source ?? null },
   };
 }
 
@@ -519,14 +520,16 @@ export async function updateManagerOrder(database: Database, input: ManagerOrder
     const finalTotalCents = deliveryFeeCents === null ? null : finalItemSubtotal + deliveryFeeCents;
     const totalVolumeMl = row.package.volumeMl * quantity;
     const capacityChanged = !current.historicalEntry && (current.productId !== productId || current.fulfillmentDate !== fulfillmentDate || current.volumeMl !== totalVolumeMl);
-    const currentSeasonId = current.seasonId ?? (await getHarvestSeasonForDate(tx, current.productId, current.fulfillmentDate))?.id ?? null;
-    const targetSeasonId = (await getHarvestSeasonForDate(tx, productId, fulfillmentDate))?.id ?? null;
+    const currentSeasonId = (await resolveSeasonForAvailability(tx, { shopId: SHOP_ID, productId: current.productId, businessDate: current.fulfillmentDate, seasonId: current.seasonId }))?.id ?? null;
+    const targetSeasonId = (await resolveSeasonForAvailability(tx, { shopId: SHOP_ID, productId, businessDate: fulfillmentDate }))?.id ?? null;
     const now = nowIso();
     if (capacityChanged) {
-      const released = await tx.update(availability).set({ reservedMl: sql`${availability.reservedMl} - ${current.volumeMl}`, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.shopId, SHOP_ID), eq(availability.productId, current.productId), currentSeasonId ? eq(availability.seasonId, currentSeasonId) : isNull(availability.seasonId), eq(availability.businessDate, current.fulfillmentDate), gte(availability.reservedMl, current.volumeMl))).run();
+      const currentAvailability = await resolveAvailabilityForDate(tx, { shopId: SHOP_ID, productId: current.productId, businessDate: current.fulfillmentDate, seasonId: currentSeasonId });
+      const released = currentAvailability ? await tx.update(availability).set({ reservedMl: sql`${availability.reservedMl} - ${current.volumeMl}`, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.id, currentAvailability.row.id), gte(availability.reservedMl, current.volumeMl))).run() : { rowsAffected: 0 };
       if (released.rowsAffected !== 1) throw new DomainError("CAPACITY_CHANGED", "The original capacity reservation is no longer available", 409);
-      const target = await tx.query.availability.findFirst({ where: and(eq(availability.shopId, SHOP_ID), eq(availability.productId, productId), targetSeasonId ? eq(availability.seasonId, targetSeasonId) : isNull(availability.seasonId), eq(availability.businessDate, fulfillmentDate)) });
-      if (!target) throw new DomainError("CAPACITY_CHANGED", "No availability is configured for the selected fulfillment date", 409);
+      const targetAvailability = await resolveAvailabilityForDate(tx, { shopId: SHOP_ID, productId, businessDate: fulfillmentDate, seasonId: targetSeasonId });
+      const target = targetAvailability?.row;
+      if (!target) throw new DomainError("NO_AVAILABILITY", "No availability is configured for the selected fulfillment date", 409);
       if (!target.acceptsOrders || target.manualSoldOut) throw new DomainError("DATE_CLOSED", "The selected fulfillment date is closed for orders", 409);
       if (target.capacityMl - target.reservedMl < totalVolumeMl) throw new DomainError("CAPACITY_CHANGED", "Not enough capacity for the selected date", 409);
       const reserved = await tx.update(availability).set({ reservedMl: sql`${availability.reservedMl} + ${totalVolumeMl}`, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.id, target.id), gte(sql`${availability.capacityMl} - ${availability.reservedMl}`, totalVolumeMl))).run();

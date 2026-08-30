@@ -5,7 +5,7 @@ import { auditEntries, availability, harvestSeasons, mediaAttachments, mediaAsse
 import { DomainError } from "./errors";
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
-import { getHarvestSeasonForDate } from "./seasons";
+import { resolveSeasonForAvailability } from "./availability-resolver";
 export { calculateCapacityAdjustment } from "./capacity";
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -446,9 +446,7 @@ export async function previewAvailabilityPlan(
   }
   const entries = [];
   for (const businessDate of dates) {
-    const season = input.seasonId
-      ? await database.query.harvestSeasons.findFirst({ where: eq(harvestSeasons.id, input.seasonId) })
-      : await getHarvestSeasonForDate(database, input.productId, businessDate);
+    const season = await resolveSeasonForAvailability(database, { shopId: SHOP_ID, productId: input.productId, businessDate, seasonId: input.seasonId });
     const current = await database.query.availability.findFirst({
       where: and(
         eq(availability.shopId, SHOP_ID),
@@ -519,7 +517,7 @@ export async function planAvailability(
     const soldOutReason = input.manualSoldOut ? input.soldOutReason!.trim() : null;
     const touched: string[] = [];
     for (const businessDate of dates) {
-      const season = input.seasonId ? await tx.query.harvestSeasons.findFirst({ where: eq(harvestSeasons.id, input.seasonId) }) : await getHarvestSeasonForDate(tx, input.productId, businessDate);
+      const season = await resolveSeasonForAvailability(tx, { shopId: SHOP_ID, productId: input.productId, businessDate, seasonId: input.seasonId });
       const current = await tx.query.availability.findFirst({ where: and(eq(availability.shopId, SHOP_ID), eq(availability.productId, input.productId), season ? eq(availability.seasonId, season.id) : isNull(availability.seasonId), eq(availability.businessDate, businessDate)) });
       if (current && input.capacityMl < current.reservedMl) {
         throw new DomainError("BELOW_RESERVED", `Capacity for ${businessDate} cannot be below reserved volume`, 409);
