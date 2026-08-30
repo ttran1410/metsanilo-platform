@@ -170,8 +170,10 @@ export function OrdersListing({
   const [lastUpdated, setLastUpdated] = useState<string | null>(initialLoadedAt ?? null);
   const [inspectingId, setInspectingId] = useState<string | null>(null);
   const ordersRequestRef = useRef<AbortController | null>(null);
+  const hasLoadedOrdersRef = useRef(!loadInitialFromApi || Boolean(initialOrders?.length));
   const ordersFilterKey = `${search}|${from}|${to}|${method}|${status}|${source}|${entryType}|${view}|${archiveScope}`;
   const lastOrdersFilterKeyRef = useRef(ordersFilterKey);
+  const lastUrlSearchRef = useRef(parsedUrlState.query);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [serverQuickViewCounts, setServerQuickViewCounts] = useState<Record<string, number> | null>(null);
 
@@ -179,9 +181,10 @@ export function OrdersListing({
   // from browser history or a shared URL without remounting the component.
   useEffect(() => {
     // URL restoration is an external navigation synchronization.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (search !== parsedUrlState.query) setSearch(parsedUrlState.query);
-  }, [parsedUrlState.query, search]);
+    if (parsedUrlState.query === lastUrlSearchRef.current) return;
+    lastUrlSearchRef.current = parsedUrlState.query;
+    setSearch(parsedUrlState.query);
+  }, [parsedUrlState.query]);
 
   useEffect(() => {
     if (!initialCreatedId || !rows.some((order) => order.id === initialCreatedId)) return;
@@ -199,7 +202,7 @@ export function OrdersListing({
       const next = serializeOrdersUrlState(searchParams, { view, mode: workspaceMode, query: search, from, to, preset: datePreset, method, status, source, entry: entryType });
       const applicationParams = new URLSearchParams(searchParams.toString());
       applicationParams.delete("_rsc");
-      if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+      if (next.toString() !== applicationParams.toString()) window.history.replaceState(window.history.state, "", `${window.location.pathname}?${next.toString()}`);
     }, 300);
     return () => window.clearTimeout(timer);
   }, [datePreset, entryType, from, method, router, search, searchParams, source, status, to, view, workspaceMode]);
@@ -227,7 +230,7 @@ export function OrdersListing({
     const controller = new AbortController();
     setError("");
     ordersRequestRef.current = controller;
-    setLoading(true);
+    if (!hasLoadedOrdersRef.current) setLoading(true);
     try {
       const params = new URLSearchParams({ q: search.trim(), page: String(page), pageSize: String(limit) });
       if (view === "TRIAGE") params.set("triage", "true");
@@ -243,6 +246,7 @@ export function OrdersListing({
       const body = await response.json();
       if (!response.ok) throw new Error(body.message ?? "Order refresh failed");
       setRows(Array.isArray(body.data) ? body.data : body.data.items ?? []);
+      hasLoadedOrdersRef.current = true;
       setServerTotal(Array.isArray(body.data) ? null : body.data.total ?? 0);
       setLastUpdated(new Date().toISOString());
       if (announce) setNotice("Order queue synced.");
@@ -559,7 +563,7 @@ export function OrdersListing({
 
       {notice && <AdminNotice tone="success" live>{notice}</AdminNotice>}
       {error && <AdminNotice tone="error" live><span>{error}</span> <button type="button" className="btn btn-secondary text-xs ml-2" onClick={() => void refreshOrders(true)} disabled={loading}>Retry</button></AdminNotice>}
-      {loading && <AdminNotice tone="neutral" live>Loading orders…</AdminNotice>}
+      <div className="min-h-6" aria-live="polite">{loading && <AdminNotice tone="neutral" live>Loading orders…</AdminNotice>}</div>
 
       {/* RENDER SELECTED WORKSPACE SUB-VIEW */}
       {workspaceMode === "KANBAN" && (

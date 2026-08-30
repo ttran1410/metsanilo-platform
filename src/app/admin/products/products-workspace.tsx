@@ -71,10 +71,13 @@ function ProductWorkspaceContent({
   const searchParams = useSearchParams();
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterStatus, setFilterStatus, activeTab, setActiveTab, viewMode, setViewMode, mobileView, setMobileView, currentPage, setCurrentPage, pageSize, setPageSize, splitLimit, setSplitLimit } = useProductWorkspace();
   const urlQuery = parseProductsUrlState(searchParams, selectedId).searchQuery;
+  const lastUrlSearchRef = useRef(urlQuery);
 
   useEffect(() => {
-    if (searchQuery !== urlQuery) setSearchQuery(urlQuery);
-  }, [searchQuery, setSearchQuery, urlQuery]);
+    if (urlQuery === lastUrlSearchRef.current) return;
+    lastUrlSearchRef.current = urlQuery;
+    setSearchQuery(urlQuery);
+  }, [setSearchQuery, urlQuery]);
   const [productsList, setProductsList] = useState(initialProducts);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const productsRequestRef = useRef<AbortController | null>(null);
@@ -108,7 +111,7 @@ function ProductWorkspaceContent({
     const next = serializeProductsUrlState(searchParams, { selectedId, searchQuery, filterStatus, activeTab, viewMode, page: currentPage });
     const applicationParams = new URLSearchParams(searchParams.toString());
     applicationParams.delete("_rsc");
-    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    if (next.toString() !== applicationParams.toString()) window.history.replaceState(window.history.state, "", `${window.location.pathname}?${next.toString()}`);
   }, [activeTab, currentPage, filterStatus, router, searchParams, searchQuery, selectedId, viewMode]);
 
   const today = todayStr();

@@ -72,14 +72,16 @@ export function ReviewsWorkspace({
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const initialUrlState = parseReviewsUrlState(searchParams);
+  const lastUrlSearchRef = useRef(initialUrlState.searchQuery);
   const [activeTab, setActiveTab] = useState<ReviewTab>(initialUrlState.activeTab);
   const [searchQuery, setSearchQuery] = useState(initialUrlState.searchQuery);
 
   useEffect(() => {
     // URL restoration is an external navigation synchronization.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (searchQuery !== initialUrlState.searchQuery) setSearchQuery(initialUrlState.searchQuery);
-  }, [initialUrlState.searchQuery, searchQuery]);
+    if (initialUrlState.searchQuery === lastUrlSearchRef.current) return;
+    lastUrlSearchRef.current = initialUrlState.searchQuery;
+    setSearchQuery(initialUrlState.searchQuery);
+  }, [initialUrlState.searchQuery]);
   const [currentPage, setCurrentPage] = useState(initialUrlState.currentPage);
   const [pageSize, setPageSize] = useState(20);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
@@ -136,7 +138,7 @@ export function ReviewsWorkspace({
       const next = serializeReviewsUrlState(searchParams, { searchQuery, activeTab, currentPage });
       const applicationParams = new URLSearchParams(searchParams.toString());
       applicationParams.delete("_rsc");
-      if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+      if (next.toString() !== applicationParams.toString()) window.history.replaceState(window.history.state, "", `${window.location.pathname}?${next.toString()}`);
     }, 300);
     return () => window.clearTimeout(timer);
   }, [activeTab, currentPage, router, searchParams, searchQuery]);
@@ -278,7 +280,7 @@ export function ReviewsWorkspace({
 
   return (
     <main className="admin-reviews-workspace shell py-8 space-y-6">
-      {loading && <AdminNotice tone="success" live>Loading reviews…</AdminNotice>}
+      <div className="min-h-6" aria-live="polite">{loading && <AdminNotice tone="success" live>Loading reviews…</AdminNotice>}</div>
       <div className="reviews-page-heading">
         <AdminPageHeader
           eyebrow="Content and trust"
