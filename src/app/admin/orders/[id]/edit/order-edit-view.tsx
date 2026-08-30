@@ -98,6 +98,7 @@ export function OrderEditForm({
   });
 
   const [error, setError] = useState("");
+  const [mobileError, setMobileError] = useState("");
   const [saving, setSaving] = useState(false);
   const [sources, setSources] = useState<Array<{ key: string; labelEn: string }>>([
     { key: "WEBSITE", labelEn: "Website" },
@@ -168,10 +169,14 @@ export function OrderEditForm({
   }
 
   function handleMobileBlur() {
-    if (!form.mobile.trim()) return;
+    if (!form.mobile.trim()) {
+      setMobileError("");
+      return;
+    }
     try {
       const normalized = normalizeMobile(form.mobile);
       update("mobile", normalized);
+      setMobileError("");
     } catch {
       /* Keep user input if unparseable until submit */
     }
@@ -221,12 +226,15 @@ export function OrderEditForm({
       return setError(`Fulfillment date must be between ${minAllowedDate} and ${maxAllowedDate} (next 7 days).`);
     }
 
-    let normalizedMobile = form.mobile;
-    try {
-      normalizedMobile = normalizeMobile(form.mobile);
-    } catch {
-      setSaving(false);
-      return setError("Invalid mobile phone number format.");
+    let normalizedMobile: string | null = null;
+    if (form.mobile.trim()) {
+      try {
+        normalizedMobile = normalizeMobile(form.mobile);
+      } catch {
+        setSaving(false);
+        setMobileError("Enter a valid phone number.");
+        return;
+      }
     }
 
     const response = await fetch(`/api/admin/orders/${form.id}`, {
@@ -392,6 +400,7 @@ export function OrderEditForm({
                 required={!isClosedOrder}
                 placeholder="Discount, customer-provided container…"
               />
+              {mobileError && <span className="field-error" role="alert">{mobileError}</span>}
             </label>
           )}
         </div>

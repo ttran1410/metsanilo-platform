@@ -427,7 +427,7 @@ export type ManagerOrderUpdate = {
   orderSource?: string;
   facebookProfile?: string | null;
   customerName?: string;
-  mobile?: string;
+  mobile?: string | null;
   email?: string | null;
   streetAddress?: string | null;
   postalCode?: string | null;
@@ -526,7 +526,9 @@ export async function updateManagerOrder(database: Database, input: ManagerOrder
       const released = await tx.update(availability).set({ reservedMl: sql`${availability.reservedMl} - ${current.volumeMl}`, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.shopId, SHOP_ID), eq(availability.productId, current.productId), currentSeasonId ? eq(availability.seasonId, currentSeasonId) : isNull(availability.seasonId), eq(availability.businessDate, current.fulfillmentDate), gte(availability.reservedMl, current.volumeMl))).run();
       if (released.rowsAffected !== 1) throw new DomainError("CAPACITY_CHANGED", "The original capacity reservation is no longer available", 409);
       const target = await tx.query.availability.findFirst({ where: and(eq(availability.shopId, SHOP_ID), eq(availability.productId, productId), targetSeasonId ? eq(availability.seasonId, targetSeasonId) : isNull(availability.seasonId), eq(availability.businessDate, fulfillmentDate)) });
-      if (!target || !target.acceptsOrders || target.manualSoldOut || target.capacityMl - target.reservedMl < totalVolumeMl) throw new DomainError("CAPACITY_CHANGED", "Not enough capacity for the selected date", 409);
+      if (!target) throw new DomainError("CAPACITY_CHANGED", "No availability is configured for the selected fulfillment date", 409);
+      if (!target.acceptsOrders || target.manualSoldOut) throw new DomainError("DATE_CLOSED", "The selected fulfillment date is closed for orders", 409);
+      if (target.capacityMl - target.reservedMl < totalVolumeMl) throw new DomainError("CAPACITY_CHANGED", "Not enough capacity for the selected date", 409);
       const reserved = await tx.update(availability).set({ reservedMl: sql`${availability.reservedMl} + ${totalVolumeMl}`, version: sql`${availability.version} + 1`, updatedAt: now }).where(and(eq(availability.id, target.id), gte(sql`${availability.capacityMl} - ${availability.reservedMl}`, totalVolumeMl))).run();
       if (reserved.rowsAffected !== 1) throw new DomainError("CAPACITY_CHANGED", "Capacity changed while saving", 409);
     }
@@ -534,7 +536,11 @@ export async function updateManagerOrder(database: Database, input: ManagerOrder
     const locationSnapshot = configuredLocation ? JSON.stringify({ id: configuredLocation.id, type: configuredLocation.type, nameFi: configuredLocation.nameFi, nameEn: configuredLocation.nameEn, address: configuredLocation.address, instructionsFi: configuredLocation.instructionsFi, instructionsEn: configuredLocation.instructionsEn }) : null;
     let mobile = current.mobile;
     if (input.mobile !== undefined) {
-      try { mobile = normalizeMobile(input.mobile); } catch { throw new DomainError("VALIDATION_ERROR", "Invalid phone", 422, { mobile: "INVALID_PHONE" }); }
+      if (input.mobile === null || !input.mobile.trim()) {
+        mobile = null;
+      } else {
+        try { mobile = normalizeMobile(input.mobile); } catch { throw new DomainError("VALIDATION_ERROR", "Invalid phone", 422, { mobile: "INVALID_PHONE" }); }
+      }
     }
     const email = input.email === undefined ? current.email : normalizeEmail(input.email);
     const customerName = input.customerName?.trim() || current.customerName;
