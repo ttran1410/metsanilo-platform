@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdminSearchField } from "../ui/admin-search-field";
@@ -94,10 +94,13 @@ function CustomerWorkspaceContent({
   const [customersList, setCustomersList] = useState<CustomerRow[]>(rawList);
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, filterChip, setFilterChip, sortMode, setSortMode, workspaceView, setWorkspaceView, mobileView, setMobileView } = useCustomerQuery();
   const urlQuery = parseCustomersUrlState(searchParams).searchQuery;
+  const lastUrlSearchRef = useRef(urlQuery);
 
   useEffect(() => {
-    if (searchQuery !== urlQuery) setSearchQuery(urlQuery);
-  }, [searchQuery, setSearchQuery, urlQuery]);
+    if (urlQuery === lastUrlSearchRef.current) return;
+    lastUrlSearchRef.current = urlQuery;
+    setSearchQuery(urlQuery);
+  }, [setSearchQuery, urlQuery]);
 
   const [tableSortField, setTableSortField] = useState<"name" | "volume" | "spend" | "status">("name");
   const [tableSortDirection, setTableSortDirection] = useState<"asc" | "desc">("asc");
@@ -202,7 +205,7 @@ function CustomerWorkspaceContent({
     const next = serializeCustomersUrlState(searchParams, { selectedId, searchQuery, filterChip, sortMode, workspaceView, page });
     const applicationParams = new URLSearchParams(searchParams.toString());
     applicationParams.delete("_rsc");
-    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    if (next.toString() !== applicationParams.toString()) window.history.replaceState(window.history.state, "", `${window.location.pathname}?${next.toString()}`);
   }, [filterChip, page, router, searchParams, searchQuery, selectedId, sortMode, workspaceView]);
 
   const paginatedCustomers = useMemo(() => {

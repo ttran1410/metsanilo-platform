@@ -223,10 +223,13 @@ function UserWorkspaceContent({
   const workspace = useUserWorkspace();
   const { selectedId, setSelectedId, searchQuery, setSearchQuery, roleFilter, setRoleFilter, viewMode, setViewMode, mobileView, setMobileView, currentPage, setCurrentPage, pageSize, setPageSize, splitLimit, setSplitLimit } = workspace;
   const urlQuery = parseUsersUrlState(searchParams, selectedId).searchQuery;
+  const lastUrlSearchRef = useRef(urlQuery);
 
   useEffect(() => {
-    if (searchQuery !== urlQuery) setSearchQuery(urlQuery);
-  }, [searchQuery, setSearchQuery, urlQuery]);
+    if (urlQuery === lastUrlSearchRef.current) return;
+    lastUrlSearchRef.current = urlQuery;
+    setSearchQuery(urlQuery);
+  }, [setSearchQuery, urlQuery]);
   const [usersList, setUsersList] = useState(initialUsers);
 
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -305,10 +308,13 @@ function UserWorkspaceContent({
   // Filter Master Roster
 
   useEffect(() => {
-    const next = serializeUsersUrlState(searchParams, { searchQuery, roleFilter, selectedId, page: currentPage });
-    const applicationParams = new URLSearchParams(searchParams.toString());
-    applicationParams.delete("_rsc");
-    if (next.toString() !== applicationParams.toString()) router.replace(`?${next.toString()}`, { scroll: false });
+    const timer = window.setTimeout(() => {
+      const next = serializeUsersUrlState(searchParams, { searchQuery, roleFilter, selectedId, page: currentPage });
+      const applicationParams = new URLSearchParams(searchParams.toString());
+      applicationParams.delete("_rsc");
+      if (next.toString() !== applicationParams.toString()) window.history.replaceState(window.history.state, "", `${window.location.pathname}?${next.toString()}`);
+    }, 300);
+    return () => window.clearTimeout(timer);
   }, [currentPage, roleFilter, router, searchParams, searchQuery, selectedId]);
 
   useEffect(() => {

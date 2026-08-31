@@ -11,3 +11,9 @@ storybook-static
 *.tsbuildinfo
 skills-lock.json
 /requirements
+# Local media uploads are runtime data; keep only the directory structure.
+/public/uploads/**/*
+!/public/uploads/products/
+!/public/uploads/products/.gitkeep
+!/public/uploads/pages/
+!/public/uploads/pages/.gitkeep
