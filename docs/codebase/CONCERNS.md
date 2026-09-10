@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-10
 document_type: reference
 ---
 
@@ -11,12 +11,11 @@ These concerns are evidenced risks or inconsistencies, not permission to broaden
 
 | Severity | Concern | Impact | Evidence |
 |---|---|---|---|
-| High | `db:migrate:production` loads a production env file but does not force production preflight | A missing `RELEASE_PREFLIGHT`/`NODE_ENV=production` can weaken the remote-DB/token guard | `package.json`, `scripts/migrate.ts` |
 | High | `db:release` always runs seed | Routine releases can fail on an existing shop or, with `SEED_ALLOW_EXISTING=true`, reset bootstrap admin password and force password change | `scripts/release.ts`, `scripts/seed.ts` |
 | High | Better Auth secret is optional in production validation | The auth module has a development fallback secret while production preflight only requires the legacy secret | `src/lib/env.ts`, `src/lib/better-auth.ts` |
 | High | No committed backup/restore or migration rollback automation | App rollback cannot undo incompatible schema changes | `scripts`, `package.json`, Vercel/Turso CLI help |
 | Medium | Internal requirements may diverge from implementation | The ignored internal tree can contain stale intent and must not silently override code/tests or tracked decisions | `.gitignore`, `docs/adr/0001-tracked-engineering-authority.md` |
-| Medium | Vercel Blob credential is implicit and undocumented in env inventory | Media operations may fail after deployment despite app/database health passing | `src/domain/admin-media-actions.ts`, `.env.example` |
+| Medium | Vercel Blob credential is implicit and absent from production preflight | Media operations may fail after deployment despite app/database health passing | `src/lib/media-storage.ts`, `.env.example`, `src/lib/env.ts` |
 | Medium | Dual authentication paths remain active | Session, account mapping, revocation, and migration behavior are harder to reason about | `src/domain/access.ts`, `src/domain/session.ts`, `src/lib/better-auth.ts` |
 
 ## Maintainability and runtime concerns
@@ -25,7 +24,7 @@ These concerns are evidenced risks or inconsistencies, not permission to broaden
 - `src/domain/reviews.ts`, `orders.ts`, `customers.ts`, `availability.ts`, and `access.ts` are large/high-churn business modules.
 - Many domain functions read `env().SHOP_ID` directly while newer admin adapters also pass shop context. This is safe only if both remain consistent and complicates future multi-shop evolution.
 - Logging is console-based and has no repository-evidenced redaction, retention, alert, or trace policy.
-- Media object/database updates are not atomic across Vercel Blob and libSQL.
+- Media object/database updates are not atomic across the selected storage backend and libSQL. Local media is also process-local and unsuitable for durable Vercel production storage.
 - No browser E2E, accessibility automation, coverage threshold, performance test, or production smoke pipeline is committed.
 
 ## Documentation divergences found during this audit

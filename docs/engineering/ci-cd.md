@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-10
 document_type: how-to
 status: target-process
 ---
@@ -134,7 +134,7 @@ Production migration must force preflight:
 
 ```bash
 RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/dist/cli.mjs scripts/preflight.ts
-RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/dist/cli.mjs scripts/migrate.ts
+npm run db:migrate:production
 ```
 
 Do not use `db:release` in this stage because it also seeds/bootstrap-updates production data.

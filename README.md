@@ -23,7 +23,7 @@
   - Daily capacity planning (ml) per product.
   - Manual capacity locks, sold-out toggles, and automated recurrence planning.
 - **🍓 Product Catalog Manager**:
-  - Products & package management, drag-and-drop sort order, product archive, and a Vercel Blob media gallery.
+  - Products & package management, drag-and-drop sort order, product archive, and a media gallery backed by local storage in development or Vercel Blob in production.
 - **👤 Customer records & Facebook metadata**:
   - Normalized customer directory by phone/email, marketing consent tracking, optional Facebook profile metadata, and historical order attribution. No Facebook connector or synchronization service is implemented.
 - **⭐ Review Engine & Moderation Inbox**:
@@ -49,7 +49,7 @@
 - **Styling**: Tailwind CSS v4, Vanilla CSS design tokens & components
 - **Database & ORM**: Turso / LibSQL (SQLite-compatible) with Drizzle ORM
 - **Authentication**: Better Auth with salted password hashing and role-based permissions
-- **Media Storage**: Vercel Blob SDK for product & CMS page assets
+- **Media Storage**: Local filesystem in development; Vercel Blob for production product and page assets
 - **Testing**: Vitest unit, contract, and disposable-libSQL integration tests
 - **Concurrency & Safety**: Atomic database transactions, unique shop-scoped idempotency keys, integer units for currency (cents) and volume (millilitres)
 
@@ -142,7 +142,7 @@ npm run build
 | `npm run typecheck` | Validates TypeScript types across codebase |
 | `npm run db:generate` | Generates Drizzle SQL migration files from schema |
 | `npm run db:migrate` | Applies pending SQL migrations to Turso/libSQL database |
-| `npm run db:migrate:production` | Loads `.env.production.local` and applies migrations; it does not force production preflight |
+| `npm run db:migrate:production` | Loads `.env.production.local`, forces production validation, and applies pending migrations to the configured remote Turso database |
 | `npm run db:seed` | Seeds shop catalog, availability, and initial admin account |
 | `npm run db:preflight` | Performs pre-deployment safety checks on database |
 | `npm run db:release` | Operator provisioning/reseed flow: migrate + seed + bootstrap-admin verification; not a routine deploy command |
@@ -155,19 +155,19 @@ The canonical production URL is **https://metsanilo.vercel.app/**. A Vercel depl
 
 Use the full [production deployment runbook](docs/engineering/production-deployment.md) and [database migration runbook](docs/engineering/database-migrations.md) for operator actions. The short path below assumes authenticated Vercel/Turso CLIs, a verified project/database target, explicit production authorization, and a reviewed backward-compatible migration.
 
-1. Set and verify environment variables on Vercel (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `SHOP_ID`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `ADMIN_SESSION_SECRET`, and `BLOB_READ_WRITE_TOKEN` when media is enabled). Never commit or print their values.
+1. Set and verify environment variables on Vercel (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `SHOP_ID`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `ADMIN_SESSION_SECRET`, `MEDIA_STORAGE=blob`, and `BLOB_READ_WRITE_TOKEN` when media is enabled). Never commit or print their values.
 2. Pull the production environment into the ignored local file:
    ```bash
    vercel env pull .env.production.local --environment=production --yes
    ```
-3. Force production preflight. The `db:migrate:production` script name alone does not enable this guard:
+3. Run production preflight before creating a backup or changing the database:
    ```bash
    RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/dist/cli.mjs scripts/preflight.ts
    ```
 4. If the release includes a schema change, create the approved Turso backup and apply migrations with the production guard:
    ```bash
    turso db create <backup-db> --from-db <production-db> --wait
-   RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/dist/cli.mjs scripts/migrate.ts
+   npm run db:migrate:production
    ```
 5. Deploy to the production target:
    ```bash

@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-10
 document_type: reference
 ---
 
@@ -23,7 +23,9 @@ Every read/write must be scoped to `env().SHOP_ID`; action contexts additionally
 
 ## Availability and catalog
 
-Products/packages/availability are shop-scoped. Public catalog visibility depends on active product/package, homepage/reserve flags, seasonal dates, availability, and same-day cutoff behavior. `manualSoldOut`, `acceptsOrders`, capacity, and cutoff overrides jointly determine whether an availability row accepts orders. Keep existing calculations in `src/domain/availability.ts` and `src/domain/capacity.ts`.
+Products/packages/availability are shop-scoped. Public catalog visibility depends on active product/package, homepage/reserve flags, seasonal dates, availability, and same-day cutoff behavior. `manualSoldOut`, `acceptsOrders`, capacity, and cutoff overrides jointly determine whether an availability row accepts orders.
+
+For an availability date, `src/domain/availability-resolver.ts` requires at most one matching harvest season. An explicitly supplied season must match that date. Season-aware reads may fall back to one legacy availability row with no `seasonId`, but ambiguous rows must fail rather than select arbitrarily. Keep these rules centralized in the resolver and the calculations in `src/domain/availability.ts` and `src/domain/capacity.ts`.
 
 ## Identity, reviews, and retention
 
@@ -35,4 +37,4 @@ Reviews retain `originalText` separately from public `displayText`; publication 
 
 `ADMIN` and `MANAGER` currently receive broad permission behavior in `src/domain/access.ts`; other roles use explicit grants from `user_permissions` plus defaults in `src/lib/permissions.ts`. High-risk operations and user changes must retain existing permission and audit paths. A navigation item being hidden is not authorization.
 
-Evidence: `src/domain/order-input.ts`, `src/domain/orders.ts`, `src/domain/order-transitions.ts`, `src/domain/availability.ts`, `src/domain/capacity.ts`, `src/domain/customers.ts`, `src/domain/reviews.ts`, `src/domain/access.ts`, `src/lib/permissions.ts`, `src/db/schema.ts`, and matching tests.
+Evidence: `src/domain/order-input.ts`, `src/domain/orders.ts`, `src/domain/order-transitions.ts`, `src/domain/availability-resolver.ts`, `src/domain/availability.ts`, `src/domain/capacity.ts`, `src/domain/customers.ts`, `src/domain/reviews.ts`, `src/domain/access.ts`, `src/lib/permissions.ts`, `src/db/schema.ts`, and matching tests.

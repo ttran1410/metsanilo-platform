@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-10
 document_type: reference
 ---
 
@@ -25,7 +25,7 @@ This reference reconciles maintainers' product context with current code and tes
 | Public storefront | Finnish and English catalog, information, reservation, and review routes | `src/app/[locale]`, storefront tests |
 | Reservation orders | Shop-scoped idempotency, transactional capacity reservation, snapshots, customer matching, audit, and notification/outbox records | `src/domain/orders.ts`, `tests/order-api.test.ts` |
 | Order lifecycle | Pickup/delivery paths plus controlled terminal outcomes and expected-version checks | `src/domain/order-transitions.ts`, transition tests |
-| Availability | Daily integer-ml capacity, reserved volume, manual sold-out, cutoff controls, season windows, preview/planning, version/audit | `src/domain/availability.ts`, availability tests |
+| Availability | Daily integer-ml capacity, reserved volume, manual sold-out, cutoff controls, season-aware row resolution with legacy fallback, preview/planning, version/audit | `src/domain/availability-resolver.ts`, `src/domain/availability.ts`, availability and order tests |
 | Catalog | Products, packages, seasons, bilingual content, ordering/visibility, and media attachments | catalog/season/media modules and tests |
 | Admin RBAC | `ADMIN`, `MANAGER`, `STAFF`, `CONTENT_CREATOR`; server route permissions and per-user grants | `src/lib/permissions.ts`, `src/domain/access.ts`, route contract tests |
 | Customers | Contact normalization, identity conflict handling, marketing consent, contact confirmation, holds, retention review, anonymization | `src/domain/customers.ts`, customer tests |
@@ -38,7 +38,7 @@ This reference reconciles maintainers' product context with current code and tes
 |---|---|---|
 | Authentication | Better Auth plus legacy session compatibility | Migration completion, unified account lifecycle, and stronger production secret preflight |
 | Automation | Outbox table, notification records, protected manual runner | No committed scheduler/worker recovery deployment |
-| Media | Vercel Blob upload/delete and DB metadata | Blob credential preflight and cross-system compensation are missing |
+| Media | Local filesystem storage for development, Vercel Blob for production, and DB metadata | Blob credential preflight and cross-system compensation are missing; local storage isn't suitable for durable Vercel production data |
 | Retention | 24-month eligibility, 12-month contact confirmation, holds, dry-run/apply CLI, audit | Scheduled execution and approved production retention/backup interaction are not documented |
 | Reporting | Existing-data sales, capacity, payment/refund, and customer reports | Accounting-grade cost, VAT, invoice, and profit sources are absent |
 | Information pages | Fixed localized pages and selected visibility/media controls | No general page schema, revision history, or arbitrary CMS |

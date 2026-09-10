@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-10
 document_type: reference
 ---
 
@@ -29,7 +29,7 @@ Vitest runs in Node with file parallelism disabled (`vitest.config.ts`). Tests c
 
 ## Security and operations
 
-Environment parsing is centralized in `src/lib/env.ts`; `.env.example` is the checked-in variable inventory. Production preflight rejects local databases and requires remote Turso credentials plus `ADMIN_SESSION_SECRET`, but it does not validate Better Auth or Blob credentials. Never commit `.env*`, local databases, build output, credentials, or generated runtime artifacts. Media operations use Vercel Blob and must remain permission-protected. Logging currently uses console records for API failures and admin timing; [TODO] no centralized log/alert retention or redaction policy was found.
+Environment parsing is centralized in `src/lib/env.ts`; `.env.example` is the checked-in variable inventory. Production preflight rejects local databases and requires remote Turso credentials plus `ADMIN_SESSION_SECRET`, but it does not validate Better Auth or Blob credentials. Never commit `.env*`, local databases, build output, credentials, or generated runtime artifacts. Media operations use the abstraction in `src/lib/media-storage.ts` and must remain permission-protected; local mode is for development, while Vercel production requires Blob mode and credentials. Logging currently uses console records for API failures and admin timing; [TODO] no centralized log/alert retention or redaction policy was found.
 
 Follow [Deploy to production with Vercel and Turso CLI](production-deployment.md) and the [proposed Turso backup/restore policy](backup-restore-policy.md). Production state changes require explicit authorization and independent verification of account, project, database, environment, and rollback compatibility.
 

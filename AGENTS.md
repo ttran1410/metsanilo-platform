@@ -49,7 +49,7 @@ The dependency direction is: `src/app` composes `src/domain` and `src/lib`; `src
 
 Use `npm ci` for a clean install. Local configuration is described by `.env.example`; `src/lib/env.ts` validates part of the runtime configuration. The default database is `file:local.db`. Production requires a remote Turso URL, `TURSO_AUTH_TOKEN`, and secure auth secrets; never point tests at production.
 
-The `db:*` scripts do not automatically load `.env.local`. `db:migrate:production` loads `.env.production.local` but does not force production validation. `db:release` also runs the seed and is not a routine deploy command. Follow the [CI/CD process](docs/engineering/ci-cd.md), migration runbook, and deployment runbook instead of relying on script names. The canonical production alias is `https://metsanilo.vercel.app/`; a deployment-specific Vercel URL is not a substitute for alias verification.
+The `db:*` scripts do not automatically load `.env.local`. `db:migrate:production` loads `.env.production.local` and forces production validation, but it still requires explicit approval and independent target/backup verification. `db:release` also runs the seed and is not a routine deploy command. Follow the [CI/CD process](docs/engineering/ci-cd.md), migration runbook, and deployment runbook instead of relying on script names. The canonical production alias is `https://metsanilo.vercel.app/`; a deployment-specific Vercel URL is not a substitute for alias verification.
 
 ## Local subsystem rules
 

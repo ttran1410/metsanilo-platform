@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-10
 document_type: how-to
 ---
 
@@ -71,13 +71,11 @@ For a migration that changes existing data, also copy representative sanitized f
 
 ## Apply and verify production migrations
 
-After approval and backup verification, apply the repository migration script while forcing production checks:
+After approval and backup verification, apply the repository migration script. This command loads `.env.production.local` and forces production checks:
 
 ```bash
-RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/dist/cli.mjs scripts/migrate.ts
+npm run db:migrate:production
 ```
-
-The existing `npm run db:migrate:production` command loads `.env.production.local`, but it does not force production preflight. Do not rely on its name as a safety guarantee.
 
 Verify the Drizzle migration table and application health:
 

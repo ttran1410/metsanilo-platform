@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-10
 document_type: explanation
 ---
 
@@ -22,7 +22,7 @@ Domain actions/read models and policy (src/domain)
         ↓ use
 Database client/schema (src/db) + runtime helpers (src/lib)
         ↓ persist/read
-Turso/libSQL via Drizzle; Vercel Blob for media
+Turso/libSQL via Drizzle; local filesystem (development) or Vercel Blob (production) for media
 ```
 
 Route handlers parse input, authenticate/authorize, call a domain action, and adapt results with `success`/`failure`. Admin routes commonly use `executeAdmin` from `src/app/api/admin/module.ts`; public order/review routes call domain functions directly and use the shared response adapter. Domain modules provide read models consumed by server-rendered pages and admin workspaces.
@@ -37,17 +37,17 @@ Admin navigation is permission-aware, but server authorization remains authorita
 
 `src/db/client.ts` creates a typed Drizzle database over `@libsql/client`, cached per process. `src/db/schema.ts` defines SQLite tables and relations. `src/domain` contains catalog, availability, orders, customers, reviews, users/access, settings, reporting, notifications, themes, audit, and operational actions.
 
-Public order creation is validated by `src/domain/order-input.ts`, resolves catalog/availability/payment/location data, and reserves capacity inside a transaction in `src/domain/orders.ts`. Admin changes use action contexts and expected versions where concurrent edits matter. `src/app/api/response.ts` converts errors into stable JSON responses and emits a correlation ID.
+Public order creation is validated by `src/domain/order-input.ts`, resolves the matching harvest season and availability row through `src/domain/availability-resolver.ts`, resolves catalog/payment/location data, and reserves capacity inside a transaction in `src/domain/orders.ts`. The resolver accepts an exact season row and can fall back to one unambiguous legacy row without a season ID. Admin changes use action contexts and expected versions where concurrent edits matter. `src/app/api/response.ts` converts errors into stable JSON responses and emits a correlation ID.
 
 ## External/runtime integrations
 
 - Turso/libSQL: primary relational persistence.
 - Better Auth: parallel auth tables and handler at `/api/auth/better`.
 - Legacy signed session: `metsanilo_session`, retained by `src/domain/session.ts` and `src/domain/access.ts`.
-- Vercel Blob: product/CMS media upload/delete in `src/domain/admin-media-actions.ts`.
+- Media storage: `src/lib/media-storage.ts` selects local filesystem storage by default outside production and Vercel Blob by default in production. `src/domain/admin-media-actions.ts` owns the permission-protected product/page media workflow. Local files under `public/uploads` are development artifacts and aren't durable Vercel storage.
 - Vercel deployment: ignored local project metadata exists in `.vercel/`; no repository CI workflow or tracked `vercel.json` was found.
 - Operator processes: migrations, seed, release, retention, and deployment run outside the web process. See the migration and production deployment runbooks under `docs/engineering`.
 
 The health endpoint validates runtime environment parsing and database connectivity. It does not validate migration level, Better Auth account mapping, Blob credentials, permissions, or order/capacity behavior.
 
-Evidence: `package.json`, `src/app`, `src/proxy.ts`, `src/app/api/admin/module.ts`, `src/app/api/response.ts`, `src/db/client.ts`, `src/db/schema.ts`, `src/domain/orders.ts`, `src/domain/access.ts`, `src/domain/admin-media-actions.ts`.
+Evidence: `package.json`, `.env.example`, `src/app`, `src/proxy.ts`, `src/app/api/admin/module.ts`, `src/app/api/response.ts`, `src/db/client.ts`, `src/db/schema.ts`, `src/domain/orders.ts`, `src/domain/availability-resolver.ts`, `src/domain/access.ts`, `src/domain/admin-media-actions.ts`, `src/lib/media-storage.ts`.

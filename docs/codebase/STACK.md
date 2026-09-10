@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-10
 applies_to: repository HEAD on feature/improve-agent-docs
 document_type: reference
 ---
@@ -26,7 +26,7 @@ Use this reference to identify the runtime, build tools, and dependencies that a
 | `next`, `react`, `react-dom` | App Router rendering, route handlers, and UI | `src/app` |
 | `drizzle-orm`, `@libsql/client` | Schema-aware queries, transactions, and migrations | `src/db`, `scripts/migrate.ts` |
 | `better-auth`, `@better-auth/drizzle-adapter` | Parallel admin authentication path | `src/lib/better-auth.ts` |
-| `@vercel/blob` | Product and page media objects | `src/domain/admin-media-actions.ts` |
+| `@vercel/blob` | Production product and page media objects behind the storage abstraction | `src/lib/media-storage.ts`, `src/domain/admin-media-actions.ts` |
 | `zod` | Environment, route, form, and domain validation | `src/lib/env.ts`, route/domain schemas |
 | `lucide-react` | Interface icons | Admin/storefront components |
 
@@ -57,4 +57,5 @@ Treat this host snapshot as diagnostic evidence, not a repository guarantee. Rec
 - `src/db/client.ts`
 - `src/lib/better-auth.ts`
 - `src/domain/admin-media-actions.ts`
+- `src/lib/media-storage.ts`
 - CLI `--version` and auth-status output captured on 2026-08-30

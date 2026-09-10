@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-10
 document_type: explanation
 ---
 
@@ -16,7 +16,7 @@ Domain policies, actions, read models (src/domain)
                     ↓
 Database schema/client (src/db) and runtime helpers (src/lib)
                     ↓
-Turso/libSQL and Vercel Blob
+Turso/libSQL and selected media backend
 ```
 
 `src/app` may compose domain and library modules. Domain code must not depend on React or browser-only state. Route handlers must not reproduce domain transactions. `src/db` exposes schema/client infrastructure, not product workflows.
@@ -66,11 +66,15 @@ Large workspaces have been decomposed into action controllers, query loaders, di
 
 The repository has no separate worker service or queue consumer. `outbox_jobs` and an authenticated admin automation runner exist, but no committed scheduler/recovery deployment is evidenced. Health is exposed by `/api/health` and checks environment parsing plus `select 1` against the database.
 
+`src/lib/media-storage.ts` selects local filesystem media outside production and Vercel Blob in production unless `MEDIA_STORAGE` overrides the mode. Treat local uploads as development-only state. Availability writes and order reservation use `src/domain/availability-resolver.ts` to enforce season/date consistency and controlled fallback to legacy rows without a season ID.
+
 ## Evidence
 
 - `src/app/api/public/orders/route.ts`
 - `src/domain/order-input.ts`
 - `src/domain/orders.ts`
+- `src/domain/availability-resolver.ts`
+- `src/lib/media-storage.ts`
 - `src/app/api/admin/module.ts`
 - `src/domain/access.ts`
 - `src/proxy.ts`
