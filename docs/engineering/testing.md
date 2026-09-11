@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-10
 document_type: reference
 ---
 
@@ -17,6 +17,9 @@ Vitest provides the automated test suite. Tests emphasize domain behavior, API c
 | Lint | `npm run lint` | ESLint/Next checks |
 | Production build | `npm run build` | Next.js webpack build |
 | Storybook build | `npm run build-storybook` | [TODO] Not established as a required release check |
+| Local quick gate | `npm run verify:quick` | Typecheck, lint, and full Vitest suite |
+| Local full gate | `npm run verify` | Quick gate plus production build |
+| Local release gate | `npm run verify:release -- main` | Full gate plus DB-change classification and disposable migration-chain validation |
 
 Vitest uses the Node environment and disables file-level parallelism. Integration tests create and migrate disposable `file:` databases; they must never use a shared remote database.
 

@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-09-10
+last_updated: 2026-09-11
 document_type: reference
 ---
 
@@ -13,16 +13,16 @@ Start here when you need repository context. `AGENTS.md` contains mandatory guar
 - [Domain invariants](domain/invariants.md) lists business facts code must preserve.
 - [Current product scope](domain/current-product-scope.md) distinguishes implemented, partial, deferred, divergent, and unknown behavior.
 - [Repository structure](codebase/STRUCTURE.md) maps directories and runtime entry points.
-- [Architecture reference](codebase/ARCHITECTURE.md) traces representative call paths and dependency direction.
 - [Technology stack](codebase/STACK.md) inventories runtime and development dependencies.
-- [Coding conventions](codebase/CONVENTIONS.md) records patterns evidenced in current source.
-- [External integrations](codebase/INTEGRATIONS.md) defines service and reliability boundaries.
-- [Testing architecture](codebase/TESTING.md) maps commands, suites, and known coverage gaps.
+- [External integrations](architecture/integrations.md) defines service and reliability boundaries.
 - [Known concerns](codebase/CONCERNS.md) records technical debt and unresolved operational decisions.
 
 ## Engineering procedures
 
 - [Engineering standards](engineering/standards.md) defines coding, API, database, frontend, test, and security expectations.
+- [Naming and file conventions](engineering/naming-conventions.md) defines mandatory identifiers, units, files, and Admin module names.
+- [Testing architecture](engineering/testing.md) maps commands, suites, and known coverage gaps.
+- [Documentation governance](engineering/documentation-governance.md) separates public tracked context from private versioned planning material.
 - [Environment reference](engineering/environment-reference.md) maps runtime and operator variables.
 - [Database migrations](engineering/database-migrations.md) covers generation, validation, production application, verification, and recovery limits.
 - [Production deployment](engineering/production-deployment.md) is the Vercel and Turso CLI runbook.

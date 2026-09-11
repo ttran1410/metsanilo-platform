@@ -1,6 +1,6 @@
 ---
 last_updated: 2026-09-10
-applies_to: repository HEAD on feature/improve-agent-docs
+applies_to: audited snapshot on 2026-09-10
 document_type: reference
 ---
 

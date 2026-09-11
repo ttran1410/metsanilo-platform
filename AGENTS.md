@@ -15,9 +15,11 @@ This is a single-shop seasonal berry commerce and fulfillment application. It ha
 - Current architecture: [`docs/architecture/system.md`](docs/architecture/system.md).
 - Domain invariants: [`docs/domain/invariants.md`](docs/domain/invariants.md) and executable functions in `src/domain`.
 - Engineering, API, database, security, and operations rules: [`docs/engineering/`](docs/engineering/); start at [`docs/README.md`](docs/README.md).
+- Naming and file conventions: [`docs/engineering/naming-conventions.md`](docs/engineering/naming-conventions.md). Apply them to new/touched code; do not perform unrelated mass renames.
+- Contribution and security policy: [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md).
 - Database migration runbook: [`docs/engineering/database-migrations.md`](docs/engineering/database-migrations.md).
 - Vercel/Turso production runbook: [`docs/engineering/production-deployment.md`](docs/engineering/production-deployment.md).
-- Historical/approved decisions: [`docs/adr/`](docs/adr/). A local `requirements/` directory may exist, but it is ignored, internal, and potentially stale. Do not commit or routinely edit it, cite it as repository authority, or make tracked guidance depend on it. Reconcile accepted rules with code/tests before migrating them into `docs/`.
+- Historical/approved decisions: [`docs/adr/`](docs/adr/). A local `requirements/` directory may exist, but it is ignored, private, and potentially stale. Never force-add or commit anything from it. Do not cite it as repository authority or make tracked guidance depend on it. Follow [`docs/engineering/documentation-governance.md`](docs/engineering/documentation-governance.md) when reconciling private notes with public Markdown.
 - Visual design: [`DESIGN.md`](DESIGN.md). It is a target design reference and does not prove current UI conformance.
 
 The dependency direction is: `src/app` composes `src/domain` and `src/lib`; `src/domain` owns business behavior and uses typed database access; `src/db` owns schema/client; `src/lib` owns cross-cutting runtime helpers. Do not put business rules in pages, route handlers, or UI controllers. Do not make domain code depend on React components.
@@ -34,22 +36,20 @@ The dependency direction is: `src/app` composes `src/domain` and `src/lib`; `src
 - Run `npm run db:generate` only after changing `src/db/schema.ts`. Inspect generated SQL and test the complete migration chain on a disposable database.
 - Do not log secrets, passwords, session tokens, full payment details, or unnecessary customer PII.
 - Do not run a production migration, seed, release, deploy, promote, rollback, database copy, token creation, or database destroy command without explicit authorization and verified targets.
-- The repository owner owns Vercel/Turso credentials and production approval. An agent may create or use a short-lived least-privilege credential only after approval for the exact release, must not expose it, and must revoke/expire it afterward. MFA is not a current release gate; follow ADR-0002 and ADR-0003 rather than inventing a stronger or weaker policy.
+- Production credentials and approval follow [`SECURITY.md`](SECURITY.md), ADR-0002, and ADR-0003. Never infer deployment authority from access to a CLI or environment file.
 
 ## Change and verification requirements
 
 - Bug fixes require a regression test that fails before the fix when practical. Behavioral changes require tests for success, validation, authorization, concurrency, and relevant failure paths.
 - Reuse existing domain actions and adapters. Do not update tables directly from a page or route when a domain transaction exists.
-- Run focused tests while iterating, then `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` as appropriate to the risk. Database/deployment commands must use disposable/local or explicitly authorized environments.
+- Run focused tests while iterating, then `npm run verify:quick`, `npm run verify`, or `npm run verify:release -- <base-ref>` according to risk. Database/deployment commands must use disposable/local or explicitly authorized environments.
 - Review the final diff yourself for scope, security, migration safety, localization, accessibility, error contracts, and generated files.
 - Update architecture/domain/engineering/ADR documentation when behavior, boundaries, operational procedure, or an invariant changes.
 - Report what was not verified, including unavailable services, skipped commands, and unresolved `[TODO]`/`[ASK USER]` items.
 
 ## Commands and environment
 
-Use `npm ci` for a clean install. Local configuration is described by `.env.example`; `src/lib/env.ts` validates part of the runtime configuration. The default database is `file:local.db`. Production requires a remote Turso URL, `TURSO_AUTH_TOKEN`, and secure auth secrets; never point tests at production.
-
-The `db:*` scripts do not automatically load `.env.local`. `db:migrate:production` loads `.env.production.local` and forces production validation, but it still requires explicit approval and independent target/backup verification. `db:release` also runs the seed and is not a routine deploy command. Follow the [CI/CD process](docs/engineering/ci-cd.md), migration runbook, and deployment runbook instead of relying on script names. The canonical production alias is `https://metsanilo.vercel.app/`; a deployment-specific Vercel URL is not a substitute for alias verification.
+Use `npm ci` for a clean install. Local configuration is described by `.env.example`; `src/lib/env.ts` validates part of the runtime configuration. The default database is `file:local.db`; never point tests at production. Follow the [CI/CD process](docs/engineering/ci-cd.md), migration runbook, and deployment runbook instead of relying on script names. `db:release` runs seed and is not a routine migration/deploy command. The canonical production alias is `https://metsanilo.vercel.app/`.
 
 ## Local subsystem rules
 

@@ -1,9 +1,9 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-11
 document_type: decision
 ---
 
-# ADR-0001: Keep requirements internal and track maintainer context in docs
+# ADR-0001: Keep private requirements separate and track public maintainer context
 
 ## Status
 
@@ -17,14 +17,14 @@ Tracked files previously linked directly to internal requirements. Those links m
 
 ## Decision drivers
 
-- Internal product documents must remain private and untracked.
+- Internal product documents must remain private and outside public Git history.
 - Future agents need enough tracked context to maintain the system safely.
 - Historical intent must not override current code/tests without reconciliation.
 - Deferred or missing behavior must remain visible without presenting it as shipped.
 
 ## Decision
 
-Keep `requirements/` ignored and do not commit it.
+Keep the complete `requirements/` directory ignored. Do not force-add or commit any file from it, including to a nested or separate Git repository. Organize local revisions with ISO-dated immutable snapshots and protect them with encrypted owner-controlled backup. This has weaker diff/history guarantees than Git and is an accepted trade-off.
 
 Maintain repository-facing engineering context under `docs/`, organized as:
 
@@ -32,6 +32,8 @@ Maintain repository-facing engineering context under `docs/`, organized as:
 - `docs/domain/` for verified product scope and invariants;
 - `docs/engineering/` for coding and operational standards;
 - `docs/adr/` for durable tracked decisions.
+
+Every Markdown file under this repository's tracked paths is public. Only include context that is safe to disclose and necessary for maintainers. Follow `docs/engineering/documentation-governance.md` for private structure, duplicate reconciliation, and conflicting decision candidates.
 
 When migrating a rule from internal requirements:
 

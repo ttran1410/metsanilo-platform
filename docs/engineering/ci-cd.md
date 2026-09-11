@@ -1,34 +1,41 @@
 ---
-last_updated: 2026-09-10
+last_updated: 2026-09-11
 document_type: how-to
-status: target-process
+status: current-manual-process
 ---
 
 # CI/CD process for pull requests and production releases
 
-Use this target process to verify commits, merge pull requests safely, detect database work, deploy with owner approval, and verify the canonical URL `https://metsanilo.vercel.app/`. The repository does not yet contain a CI workflow, so this document describes the pipeline to implement.
+Use this process to verify commits locally, merge pull requests safely, detect database work, deploy with owner approval, and verify the canonical URL `https://metsanilo.vercel.app/`. The repository currently uses local gates and does not contain a hosted CI workflow.
+
+The owner confirmed on 2026-09-11 that local verification and manual production approval remain the operating model. GitHub Actions is not part of the current pipeline. Production must not auto-promote merely because `main` changes.
 
 ## Pipeline ownership
 
-- Pull-request CI may run automatically with read-only repository access and disposable local databases.
-- Production jobs run only from `main` after required checks and merge.
-- Protect the `production` environment with the repository owner as required reviewer.
+- Contributors run the tracked local verification commands before review and merge.
+- Current production changes are performed locally after the required checks and explicit owner approval.
+- Future hosted production jobs, if enabled, must run only from `main` after required checks and merge.
+- A future hosted runner must protect the `production` environment with the repository owner as required reviewer; this environment is not currently configured.
 - AI agents may prepare and execute approved jobs with ephemeral credentials under [ADR-0002](../adr/0002-manual-production-approval-and-ephemeral-credentials.md).
 - Use one production concurrency group so two deployments cannot migrate/deploy simultaneously.
 
-## Stage 1: Validate every pull request
+## Stage 1: Validate every change locally
 
-Run these jobs on every pull request targeting `main`:
+For normal review, run:
 
 ```bash
-npm ci
-npm run typecheck
-npm run lint
-npm test
-npm run build
+npm run verify
 ```
 
-Use non-production test secrets to avoid Better Auth fallback warnings. Never expose production credentials to pull-request jobs, especially jobs from forks.
+Before merging or releasing, compare against the intended base and run migration detection:
+
+```bash
+npm run verify:release -- main
+```
+
+`verify:release` runs typecheck, lint, tests, and build. If schema or migration files changed, it rejects edits to existing migrations, requires a new SQL migration with a schema change, and applies the complete committed migration chain to a disposable local database. It never points this check at Turso.
+
+For fast iteration and the optional pre-push hook, use `npm run verify:quick`. Use non-production test secrets to avoid Better Auth fallback warnings.
 
 ### Detect database changes
 
@@ -49,7 +56,7 @@ Classify the result:
 | Data-only migration | Require explicit migration label/review and idempotency/data-preservation tests |
 | Seed/release script changed | Require operator/security review; never execute against remote DB in PR CI |
 
-For schema changes, CI may run `npm run db:generate` in the ephemeral checkout and fail if it produces an uncommitted migration. Do not automatically commit generated SQL from CI.
+For schema changes, a maintainer may run `npm run db:generate` and must inspect and commit the generated migration. Do not generate or commit SQL automatically without review.
 
 Apply the committed chain to a new database:
 
@@ -60,9 +67,9 @@ TURSO_DATABASE_URL="file:${CI_DB_DIR}/migration-test.db" npm run db:migrate
 
 For rebuilds/backfills, add a second test that starts from representative sanitized pre-migration data and verifies row preservation and domain invariants.
 
-## Stage 2: Merge controls
+## Stage 2: Manual merge controls
 
-Configure branch protection so `main` requires:
+Until hosted CI/branch protection is enabled, the owner verifies the following from the PR and local command output:
 
 - current PR branch and reviewed diff;
 - typecheck, lint, tests, and build;
@@ -193,20 +200,13 @@ If schema/data is involved, do not assume Vercel rollback is safe. Use the datab
 
 Emergency changes still require owner approval, exact target resolution, focused tests, production backup for DB changes, canonical alias verification, and a release record. Skipping unrelated checks must be explicit and documented; urgency does not authorize bypassing migration or credential safety.
 
-## Implementation checklist
+## Deferred hosted or self-hosted automation
 
-The future CI implementation should add:
+GitHub Free supports Actions. Standard GitHub-hosted runners are free for public repositories; GitHub Free private repositories receive a monthly included quota, and self-hosted runners are not charged by GitHub. Current details are documented by [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Repository visibility, Actions settings, security, and maintenance cost—not the plan name alone—should drive the choice.
 
-- a PR workflow for install/typecheck/lint/test/build;
-- conditional migration-chain validation;
-- branch protection and required checks;
-- a protected `production` environment with owner approval;
-- serialized production jobs;
-- ephemeral Vercel/Turso secret injection and revocation;
-- deployed-SHA and canonical-alias verification;
-- release records and failure notifications.
+If the owner revisits this decision, use the same `verify:release` entrypoint rather than maintaining a second validation definition. Add read-only PR jobs first. Keep production deployment manual until the owner explicitly accepts automated credentials and approval controls. Before enabling hosted production automation, verify enforced owner approval, ephemeral secret handling, serialized releases, deployed-SHA/alias checks, and database-aware rollback behavior. A self-hosted runner must be patched, isolated, and protected from untrusted fork code.
 
-[TODO] Choose GitHub Actions versus another CI provider and confirm whether Vercel Git auto-deploy is currently enabled.
+[TODO] Verify in Vercel that Git production auto-deploy/promotion is disabled or otherwise cannot bypass manual owner approval.
 
 ## Evidence
 

@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-11
 document_type: decision
 ---
 
@@ -36,7 +36,19 @@ An AI agent may generate or use temporary credentials only after explicit approv
 6. Revoke/delete temporary credentials after the deployment when the provider supports individual revocation, or rely on the approved short expiry and report the limitation. Do not rotate shared signing keys merely to revoke one temporary token.
 7. Record non-secret evidence: operator, scope, expiry, deployment ID, database name, commit, and outcome.
 
-Production CI/CD must use a protected `production` environment with the repository owner as required reviewer. Pull requests run verification only; production mutation starts only after merge to `main` and manual approval.
+The current release process is local verification plus manual owner approval. When hosted CI/CD or another automated production runner is introduced, it must use a protected `production` environment with the repository owner as required reviewer. Pull-request jobs may verify code, but production mutation must start only after merge to `main` and explicit manual approval.
+
+The protected environment is therefore a future control for hosted automation, not a claim that GitHub Actions or another hosted CI system is currently configured. Until that automation exists, the owner performs the equivalent approval and target-verification steps locally.
+
+### Recommendation before enabling hosted production automation
+
+Keep the current manual model until the future runner can demonstrate all of the following:
+
+- required owner approval is enforced by the platform rather than only described in documentation;
+- production credentials are injected ephemerally with least privilege and an auditable expiry/revocation path;
+- production deployment is serialized so migrations and deploys cannot overlap;
+- the deployed commit, Turso migration state, health endpoint, and canonical alias are verified;
+- failure handling distinguishes application rollback from irreversible or forward-only database changes.
 
 ## Consequences
 

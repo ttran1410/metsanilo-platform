@@ -39,12 +39,13 @@ These concerns are evidenced risks or inconsistencies, not permission to broaden
 - Keep `requirements/` internal and ignored. Reconcile accepted rules against code/tests before migrating them into tracked docs ([ADR-0001](../adr/0001-tracked-engineering-authority.md)).
 - The repository owner controls production credentials and approves deployments. Agents may use explicitly approved, scoped ephemeral credentials ([ADR-0002](../adr/0002-manual-production-approval-and-ephemeral-credentials.md)).
 - MFA is not a release gate at the current project stage; this is a temporary accepted risk with revisit triggers ([ADR-0003](../adr/0003-mfa-not-current-release-gate.md)).
+- Local verification plus manual owner-approved production deployment is the current release model. GitHub Actions is deferred.
 
 ## Open operational decisions
 
 1. [TODO] Approve or adjust the proposed backup RPO/RTO, naming, retention, encrypted storage, and restore-drill policy in [`backup-restore-policy.md`](../engineering/backup-restore-policy.md).
 2. [TODO] Decide whether to split `db:release` into routine migration and one-time provisioning commands. Until then, CI/CD must run migration directly and must not invoke `db:release`.
-3. [TODO] Confirm whether Vercel Git auto-deploy is enabled and choose the CI provider before implementing the pipeline in [`ci-cd.md`](../engineering/ci-cd.md).
+3. [TODO] Verify that Vercel Git production auto-deploy/promotion cannot bypass the confirmed manual approval policy in [`ci-cd.md`](../engineering/ci-cd.md).
 
 ## Evidence
 

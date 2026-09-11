@@ -5,7 +5,7 @@ document_type: explanation
 
 # System architecture
 
-This document explains the evidence-based current architecture. Use the codebase reference for inventories and the engineering runbooks for procedures.
+This is the canonical evidence-based architecture overview. Use the focused integration reference and engineering runbooks for detail.
 
 ## Product and runtime
 
@@ -22,16 +22,49 @@ Domain actions/read models and policy (src/domain)
         ↓ use
 Database client/schema (src/db) + runtime helpers (src/lib)
         ↓ persist/read
-Turso/libSQL via Drizzle; local filesystem (development) or Vercel Blob (production) for media
+Turso/libSQL; local filesystem (development) or Vercel Blob (production) for media
 ```
 
-Route handlers parse input, authenticate/authorize, call a domain action, and adapt results with `success`/`failure`. Admin routes commonly use `executeAdmin` from `src/app/api/admin/module.ts`; public order/review routes call domain functions directly and use the shared response adapter. Domain modules provide read models consumed by server-rendered pages and admin workspaces.
+`src/app` may compose domain and library modules. Domain code must not depend on React or browser state. Route handlers must not reproduce domain transactions. `src/db` exposes schema/client infrastructure, not product workflows.
 
-## Frontend architecture
+## Representative public order path
+
+```text
+POST /api/public/orders
+  → parse JSON and validate/normalize with orderInputSchema
+  → createOrder in src/domain/orders.ts
+  → one database transaction
+     → idempotency lookup
+     → product/package/availability checks
+     → conditional capacity reservation
+     → customer match/create
+     → order snapshots, audit entry, and notification/outbox work
+  → success/failure response with correlation ID
+```
+
+This path is capacity-sensitive and idempotent. A fix belongs in the owning validator, resolver, or transaction rather than in UI-only checks.
+
+## Representative admin command path
+
+```text
+Admin component
+  → /api/admin/... route
+  → executeAdmin
+     → authenticate current user
+     → verify shop membership and permission
+     → parse boundary input
+     → call typed action with actor/shop context
+  → domain transaction or read model
+  → success/failure response
+```
+
+`src/proxy.ts` rejects obvious unauthenticated traffic early; it is not the authorization boundary.
+
+## Frontend architecture and state
 
 The storefront is server-rendered through localized App Router pages, with client components for forms, galleries, review flows, navigation, and validation. Admin pages compose module/workspace components. Larger admin areas use query loaders/controllers, URL-state modules, action controllers, dialogs/drawers, and workspace views; examples include `src/app/admin/orders`, `availability`, `customers`, and `products`.
 
-Admin navigation is permission-aware, but server authorization remains authoritative. URL state and list-query parsing are explicit in `src/lib/admin-list-query.ts` and feature `url-state.ts` modules. No global client state library is evidenced in `package.json`; local React state, URL state, server queries, and feature controllers are the current patterns. [TODO] Confirm whether any external runtime state/cache exists outside inspected source.
+Admin navigation is permission-aware, but server authorization remains authoritative. URL state and list-query parsing are explicit in `src/lib/admin-list-query.ts` and feature `url-state.ts` modules. No global client state library is evidenced in `package.json`; local React state, URL state, server queries, feature controllers, and small feature/request caches are the current patterns. Preserve feature locality before considering repository-wide client state.
 
 ## Backend and data flow
 
@@ -39,15 +72,31 @@ Admin navigation is permission-aware, but server authorization remains authorita
 
 Public order creation is validated by `src/domain/order-input.ts`, resolves the matching harvest season and availability row through `src/domain/availability-resolver.ts`, resolves catalog/payment/location data, and reserves capacity inside a transaction in `src/domain/orders.ts`. The resolver accepts an exact season row and can fall back to one unambiguous legacy row without a season ID. Admin changes use action contexts and expected versions where concurrent edits matter. `src/app/api/response.ts` converts errors into stable JSON responses and emits a correlation ID.
 
-## External/runtime integrations
+## Runtime integrations and processes
 
-- Turso/libSQL: primary relational persistence.
-- Better Auth: parallel auth tables and handler at `/api/auth/better`.
-- Legacy signed session: `metsanilo_session`, retained by `src/domain/session.ts` and `src/domain/access.ts`.
-- Media storage: `src/lib/media-storage.ts` selects local filesystem storage by default outside production and Vercel Blob by default in production. `src/domain/admin-media-actions.ts` owns the permission-protected product/page media workflow. Local files under `public/uploads` are development artifacts and aren't durable Vercel storage.
-- Vercel deployment: ignored local project metadata exists in `.vercel/`; no repository CI workflow or tracked `vercel.json` was found.
-- Operator processes: migrations, seed, release, retention, and deployment run outside the web process. See the migration and production deployment runbooks under `docs/engineering`.
+Turso/libSQL is the primary relational store. Better Auth and the legacy signed `metsanilo_session` path both remain active. `src/lib/media-storage.ts` selects local filesystem storage outside production and Vercel Blob in production unless configured otherwise.
+
+The repository has no separate worker service or queue consumer. `outbox_jobs` and an authenticated admin automation runner exist, but no tracked scheduler or recovery deployment is evidenced. Migrations, seed, release, retention, and deployment run outside the web process.
 
 The health endpoint validates runtime environment parsing and database connectivity. It does not validate migration level, Better Auth account mapping, Blob credentials, permissions, or order/capacity behavior.
 
-Evidence: `package.json`, `.env.example`, `src/app`, `src/proxy.ts`, `src/app/api/admin/module.ts`, `src/app/api/response.ts`, `src/db/client.ts`, `src/db/schema.ts`, `src/domain/orders.ts`, `src/domain/availability-resolver.ts`, `src/domain/access.ts`, `src/domain/admin-media-actions.ts`, `src/lib/media-storage.ts`.
+See [External integrations](integrations.md) for configuration and reliability boundaries.
+
+## Evidence
+
+- `package.json`
+- `.env.example`
+- `src/app`
+- `src/proxy.ts`
+- `src/app/api/public/orders/route.ts`
+- `src/app/api/admin/module.ts`
+- `src/app/api/response.ts`
+- `src/app/api/health/route.ts`
+- `src/db/client.ts`
+- `src/db/schema.ts`
+- `src/domain/order-input.ts`
+- `src/domain/orders.ts`
+- `src/domain/availability-resolver.ts`
+- `src/domain/access.ts`
+- `src/domain/admin-media-actions.ts`
+- `src/lib/media-storage.ts`

@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-09-10
+last_updated: 2026-09-11
 document_type: reference
 ---
 
@@ -25,7 +25,7 @@ Follow existing App Router server/client boundaries and feature workspace patter
 
 ## Testing
 
-Vitest runs in Node with file parallelism disabled (`vitest.config.ts`). Tests cover domain behavior, API contracts, URL state, admin permission contracts, and workspace decomposition. Add focused regression coverage first, then run `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` as appropriate. [TODO] Confirm whether Storybook stories are required in CI; scripts exist but no CI workflow was found.
+Add focused regression coverage first, then use `npm run verify:quick`, `npm run verify`, or `npm run verify:release -- <base-ref>` according to risk. The authoritative suite map and known gaps are in [Testing architecture](testing.md). [TODO] Confirm whether Storybook stories should become a required release check.
 
 ## Security and operations
 
