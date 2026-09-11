@@ -1,50 +1,59 @@
-# Repository Instructions
+# Metsänilo repository instructions
 
-## Project Shape
+This is a single-shop seasonal berry commerce and fulfillment application. It has a Finnish/English public storefront and an authenticated operations/admin portal. These instructions are for coding agents acting as maintainers.
 
-- This is a single Next.js 16 App Router application, not a monorepo.
-- Public routes live under `src/app/[locale]` for `fi` and `en`; admin pages live under `src/app/admin`; API handlers live under `src/app/api`.
-- Keep business rules in `src/domain`, database access in `src/db`, and shared runtime/configuration helpers in `src/lib`; route handlers should compose these modules rather than duplicate rules.
-- `src/db/schema.ts` is the Drizzle schema source of truth and `drizzle/` contains applied SQL migrations. Add a new migration for schema changes; do not rewrite an applied migration.
+## Before changing code
 
-## Runtime Boundaries
+1. Inspect `git status --short --branch`. Do not edit on `main`; use a task branch.
+2. Read the relevant source path, nearby tests, and the authoritative document linked from `docs/` before forming a solution.
+3. Trace the complete affected call path: route/UI → parser/adapter → domain action → database transaction → response/read model. Search for an existing pattern before adding an abstraction.
+4. State assumptions that are not proven by source or tests. Do not silently choose product policy.
+5. Keep the change focused. Prefer a root-cause fix in the owning layer over a route-level workaround.
 
-- Every database query and mutation must remain scoped to `env().SHOP_ID`; this is a single-shop deployment with shop isolation still treated as a security boundary.
-- Admin UI checks use `adminContext`/`hasAdminPermission`, and admin API handlers must call `requirePermission`; the proxy is only an early session gate, not the authorization boundary.
-- Authentication currently has both Better Auth and the signed legacy `metsanilo_session` path. Preserve both paths unless the migration is explicitly being completed.
-- Use integer cents for money and integer millilitres for volume. Public ordering is transactional, idempotent, and capacity-sensitive; use the existing order domain functions and version checks.
-- Use `DomainError` and `src/app/api/response.ts` for API failures so callers receive stable error codes, field errors, and a correlation ID.
-- Public localization is explicit through `[locale]`; use `src/lib/i18n` and locale-aware formatters instead of adding ad-hoc language branching or changing persisted status codes.
+## Source of truth and boundaries
 
-## Commands
+- Current architecture: [`docs/architecture/system.md`](docs/architecture/system.md).
+- Domain invariants: [`docs/domain/invariants.md`](docs/domain/invariants.md) and executable functions in `src/domain`.
+- Engineering, API, database, security, and operations rules: [`docs/engineering/`](docs/engineering/); start at [`docs/README.md`](docs/README.md).
+- Naming and file conventions: [`docs/engineering/naming-conventions.md`](docs/engineering/naming-conventions.md). Apply them to new/touched code; do not perform unrelated mass renames.
+- Contribution and security policy: [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md).
+- Database migration runbook: [`docs/engineering/database-migrations.md`](docs/engineering/database-migrations.md).
+- Vercel/Turso production runbook: [`docs/engineering/production-deployment.md`](docs/engineering/production-deployment.md).
+- Historical/approved decisions: [`docs/adr/`](docs/adr/). A local `requirements/` directory may exist, but it is ignored, private, and potentially stale. Never force-add or commit anything from it. Do not cite it as repository authority or make tracked guidance depend on it. Follow [`docs/engineering/documentation-governance.md`](docs/engineering/documentation-governance.md) when reconciling private notes with public Markdown.
+- Visual design: [`DESIGN.md`](DESIGN.md). It is a target design reference and does not prove current UI conformance.
 
-- Install with `npm ci` for a clean checkout; use `npm run dev` for the local Next server.
-- Verification commands are `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` (`build` intentionally uses `next build --webpack`).
-- Run one focused test with `npx vitest run tests/order-api.test.ts` or add `-t "test name"`; Vitest runs with the Node environment and disables file parallelism.
-- Integration tests create and migrate disposable `file:` libSQL databases themselves; do not point tests at a shared production/Turso database.
-- For local database setup, configure `.env.local` from `.env.example`, then run `npm run db:generate` only after schema changes, followed by `npm run db:migrate` and `npm run db:seed`.
-- `npm run db:preflight` validates runtime environment only. Production/release checks require a remote Turso URL, `TURSO_AUTH_TOKEN`, and a 32-character `ADMIN_SESSION_SECRET`.
-- `npm run db:release` is operator-only and runs production preflight, migration, seed, then verifies the configured active Admin.
-- `npm run db:seed` requires the `SEED_*`, shop/pickup, and bootstrap-admin variables in `.env.example`; it refuses an existing shop unless `SEED_ALLOW_EXISTING=true`.
-- Turso CLI and Vercel CLI are available for requested database/deployment operations; use the repository scripts and configured environment variables rather than bypassing migration or release checks.
+The dependency direction is: `src/app` composes `src/domain` and `src/lib`; `src/domain` owns business behavior and uses typed database access; `src/db` owns schema/client; `src/lib` owns cross-cutting runtime helpers. Do not put business rules in pages, route handlers, or UI controllers. Do not make domain code depend on React components.
 
-## Change Safety
+## Non-negotiable safety rules
 
-- **Mandatory pre-edit gate:** before inspecting implementation files or making any edits, check the worktree with `git status --short --branch`, run `git checkout main`, run `git pull --ff-only`, create a new branch, and verify that the new branch is active.
-- Do not edit files while on `main`.
-- If existing changes prevent checkout, pulling, or branch creation, stop and ask the user before stashing, moving, or modifying anything.
-- Use `feature/` or `feat/` for features, `bugfix/` or `fix/` for bugs, `hotfix/` for urgent fixes, `release/` for release preparation, and `chore/` for non-code work; use a short descriptive suffix such as `feature/add-login-page`.
-- Do not commit `.env*`, local `*.db` files, `.next`, or generated build output; these are ignored except for `.env.example`.
-- Preserve order, availability, payment, customer, and audit invariants by changing the domain transaction rather than directly updating tables from a page or route.
-- When changing a persisted business behavior, update the relevant migration, domain tests, and decision/requirements record if the approved scope changes.
-- `README.md`, `DESIGN.md`, and `requirements/decisions/0005-v001-single-shop-pilot-scope.md` contain product/design context; executable scripts and current domain code take precedence when older roadmap prose disagrees.
+- Scope every database query and mutation by `env().SHOP_ID` or validated shop context. Shop isolation is a security boundary even though deployment is currently single-shop.
+- Admin UI visibility is not authorization. Admin API routes must enforce permission at the route boundary; `proxy` is only an early session gate.
+- Preserve both Better Auth and signed `metsanilo_session` authentication paths until an explicitly approved migration removes one.
+- Keep money as integer cents and volume as integer millilitres. Preserve order idempotency, transactions, capacity reservations, expected-version checks, legal lifecycle transitions, and audit writes.
+- Use `DomainError` and `src/app/api/response.ts` for API failures. Preserve stable error codes, field errors, and correlation IDs.
+- Use explicit `[locale]` routing and `src/lib/i18n`/locale formatters. Do not branch ad hoc on language or change persisted status codes for display text.
+- Schema changes require a new migration in `drizzle/`; never rewrite an applied migration or edit generated/build output.
+- Run `npm run db:generate` only after changing `src/db/schema.ts`. Inspect generated SQL and test the complete migration chain on a disposable database.
+- Do not log secrets, passwords, session tokens, full payment details, or unnecessary customer PII.
+- Do not run a production migration, seed, release, deploy, promote, rollback, database copy, token creation, or database destroy command without explicit authorization and verified targets.
+- Production credentials and approval follow [`SECURITY.md`](SECURITY.md), ADR-0002, and ADR-0003. Never infer deployment authority from access to a CLI or environment file.
 
-<!-- BEGIN:nextjs-agent-rules -->
+## Change and verification requirements
 
-# This is NOT the Next.js you know
+- Bug fixes require a regression test that fails before the fix when practical. Behavioral changes require tests for success, validation, authorization, concurrency, and relevant failure paths.
+- Reuse existing domain actions and adapters. Do not update tables directly from a page or route when a domain transaction exists.
+- Run focused tests while iterating, then `npm run verify:quick`, `npm run verify`, or `npm run verify:release -- <base-ref>` according to risk. Database/deployment commands must use disposable/local or explicitly authorized environments.
+- Review the final diff yourself for scope, security, migration safety, localization, accessibility, error contracts, and generated files.
+- Update architecture/domain/engineering/ADR documentation when behavior, boundaries, operational procedure, or an invariant changes.
+- Report what was not verified, including unavailable services, skipped commands, and unresolved `[TODO]`/`[ASK USER]` items.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+## Commands and environment
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+Use `npm ci` for a clean install. Local configuration is described by `.env.example`; `src/lib/env.ts` validates part of the runtime configuration. The default database is `file:local.db`; never point tests at production. Follow the [CI/CD process](docs/engineering/ci-cd.md), migration runbook, and deployment runbook instead of relying on script names. `db:release` runs seed and is not a routine migration/deploy command. The canonical production alias is `https://metsanilo.vercel.app/`.
 
-<!-- END:nextjs-agent-rules -->
+## Local subsystem rules
+
+- [`src/domain/AGENTS.md`](src/domain/AGENTS.md): business rules, transactions, and invariants.
+- [`src/app/api/AGENTS.md`](src/app/api/AGENTS.md): API boundaries, auth, parsing, and response contracts.
+- [`src/db/AGENTS.md`](src/db/AGENTS.md): schema, migrations, query scope, and data safety.
+- [`scripts/AGENTS.md`](scripts/AGENTS.md): database/release scripts and production operation safety.

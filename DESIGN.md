@@ -1,7 +1,7 @@
 ---
 version: "1.0-draft"
 status: "proposed"
-updated: "2026-08-23"
+updated: "2026-08-30"
 documentType: "reference"
 audience: "Product designers, frontend engineers, QA, and product owners"
 ---
@@ -17,13 +17,14 @@ Use this file as the visual and interaction reference when designing, implementi
 | Scope | Source of truth |
 |---|---|
 | Visual hierarchy, theme boundaries, tokens, components, responsive behavior | This document |
-| Field validation and business rules | [Form and field specifications](requirements/06-form-and-field-specifications.md) |
-| Order and customer flows | [Business and user flows](requirements/04-business-and-user-flows.md) |
-| Order status and automation | [Order lifecycle and automation](requirements/05-order-lifecycle-and-automation.md) |
-| Admin permissions | [Admin roles and permissions](requirements/09-admin-portal-roles-and-permissions.md) |
-| Accessibility, performance, localization, and privacy | [Non-functional requirements](requirements/10-non-functional-security-privacy.md) |
-| Pilot scope | [Single-shop pilot decision](requirements/decisions/0005-v001-single-shop-pilot-scope.md) |
-| Redesign release and deferred capability scope | [UI redesign scope decision](requirements/decisions/0016-ui-redesign-scope-and-deferred-capabilities.md) |
+| Field validation and business rules | [Domain invariants](docs/domain/invariants.md), validation/domain source, and tests |
+| Order and customer flows | [Domain invariants](docs/domain/invariants.md) and current domain/API call paths |
+| Order status and automation | `src/domain/order-transitions.ts`, `src/domain/orders.ts`, and matching tests |
+| Admin permissions | `src/lib/permissions.ts`, server route permission checks, and [engineering standards](docs/engineering/standards.md) |
+| Accessibility, performance, localization, and privacy | This design contract plus [engineering standards](docs/engineering/standards.md) |
+| Pilot scope and redesign decisions | [Current product scope](docs/domain/current-product-scope.md); [tracked ADR index](docs/adr/README.md) |
+
+The maintainer workspace may contain a richer `requirements/` tree, but `.gitignore` excludes it. Do not make implementation or review depend on those local files until the accepted records are tracked.
 
 ## Surface model
 
@@ -997,7 +998,7 @@ The redesign release uses actual implementation status instead of treating every
 | Order packing/picking workflow | Implemented with UI gaps | Redesign the existing order fulfillment workflow; do not add independent picker production or earnings records |
 | Notifications | Partial | Keep durable notifications and recent-alert popover; add a filterable inbox with read/unread, deep links, and history |
 | Frontstore themes | Missing | Add five controlled themes and Admin `Draft → Preview → Publish` management |
-| MFA | Missing | Excluded from UI redesign and assigned to a separate security-hardening decision; it remains a production security gate unless a later risk decision changes that gate |
+| MFA | Missing | Deferred security hardening; it is not a current production gate under [ADR-0003](docs/adr/0003-mfa-not-current-release-gate.md), with explicit revisit triggers |
 | Invoice and Order Summary documents | Missing | Excluded from UI redesign and retained for a later finance/document release |
 | Admin Finnish and Vietnamese | Missing | Keep Admin English-only now and preserve externalizable resources for a later i18n release |
 
@@ -1099,7 +1100,7 @@ The following decisions are ready to guide implementation.
 - Reservation-request wording is canonical in Finnish and English.
 - Preferences and versioned drafts may autosave. Business mutations, publication, permissions, and destructive actions require explicit save or confirmation.
 - Permanent deletion remains conditional on a server-side dependency check, dedicated permission, impact preview, reason, confirmation, and tombstone audit.
-- MFA and Invoice are not part of the UI redesign release. They remain recorded future capabilities under the redesign scope ADR.
+- MFA and Invoice are not part of the UI redesign release. MFA follows the temporary accepted-risk decision in [ADR-0003](docs/adr/0003-mfa-not-current-release-gate.md); Invoice remains a future capability, not an implemented module.
 
 ### External approvals still required
 
