@@ -511,10 +511,16 @@ export async function updateManagerOrder(database: Database, input: ManagerOrder
     if (!isClosed && (fulfillmentDate < row.product.availableFrom || fulfillmentDate > row.product.availableThrough || fulfillmentDate < todayInTimezone(row.shop.timezone))) throw new DomainError("DATE_CLOSED", "Fulfillment date is outside the product window", 409);
     if (row.package.volumeMl !== 10000 && quantity !== 1) throw new DomainError("INVALID_QUANTITY", "Only the 10 litre package supports multiple quantity", 422);
     const itemSubtotalCents = row.package.priceCents * quantity;
+    const pricingBasisChanged =
+      productId !== current.productId ||
+      packageId !== current.packageId ||
+      quantity !== current.quantity;
     const agreed = input.agreedItemSubtotalCents;
     if (agreed !== undefined && (!Number.isSafeInteger(agreed) || agreed < 0)) throw new DomainError("VALIDATION_ERROR", "Items price must be a non-negative amount", 422);
-    const finalItemSubtotal = agreed ?? itemSubtotalCents;
-    if (finalItemSubtotal !== itemSubtotalCents && (input.adjustmentReason ?? "").trim().length < 2) throw new DomainError("VALIDATION_ERROR", "Adjustment reason is required when changing the catalog price", 422);
+    const finalItemSubtotal = agreed ?? (pricingBasisChanged ? itemSubtotalCents : current.itemSubtotalCents);
+    const preservesExistingAgreedPrice = !pricingBasisChanged && finalItemSubtotal === current.itemSubtotalCents;
+    const requiresAdjustmentReason = finalItemSubtotal !== itemSubtotalCents && !preservesExistingAgreedPrice;
+    if (requiresAdjustmentReason && (input.adjustmentReason ?? "").trim().length < 2) throw new DomainError("VALIDATION_ERROR", "Adjustment reason is required when changing the catalog price", 422);
     const deliveryFeeCents = fulfillmentMethod === "PICKUP" ? 0 : (input.deliveryFeeCents === undefined ? current.deliveryFeeCents : input.deliveryFeeCents);
     if (deliveryFeeCents !== null && (!Number.isSafeInteger(deliveryFeeCents) || deliveryFeeCents < 0)) throw new DomainError("VALIDATION_ERROR", "Delivery fee must be non-negative", 422);
     const finalTotalCents = deliveryFeeCents === null ? null : finalItemSubtotal + deliveryFeeCents;

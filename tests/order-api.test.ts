@@ -483,6 +483,73 @@ describe("order operations", () => {
       })
     ).rejects.toThrow(/locked/i);
   });
+
+  it("preserves an existing agreed price during metadata-only updates", async () => {
+    const receipt = await submitOrder(database, pickupInput("agreed-price-metadata"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+    const discounted = await updateManagerOrder(database, {
+      orderId: order.id,
+      expectedVersion: order.version,
+      agreedItemSubtotalCents: 2000,
+      adjustmentReason: "Loyalty discount",
+    });
+
+    const renamed = await updateManagerOrder(database, {
+      orderId: order.id,
+      expectedVersion: discounted.version,
+      customerName: "Updated Customer Name",
+      agreedItemSubtotalCents: discounted.itemSubtotalCents,
+    });
+    const metadataOnly = await updateManagerOrder(database, {
+      orderId: order.id,
+      expectedVersion: renamed.version,
+      orderSource: "PHONE",
+    });
+
+    expect(renamed.customerName).toBe("Updated Customer Name");
+    expect(renamed.itemSubtotalCents).toBe(2000);
+    expect(metadataOnly.itemSubtotalCents).toBe(2000);
+  });
+
+  it("uses the new catalog subtotal without a reason when the pricing basis changes", async () => {
+    await database.update(availability).set({ capacityMl: 30000 }).where(eq(availability.id, "availability-main"));
+    const receipt = await submitOrder(database, pickupInput("catalog-price-basis"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+
+    const updated = await updateManagerOrder(database, {
+      orderId: order.id,
+      expectedVersion: order.version,
+      packageId: "package-10l",
+      quantity: 2,
+      agreedItemSubtotalCents: 9000,
+    });
+
+    expect(updated.itemSubtotalCents).toBe(9000);
+    expect(updated.volumeMl).toBe(20000);
+  });
+
+  it("requires a reason when a pricing-basis change preserves a non-catalog amount", async () => {
+    const receipt = await submitOrder(database, pickupInput("non-catalog-price-basis"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+
+    await expect(updateManagerOrder(database, {
+      orderId: order.id,
+      expectedVersion: order.version,
+      packageId: "package-10l",
+      agreedItemSubtotalCents: order.itemSubtotalCents,
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR", message: "Adjustment reason is required when changing the catalog price" });
+  });
+
+  it("requires a reason when replacing the current subtotal with a new agreed price", async () => {
+    const receipt = await submitOrder(database, pickupInput("new-agreed-price"));
+    const order = (await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) }))!;
+
+    await expect(updateManagerOrder(database, {
+      orderId: order.id,
+      expectedVersion: order.version,
+      agreedItemSubtotalCents: 2000,
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR", message: "Adjustment reason is required when changing the catalog price" });
+  });
 });
 
 
