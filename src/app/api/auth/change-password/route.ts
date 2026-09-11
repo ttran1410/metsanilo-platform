@@ -8,7 +8,7 @@ import { assertPassword, hashPassword, verifyPassword } from "@/domain/passwords
 import { env } from "@/lib/env";
 import { failure, success } from "../../response";
 import { createSession, SESSION_COOKIE, sessionMaxAge } from "@/domain/session";
-import { betterAuthInstance } from "@/lib/better-auth";
+import { getBetterAuthInstance } from "@/lib/better-auth";
 
 const command = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(8) });
 export const runtime = "nodejs";
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     if (request.headers.get("cookie")?.includes("better-auth")) {
-      await betterAuthInstance.api.changePassword({
+      await getBetterAuthInstance().api.changePassword({
         body: {
           currentPassword: parsed.data.currentPassword,
           newPassword: parsed.data.newPassword,

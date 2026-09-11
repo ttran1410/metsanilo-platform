@@ -15,6 +15,7 @@ import { resetEnvForTests } from "@/lib/env";
 import { listPaymentMethods, setPaymentMethod } from "@/domain/payment-methods";
 import { getAdminOrderEditData } from "@/domain/admin-order-actions";
 import { getAdminProductDetail } from "@/domain/admin-products-actions";
+import { authenticatedTestRequest, provisionAuthenticatedTestUser } from "./auth-fixture";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-test-"));
 let databaseUrl = "";
@@ -487,16 +488,16 @@ describe("order operations", () => {
 
 describe("shop roles and permissions", () => {
   it("denies a staff actor without the requested permission", async () => {
-    const adminRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("manager:secret").toString("base64")}` } });
+    const adminRequest = await provisionAuthenticatedTestUser(database, { shopId: "shop-main", email: "admin-permissions@example.com", password: "Admin!pass123", role: "ADMIN" });
     await createUser(database, adminRequest, { email: "permission-staff@example.com", password: "Perm!pass123", displayName: "Permission Staff", role: "STAFF" });
-    const staffRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("permission-staff@example.com:secret").toString("base64")}` } });
+    const staffRequest = await authenticatedTestRequest(database, "permission-staff@example.com", "Perm!pass123");
 
     await expect(requirePermission(database, staffRequest, "delivery.override")).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
   });
 
   it("seeds Manager and Staff operational defaults", async () => {
     resetEnvForTests();
-    const adminRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("manager:secret").toString("base64")}` } });
+    const adminRequest = await provisionAuthenticatedTestUser(database, { shopId: "shop-main", email: "admin-defaults@example.com", password: "Admin!pass123", role: "ADMIN" });
     const staff = await createUser(database, adminRequest, { email: "picker@example.com", password: "Pick3r!pass", displayName: "Picker", role: "STAFF" });
     const manager = await createUser(database, adminRequest, { email: "manager@example.com", password: "Manag3r!pass", displayName: "Manager", role: "MANAGER" });
     const managerGrants = await database.select().from(userPermissions).where(eq(userPermissions.userId, manager.id));
@@ -509,7 +510,7 @@ describe("shop roles and permissions", () => {
     expect(staffGrants.map((grant) => grant.permission)).not.toContain("catalog.product.write");
     expect(staffGrants.map((grant) => grant.permission)).not.toContain("delivery.override");
     expect(staffGrants.map((grant) => grant.permission)).not.toContain("shop_users.manage");
-    const staffRequest = new Request("http://localhost/manager", { headers: { authorization: `Basic ${Buffer.from("picker@example.com:secret").toString("base64")}` } });
+    const staffRequest = await authenticatedTestRequest(database, "picker@example.com", "Pick3r!pass");
     await expect(requirePermission(database, staffRequest, "orders.read")).resolves.toMatchObject({ email: "picker@example.com" });
     await setUserPermission(database, adminRequest, { userId: staff.id, permission: "orders.read", granted: true });
     await expect(requirePermission(database, staffRequest, "orders.read")).resolves.toMatchObject({ email: "picker@example.com" });
