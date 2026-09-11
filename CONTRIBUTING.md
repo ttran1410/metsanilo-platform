@@ -5,9 +5,14 @@ This project accepts human- and agent-assisted changes. `AGENTS.md` is the manda
 ## Branch and scope
 
 1. Start from an up-to-date `main` and work on a task branch.
-2. Keep one coherent concern per branch. Separate structural renames from behavioral changes when practical.
-3. Do not include local databases, environment files, generated output, credentials, customer data, or the ignored `requirements/` workspace.
-4. Explain why a change belongs in the selected layer and identify the affected call path.
+2. Name the branch `<type>/<short-kebab-case-description>` using one of these repository prefixes:
+   - `feature/` for new capabilities or intentional behavior changes, for example `feature/better-auth-consolidation`;
+   - `bugfix/` for correcting defective behavior, for example `bugfix/order-price-validation`;
+   - `chore/` for documentation, tooling, dependency, or maintenance work that does not intentionally change product behavior, for example `chore/update-contribution-guide`.
+3. Describe the concern, not the author or tool. Do not add personal, agent, or vendor prefixes such as `codex/`.
+4. Keep one coherent concern per branch. Separate structural renames from behavioral changes when practical.
+5. Do not include local databases, environment files, generated output, credentials, customer data, or the ignored `requirements/` workspace.
+6. Explain why a change belongs in the selected layer and identify the affected call path.
 
 ## Before review
 
