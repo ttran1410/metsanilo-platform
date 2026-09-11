@@ -6,7 +6,8 @@ import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { readSession, SESSION_COOKIE } from "./session";
 import { assertPassword, hashPassword, verifyPassword } from "./passwords";
-import { betterAuthInstance } from "@/lib/better-auth";
+import { getBetterAuthInstance } from "@/lib/better-auth";
+import { recordLegacyAuthUsage } from "@/lib/auth-telemetry";
 import { defaultPermissionsForRole, PERMISSIONS, type Permission, type Role } from "@/lib/permissions";
 
 export { COMING_SOON_PERMISSIONS, PERMISSIONS, defaultPermissionsForRole } from "@/lib/permissions";
@@ -29,14 +30,17 @@ function usernameFromRequest(request: Request) {
   if (!authorization?.startsWith("Basic ")) throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
   const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
   const separator = decoded.indexOf(":");
-  if (separator <= 0) throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
+  if (separator <= 0) {
+    recordLegacyAuthUsage(request, "http_basic", 401);
+    throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
+  }
   return decoded.slice(0, separator);
 }
 
 export async function currentUser(database: Database, request: Request) {
   const shopId = env().SHOP_ID;
   try {
-    const betterSession = await betterAuthInstance.api.getSession({ headers: request.headers });
+    const betterSession = await getBetterAuthInstance().api.getSession({ headers: request.headers });
     if (betterSession?.user?.id) {
       const mapped = await database.query.users.findFirst({
         where: and(eq(users.id, betterSession.user.id), eq(users.shopId, shopId), eq(users.active, true)),
@@ -48,6 +52,7 @@ export async function currentUser(database: Database, request: Request) {
   }
   const cookie = request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1];
   const session = readSession(cookie);
+  const legacyMechanism = session ? "legacy_cookie" as const : "http_basic" as const;
   const identifier = session?.email ?? usernameFromRequest(request);
   const user =
     (await database.query.users.findFirst({
@@ -56,9 +61,16 @@ export async function currentUser(database: Database, request: Request) {
     (await database.query.users.findFirst({
       where: and(eq(users.shopId, shopId), eq(users.username, identifier), eq(users.active, true)),
     }));
-  if (session && user && user.sessionVersion !== session.sessionVersion) throw new DomainError("UNAUTHORIZED", "Session expired", 401);
-  if (user) return user;
-  if (identifier === "manager")
+  if (session && user && user.sessionVersion !== session.sessionVersion) {
+    recordLegacyAuthUsage(request, legacyMechanism, 401);
+    throw new DomainError("UNAUTHORIZED", "Session expired", 401);
+  }
+  if (user) {
+    recordLegacyAuthUsage(request, legacyMechanism, 200);
+    return user;
+  }
+  if (identifier === "manager") {
+    recordLegacyAuthUsage(request, legacyMechanism, 200);
     return {
       id: "legacy-admin",
       shopId,
@@ -72,6 +84,8 @@ export async function currentUser(database: Database, request: Request) {
       active: true,
       createdAt: "legacy",
     };
+  }
+  recordLegacyAuthUsage(request, legacyMechanism, 403);
   throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
 }
 

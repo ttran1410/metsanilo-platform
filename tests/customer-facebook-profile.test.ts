@@ -10,6 +10,7 @@ import { confirmCustomerContact, createCustomer, findRetentionEligibleCustomers,
 import { createHistoricalOrder } from "@/domain/operations";
 import { submitOrder } from "@/domain/orders";
 import { resetEnvForTests } from "@/lib/env";
+import { provisionAuthenticatedTestUser } from "./auth-fixture";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-customer-fb-test-"));
 let databaseUrl = "";
@@ -235,25 +236,13 @@ describe("Customer Facebook Profile CRM & Order Sync", () => {
 
   it("creates external order with facebookProfile and no mobile number via API route", async () => {
     const { POST } = await import("@/app/api/admin/orders/external/route");
-    const { users } = await import("@/db/schema");
-    const { hashPassword } = await import("@/domain/passwords");
-    const passwordHash = await hashPassword("Password123!");
-    await database.insert(users).values({
-      id: "user-admin-external-test",
-      shopId: "shop-default",
-      email: "admin-ext@example.com",
-      displayName: "Admin External User",
-      passwordHash,
-      role: "ADMIN",
-      active: true,
-      createdAt: new Date().toISOString(),
-    });
+    const authenticated = await provisionAuthenticatedTestUser(database, { id: "user-admin-external-test", shopId: "shop-default", email: "admin-ext@example.com", password: "Password123!", role: "ADMIN" });
 
     const req = new Request("http://localhost/api/admin/orders/external", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "authorization": "Basic " + Buffer.from("admin-ext@example.com:Password123!").toString("base64"),
+        "cookie": authenticated.headers.get("cookie")!,
       },
       body: JSON.stringify({
         productId: "product-berries",
