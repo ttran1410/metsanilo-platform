@@ -20,6 +20,10 @@ type AuthPolicyHooks = Readonly<{
  */
 export function createBetterAuthInstance(options?: { database?: Database; policyHooks?: AuthPolicyHooks }) {
   const authUrl = configuredAuthUrl();
+  const vercelEnvironment = process.env.VERCEL_ENV;
+  const isProduction = vercelEnvironment === "production" || (!vercelEnvironment && process.env.NODE_ENV === "production");
+  const trustedOrigins = ["https://metsanilo.vercel.app"];
+  if (!isProduction && vercelEnvironment !== "preview" && authUrl) trustedOrigins.push(authUrl.origin);
   return betterAuth({
   // Keep this parallel adapter independent from the legacy runtime preflight;
   // the Better Auth endpoint validates its own secret and database settings.
@@ -37,10 +41,7 @@ export function createBetterAuthInstance(options?: { database?: Database; policy
   // production BETTER_AUTH_URL; this fallback only keeps module evaluation
   // safe for local/build environments.
   baseURL: authUrl?.toString() ?? "http://localhost:3000",
-  trustedOrigins: [
-    "https://metsanilo.vercel.app",
-    ...(authUrl ? [authUrl.origin] : []),
-  ],
+  trustedOrigins,
   secret: process.env.BETTER_AUTH_SECRET || "local-development-better-auth-secret-change-me",
   emailAndPassword: {
     enabled: true,
@@ -52,7 +53,10 @@ export function createBetterAuthInstance(options?: { database?: Database; policy
   },
   session: {
     expiresIn: 60 * 60 * 8,
-    updateAge: 60 * 60,
+    // Do not roll the eight-hour absolute lifetime forward. Idle timeout is
+    // enforced separately from deliberate activity in the application layer.
+    updateAge: 0,
+    disableSessionRefresh: true,
   },
   ...(options?.policyHooks?.beforeSessionCreate
     ? {

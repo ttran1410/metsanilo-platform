@@ -123,6 +123,22 @@ describe("Better Auth baseline", () => {
     expect(await database.select().from(authSessions)).toHaveLength(0);
   });
 
+  it("rejects Better Auth sign-in on preview deployments", async () => {
+    process.env.VERCEL_ENV = "preview";
+    try {
+      const { POST } = await import("@/app/api/auth/better/[...all]/route");
+      const response = await POST(new Request("https://preview.example.vercel.app/api/auth/better/sign-in/email", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "https://preview.example.vercel.app" },
+        body: JSON.stringify({ email: "admin@example.test", password: "Password123!" }),
+      }));
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({ code: "PREVIEW_AUTH_DISABLED" });
+    } finally {
+      delete process.env.VERCEL_ENV;
+    }
+  });
+
   it("keeps an Admin email immutable at the API boundary", async () => {
     const credentials = await provision("immutable-email");
     const signedIn = await signIn(credentials.email, credentials.password);
