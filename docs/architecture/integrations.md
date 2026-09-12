@@ -12,7 +12,7 @@ This inventory distinguishes implemented integrations from configured or future 
 | System | Purpose | Configuration | Current caveat |
 |---|---|---|---|
 | Turso/libSQL | Primary transactional database | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Production CLI login was not active during audit |
-| Better Auth | Admin credential/session provider | `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, DB variables | Runs alongside legacy signed session; production preflight does not require its secret |
+| Better Auth | Admin credential/session provider | `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, DB variables | Runs alongside legacy signed session; production preflight enforces secret (>= 32 chars) and canonical origin |
 | Legacy admin session | Backward-compatible signed session | `ADMIN_SESSION_SECRET` | Must remain until migration is explicitly completed |
 | Local filesystem | Development product/page media storage | `MEDIA_STORAGE=local`, `MEDIA_LOCAL_DIR` | Not shared across processes and not durable on Vercel |
 | Vercel Blob | Production product/page media storage | `MEDIA_STORAGE=blob`, `BLOB_READ_WRITE_TOKEN` | Blob token is missing from `.env.example` and production preflight |
