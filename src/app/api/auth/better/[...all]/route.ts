@@ -3,21 +3,27 @@ import { getBetterAuthInstance } from "@/lib/better-auth";
 
 export const runtime = "nodejs";
 
-const BLOCKED_BETTER_AUTH_PATHS = [
-  "/change-password",
-  "/set-password",
-  "/reset-password",
-  "/request-password-reset",
+const ALLOWED_BETTER_AUTH_PATHS = [
+  "/sign-in/email",
+  "/get-session",
+  "/sign-out",
 ];
 
-function isBlockedBetterAuthRequest(request: Request): boolean {
+function isAllowedBetterAuthRequest(request: Request): boolean {
   try {
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/+$/, "");
-    return BLOCKED_BETTER_AUTH_PATHS.some((path) => pathname.endsWith(path)) || /\/reset-password\/[^/]+$/.test(pathname);
+    return ALLOWED_BETTER_AUTH_PATHS.some((path) => pathname.endsWith(path));
   } catch {
     return false;
   }
+}
+
+function endpointDisabledResponse() {
+  return Response.json(
+    { code: "ENDPOINT_DISABLED", message: "Use canonical application authentication endpoints." },
+    { status: 404 },
+  );
 }
 
 function previewAuthDisabled(request: Request) {
@@ -25,22 +31,12 @@ function previewAuthDisabled(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (isBlockedBetterAuthRequest(request)) {
-    return Response.json(
-      { code: "ENDPOINT_DISABLED", message: "Use canonical application password management endpoints." },
-      { status: 404 }
-    );
-  }
+  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse();
   return toNextJsHandler(getBetterAuthInstance()).GET(request);
 }
 
 export async function POST(request: Request) {
-  if (isBlockedBetterAuthRequest(request)) {
-    return Response.json(
-      { code: "ENDPOINT_DISABLED", message: "Use canonical application password management endpoints." },
-      { status: 404 }
-    );
-  }
+  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse();
   if (previewAuthDisabled(request)) {
     return Response.json(
       { code: "PREVIEW_AUTH_DISABLED", message: "Admin authentication is unavailable on preview deployments." },

@@ -375,13 +375,19 @@ describe("Better Auth baseline", () => {
     });
   });
 
-  it("blocks built-in Better Auth password change and reset endpoints from bypassing domain lifecycle", async () => {
+  it("allows only the approved Better Auth endpoints and blocks account/session mutations", async () => {
     const blockedPaths = [
       "http://localhost:3000/api/auth/better/change-password",
       "http://localhost:3000/api/auth/better/set-password",
       "http://localhost:3000/api/auth/better/reset-password",
       "http://localhost:3000/api/auth/better/reset-password/example-token",
       "http://localhost:3000/api/auth/better/request-password-reset",
+      "http://localhost:3000/api/auth/better/update-user",
+      "http://localhost:3000/api/auth/better/change-email",
+      "http://localhost:3000/api/auth/better/delete-user",
+      "http://localhost:3000/api/auth/better/revoke-session",
+      "http://localhost:3000/api/auth/better/revoke-sessions",
+      "http://localhost:3000/api/auth/better/revoke-other-sessions",
     ];
 
     for (const url of blockedPaths) {
