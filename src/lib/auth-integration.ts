@@ -41,3 +41,17 @@ export async function provisionUserWithAuth(database: Database, input: { id?: st
   });
   return (await database.query.users.findFirst({ where: and(eq(users.id, id), eq(users.shopId, input.shopId)) }))!;
 }
+
+/** Reconcile the deterministic seed Admin identity atomically; never call this from login. */
+export async function reconcileBootstrapAdmin(database: Database, input: { id: string; shopId: string; email: string; displayName: string; passwordHash: string; now?: Date }) {
+  const nowDate = input.now ?? new Date();
+  const createdAt = nowDate.toISOString();
+  await database.transaction(async (tx) => {
+    await tx.insert(users).values({ id: input.id, shopId: input.shopId, username: input.email, email: input.email, passwordHash: input.passwordHash, mustChangePassword: true, sessionVersion: 1, displayName: input.displayName, role: "ADMIN", active: true, createdAt })
+      .onConflictDoUpdate({ target: users.id, set: { shopId: input.shopId, username: input.email, email: input.email, passwordHash: input.passwordHash, mustChangePassword: true, displayName: input.displayName, role: "ADMIN", active: true } });
+    await tx.insert(authUsers).values({ id: input.id, name: input.displayName, email: input.email, emailVerified: false, image: null, createdAt: nowDate, updatedAt: nowDate })
+      .onConflictDoUpdate({ target: authUsers.id, set: { name: input.displayName, email: input.email, emailVerified: false, updatedAt: nowDate } });
+    await tx.insert(authAccounts).values({ id: `credential-${input.id}`, accountId: input.id, providerId: "credential", userId: input.id, password: input.passwordHash, createdAt: nowDate, updatedAt: nowDate })
+      .onConflictDoUpdate({ target: authAccounts.id, set: { accountId: input.id, providerId: "credential", userId: input.id, password: input.passwordHash, updatedAt: nowDate } });
+  });
+}

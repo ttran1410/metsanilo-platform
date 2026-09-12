@@ -1,8 +1,10 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { authAccounts, authUsers, availability, packages, products, shops, users } from "../src/db/schema";
+import * as schema from "../src/db/schema";
 import { validateRuntimeEnvironment } from "../src/lib/env";
 import { hashPassword } from "../src/domain/passwords";
+import { reconcileBootstrapAdmin } from "../src/lib/auth-integration";
 
 const preflight = validateRuntimeEnvironment({ production: process.env.NODE_ENV === "production" || process.env.RELEASE_PREFLIGHT === "true" });
 if (!preflight.ok) throw new Error(`Environment preflight failed: ${preflight.errors.join("; ")}`);
@@ -38,7 +40,7 @@ const client = createClient({
   url: preflight.config.TURSO_DATABASE_URL,
   authToken: preflight.config.TURSO_AUTH_TOKEN,
 });
-const database = drizzle(client);
+const database = drizzle(client, { schema });
 
 const existingShops = await database.select({ id: shops.id }).from(shops);
 if (existingShops.some((shop) => shop.id !== shopId)) {
@@ -97,14 +99,7 @@ await database
 const bootstrapUserId = `user-${shopId}-admin`;
 const bootstrapDisplayName = process.env.ADMIN_DISPLAY_NAME?.trim() || "Shop admin";
 const bootstrapHash = hashPassword(bootstrapPassword);
-await database.transaction(async (tx) => {
-  await tx.insert(users).values({ id: bootstrapUserId, shopId, email: bootstrapEmail, passwordHash: bootstrapHash, mustChangePassword: true, sessionVersion: 1, displayName: bootstrapDisplayName, role: "ADMIN", active: true, createdAt: now })
-    .onConflictDoUpdate({ target: users.id, set: { email: bootstrapEmail, passwordHash: bootstrapHash, mustChangePassword: true, displayName: bootstrapDisplayName, role: "ADMIN", active: true } });
-  await tx.insert(authUsers).values({ id: bootstrapUserId, name: bootstrapDisplayName, email: bootstrapEmail, emailVerified: false, image: null, createdAt: nowDate, updatedAt: nowDate })
-    .onConflictDoUpdate({ target: authUsers.id, set: { name: bootstrapDisplayName, email: bootstrapEmail, emailVerified: false, updatedAt: nowDate } });
-  await tx.insert(authAccounts).values({ id: `credential-${bootstrapUserId}`, accountId: bootstrapUserId, providerId: "credential", userId: bootstrapUserId, password: bootstrapHash, createdAt: nowDate, updatedAt: nowDate })
-    .onConflictDoUpdate({ target: authAccounts.id, set: { accountId: bootstrapUserId, providerId: "credential", userId: bootstrapUserId, password: bootstrapHash, updatedAt: nowDate } });
-});
+await reconcileBootstrapAdmin(database, { id: bootstrapUserId, shopId, email: bootstrapEmail, passwordHash: bootstrapHash, displayName: bootstrapDisplayName, now: nowDate });
 
 await database
   .insert(products)
