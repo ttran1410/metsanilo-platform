@@ -74,6 +74,17 @@ describe("executeAdmin contract", () => {
     expect(hasUserPermission).toHaveBeenCalledTimes(2);
   });
 
+  it("rejects an actor with mustChangePassword=true in authenticateAdminAny with 403 PASSWORD_CHANGE_REQUIRED", async () => {
+    currentUser.mockResolvedValue({ id: "actor-temp", role: "ADMIN", shopId: "shop-test", mustChangePassword: true });
+    await expect(
+      authenticateAdminAny(new Request("http://localhost/api/admin/settings"), ["settings.read", "settings.operational"])
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      status: 403,
+      detail: { reason: "PASSWORD_CHANGE_REQUIRED" },
+    });
+  });
+
   it("propagates domain auth errors for the response adapter", async () => {
     currentUser.mockRejectedValue(new DomainError("UNAUTHORIZED", "Authentication required", 401));
 
