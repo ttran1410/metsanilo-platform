@@ -122,11 +122,12 @@ describe("Retirement endpoint contracts (/api/auth/login, /api/auth/logout)", ()
     expect(patchRes.status).toBe(405);
     const deleteRes = await logoutDelete(new Request("http://localhost:3000/api/auth/logout", { method: "DELETE" }));
     expect(deleteRes.status).toBe(405);
-    const optionsRes = await logoutOptions(new Request("http://localhost:3000/api/auth/logout", { method: "OPTIONS", headers: { "x-correlation-id": "corr-opt-logout" } }));
+    const correlationIdLogout = "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e";
+    const optionsRes = await logoutOptions(new Request("http://localhost:3000/api/auth/logout", { method: "OPTIONS", headers: { "x-correlation-id": correlationIdLogout } }));
     expect(optionsRes.status).toBe(204);
     expect(optionsRes.headers.get("allow")).toBe("POST, OPTIONS, HEAD");
     expect(optionsRes.headers.get("cache-control")).toBe("no-store, max-age=0");
-    expect(optionsRes.headers.get("x-correlation-id")).toBe("corr-opt-logout");
+    expect(optionsRes.headers.get("x-correlation-id")).toBe(correlationIdLogout);
   });
 });
 

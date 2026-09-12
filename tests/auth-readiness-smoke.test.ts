@@ -72,7 +72,10 @@ describe("auth readiness smoke runner", () => {
               headers: resHeaders,
             });
           }
-          return new Response(JSON.stringify({ error: "Invalid password" }), { status: 401 });
+          return new Response(JSON.stringify({ error: "Invalid password" }), {
+            status: 401,
+            headers: { "x-correlation-id": "corr-bad-pass" },
+          });
         }
 
         if (url.pathname === "/api/auth/session") {
