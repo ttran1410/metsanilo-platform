@@ -1,18 +1,22 @@
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { DomainError } from "@/domain/errors";
+import { resolveCorrelationId, CORRELATION_ID_HEADER } from "@/lib/correlation-id";
 
-export function success(data: unknown, status = 200) {
-  return NextResponse.json({ data, correlationId: randomUUID() }, { status });
+export function success(data: unknown, request: Request, status = 200) {
+  const correlationId = resolveCorrelationId(request);
+  return NextResponse.json(
+    { data, correlationId },
+    {
+      status,
+      headers: {
+        [CORRELATION_ID_HEADER]: correlationId,
+      },
+    },
+  );
 }
 
-const correlationIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export function failure(error: unknown, request?: Request) {
-  const requestedCorrelationId = request?.headers.get("x-correlation-id")?.trim();
-  const correlationId = requestedCorrelationId && correlationIdPattern.test(requestedCorrelationId)
-    ? requestedCorrelationId
-    : randomUUID();
+export function failure(error: unknown, request: Request) {
+  const correlationId = resolveCorrelationId(request);
   if (error instanceof DomainError) {
     return NextResponse.json(
       {
@@ -22,7 +26,12 @@ export function failure(error: unknown, request?: Request) {
         fieldErrors: error.fieldErrors,
         correlationId,
       },
-      { status: error.status },
+      {
+        status: error.status,
+        headers: {
+          [CORRELATION_ID_HEADER]: correlationId,
+        },
+      },
     );
   }
   const errorMessage = error instanceof Error ? error.message : String(error ?? "Unknown error");
@@ -33,6 +42,33 @@ export function failure(error: unknown, request?: Request) {
       message: "An unexpected server error occurred while processing your request. Please try again or contact support.",
       correlationId,
     },
-    { status: 500 },
+    {
+      status: 500,
+      headers: {
+        [CORRELATION_ID_HEADER]: correlationId,
+      },
+    },
+  );
+}
+
+export function methodNotAllowed(allowedMethods: string[], request: Request) {
+  const correlationId = resolveCorrelationId(request);
+  return new Response(
+    request.method === "HEAD"
+      ? null
+      : JSON.stringify({
+          code: "METHOD_NOT_ALLOWED",
+          message: `Method not allowed. Supported method: ${allowedMethods.join(", ")}.`,
+          correlationId,
+        }),
+    {
+      status: 405,
+      headers: {
+        Allow: allowedMethods.join(", "),
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store, max-age=0",
+        [CORRELATION_ID_HEADER]: correlationId,
+      },
+    },
   );
 }
