@@ -216,7 +216,7 @@ export async function setUserPermission(
 export async function updateUserProfile(
   database: Database,
   request: Request,
-  input: { userId: string; displayName?: string; email?: string | null; role?: Role }
+  input: { userId: string; displayName?: string; role?: Role }
 ) {
   const actor = await requirePermission(database, request, "shop_users.manage");
   const target = await database.query.users.findFirst({
@@ -242,18 +242,6 @@ export async function updateUserProfile(
   const updates: Partial<Pick<typeof users.$inferInsert, "displayName" | "email" | "role">> = {};
   if (input.displayName && input.displayName.trim()) {
     updates.displayName = input.displayName.trim();
-  }
-  if (input.email !== undefined) {
-    const emailVal = input.email && input.email.trim() ? input.email.trim().toLowerCase() : null;
-    if (emailVal && emailVal !== target.email) {
-      const existing = await database.query.users.findFirst({
-        where: and(eq(users.email, emailVal), eq(users.shopId, env().SHOP_ID)),
-      });
-      if (existing) {
-        throw new DomainError("CONFLICT", "Email is already in use by another user", 409);
-      }
-    }
-    updates.email = emailVal;
   }
   if (input.role) {
     updates.role = input.role;
@@ -291,12 +279,10 @@ export async function updateUserRole(database: Database, request: Request, input
   if (!target) throw new DomainError("NOT_FOUND", "User not found", 404);
 
   const updatedAt = new Date().toISOString();
-  await database
-    .update(users)
-    .set({ role: input.role })
-    .where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID)))
-    .run();
-  await revokeAllUserSessions(database, input.userId);
+  await database.transaction(async (tx) => {
+    await tx.update(users).set({ role: input.role }).where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID))).run();
+    await revokeAllUserSessions(tx, input.userId);
+  });
 
   await database.insert(auditEntries).values({
     id: randomUUID(),
@@ -319,12 +305,10 @@ export async function toggleUserActive(database: Database, request: Request, inp
   if (target.id === actor.id) throw new DomainError("FORBIDDEN", "Cannot suspend your own account", 403);
 
   const updatedAt = new Date().toISOString();
-  await database
-    .update(users)
-    .set({ active: input.active, sessionVersion: sql`${users.sessionVersion} + 1` })
-    .where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID)))
-    .run();
-  await revokeAllUserSessions(database, input.userId);
+  await database.transaction(async (tx) => {
+    await tx.update(users).set({ active: input.active, sessionVersion: sql`${users.sessionVersion} + 1` }).where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID))).run();
+    await revokeAllUserSessions(tx, input.userId);
+  });
 
   await database.insert(auditEntries).values({
     id: randomUUID(),

@@ -53,7 +53,7 @@ export function revokeUserSessions(database: Database, context: UserActionContex
   return revokeUserSessionsDomain(database, context.request, userId);
 }
 
-export function updateUserProfile(database: Database, context: UserActionContext, input: { userId: string; displayName?: string; email?: string | null; role?: Role }) {
+export function updateUserProfile(database: Database, context: UserActionContext, input: { userId: string; displayName?: string; role?: Role }) {
   assertAdminActionContext(context);
   return updateUserProfileDomain(database, context.request, input);
 }
