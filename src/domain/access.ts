@@ -39,7 +39,12 @@ function usernameFromRequest(request: Request) {
 
 export async function currentUser(database: Database, request: Request) {
   const shopId = env().SHOP_ID;
-  const betterSession = await getBetterAuthSession(request);
+  let betterSession: Awaited<ReturnType<typeof getBetterAuthSession>>;
+  try {
+    betterSession = await getBetterAuthSession(request);
+  } catch {
+    throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
+  }
   if (betterSession?.user?.id) {
     const mapped = await mapActiveShopUser(database, betterSession.user.id);
     if (!mapped) throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);

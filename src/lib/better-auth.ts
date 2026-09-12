@@ -39,8 +39,6 @@ export function createBetterAuthInstance(options?: { database?: Database; policy
   baseURL: authUrl?.toString() ?? "http://localhost:3000",
   trustedOrigins: [
     "https://metsanilo.vercel.app",
-    "https://metsanilo-platform.vercel.app",
-    "https://metsanilo-metsanilo.vercel.app",
     ...(authUrl ? [authUrl.origin] : []),
   ],
   secret: process.env.BETTER_AUTH_SECRET || "local-development-better-auth-secret-change-me",
