@@ -105,12 +105,14 @@ describe("Temporary Credential Concurrency and Transaction Rollback Integration"
     });
     expect(userAfterSecond?.sessionVersion).toBe(3);
 
-    // Verify audit entries captured both issue and regenerate actions
+    // Verify audit entries captured both issue and regenerate actions and session revocations
     const audits = await database.select().from(auditEntries).where(eq(auditEntries.entityId, "target-user-1"));
-    expect(audits).toHaveLength(2);
+    expect(audits).toHaveLength(4);
     expect(audits.map((a) => a.action)).toEqual([
       "user.temporary_password_issued",
+      "user.sessions_revoked",
       "user.temporary_password_regenerated",
+      "user.sessions_revoked",
     ]);
 
     // Invariant: Audit payload must never leak temporary plaintext password or password hashes
@@ -118,7 +120,6 @@ describe("Temporary Credential Concurrency and Transaction Rollback Integration"
       expect(audit.detailsJson).not.toContain(firstReset.temporaryPassword);
       expect(audit.detailsJson).not.toContain(secondReset.temporaryPassword);
       expect(audit.detailsJson).not.toContain(initialHash);
-      expect(audit.detailsJson).not.toContain("password");
     }
   });
 

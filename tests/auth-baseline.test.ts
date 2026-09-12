@@ -5,13 +5,14 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { eq } from "drizzle-orm";
 import { createDatabaseConnection, resetDatabaseForTests, type Database } from "@/db/client";
-import { authAccounts, authSessions, authUsers, shops, users } from "@/db/schema";
+import { auditEntries, authAccounts, authSessions, authUsers, shops, users } from "@/db/schema";
 import { createUser, currentUser } from "@/domain/access";
 import { hashPassword } from "@/domain/passwords";
 import { createBetterAuthInstance, resetBetterAuthForTests } from "@/lib/better-auth";
 import { reconcileBootstrapAdmin } from "@/lib/auth-integration";
 import { resetEnvForTests } from "@/lib/env";
 import { POST as changePassword } from "@/app/api/auth/change-password/route";
+import { GET as betterAuthGet, POST as betterAuthPost } from "@/app/api/auth/better/[...all]/route";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-auth-test-"));
 let database: Database;
@@ -333,6 +334,11 @@ describe("Better Auth baseline", () => {
     expect(updatedUser?.temporaryPasswordExpiresAt).toBeNull();
     expect(updatedUser?.sessionVersion).toBe(2);
 
+    // Verify audit entries captured both password change and session revocation
+    const audits = await database.select().from(auditEntries).where(eq(auditEntries.entityId, "temp-lifecycle-user"));
+    expect(audits.map((a) => a.action)).toContain("user.password_changed");
+    expect(audits.map((a) => a.action)).toContain("user.sessions_revoked");
+
     // 4. Verify Better Auth sessions revoked in database
     expect(await database.select().from(authSessions)).toHaveLength(0);
 
@@ -366,5 +372,74 @@ describe("Better Auth baseline", () => {
       mustChangePassword: false,
       active: true,
     });
+  });
+
+  it("blocks built-in Better Auth password change and reset endpoints from bypassing domain lifecycle", async () => {
+    const blockedPaths = [
+      "http://localhost:3000/api/auth/better/change-password",
+      "http://localhost:3000/api/auth/better/set-password",
+      "http://localhost:3000/api/auth/better/reset-password",
+      "http://localhost:3000/api/auth/better/forget-password",
+    ];
+
+    for (const url of blockedPaths) {
+      const postRes = await betterAuthPost(
+        new Request(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ currentPassword: "Old", newPassword: "New" }),
+        })
+      );
+      expect(postRes.status).toBe(404);
+      const postBody = await postRes.json();
+      expect(postBody).toMatchObject({
+        code: "ENDPOINT_DISABLED",
+        message: expect.stringContaining("canonical"),
+      });
+
+      const getRes = await betterAuthGet(new Request(url, { method: "GET" }));
+      expect(getRes.status).toBe(404);
+      const getBody = await getRes.json();
+      expect(getBody).toMatchObject({
+        code: "ENDPOINT_DISABLED",
+      });
+    }
+  });
+
+  it("emits user.temporary_password_expired audit event when expired temporary credential attempts session creation", async () => {
+    const credentials = await provision("expired-temp-user", "shop-main", true);
+    const issued = "2026-09-10T12:00:00.000Z";
+    const expires = "2026-09-11T12:00:00.000Z"; // expired yesterday
+
+    await database
+      .update(users)
+      .set({
+        mustChangePassword: true,
+        temporaryPasswordIssuedAt: issued,
+        temporaryPasswordExpiresAt: expires,
+      })
+      .where(eq(users.id, "expired-temp-user"));
+
+    // Attempt sign-in with expired temporary credential
+    const response = await auth.handler(
+      new Request("http://localhost:3000/api/auth/better/sign-in/email", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "http://localhost:3000" },
+        body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+      })
+    );
+
+    // Better Auth rejects session creation (401 / no session token)
+    expect(response.status).toBe(401);
+    expect(await database.select().from(authSessions)).toHaveLength(0);
+
+    // Verify user.temporary_password_expired audit entry was created
+    const audits = await database
+      .select()
+      .from(auditEntries)
+      .where(eq(auditEntries.entityId, "expired-temp-user"));
+    expect(audits.map((a) => a.action)).toContain("user.temporary_password_expired");
+    const expiryAudit = audits.find((a) => a.action === "user.temporary_password_expired");
+    expect(expiryAudit?.detailsJson).toContain(expires);
   });
 });

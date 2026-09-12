@@ -65,6 +65,16 @@ export async function resetAdminUserPassword(
       detailsJson: JSON.stringify({ targetRole: target.role, expiresAt }),
       createdAt: issuedAt,
     });
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId: context.shop.id,
+      actor: context.actor.email ?? context.actor.id,
+      action: "user.sessions_revoked",
+      entityType: "user",
+      entityId: target.id,
+      detailsJson: JSON.stringify({ reason: "credential_reset" }),
+      createdAt: issuedAt,
+    });
   });
 
   return { email: target.email, temporaryPassword, temporaryPasswordExpiresAt: expiresAt };

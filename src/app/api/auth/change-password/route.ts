@@ -68,6 +68,17 @@ export async function POST(request: Request) {
         detailsJson: JSON.stringify({ selfService: true }),
         createdAt: now,
       });
+
+      await tx.insert(auditEntries).values({
+        id: randomUUID(),
+        shopId: env().SHOP_ID,
+        actor: actor.email ?? actor.id,
+        action: "user.sessions_revoked",
+        entityType: "user",
+        entityId: actor.id,
+        detailsJson: JSON.stringify({ reason: "password_changed", selfService: true }),
+        createdAt: now,
+      });
     });
 
     const response = success({ changed: true, requireSignIn: true });
