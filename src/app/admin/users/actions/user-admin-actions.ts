@@ -36,3 +36,23 @@ export async function inviteUser(input: { displayName: string; email: string; ro
   const body = await response.json().catch(() => ({})) as { data?: unknown; code?: string; message?: string };
   return { ok: response.ok, status: response.status, data: body.data, code: body.code, message: body.message };
 }
+
+export async function revokeSingleUserSession(userId: string, sessionId: string, reason?: string): Promise<UserActionResult> {
+  const response = await fetch(`/api/admin/users/${userId}/sessions`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ scope: "single", sessionId, reason }),
+  });
+  const body = (await response.json().catch(() => ({}))) as { data?: unknown; code?: string; message?: string };
+  return { ok: response.ok, status: response.status, data: body.data, code: body.code, message: body.message };
+}
+
+export async function revokeAllUserSessionsAdmin(userId: string, reason?: string): Promise<UserActionResult> {
+  const response = await fetch(`/api/admin/users/${userId}/sessions`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ scope: "all", reason }),
+  });
+  const body = (await response.json().catch(() => ({}))) as { data?: unknown; code?: string; message?: string };
+  return { ok: response.ok, status: response.status, data: body.data, code: body.code, message: body.message };
+}

@@ -3,17 +3,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { createDatabaseConnection, resetDatabaseForTests, type Database } from "@/db/client";
 import { auditEntries, authAccounts, authSessions, authUsers, shops, users } from "@/db/schema";
 import { createUser, currentUser } from "@/domain/access";
 import { hashPassword } from "@/domain/passwords";
 import { createBetterAuthInstance, resetBetterAuthForTests } from "@/lib/better-auth";
-import { reconcileBootstrapAdmin } from "@/lib/auth-integration";
+import { reconcileBootstrapAdmin, revokeSessionById, touchBetterAuthSession } from "@/lib/auth-integration";
 import { resetEnvForTests } from "@/lib/env";
 import { POST as changePassword } from "@/app/api/auth/change-password/route";
 import { GET as betterAuthGet, POST as betterAuthPost } from "@/app/api/auth/better/[...all]/route";
 import { POST as legacyLogin } from "@/app/api/auth/login/route";
+import { GET as sessionStatus, POST as touchSession, DELETE as deleteSession } from "@/app/api/auth/session/route";
+import { GET as adminSessionList, DELETE as adminSessionRevoke } from "@/app/api/admin/users/[id]/sessions/route";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-auth-test-"));
 let database: Database;
@@ -48,12 +50,12 @@ afterEach(() => {
   closeDatabase();
 });
 
-async function provision(id: string, shopId = "shop-main", active = true) {
+async function provision(id: string, shopId = "shop-main", active = true, role: "ADMIN" | "MANAGER" | "STAFF" = "ADMIN") {
   const email = `${id}@example.test`;
   const now = new Date();
   const password = "Password123!";
   const passwordHash = hashPassword(password);
-  await database.insert(users).values({ id, shopId, username: email, email, passwordHash, mustChangePassword: false, sessionVersion: 1, displayName: id, role: "ADMIN", active, createdAt: now.toISOString() });
+  await database.insert(users).values({ id, shopId, username: email, email, passwordHash, mustChangePassword: false, sessionVersion: 1, displayName: id, role, active, createdAt: now.toISOString() });
   await database.insert(authUsers).values({ id, name: id, email, emailVerified: false, createdAt: now, updatedAt: now });
   await database.insert(authAccounts).values({ id: `credential-${id}`, accountId: id, providerId: "credential", userId: id, password: passwordHash, createdAt: now, updatedAt: now });
   return { email, password };
@@ -69,6 +71,238 @@ async function signIn(email: string, password: string, instance = auth) {
 }
 
 describe("Better Auth baseline", () => {
+  it("enforces the 60-minute idle timeout and throttles explicit activity touches", async () => {
+    const credentials = await provision("phase4-idle");
+    const signedIn = await signIn(credentials.email, credentials.password);
+    const session = (await database.select().from(authSessions))[0];
+    expect(session).toBeDefined();
+
+    const now = new Date();
+    await database.update(authSessions).set({
+      createdAt: new Date(now.getTime() - 4 * 60 * 60 * 1000),
+      lastActivityAt: new Date(now.getTime() - 59 * 60 * 1000),
+      expiresAt: new Date(now.getTime() + 4 * 60 * 60 * 1000),
+    }).where(eq(authSessions.id, session!.id));
+
+    await expect(currentUser(database, new Request("http://localhost:3000/admin", { headers: { cookie: signedIn.cookie } }), now)).resolves.toMatchObject({ id: "phase4-idle" });
+
+    const touched = await touchSession(new Request("http://localhost:3000/api/auth/session", {
+      method: "POST",
+      headers: { cookie: signedIn.cookie, origin: "http://localhost:3000" },
+    }));
+    expect(touched.status).toBe(200);
+    const afterTouch = (await database.select().from(authSessions))[0];
+    expect(afterTouch?.lastActivityAt).not.toBeNull();
+
+    const throttledActivity = new Date(Date.now() - 30 * 1000);
+    await database.update(authSessions).set({ lastActivityAt: throttledActivity }).where(eq(authSessions.id, session!.id));
+    const throttled = await touchSession(new Request("http://localhost:3000/api/auth/session", {
+      method: "POST",
+      headers: { cookie: signedIn.cookie, origin: "http://localhost:3000" },
+    }));
+    expect(throttled.status).toBe(200);
+    expect((await database.select().from(authSessions))[0]?.lastActivityAt?.getTime()).toBe(throttledActivity.getTime());
+
+    await database.update(authSessions).set({ lastActivityAt: new Date(Date.now() - 61 * 60 * 1000) }).where(eq(authSessions.id, session!.id));
+    await expect(currentUser(database, new Request("http://localhost:3000/admin", { headers: { cookie: signedIn.cookie } }), now)).rejects.toMatchObject({ code: "UNAUTHORIZED", status: 401 });
+  });
+
+  it("audits self current-session revocation and clears the session row", async () => {
+    const credentials = await provision("phase4-revoke-current");
+    const signedIn = await signIn(credentials.email, credentials.password);
+    const response = await deleteSession(new Request("http://localhost:3000/api/auth/session", {
+      method: "DELETE",
+      headers: { cookie: signedIn.cookie, origin: "http://localhost:3000", "content-type": "application/json" },
+      body: JSON.stringify({ scope: "current" }),
+    }));
+    expect(response.status).toBe(200);
+    expect(await database.select().from(authSessions)).toHaveLength(0);
+    const audits = await database.select().from(auditEntries).where(eq(auditEntries.entityId, "phase4-revoke-current"));
+    expect(audits.map((entry) => entry.action)).toContain("user.session_revoked");
+  });
+
+  it("rejects cookie mutation requests without an Origin header", async () => {
+    const credentials = await provision("phase4-origin");
+    const signedIn = await signIn(credentials.email, credentials.password);
+    const response = await touchSession(new Request("http://localhost:3000/api/auth/session", {
+      method: "POST",
+      headers: { cookie: signedIn.cookie },
+    }));
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("returns 422 for malformed self-session commands", async () => {
+    const credentials = await provision("phase4-invalid-command");
+    const signedIn = await signIn(credentials.email, credentials.password);
+    const response = await deleteSession(new Request("http://localhost:3000/api/auth/session", {
+      method: "DELETE",
+      headers: { cookie: signedIn.cookie, origin: "http://localhost:3000", "content-type": "application/json" },
+      body: JSON.stringify({ scope: "unknown" }),
+    }));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ code: "VALIDATION_ERROR", correlationId: expect.any(String) });
+  });
+
+  it("returns 404 for an admin session target outside the active shop", async () => {
+    const actor = await provision("phase4-foreign-404-actor");
+    await provision("phase4-foreign-404-target", "shop-other", true, "STAFF");
+    const signedIn = await signIn(actor.email, actor.password);
+    const response = await adminSessionRevoke(new Request("http://localhost:3000/api/admin/users/phase4-foreign-404-target/sessions", {
+      method: "DELETE",
+      headers: { cookie: signedIn.cookie, origin: "http://localhost:3000", "content-type": "application/json" },
+      body: JSON.stringify({ scope: "all" }),
+    }), { params: Promise.resolve({ id: "phase4-foreign-404-target" }) });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("keeps the legacy login path compatible with the session-status endpoint", async () => {
+    const credentials = await provision("phase4-legacy");
+    const login = await legacyLogin(new Request("http://localhost:3000/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+    }));
+    expect(login.status).toBe(200);
+    const setCookie = login.headers.get("set-cookie") ?? "";
+    const cookie = setCookie.split(";")[0];
+    expect(cookie).toContain("metsanilo_session=");
+    expect(setCookie).toMatch(/HttpOnly/i);
+    expect(setCookie).toMatch(/SameSite=Lax/i);
+    if (process.env.NODE_ENV === "production") expect(setCookie).toMatch(/Secure/i);
+
+    const status = await sessionStatus(new Request("http://localhost:3000/api/auth/session", { headers: { cookie: cookie! } }));
+    expect(status.status).toBe(200);
+    expect((await status.json()).data).toMatchObject({
+      mechanism: "legacy_cookie",
+      currentSessionId: "legacy-current",
+      user: { id: "phase4-legacy", email: credentials.email, role: "ADMIN" },
+    });
+  });
+
+  it("allows an ADMIN to list and revoke one target session", async () => {
+    const actor = await provision("phase4-admin-actor");
+    const target = await provision("phase4-admin-target", "shop-main", true, "STAFF");
+    const actorSignIn = await signIn(actor.email, actor.password);
+    const targetSignIn = await signIn(target.email, target.password);
+    const targetSession = (await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-admin-target")))[0];
+
+    const listed = await adminSessionList(new Request("http://localhost:3000/api/admin/users/phase4-admin-target/sessions", { headers: { cookie: actorSignIn.cookie } }), {
+      params: Promise.resolve({ id: "phase4-admin-target" }),
+    });
+    expect(listed.status).toBe(200);
+    expect((await listed.json()).data).toEqual(expect.arrayContaining([expect.objectContaining({ id: targetSession!.id })]));
+
+    const revoked = await adminSessionRevoke(new Request("http://localhost:3000/api/admin/users/phase4-admin-target/sessions", {
+      method: "DELETE",
+      headers: { cookie: actorSignIn.cookie, origin: "http://localhost:3000", "content-type": "application/json" },
+      body: JSON.stringify({ scope: "single", sessionId: targetSession!.id, reason: "Test revoke" }),
+    }), { params: Promise.resolve({ id: "phase4-admin-target" }) });
+    expect(revoked.status).toBe(200);
+    expect(await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-admin-target"))).toHaveLength(0);
+    expect((await revoked.json()).data).toMatchObject({ affectedCount: 1, sessionId: targetSession!.id });
+    expect(targetSignIn.cookie).toContain("better-auth.session_token=");
+  });
+
+  it("revokes all target sessions atomically and records an audit event", async () => {
+    const actor = await provision("phase4-all-actor");
+    const target = await provision("phase4-all-target", "shop-main", true, "STAFF");
+    const actorSignIn = await signIn(actor.email, actor.password);
+    await signIn(target.email, target.password);
+    await signIn(target.email, target.password);
+    expect(await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-all-target"))).toHaveLength(2);
+
+    const response = await adminSessionRevoke(new Request("http://localhost:3000/api/admin/users/phase4-all-target/sessions", {
+      method: "DELETE",
+      headers: { cookie: actorSignIn.cookie, origin: "http://localhost:3000", "content-type": "application/json" },
+      body: JSON.stringify({ scope: "all", reason: "Test all revoke" }),
+    }), { params: Promise.resolve({ id: "phase4-all-target" }) });
+    expect(response.status).toBe(200);
+    expect(await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-all-target"))).toHaveLength(0);
+    const targetUser = await database.query.users.findFirst({ where: eq(users.id, "phase4-all-target") });
+    expect(targetUser?.sessionVersion).toBe(2);
+    const audits = await database.select().from(auditEntries).where(eq(auditEntries.entityId, "phase4-all-target"));
+    expect(audits.map((entry) => entry.action)).toContain("user.sessions_revoked");
+  });
+
+  it("rolls back session revocation and version bump when the audit insert fails", async () => {
+    const actor = await provision("phase4-rollback-actor");
+    const target = await provision("phase4-rollback-target", "shop-main", true, "STAFF");
+    const actorSignIn = await signIn(actor.email, actor.password);
+    await signIn(target.email, target.password);
+    const beforeUser = (await database.select().from(users).where(eq(users.id, target.email.split("@")[0])))[0];
+    const beforeSessions = await database.select().from(authSessions).where(eq(authSessions.userId, target.email.split("@")[0]));
+    await database.run(sql.raw("CREATE TRIGGER fail_phase4_audit BEFORE INSERT ON audit_entries BEGIN SELECT RAISE(ABORT, 'forced audit failure'); END"));
+
+    await expect(adminSessionRevoke(new Request("http://localhost:3000/api/admin/users/phase4-rollback-target/sessions", {
+      method: "DELETE",
+      headers: { cookie: actorSignIn.cookie, origin: "http://localhost:3000", "content-type": "application/json" },
+      body: JSON.stringify({ scope: "all", reason: "rollback test" }),
+    }), { params: Promise.resolve({ id: "phase4-rollback-target" }) })).resolves.toMatchObject({ status: 500 });
+
+    const afterUser = (await database.select().from(users).where(eq(users.id, "phase4-rollback-target")))[0];
+    const afterSessions = await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-rollback-target"));
+    expect(afterUser?.sessionVersion).toBe(beforeUser?.sessionVersion);
+    expect(afterSessions).toHaveLength(beforeSessions.length);
+  });
+
+  it("revokes only other Better Auth sessions and keeps the current session", async () => {
+    const credentials = await provision("phase4-others");
+    const first = await signIn(credentials.email, credentials.password);
+    await signIn(credentials.email, credentials.password);
+    expect(await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-others"))).toHaveLength(2);
+
+    const response = await deleteSession(new Request("http://localhost:3000/api/auth/session", {
+      method: "DELETE",
+      headers: { cookie: first.cookie, origin: "http://localhost:3000", "content-type": "application/json" },
+      body: JSON.stringify({ scope: "others" }),
+    }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).data).toMatchObject({ scope: "others", affectedCount: 1 });
+    const remaining = await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-others"));
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]?.token).toBeDefined();
+  });
+
+  it("keeps concurrent touches monotonic and never revives a concurrently revoked session", async () => {
+    const credentials = await provision("phase4-concurrency");
+    const signedIn = await signIn(credentials.email, credentials.password);
+    const session = (await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-concurrency")))[0]!;
+    const now = new Date(Date.now() + 2 * 60 * 1000);
+
+    const touches = await Promise.all([
+      touchBetterAuthSession(database, session.id, "phase4-concurrency", now),
+      touchBetterAuthSession(database, session.id, "phase4-concurrency", now),
+    ]);
+    expect(touches.every((result) => result.valid)).toBe(true);
+    expect((await database.select().from(authSessions).where(eq(authSessions.id, session.id)))[0]?.lastActivityAt?.getTime()).toBe(now.getTime());
+
+    await Promise.all([
+      touchBetterAuthSession(database, session.id, "phase4-concurrency", new Date(now.getTime() + 2 * 60 * 1000)),
+      revokeSessionById(database, "phase4-concurrency", session.id),
+    ]);
+    expect(await database.select().from(authSessions).where(eq(authSessions.id, session.id))).toHaveLength(0);
+    expect(signedIn.cookie).toContain("better-auth.session_token=");
+  });
+
+  it("enforces the proposed MANAGER hierarchy and foreign-shop isolation", async () => {
+    const manager = await provision("phase4-manager", "shop-main", true, "MANAGER");
+    await provision("phase4-peer-manager", "shop-main", true, "MANAGER");
+    await provision("phase4-foreign-target", "shop-other", true, "STAFF");
+    const managerSignIn = await signIn(manager.email, manager.password);
+
+    const peer = await adminSessionList(new Request("http://localhost:3000/api/admin/users/phase4-peer-manager/sessions", { headers: { cookie: managerSignIn.cookie } }), {
+      params: Promise.resolve({ id: "phase4-peer-manager" }),
+    });
+    expect(peer.status).toBe(403);
+
+    const foreign = await adminSessionList(new Request("http://localhost:3000/api/admin/users/phase4-foreign-target/sessions", { headers: { cookie: managerSignIn.cookie } }), {
+      params: Promise.resolve({ id: "phase4-foreign-target" }),
+    });
+    expect(foreign.status).toBe(404);
+  });
+
   it("rejects an incorrect password without issuing a session", async () => {
     const credentials = await provision("wrong-password");
     const result = await signIn(credentials.email, "WrongPassword123!");

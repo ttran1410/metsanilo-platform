@@ -1,12 +1,23 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, ne, or, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, authSessions, userPermissions, users } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { readSession, SESSION_COOKIE } from "./session";
 import { assertPassword, hashPassword, verifyPassword } from "./passwords";
-import { getBetterAuthSession, isCredentialStateValid, isTemporaryCredentialActive, mapActiveShopUser, provisionUserWithAuth, revokeAllUserSessions } from "@/lib/auth-integration";
+import {
+  evaluateSessionTiming,
+  getBetterAuthSession,
+  isCredentialStateValid,
+  isTemporaryCredentialActive,
+  maskIpAddress,
+  normalizeUserAgent,
+  provisionUserWithAuth,
+  revokeAllUserSessions,
+  type SessionTiming,
+  validateBetterAuthSession,
+} from "@/lib/auth-integration";
 import { recordLegacyAuthUsage } from "@/lib/auth-telemetry";
 import { defaultPermissionsForRole, PERMISSIONS, type Permission, type Role } from "@/lib/permissions";
 
@@ -43,7 +54,18 @@ function usernameFromRequest(request: Request) {
   return decoded.slice(0, separator);
 }
 
-export async function currentUser(database: Database, request: Request) {
+export type AuthContext = {
+  actor: typeof users.$inferSelect;
+  mechanism: "better_auth" | "legacy_cookie" | "http_basic";
+  sessionId?: string;
+  timing?: SessionTiming;
+};
+
+export async function currentAuthContext(
+  database: Database,
+  request: Request,
+  now: Date = new Date()
+): Promise<AuthContext> {
   const shopId = env().SHOP_ID;
   let betterSession: Awaited<ReturnType<typeof getBetterAuthSession>>;
   try {
@@ -51,14 +73,33 @@ export async function currentUser(database: Database, request: Request) {
   } catch {
     throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
   }
-  if (betterSession?.user?.id) {
-    const mapped = await mapActiveShopUser(database, betterSession.user.id);
-    if (!mapped) throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
-    return mapped;
+
+  if (betterSession?.user?.id && betterSession?.session?.id) {
+    const validated = await validateBetterAuthSession(database, betterSession.session.id, betterSession.user.id, now);
+    if (!validated.valid) {
+      if (validated.reason === "expired") {
+        throw new DomainError("UNAUTHORIZED", "Session expired", 401);
+      }
+      throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
+    }
+    return {
+      actor: validated.user,
+      mechanism: "better_auth",
+      sessionId: betterSession.session.id,
+      timing: validated.timing,
+    };
   }
+
   const cookie = request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1];
-  const session = readSession(cookie);
-  const legacyMechanism = session ? "legacy_cookie" as const : "http_basic" as const;
+  const legacyMechanism = cookie ? ("legacy_cookie" as const) : ("http_basic" as const);
+  const nowSec = Math.floor(now.getTime() / 1000);
+  const session = readSession(cookie, nowSec);
+
+  if (cookie && !session) {
+    recordLegacyAuthUsage(request, "legacy_cookie", 401);
+    throw new DomainError("UNAUTHORIZED", "Session expired", 401);
+  }
+
   const identifier = session?.email ?? usernameFromRequest(request);
   const user =
     (await database.query.users.findFirst({
@@ -67,40 +108,59 @@ export async function currentUser(database: Database, request: Request) {
     (await database.query.users.findFirst({
       where: and(eq(users.shopId, shopId), eq(users.username, identifier), eq(users.active, true)),
     }));
+
   if (session && user && user.sessionVersion !== session.sessionVersion) {
     recordLegacyAuthUsage(request, legacyMechanism, 401);
     throw new DomainError("UNAUTHORIZED", "Session expired", 401);
   }
+
   if (user) {
     if (!isCredentialStateValid(user)) {
       recordLegacyAuthUsage(request, legacyMechanism, 403);
       throw new DomainError("FORBIDDEN", "Invalid credential state", 403);
     }
-    if (user.mustChangePassword && !isTemporaryCredentialActive(user)) {
+    if (user.mustChangePassword && !isTemporaryCredentialActive(user, now)) {
       recordLegacyAuthUsage(request, legacyMechanism, 403);
       throw new DomainError("FORBIDDEN", "Temporary credential expired", 403);
     }
     recordLegacyAuthUsage(request, legacyMechanism, 200);
-    return user;
+    return {
+      actor: user,
+      mechanism: legacyMechanism,
+      timing: session?.timing,
+    };
   }
+
   if (identifier === "manager") {
     recordLegacyAuthUsage(request, legacyMechanism, 200);
     return {
-      id: "legacy-admin",
-      shopId,
-      email: null,
-      username: null,
-      passwordHash: "",
-      mustChangePassword: false,
-      sessionVersion: 1,
-      displayName: "Legacy admin",
-      role: "ADMIN" as const,
-      active: true,
-      createdAt: "legacy",
+      actor: {
+        id: "legacy-admin",
+        shopId,
+        email: null,
+        username: null,
+        passwordHash: "",
+        mustChangePassword: false,
+        sessionVersion: 1,
+        displayName: "Legacy admin",
+        role: "ADMIN" as const,
+        active: true,
+        createdAt: "legacy",
+        temporaryPasswordIssuedAt: null,
+        temporaryPasswordExpiresAt: null,
+      },
+      mechanism: legacyMechanism,
+      timing: session?.timing,
     };
   }
+
   recordLegacyAuthUsage(request, legacyMechanism, 403);
   throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
+}
+
+export async function currentUser(database: Database, request: Request, now: Date = new Date()) {
+  const context = await currentAuthContext(database, request, now);
+  return context.actor;
 }
 
 export async function hasUserPermission(
@@ -384,45 +444,223 @@ export async function resetUserPermissionsToRole(database: Database, request: Re
   return { userId, role: target.role, defaults };
 }
 
-export async function getUserSessions(database: Database, userId: string) {
+export function assertCanManageUserSessions(
+  actor: { id: string; role: Role },
+  targetUser: { id: string; role: Role }
+) {
+  if (actor.id === targetUser.id) return; // Self-management always allowed
+  if (actor.role === "ADMIN") return; // Admin can manage anyone
+  if (targetUser.role === "ADMIN") {
+    throw new DomainError("FORBIDDEN", "Only an ADMIN may manage an ADMIN user session", 403);
+  }
+  if (actor.role === "MANAGER" && targetUser.role === "MANAGER") {
+    throw new DomainError("FORBIDDEN", "Managers may not manage sessions of other managers", 403);
+  }
+}
+
+export async function getUserSessions(database: Database, userId: string, now: Date = new Date()) {
+  const shopId = env().SHOP_ID;
+  const targetUser = await database.query.users.findFirst({
+    where: and(eq(users.id, userId), eq(users.shopId, shopId)),
+  });
+  if (!targetUser) {
+    throw new DomainError("NOT_FOUND", "User not found", 404);
+  }
+
   const sessions = await database
     .select()
     .from(authSessions)
     .where(eq(authSessions.userId, userId))
     .orderBy(desc(authSessions.updatedAt));
 
-  return sessions.map((s) => ({
-    id: s.id,
-    ipAddress: s.ipAddress,
-    userAgent: s.userAgent,
-    createdAt: new Date(s.createdAt).toISOString(),
-    expiresAt: new Date(s.expiresAt).toISOString(),
-  }));
+  return sessions
+    .map((s) => {
+      const timing = evaluateSessionTiming(
+        {
+          createdAt: s.createdAt,
+          lastActivityAt: s.lastActivityAt,
+          providerExpiresAt: s.expiresAt,
+        },
+        now
+      );
+      if (timing.expired) return null;
+
+      const lastActivityDate = s.lastActivityAt ? new Date(s.lastActivityAt) : new Date(s.createdAt);
+
+      return {
+        id: s.id,
+        ipAddress: maskIpAddress(s.ipAddress),
+        userAgent: normalizeUserAgent(s.userAgent),
+        createdAt: new Date(s.createdAt).toISOString(),
+        lastActivityAt: lastActivityDate.toISOString(),
+        idleExpiresAt: timing.idleExpiresAt.toISOString(),
+        absoluteExpiresAt: timing.absoluteExpiresAt.toISOString(),
+        effectiveExpiresAt: timing.effectiveExpiresAt.toISOString(),
+        remainingSeconds: timing.remainingSeconds,
+        warning: timing.warning,
+      };
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null);
 }
 
-export async function revokeUserSessions(database: Database, request: Request, userId: string) {
-  const actor = await requirePermission(database, request, "shop_users.manage");
+export async function revokeSingleSession(
+  database: Database,
+  request: Request,
+  targetUserId: string,
+  sessionId: string,
+  reason?: string
+) {
+  const actor = await currentUser(database, request);
+  const shopId = env().SHOP_ID;
+
+  const targetUser = await database.query.users.findFirst({
+    where: and(eq(users.id, targetUserId), eq(users.shopId, shopId)),
+  });
+  if (!targetUser) {
+    throw new DomainError("NOT_FOUND", "User not found", 404);
+  }
+
+  if (actor.id !== targetUserId) {
+    await requirePermission(database, request, "shop_users.manage");
+    assertCanManageUserSessions(actor, targetUser);
+  }
+
   const updatedAt = new Date().toISOString();
+  let affectedCount = 0;
 
-  await revokeAllUserSessions(database, userId);
-  await database
-    .update(users)
-    .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
-    .where(and(eq(users.id, userId), eq(users.shopId, env().SHOP_ID)))
-    .run();
+  await database.transaction(async (tx) => {
+    const result = await tx
+      .delete(authSessions)
+      .where(and(eq(authSessions.id, sessionId), eq(authSessions.userId, targetUserId)))
+      .run();
+    affectedCount = result.rowsAffected;
 
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId,
+      actor: actor.email ?? actor.username ?? actor.id,
+      action: "user.session_revoked",
+      entityType: "user",
+      entityId: targetUserId,
+      detailsJson: JSON.stringify({
+        sessionId,
+        affectedCount,
+        reason: reason ?? (actor.id === targetUserId ? "Self-revocation" : "Operator request"),
+      }),
+      createdAt: updatedAt,
+    });
+  });
+
+  return { userId: targetUserId, sessionId, revoked: true, affectedCount };
+}
+
+export async function revokeCurrentSession(database: Database, request: Request) {
+  const authContext = await currentAuthContext(database, request);
+  if (authContext.mechanism === "better_auth" && authContext.sessionId) {
+    return revokeSingleSession(database, request, authContext.actor.id, authContext.sessionId, "Self sign out");
+  }
+
+  const createdAt = new Date().toISOString();
   await database.insert(auditEntries).values({
     id: randomUUID(),
     shopId: env().SHOP_ID,
-    actor: actor.email ?? actor.username ?? actor.id,
-    action: "user.sessions_revoked",
+    actor: authContext.actor.email ?? authContext.actor.username ?? authContext.actor.id,
+    action: "user.session_revoked",
     entityType: "user",
-    entityId: userId,
-    detailsJson: JSON.stringify({ revokedAll: true }),
-    createdAt: updatedAt,
+    entityId: authContext.actor.id,
+    detailsJson: JSON.stringify({ scope: "current", mechanism: authContext.mechanism, affectedCount: 0, reason: "Self sign out" }),
+    createdAt,
+  });
+  return { userId: authContext.actor.id, revoked: true, affectedCount: 0 };
+}
+
+export async function revokeOtherUserSessions(
+  database: Database,
+  request: Request,
+  currentSessionId: string
+) {
+  const actor = await currentUser(database, request);
+  const shopId = env().SHOP_ID;
+  const updatedAt = new Date().toISOString();
+  let affectedCount = 0;
+
+  await database.transaction(async (tx) => {
+    const result = await tx
+      .delete(authSessions)
+      .where(and(eq(authSessions.userId, actor.id), ne(authSessions.id, currentSessionId)))
+      .run();
+    affectedCount = result.rowsAffected;
+
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId,
+      actor: actor.email ?? actor.username ?? actor.id,
+      action: "user.sessions_revoked",
+      entityType: "user",
+      entityId: actor.id,
+      detailsJson: JSON.stringify({
+        scope: "others",
+        keepSessionId: currentSessionId,
+        affectedCount,
+        reason: "Revoke other sessions",
+      }),
+      createdAt: updatedAt,
+    });
   });
 
-  return { userId, revoked: true };
+  return { userId: actor.id, revoked: true, affectedCount };
+}
+
+export async function revokeUserSessions(
+  database: Database,
+  request: Request,
+  userId: string,
+  reason?: string
+) {
+  const actor = await currentUser(database, request);
+  const shopId = env().SHOP_ID;
+
+  const targetUser = await database.query.users.findFirst({
+    where: and(eq(users.id, userId), eq(users.shopId, shopId)),
+  });
+  if (!targetUser) {
+    throw new DomainError("NOT_FOUND", "User not found", 404);
+  }
+
+  if (actor.id !== userId) {
+    await requirePermission(database, request, "shop_users.manage");
+    assertCanManageUserSessions(actor, targetUser);
+  }
+
+  const updatedAt = new Date().toISOString();
+  let affectedCount = 0;
+
+  await database.transaction(async (tx) => {
+    const result = await tx.delete(authSessions).where(eq(authSessions.userId, userId)).run();
+    affectedCount = result.rowsAffected;
+    await tx
+      .update(users)
+      .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
+      .where(and(eq(users.id, userId), eq(users.shopId, shopId)))
+      .run();
+
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId,
+      actor: actor.email ?? actor.username ?? actor.id,
+      action: "user.sessions_revoked",
+      entityType: "user",
+      entityId: userId,
+      detailsJson: JSON.stringify({
+        revokedAll: true,
+        affectedCount,
+        reason: reason ?? (actor.id === userId ? "Self logout all" : "Operator request"),
+      }),
+      createdAt: updatedAt,
+    });
+  });
+
+  return { userId, revoked: true, affectedCount };
 }
 
 export async function getUserAuditTrail(database: Database, userId: string) {

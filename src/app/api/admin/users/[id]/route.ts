@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { getUserAccessDetail } from "@/domain/access";
+import { and, eq } from "drizzle-orm";
+import { users } from "@/db/schema";
+import { assertCanManageUserSessions, getUserAccessDetail } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
 import { executeAdminUserCommand } from "@/domain/admin-users-actions";
@@ -23,7 +25,18 @@ const commandSchema = z.object({
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const result = await executeAdmin(request, { permission: "shop_users.read", parse: async () => id, run: async (userId, { database }) => getUserAccessDetail(database, userId) });
+    const result = await executeAdmin(request, {
+      permission: "shop_users.read",
+      parse: async () => id,
+      run: async (userId, { database, context }) => {
+        const target = await database.query.users.findFirst({
+          where: and(eq(users.id, userId), eq(users.shopId, context.shop.shopId)),
+        });
+        if (!target) throw new DomainError("NOT_FOUND", "User not found", 404);
+        assertCanManageUserSessions(context.actor, target);
+        return getUserAccessDetail(database, userId);
+      },
+    });
     return success(result);
   } catch (error) {
     return failure(error, request);

@@ -1,11 +1,30 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt, isNull, lte, ne, or } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { authAccounts, authSessions, authUsers, auditEntries, userPermissions, users } from "@/db/schema";
 import { getBetterAuthInstance } from "./better-auth";
 import { env } from "./env";
 import { defaultPermissionsForRole, type Role } from "./permissions";
 import { DomainError } from "@/domain/errors";
+import {
+  evaluateSessionTiming,
+  IDLE_TIMEOUT_MS,
+  ABSOLUTE_LIFETIME_MS,
+  WARNING_THRESHOLD_MS,
+  SESSION_TOUCH_THROTTLE_MS,
+  type SessionTiming,
+  type SessionTimingInput,
+} from "./session-timing";
+
+export {
+  evaluateSessionTiming,
+  IDLE_TIMEOUT_MS,
+  ABSOLUTE_LIFETIME_MS,
+  WARNING_THRESHOLD_MS,
+  SESSION_TOUCH_THROTTLE_MS,
+  type SessionTiming,
+  type SessionTimingInput,
+};
 
 export const CANONICAL_UTC_ISO_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
@@ -14,6 +33,46 @@ export function isCanonicalIsoDate(value: unknown): value is string {
   const parsed = Date.parse(value);
   if (Number.isNaN(parsed)) return false;
   return new Date(parsed).toISOString() === value;
+}
+
+export function maskIpAddress(ip: string | null | undefined): string {
+  if (!ip) return "Unknown IP";
+  const trimmed = ip.trim();
+  if (trimmed === "127.0.0.1" || trimmed === "::1" || trimmed === "localhost") {
+    return "127.0.0.***";
+  }
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(trimmed)) {
+    const parts = trimmed.split(".");
+    return `${parts[0]}.${parts[1]}.***.***`;
+  }
+  if (trimmed.includes(":")) {
+    const parts = trimmed.split(":");
+    return parts.length >= 3 ? `${parts[0]}:${parts[1]}:${parts[2]}:****` : "IPv6:****";
+  }
+  return "Masked IP";
+}
+
+export function normalizeUserAgent(ua: string | null | undefined): string {
+  if (!ua || typeof ua !== "string") return "Unknown device";
+  const str = ua.trim();
+  if (!str) return "Unknown device";
+
+  let browser = "Browser";
+  if (str.includes("Edg/")) browser = "Edge";
+  else if (str.includes("Chrome/") && !str.includes("Chromium/")) browser = "Chrome";
+  else if (str.includes("Firefox/")) browser = "Firefox";
+  else if (str.includes("Safari/") && !str.includes("Chrome/")) browser = "Safari";
+  else if (str.includes("Opera/") || str.includes("OPR/")) browser = "Opera";
+
+  let os = "Desktop";
+  if (/iPhone/i.test(str)) os = "iOS";
+  else if (/iPad/i.test(str)) os = "iPadOS";
+  else if (/Android/i.test(str)) os = "Android";
+  else if (/Mac OS X|Macintosh/i.test(str)) os = "macOS";
+  else if (/Windows/i.test(str)) os = "Windows";
+  else if (/Linux/i.test(str)) os = "Linux";
+
+  return `${browser} on ${os}`;
 }
 
 export function isCredentialStateValid(user: {
@@ -85,6 +144,132 @@ export async function getBetterAuthSession(request: Request) {
   return getBetterAuthInstance().api.getSession({ headers: request.headers });
 }
 
+export type ValidatedBetterAuthSession = {
+  valid: true;
+  user: typeof users.$inferSelect;
+  session: typeof authSessions.$inferSelect;
+  timing: SessionTiming;
+};
+
+export type InvalidBetterAuthSession = {
+  valid: false;
+  user?: undefined;
+  session?: undefined;
+  timing: SessionTiming;
+  reason: "expired" | "not_found" | "inactive_user" | "invalid_credentials";
+};
+
+export type BetterAuthSessionValidationResult =
+  | ValidatedBetterAuthSession
+  | InvalidBetterAuthSession;
+
+export async function validateBetterAuthSession(
+  database: Database,
+  sessionId: string,
+  userId: string,
+  now: Date = new Date()
+): Promise<BetterAuthSessionValidationResult> {
+  const session = await database.query.authSessions.findFirst({
+    where: and(eq(authSessions.id, sessionId), eq(authSessions.userId, userId)),
+  });
+  if (!session) {
+    const timing = evaluateSessionTiming({ createdAt: 0 }, now);
+    return { valid: false, timing, reason: "not_found" };
+  }
+
+  const timing = evaluateSessionTiming(
+    {
+      createdAt: session.createdAt,
+      lastActivityAt: session.lastActivityAt,
+      providerExpiresAt: session.expiresAt,
+    },
+    now
+  );
+
+  if (timing.expired) {
+    try {
+      await database.delete(authSessions).where(eq(authSessions.id, sessionId)).run();
+    } catch {
+      // Best-effort cleanup
+    }
+    return { valid: false, timing, reason: "expired" };
+  }
+
+  const user = await mapActiveShopUser(database, userId, now);
+  if (!user) {
+    return { valid: false, timing, reason: "inactive_user" };
+  }
+
+  return {
+    valid: true,
+    user,
+    session,
+    timing,
+  };
+}
+
+export async function touchBetterAuthSession(
+  database: Database,
+  sessionId: string,
+  userId: string,
+  now: Date = new Date()
+): Promise<BetterAuthSessionValidationResult> {
+  const validated = await validateBetterAuthSession(database, sessionId, userId, now);
+  if (!validated.valid) return validated;
+
+  const currentActivityMs = validated.session.lastActivityAt
+    ? new Date(validated.session.lastActivityAt).getTime()
+    : new Date(validated.session.createdAt).getTime();
+
+  if (now.getTime() - currentActivityMs >= SESSION_TOUCH_THROTTLE_MS) {
+    await database
+      .update(authSessions)
+      .set({
+        lastActivityAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(authSessions.id, sessionId),
+          eq(authSessions.userId, userId),
+          gt(authSessions.expiresAt, now),
+          or(
+            isNull(authSessions.lastActivityAt),
+            lte(authSessions.lastActivityAt, new Date(now.getTime() - SESSION_TOUCH_THROTTLE_MS))
+          )
+        )
+      )
+      .run();
+
+    const refreshedSession = await database.query.authSessions.findFirst({
+      where: and(eq(authSessions.id, sessionId), eq(authSessions.userId, userId)),
+    });
+
+    if (!refreshedSession) {
+      const timing = evaluateSessionTiming({ createdAt: 0 }, now);
+      return { valid: false, timing, reason: "not_found" };
+    }
+
+    const updatedTiming = evaluateSessionTiming(
+      {
+        createdAt: refreshedSession.createdAt,
+        lastActivityAt: refreshedSession.lastActivityAt,
+        providerExpiresAt: refreshedSession.expiresAt,
+      },
+      now
+    );
+
+    return {
+      valid: true,
+      user: validated.user,
+      session: refreshedSession,
+      timing: updatedTiming,
+    };
+  }
+
+  return validated;
+}
+
 export async function mapActiveShopUser(database: Database, userId: string, now: Date = new Date()) {
   const user = await database.query.users.findFirst({
     where: and(eq(users.id, userId), eq(users.shopId, env().SHOP_ID), eq(users.active, true)),
@@ -96,6 +281,22 @@ export async function mapActiveShopUser(database: Database, userId: string, now:
     where: and(eq(authAccounts.userId, userId), eq(authAccounts.providerId, "credential")),
   });
   return credential?.password ? user : undefined;
+}
+
+export async function revokeSessionById(database: Database, targetUserId: string, sessionId: string) {
+  const result = await database
+    .delete(authSessions)
+    .where(and(eq(authSessions.id, sessionId), eq(authSessions.userId, targetUserId)))
+    .run();
+  return result.rowsAffected;
+}
+
+export async function revokeOtherSessions(database: Database, userId: string, keepSessionId: string) {
+  const result = await database
+    .delete(authSessions)
+    .where(and(eq(authSessions.userId, userId), ne(authSessions.id, keepSessionId)))
+    .run();
+  return result.rowsAffected;
 }
 
 export async function revokeAllUserSessions(database: Pick<Database, "delete">, userId: string) {
