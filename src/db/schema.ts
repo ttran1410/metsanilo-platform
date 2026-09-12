@@ -175,6 +175,8 @@ export const users = sqliteTable(
     email: text("email"),
     passwordHash: text("password_hash").notNull(),
     mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
+    temporaryPasswordIssuedAt: text("temporary_password_issued_at"),
+    temporaryPasswordExpiresAt: text("temporary_password_expires_at"),
     sessionVersion: integer("session_version").notNull().default(1),
     displayName: text("display_name").notNull(),
     role: text("role", { enum: ["ADMIN", "MANAGER", "STAFF", "CONTENT_CREATOR"] }).notNull(),

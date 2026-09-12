@@ -1,8 +1,10 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { eq } from "drizzle-orm";
 import { createDatabase, type Database } from "@/db/client";
-import { authAccounts, authSessions, authUsers, authVerifications } from "@/db/schema";
+import { authAccounts, authSessions, authUsers, authVerifications, users } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/domain/passwords";
+import { isCredentialStateValid, isTemporaryCredentialActive } from "./auth-integration";
 
 function configuredAuthUrl() {
   const value = process.env.BETTER_AUTH_URL?.trim();
@@ -24,51 +26,72 @@ export function createBetterAuthInstance(options?: { database?: Database; policy
   const isProduction = vercelEnvironment === "production" || (!vercelEnvironment && process.env.NODE_ENV === "production");
   const trustedOrigins = ["https://metsanilo.vercel.app"];
   if (!isProduction && vercelEnvironment !== "preview" && authUrl) trustedOrigins.push(authUrl.origin);
+
+  const database = options?.database ?? createDatabase(process.env.TURSO_DATABASE_URL || "file:local.db", process.env.TURSO_AUTH_TOKEN);
+
   return betterAuth({
-  // Keep this parallel adapter independent from the legacy runtime preflight;
-  // the Better Auth endpoint validates its own secret and database settings.
-  database: drizzleAdapter(options?.database ?? createDatabase(process.env.TURSO_DATABASE_URL || "file:local.db", process.env.TURSO_AUTH_TOKEN), {
-    provider: "sqlite",
-    schema: {
-      user: authUsers,
-      session: authSessions,
-      account: authAccounts,
-      verification: authVerifications,
+    // Keep this parallel adapter independent from the legacy runtime preflight;
+    // the Better Auth endpoint validates its own secret and database settings.
+    database: drizzleAdapter(database, {
+      provider: "sqlite",
+      schema: {
+        user: authUsers,
+        session: authSessions,
+        account: authAccounts,
+        verification: authVerifications,
+      },
+    }),
+    // Better Auth requires a syntactically valid base URL even while Next is
+    // collecting dynamic routes. Runtime preflight still rejects an invalid
+    // production BETTER_AUTH_URL; this fallback only keeps module evaluation
+    // safe for local/build environments.
+    baseURL: authUrl?.toString() ?? "http://localhost:3000",
+    trustedOrigins,
+    secret: process.env.BETTER_AUTH_SECRET || "local-development-better-auth-secret-change-me",
+    emailAndPassword: {
+      enabled: true,
+      disableSignUp: true,
+      password: {
+        hash: async (password: string) => hashPassword(password),
+        verify: async ({ hash, password }: { hash: string; password: string }) => verifyPassword(password, hash),
+      },
     },
-  }),
-  // Better Auth requires a syntactically valid base URL even while Next is
-  // collecting dynamic routes. Runtime preflight still rejects an invalid
-  // production BETTER_AUTH_URL; this fallback only keeps module evaluation
-  // safe for local/build environments.
-  baseURL: authUrl?.toString() ?? "http://localhost:3000",
-  trustedOrigins,
-  secret: process.env.BETTER_AUTH_SECRET || "local-development-better-auth-secret-change-me",
-  emailAndPassword: {
-    enabled: true,
-    disableSignUp: true,
-    password: {
-      hash: async (password: string) => hashPassword(password),
-      verify: async ({ hash, password }: { hash: string; password: string }) => verifyPassword(password, hash),
+    session: {
+      expiresIn: 60 * 60 * 8,
+      // Do not roll the eight-hour absolute lifetime forward. Idle timeout is
+      // enforced separately from deliberate activity in the application layer.
+      updateAge: 0,
+      disableSessionRefresh: true,
     },
-  },
-  session: {
-    expiresIn: 60 * 60 * 8,
-    // Do not roll the eight-hour absolute lifetime forward. Idle timeout is
-    // enforced separately from deliberate activity in the application layer.
-    updateAge: 0,
-    disableSessionRefresh: true,
-  },
-  ...(options?.policyHooks?.beforeSessionCreate
-    ? {
-        databaseHooks: {
-          session: {
-            create: {
-              before: async (session: { userId: string }) => options.policyHooks!.beforeSessionCreate!(session.userId),
-            },
+    databaseHooks: {
+      session: {
+        create: {
+          before: async (session: { userId: string }) => {
+            try {
+              const user = await database.query.users.findFirst({
+                where: eq(users.id, session.userId),
+              });
+              if (user) {
+                if (!isCredentialStateValid(user)) return false;
+                if (user.mustChangePassword && !isTemporaryCredentialActive(user)) return false;
+              }
+            } catch {
+              return false; // Fail closed on database error
+            }
+
+            if (options?.policyHooks?.beforeSessionCreate) {
+              try {
+                const customResult = await options.policyHooks.beforeSessionCreate(session.userId);
+                if (!customResult) return false;
+              } catch {
+                return false;
+              }
+            }
+            return true;
           },
         },
-      }
-    : {}),
+      },
+    },
   });
 }
 

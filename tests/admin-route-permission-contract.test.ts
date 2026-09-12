@@ -7,7 +7,7 @@ const { database, currentUser, hasUserPermission } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/db/client", () => ({ db: vi.fn(() => database) }));
-vi.mock("@/domain/access", () => ({ currentUser, hasUserPermission, PERMISSIONS: ["orders.read"] }));
+vi.mock("@/domain/access", () => ({ currentUser, hasUserPermission, PERMISSIONS: ["orders.read"], assertOperationalAccess: vi.fn() }));
 vi.mock("@/lib/env", () => ({ env: () => ({ SHOP_ID: "shop-test" }) }));
 
 import { PUT as updatePaymentMethod } from "@/app/api/admin/payment-methods/[method]/route";

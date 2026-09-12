@@ -1,11 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { getSafeAdminRedirect } from "@/lib/safe-redirect";
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -22,7 +24,9 @@ export function LoginForm() {
     });
 
     if (response.ok) {
-      router.push("/admin");
+      const nextParam = searchParams?.get("next");
+      const safeNext = getSafeAdminRedirect(nextParam, "/admin");
+      router.push(safeNext);
     } else {
       const body = await response.json().catch(() => ({}));
       setError(body.message ?? "Sign in failed");
@@ -30,8 +34,16 @@ export function LoginForm() {
     }
   }
 
+  const isPasswordChanged = searchParams?.get("changed") === "true";
+
   return (
     <form className="admin-login-form" onSubmit={submit} noValidate>
+      {isPasswordChanged && (
+        <p className="p-3 text-xs rounded border border-emerald-200 bg-emerald-50 text-emerald-800" role="status">
+          Password updated successfully. Please sign in with your new password.
+        </p>
+      )}
+
       <label className="admin-login-field">
         <span>Email</span>
         <input name="email" type="email" autoComplete="email" required aria-describedby={error ? "admin-login-error" : undefined} />

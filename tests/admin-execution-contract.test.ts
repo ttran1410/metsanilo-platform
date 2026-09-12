@@ -8,7 +8,7 @@ const { database, currentUser, hasUserPermission } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/db/client", () => ({ db: vi.fn(() => database) }));
-vi.mock("@/domain/access", () => ({ currentUser, hasUserPermission }));
+vi.mock("@/domain/access", () => ({ currentUser, hasUserPermission, assertOperationalAccess: vi.fn() }));
 vi.mock("@/lib/env", () => ({ env: () => ({ SHOP_ID: "shop-test" }) }));
 
 import { authenticateAdminAny, executeAdmin } from "@/app/api/admin/module";

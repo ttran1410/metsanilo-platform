@@ -6,12 +6,18 @@ import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { readSession, SESSION_COOKIE } from "./session";
 import { assertPassword, hashPassword, verifyPassword } from "./passwords";
-import { getBetterAuthSession, mapActiveShopUser, provisionUserWithAuth, revokeAllUserSessions } from "@/lib/auth-integration";
+import { getBetterAuthSession, isCredentialStateValid, isTemporaryCredentialActive, mapActiveShopUser, provisionUserWithAuth, revokeAllUserSessions } from "@/lib/auth-integration";
 import { recordLegacyAuthUsage } from "@/lib/auth-telemetry";
 import { defaultPermissionsForRole, PERMISSIONS, type Permission, type Role } from "@/lib/permissions";
 
 export { COMING_SOON_PERMISSIONS, PERMISSIONS, defaultPermissionsForRole } from "@/lib/permissions";
 export type { Permission, Role } from "@/lib/permissions";
+
+export function assertOperationalAccess(actor: { mustChangePassword?: boolean | null; [key: string]: unknown }) {
+  if (actor.mustChangePassword) {
+    throw new DomainError("FORBIDDEN", "Password change required before accessing operations", 403, undefined, { reason: "PASSWORD_CHANGE_REQUIRED" });
+  }
+}
 
 /** Temporary aliases keep existing grants and callers working while the
  * permission editor migrates users to the clearer read/write names. */
@@ -66,6 +72,14 @@ export async function currentUser(database: Database, request: Request) {
     throw new DomainError("UNAUTHORIZED", "Session expired", 401);
   }
   if (user) {
+    if (!isCredentialStateValid(user)) {
+      recordLegacyAuthUsage(request, legacyMechanism, 403);
+      throw new DomainError("FORBIDDEN", "Invalid credential state", 403);
+    }
+    if (user.mustChangePassword && !isTemporaryCredentialActive(user)) {
+      recordLegacyAuthUsage(request, legacyMechanism, 403);
+      throw new DomainError("FORBIDDEN", "Temporary credential expired", 403);
+    }
     recordLegacyAuthUsage(request, legacyMechanism, 200);
     return user;
   }

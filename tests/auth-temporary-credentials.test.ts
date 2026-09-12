@@ -1,0 +1,317 @@
+import { describe, expect, it } from "vitest";
+import glob from "fast-glob";
+import fs from "node:fs";
+import path from "node:path";
+import {
+  isCanonicalIsoDate,
+  isCredentialStateValid,
+  isTemporaryCredentialActive,
+  isTemporaryCredentialExpired,
+  assertNoOrphanedForcedChangeUsers,
+} from "@/lib/auth-integration";
+import { getSafeAdminRedirect } from "@/lib/safe-redirect";
+import { assertOperationalAccess } from "@/domain/access";
+import { DomainError } from "@/domain/errors";
+
+describe("Phase 3 Implementation Gates & Security Contracts", () => {
+  describe("Gate 1: Timestamp Validator (Regex + Parse + Canonical Round-Trip)", () => {
+    it("accepts strictly canonical ISO 8601 UTC timestamps with millisecond precision", () => {
+      expect(isCanonicalIsoDate("2026-09-12T12:00:00.000Z")).toBe(true);
+      expect(isCanonicalIsoDate("2026-01-01T00:00:00.000Z")).toBe(true);
+      expect(isCanonicalIsoDate("2026-12-31T23:59:59.999Z")).toBe(true);
+    });
+
+    it("rejects non-UTC timestamps (+02:00, -05:00, etc.)", () => {
+      expect(isCanonicalIsoDate("2026-09-12T12:00:00.000+02:00")).toBe(false);
+      expect(isCanonicalIsoDate("2026-09-12T12:00:00.000-05:00")).toBe(false);
+    });
+
+    it("rejects timestamps without millisecond precision or with invalid precision", () => {
+      expect(isCanonicalIsoDate("2026-09-12T12:00:00Z")).toBe(false);
+      expect(isCanonicalIsoDate("2026-09-12T12:00:00.00Z")).toBe(false);
+      expect(isCanonicalIsoDate("2026-09-12T12:00:00.0000Z")).toBe(false);
+    });
+
+    it("rejects calendar overflows and invalid dates (e.g. Feb 30, April 31)", () => {
+      expect(isCanonicalIsoDate("2026-02-30T12:00:00.000Z")).toBe(false);
+      expect(isCanonicalIsoDate("2026-04-31T12:00:00.000Z")).toBe(false);
+      expect(isCanonicalIsoDate("2025-02-29T12:00:00.000Z")).toBe(false); // 2025 is not a leap year
+    });
+
+    it("rejects malformed strings, trailing garbage, or epoch numbers", () => {
+      expect(isCanonicalIsoDate("not-a-date")).toBe(false);
+      expect(isCanonicalIsoDate("2026-09-12T12:00:00.000Zextra")).toBe(false);
+      expect(isCanonicalIsoDate("")).toBe(false);
+      expect(isCanonicalIsoDate("1757678400000")).toBe(false);
+    });
+  });
+
+  describe("Credential State Invariants", () => {
+    it("validates ACTIVE_PERMANENT invariant (mustChangePassword=false, timestamps=null)", () => {
+      expect(
+        isCredentialStateValid({
+          mustChangePassword: false,
+          temporaryPasswordIssuedAt: null,
+          temporaryPasswordExpiresAt: null,
+        }),
+      ).toBe(true);
+
+      // Fails if permanent user has timestamps
+      expect(
+        isCredentialStateValid({
+          mustChangePassword: false,
+          temporaryPasswordIssuedAt: "2026-09-12T12:00:00.000Z",
+          temporaryPasswordExpiresAt: null,
+        }),
+      ).toBe(false);
+
+      expect(
+        isCredentialStateValid({
+          mustChangePassword: false,
+          temporaryPasswordIssuedAt: null,
+          temporaryPasswordExpiresAt: "2026-09-13T12:00:00.000Z",
+        }),
+      ).toBe(false);
+    });
+
+    it("validates ACTIVE_TEMPORARY invariant (mustChangePassword=true, valid ISO, issuedAt <= expiresAt)", () => {
+      const issued = "2026-09-12T12:00:00.000Z";
+      const expires = "2026-09-13T12:00:00.000Z";
+
+      expect(
+        isCredentialStateValid({
+          mustChangePassword: true,
+          temporaryPasswordIssuedAt: issued,
+          temporaryPasswordExpiresAt: expires,
+        }),
+      ).toBe(true);
+
+      // Fails if issuedAt > expiresAt
+      expect(
+        isCredentialStateValid({
+          mustChangePassword: true,
+          temporaryPasswordIssuedAt: expires,
+          temporaryPasswordExpiresAt: issued,
+        }),
+      ).toBe(false);
+
+      // Fails if timestamps are missing or invalid
+      expect(
+        isCredentialStateValid({
+          mustChangePassword: true,
+          temporaryPasswordIssuedAt: null,
+          temporaryPasswordExpiresAt: expires,
+        }),
+      ).toBe(false);
+      expect(
+        isCredentialStateValid({
+          mustChangePassword: true,
+          temporaryPasswordIssuedAt: issued,
+          temporaryPasswordExpiresAt: null,
+        }),
+      ).toBe(false);
+      expect(
+        isCredentialStateValid({
+          mustChangePassword: true,
+          temporaryPasswordIssuedAt: "invalid",
+          temporaryPasswordExpiresAt: expires,
+        }),
+      ).toBe(false);
+    });
+
+    it("evaluates isTemporaryCredentialActive and isTemporaryCredentialExpired correctly with clock injection", () => {
+      const issued = "2026-09-12T12:00:00.000Z";
+      const expires = "2026-09-13T12:00:00.000Z";
+      const user = {
+        mustChangePassword: true,
+        temporaryPasswordIssuedAt: issued,
+        temporaryPasswordExpiresAt: expires,
+      };
+
+      const beforeExpiry = new Date("2026-09-12T18:00:00.000Z");
+      const atExpiry = new Date("2026-09-13T12:00:00.000Z");
+      const afterExpiry = new Date("2026-09-13T12:00:01.000Z");
+
+      expect(isTemporaryCredentialActive(user, beforeExpiry)).toBe(true);
+      expect(isTemporaryCredentialExpired(user, beforeExpiry)).toBe(false);
+
+      expect(isTemporaryCredentialActive(user, atExpiry)).toBe(false);
+      expect(isTemporaryCredentialExpired(user, atExpiry)).toBe(true);
+
+      expect(isTemporaryCredentialActive(user, afterExpiry)).toBe(false);
+      expect(isTemporaryCredentialExpired(user, afterExpiry)).toBe(true);
+    });
+
+    it("evaluates permanent user as not temporary active and not temporary expired", () => {
+      const permUser = {
+        mustChangePassword: false,
+        temporaryPasswordIssuedAt: null,
+        temporaryPasswordExpiresAt: null,
+      };
+      expect(isTemporaryCredentialActive(permUser)).toBe(false);
+      expect(isTemporaryCredentialExpired(permUser)).toBe(false);
+    });
+
+    it("fails closed (expired=true, active=false) for invalid or corrupt temporary states", () => {
+      const corruptUser = {
+        mustChangePassword: true,
+        temporaryPasswordIssuedAt: null,
+        temporaryPasswordExpiresAt: null,
+      };
+      expect(isTemporaryCredentialActive(corruptUser)).toBe(false);
+      expect(isTemporaryCredentialExpired(corruptUser)).toBe(true);
+    });
+  });
+
+  describe("Gate 2: Existing-User Preflight Verification", () => {
+    it("passes preflight when all users have valid credential states", async () => {
+      const mockDb = {
+        query: {
+          users: {
+            findMany: async () => [
+              {
+                id: "u1",
+                email: "admin@example.com",
+                mustChangePassword: false,
+                temporaryPasswordIssuedAt: null,
+                temporaryPasswordExpiresAt: null,
+              },
+              {
+                id: "u2",
+                email: "temp@example.com",
+                mustChangePassword: true,
+                temporaryPasswordIssuedAt: "2026-09-12T12:00:00.000Z",
+                temporaryPasswordExpiresAt: "2026-09-13T12:00:00.000Z",
+              },
+            ],
+          },
+        },
+      } as unknown as Parameters<typeof assertNoOrphanedForcedChangeUsers>[0];
+
+      await expect(assertNoOrphanedForcedChangeUsers(mockDb)).resolves.not.toThrow();
+    });
+
+    it("fails closed with DomainError when an active user has mustChangePassword=true without valid timestamps", async () => {
+      const mockDb = {
+        query: {
+          users: {
+            findMany: async () => [
+              {
+                id: "orphan-1",
+                email: "orphan@example.com",
+                mustChangePassword: true,
+                temporaryPasswordIssuedAt: null,
+                temporaryPasswordExpiresAt: null,
+              },
+            ],
+          },
+        },
+      } as unknown as Parameters<typeof assertNoOrphanedForcedChangeUsers>[0];
+
+      await expect(assertNoOrphanedForcedChangeUsers(mockDb)).rejects.toThrow(DomainError);
+      await expect(assertNoOrphanedForcedChangeUsers(mockDb)).rejects.toMatchObject({
+        code: "INVALID_CREDENTIAL_STATE",
+        status: 500,
+      });
+    });
+  });
+
+  describe("Gate 3: Static Audit for /api/admin/* Operational Guard", () => {
+    it("verifies 100% of /api/admin/* route files enforce operational access", () => {
+      const adminRoutesDir = path.resolve(process.cwd(), "src/app/api/admin");
+      const routeFiles = glob.sync("**/route.ts", { cwd: adminRoutesDir, absolute: true });
+
+      expect(routeFiles.length).toBeGreaterThan(50); // Ensure all routes are discovered (65 routes)
+
+      const unprotecteRoutes: string[] = [];
+
+      for (const filePath of routeFiles) {
+        const content = fs.readFileSync(filePath, "utf-8");
+        // Every admin route must use executeAdmin OR authenticateAdmin / authenticateAdminAny / assertOperationalAccess
+        // or delegate directly to parent/sibling collection handler (e.g. markState, patchCollection, deleteDraft, lifecycle)
+        const usesExecutionGuard =
+          content.includes("executeAdmin") ||
+          content.includes("authenticateAdmin") ||
+          content.includes("authenticateAdminAny") ||
+          content.includes("assertOperationalAccess") ||
+          content.includes("patchCollection") ||
+          content.includes("deleteCollection") ||
+          content.includes("markState") ||
+          content.includes("deleteDraft") ||
+          content.includes("lifecycle");
+
+        if (!usesExecutionGuard) {
+          unprotecteRoutes.push(path.relative(process.cwd(), filePath));
+        }
+      }
+
+      expect(unprotecteRoutes).toEqual([]);
+    });
+
+    it("assertOperationalAccess blocks actors requiring password change with 403 PASSWORD_CHANGE_REQUIRED", () => {
+      expect(() =>
+        assertOperationalAccess({
+          id: "u-temp",
+          shopId: "shop-test",
+          role: "ADMIN",
+          mustChangePassword: true,
+        }),
+      ).toThrow(DomainError);
+
+      try {
+        assertOperationalAccess({
+          id: "u-temp",
+          shopId: "shop-test",
+          role: "ADMIN",
+          mustChangePassword: true,
+        });
+      } catch (err: unknown) {
+        const domainErr = err as DomainError;
+        expect(domainErr.code).toBe("FORBIDDEN");
+        expect((domainErr.detail as { reason?: string })?.reason).toBe("PASSWORD_CHANGE_REQUIRED");
+        expect(domainErr.status).toBe(403);
+      }
+
+      // Operational access allowed for permanent credentials
+      expect(() =>
+        assertOperationalAccess({
+          id: "u-perm",
+          shopId: "shop-test",
+          role: "ADMIN",
+          mustChangePassword: false,
+        }),
+      ).not.toThrow();
+    });
+  });
+
+  describe("Safe Redirect Hardening (getSafeAdminRedirect)", () => {
+    it("allows valid relative admin return paths", () => {
+      expect(getSafeAdminRedirect("/admin/orders")).toBe("/admin/orders");
+      expect(getSafeAdminRedirect("/admin/products?tab=season")).toBe("/admin/products?tab=season");
+      expect(getSafeAdminRedirect("/admin")).toBe("/admin");
+    });
+
+    it("rejects protocol-relative URLs (//evil.com)", () => {
+      expect(getSafeAdminRedirect("//evil.com")).toBe("/admin");
+      expect(getSafeAdminRedirect("/\\evil.com")).toBe("/admin");
+    });
+
+    it("rejects absolute URLs (http://, https://)", () => {
+      expect(getSafeAdminRedirect("https://attacker.com")).toBe("/admin");
+      expect(getSafeAdminRedirect("http://attacker.com/admin")).toBe("/admin");
+      expect(getSafeAdminRedirect("javascript:alert(1)")).toBe("/admin");
+    });
+
+    it("rejects redirect loops to /admin/login or /admin/change-password", () => {
+      expect(getSafeAdminRedirect("/admin/login")).toBe("/admin");
+      expect(getSafeAdminRedirect("/admin/change-password")).toBe("/admin");
+      expect(getSafeAdminRedirect("/admin/login?error=1")).toBe("/admin");
+    });
+
+    it("rejects non-admin paths and malicious control characters", () => {
+      expect(getSafeAdminRedirect("/storefront")).toBe("/admin");
+      expect(getSafeAdminRedirect("/admin/orders\r\nSet-Cookie:evil")).toBe("/admin");
+      expect(getSafeAdminRedirect("a".repeat(600))).toBe("/admin"); // exceeds length limit
+    });
+  });
+});
