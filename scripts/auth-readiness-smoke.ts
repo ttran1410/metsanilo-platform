@@ -140,13 +140,18 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
       return;
     }
 
+    const sessionCorrelation = sessionRes.headers.get("x-correlation-id");
+    if (!sessionCorrelation) {
+      errors.push(`[${roleName}] Session response missing x-correlation-id header`);
+    }
+
     const sessionData = (await sessionRes.json()) as { data?: { user?: { email?: string; role?: string } } };
     if (sessionData.data?.user?.email?.toLowerCase() !== email.toLowerCase()) {
       errors.push(`[${roleName}] Session email mismatch: expected ${email}, got ${sessionData.data?.user?.email}`);
     } else if (expectedRole && sessionData.data?.user?.role !== expectedRole) {
       errors.push(`[${roleName}] Session role mismatch: expected ${expectedRole}, got ${sessionData.data?.user?.role}`);
     } else {
-      results.push(`[${roleName}] Session verified for ${email} (role: ${sessionData.data?.user?.role})`);
+      results.push(`[${roleName}] Session verified for ${email} (role: ${sessionData.data?.user?.role}, correlation: ${sessionCorrelation})`);
     }
 
     // 3. Sign Out
@@ -154,6 +159,7 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
       method: "POST",
       headers: {
         cookie: jar.getCookieHeader(),
+        origin,
       },
     });
 
@@ -162,7 +168,8 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
     if (logoutRes.status !== 200) {
       errors.push(`[${roleName}] Sign-out failed with status ${logoutRes.status}`);
     } else {
-      results.push(`[${roleName}] Sign-out succeeded`);
+      const logoutCorrelation = logoutRes.headers.get("x-correlation-id");
+      results.push(`[${roleName}] Sign-out succeeded (correlation: ${logoutCorrelation})`);
     }
 
     // 4. Post-logout invalidation check
@@ -173,7 +180,8 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
     });
 
     if (postLogoutSessionRes.status === 401) {
-      results.push(`[${roleName}] Post-logout session invalidation verified (status 401)`);
+      const postLogoutCorrelation = postLogoutSessionRes.headers.get("x-correlation-id");
+      results.push(`[${roleName}] Post-logout session invalidation verified (status 401, correlation: ${postLogoutCorrelation})`);
     } else {
       errors.push(`[${roleName}] Post-logout session was not invalidated; status ${postLogoutSessionRes.status}`);
     }
@@ -194,6 +202,9 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
     body: JSON.stringify({ email: adminEmail, password: "definitely-wrong-password-123!" }),
   });
   if (badLoginRes.status === 401) {
+    if (!badLoginRes.headers.get("x-correlation-id")) {
+      errors.push("Negative test: Invalid password response missing x-correlation-id");
+    }
     results.push("Negative test: Invalid password correctly returned 401");
   } else {
     errors.push(`Negative test: Invalid password returned ${badLoginRes.status} instead of 401`);
@@ -205,6 +216,9 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
     body: JSON.stringify({ email: "new@example.test", password: "password" }),
   });
   if (disabledRes.status === 404) {
+    if (!disabledRes.headers.get("x-correlation-id")) {
+      errors.push("Negative test: Disabled endpoint missing x-correlation-id");
+    }
     results.push("Negative test: Disabled Better Auth endpoint correctly returned 404");
   } else {
     errors.push(`Negative test: Disabled Better Auth endpoint returned ${disabledRes.status} instead of 404`);
@@ -216,15 +230,36 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
     body: JSON.stringify({ username: adminEmail, password: adminPassword }),
   });
   if (legacyLoginRes.status === 410) {
+    if (!legacyLoginRes.headers.get("x-correlation-id")) {
+      errors.push("Negative test: Legacy login endpoint missing x-correlation-id");
+    }
     results.push("Negative test: Legacy login endpoint correctly returned 410");
   } else {
     errors.push(`Negative test: Legacy login endpoint returned ${legacyLoginRes.status} instead of 410`);
   }
 
-  const legacyLogoutRes = await fetchImpl(`${origin}/api/auth/logout`, {
+  const legacyLogoutNoOriginRes = await fetchImpl(`${origin}/api/auth/logout`, {
     method: "POST",
   });
+  if (legacyLogoutNoOriginRes.status === 403) {
+    if (!legacyLogoutNoOriginRes.headers.get("x-correlation-id")) {
+      errors.push("Negative test: Legacy logout without origin missing x-correlation-id");
+    }
+    results.push("Negative test: Legacy logout without Origin correctly returned 403");
+  } else {
+    errors.push(`Negative test: Legacy logout without Origin returned ${legacyLogoutNoOriginRes.status} instead of 403`);
+  }
+
+  const legacyLogoutRes = await fetchImpl(`${origin}/api/auth/logout`, {
+    method: "POST",
+    headers: {
+      origin,
+    },
+  });
   if (legacyLogoutRes.status === 410) {
+    if (!legacyLogoutRes.headers.get("x-correlation-id")) {
+      errors.push("Negative test: Legacy logout endpoint missing x-correlation-id");
+    }
     results.push("Negative test: Legacy logout endpoint correctly returned 410");
   } else {
     errors.push(`Negative test: Legacy logout endpoint returned ${legacyLogoutRes.status} instead of 410`);

@@ -82,19 +82,19 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  return methodNotAllowed(["GET", "POST"], request);
+  return methodNotAllowed(["GET", "POST", "HEAD"], request);
 }
 
 export async function PATCH(request: Request) {
-  return methodNotAllowed(["GET", "POST"], request);
+  return methodNotAllowed(["GET", "POST", "HEAD"], request);
 }
 
 export async function DELETE(request: Request) {
-  return methodNotAllowed(["GET", "POST"], request);
+  return methodNotAllowed(["GET", "POST", "HEAD"], request);
 }
 
 export async function OPTIONS(request: Request) {
-  return methodNotAllowed(["GET", "POST"], request);
+  return methodNotAllowed(["GET", "POST", "HEAD"], request);
 }
 
 export async function HEAD(request: Request) {

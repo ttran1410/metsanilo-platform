@@ -78,7 +78,10 @@ describe("auth readiness smoke runner", () => {
         if (url.pathname === "/api/auth/session") {
           const cookieHeader = (init?.headers as Record<string, string>)?.["cookie"] ?? (init?.headers as Headers)?.get?.("cookie") ?? "";
           if (!currentSessionValid || !cookieHeader || !cookieHeader.includes("better-auth.session_token")) {
-            return new Response(JSON.stringify({ code: "UNAUTHORIZED", message: "Authentication required" }), { status: 401 });
+            return new Response(JSON.stringify({ code: "UNAUTHORIZED", message: "Authentication required" }), {
+              status: 401,
+              headers: { "x-correlation-id": "corr-sess-unauth" },
+            });
           }
           return new Response(
             JSON.stringify({
@@ -86,7 +89,10 @@ describe("auth readiness smoke runner", () => {
                 user: { email: "admin@example.test", role: "ADMIN" },
               },
             }),
-            { status: 200 },
+            {
+              status: 200,
+              headers: { "x-correlation-id": "corr-sess" },
+            },
           );
         }
 
@@ -94,16 +100,37 @@ describe("auth readiness smoke runner", () => {
           currentSessionValid = false;
           const resHeaders = new Headers({
             "set-cookie": "better-auth.session_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+            "x-correlation-id": "corr-signout",
           });
           return new Response(JSON.stringify({ success: true }), { status: 200, headers: resHeaders });
         }
 
         if (url.pathname === "/api/auth/better/sign-up/email") {
-          return new Response(JSON.stringify({ error: "Disabled" }), { status: 404 });
+          return new Response(JSON.stringify({ code: "ENDPOINT_DISABLED" }), {
+            status: 404,
+            headers: { "x-correlation-id": "corr-signup" },
+          });
         }
 
-        if (url.pathname === "/api/auth/login" || url.pathname === "/api/auth/logout") {
-          return new Response(JSON.stringify({ error: "Retired" }), { status: 410 });
+        if (url.pathname === "/api/auth/login") {
+          return new Response(JSON.stringify({ code: "ENDPOINT_RETIRED" }), {
+            status: 410,
+            headers: { "x-correlation-id": "corr-login-retired" },
+          });
+        }
+
+        if (url.pathname === "/api/auth/logout") {
+          const originHeader = (init?.headers as Record<string, string>)?.["origin"] ?? (init?.headers as Headers)?.get?.("origin");
+          if (!originHeader || originHeader !== url.origin) {
+            return new Response(JSON.stringify({ code: "FORBIDDEN" }), {
+              status: 403,
+              headers: { "x-correlation-id": "corr-logout-forbidden" },
+            });
+          }
+          return new Response(JSON.stringify({ code: "ENDPOINT_RETIRED" }), {
+            status: 410,
+            headers: { "x-correlation-id": "corr-logout-retired" },
+          });
         }
 
         return new Response("Not Found", { status: 404 });

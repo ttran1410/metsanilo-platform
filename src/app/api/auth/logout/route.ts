@@ -9,8 +9,8 @@ function assertSameOrigin(request: Request): boolean {
   if (!origin) return false;
   try {
     const originUrl = new URL(origin);
-    const host = request.headers.get("host") ?? new URL(request.url).host;
-    return originUrl.host === host;
+    const requestOrigin = new URL(request.url).origin;
+    return originUrl.origin.toLowerCase() === requestOrigin.toLowerCase();
   } catch {
     return false;
   }
@@ -79,11 +79,14 @@ export async function DELETE(request: Request) {
   return methodNotAllowed(["POST", "OPTIONS", "HEAD"], request);
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(request: Request) {
+  const correlationId = resolveCorrelationId(request);
   return new NextResponse(null, {
     status: 204,
     headers: {
       Allow: "POST, OPTIONS, HEAD",
+      "Cache-Control": "no-store, max-age=0",
+      [CORRELATION_ID_HEADER]: correlationId,
     },
   });
 }

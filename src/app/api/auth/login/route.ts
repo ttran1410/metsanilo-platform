@@ -26,6 +26,8 @@ function retiredResponse(request: Request) {
     },
   );
   response.cookies.delete("metsanilo_session");
+  response.cookies.delete("better-auth.session_token");
+  response.cookies.delete("__Secure-better-auth.session_token");
   return response;
 }
 
@@ -49,11 +51,14 @@ export async function DELETE(request: Request) {
   return methodNotAllowed(["POST", "OPTIONS", "HEAD"], request);
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(request: Request) {
+  const correlationId = resolveCorrelationId(request);
   return new NextResponse(null, {
     status: 204,
     headers: {
       Allow: "POST, OPTIONS, HEAD",
+      "Cache-Control": "no-store, max-age=0",
+      [CORRELATION_ID_HEADER]: correlationId,
     },
   });
 }

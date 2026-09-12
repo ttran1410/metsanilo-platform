@@ -20,7 +20,10 @@ describe("Retirement endpoint contracts (/api/auth/login, /api/auth/logout)", ()
     expect(postRes.status).toBe(410);
     expect(postRes.headers.get("x-correlation-id")).toBe(correlationId);
     expect(postRes.headers.get("cache-control")).toBe("no-store, max-age=0");
-    expect(postRes.headers.get("set-cookie")).toContain("metsanilo_session=;");
+    const setCookies = postRes.headers.getSetCookie?.() ?? [postRes.headers.get("set-cookie") ?? ""];
+    const joinedCookies = setCookies.join(" ");
+    expect(joinedCookies).toContain("metsanilo_session=");
+    expect(joinedCookies).toContain("better-auth.session_token=");
     
     const body = await postRes.json();
     expect(body).toEqual({
@@ -56,8 +59,11 @@ describe("Retirement endpoint contracts (/api/auth/login, /api/auth/logout)", ()
     expect(patchRes.status).toBe(405);
     const deleteRes = await loginDelete(new Request("http://localhost:3000/api/auth/login", { method: "DELETE" }));
     expect(deleteRes.status).toBe(405);
-    const optionsRes = await loginOptions();
+    const optionsRes = await loginOptions(new Request("http://localhost:3000/api/auth/login", { method: "OPTIONS", headers: { "x-correlation-id": correlationId } }));
     expect(optionsRes.status).toBe(204);
+    expect(optionsRes.headers.get("allow")).toBe("POST, OPTIONS, HEAD");
+    expect(optionsRes.headers.get("cache-control")).toBe("no-store, max-age=0");
+    expect(optionsRes.headers.get("x-correlation-id")).toBe(correlationId);
   });
 
   it("logout endpoint validates same-origin and purges all legacy/auth cookies", async () => {
@@ -116,8 +122,11 @@ describe("Retirement endpoint contracts (/api/auth/login, /api/auth/logout)", ()
     expect(patchRes.status).toBe(405);
     const deleteRes = await logoutDelete(new Request("http://localhost:3000/api/auth/logout", { method: "DELETE" }));
     expect(deleteRes.status).toBe(405);
-    const optionsRes = await logoutOptions();
+    const optionsRes = await logoutOptions(new Request("http://localhost:3000/api/auth/logout", { method: "OPTIONS", headers: { "x-correlation-id": "corr-opt-logout" } }));
     expect(optionsRes.status).toBe(204);
+    expect(optionsRes.headers.get("allow")).toBe("POST, OPTIONS, HEAD");
+    expect(optionsRes.headers.get("cache-control")).toBe("no-store, max-age=0");
+    expect(optionsRes.headers.get("x-correlation-id")).toBe("corr-opt-logout");
   });
 });
 
