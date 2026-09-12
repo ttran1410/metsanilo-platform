@@ -84,18 +84,21 @@ describe("Better Auth baseline", () => {
   it.each([
     ["inactive membership", "shop-main", false],
     ["cross-shop membership", "shop-other", true],
-  ])("fails closed for %s", async (_label, shopId, active) => {
+  ])("fails closed at session issuance for %s", async (_label, shopId, active) => {
     const credentials = await provision(`blocked-${sequence}`, shopId, active);
     const signedIn = await signIn(credentials.email, credentials.password);
-    expect(signedIn.response.status).toBe(200);
-    await expect(currentUser(database, new Request("http://localhost:3000/admin", { headers: { cookie: signedIn.cookie } }))).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
+    expect(signedIn.response.status).toBe(401);
+    expect(signedIn.cookie).toBe("");
+    expect(await database.select().from(authSessions)).toHaveLength(0);
   });
 
   it("fails closed when the Better Auth identity has no shop membership", async () => {
     const credentials = await provision("missing-membership");
-    const signedIn = await signIn(credentials.email, credentials.password);
     await database.delete(users).where(eq(users.id, "missing-membership"));
-    await expect(currentUser(database, new Request("http://localhost:3000/admin", { headers: { cookie: signedIn.cookie } }))).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
+    const signedIn = await signIn(credentials.email, credentials.password);
+    expect(signedIn.response.status).toBe(401);
+    expect(signedIn.cookie).toBe("");
+    expect(await database.select().from(authSessions)).toHaveLength(0);
   });
 
   it("fails closed when the mapped user has no Better Auth credential account", async () => {
@@ -121,6 +124,40 @@ describe("Better Auth baseline", () => {
     expect(result.cookie).toBe("");
     expect(policyHook).toHaveBeenCalledWith("temporary-expired");
     expect(await database.select().from(authSessions)).toHaveLength(0);
+  });
+
+  it("blocks session issuance when temporary credential has expired using injected now provider", async () => {
+    const credentials = await provision("temp-expired-user");
+    const issued = "2026-09-12T12:00:00.000Z";
+    const expires = "2026-09-13T12:00:00.000Z";
+    await database
+      .update(users)
+      .set({
+        mustChangePassword: true,
+        temporaryPasswordIssuedAt: issued,
+        temporaryPasswordExpiresAt: expires,
+      })
+      .where(eq(users.id, "temp-expired-user"));
+
+    // At or after expiry: session creation must be rejected
+    const expiredAuth = createBetterAuthInstance({
+      database,
+      now: () => new Date("2026-09-13T12:00:00.000Z"),
+    });
+    const resultExpired = await signIn(credentials.email, credentials.password, expiredAuth);
+    expect(resultExpired.response.status).toBe(401);
+    expect(resultExpired.cookie).toBe("");
+    expect(await database.select().from(authSessions)).toHaveLength(0);
+
+    // Before expiry: restricted session creation must succeed
+    const activeAuth = createBetterAuthInstance({
+      database,
+      now: () => new Date("2026-09-12T18:00:00.000Z"),
+    });
+    const resultActive = await signIn(credentials.email, credentials.password, activeAuth);
+    expect(resultActive.response.status).toBe(200);
+    expect(resultActive.cookie).toContain("better-auth.session_token=");
+    expect(await database.select().from(authSessions)).toHaveLength(1);
   });
 
   it("rejects Better Auth sign-in on preview deployments", async () => {

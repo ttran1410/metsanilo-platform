@@ -22,5 +22,5 @@ export function getSafeAdminRedirect(targetUrl: string | null | undefined, fallb
   // Prevent redirect loops
   if (path === "/admin/login" || path === "/admin/change-password") return fallback;
 
-  return targetUrl;
+  return decoded;
 }

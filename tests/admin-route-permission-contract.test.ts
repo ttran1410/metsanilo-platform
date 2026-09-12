@@ -7,11 +7,21 @@ const { database, currentUser, hasUserPermission } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/db/client", () => ({ db: vi.fn(() => database) }));
-vi.mock("@/domain/access", () => ({ currentUser, hasUserPermission, PERMISSIONS: ["orders.read"], assertOperationalAccess: vi.fn() }));
+vi.mock("@/domain/access", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/domain/access")>();
+  return {
+    ...actual,
+    currentUser,
+    hasUserPermission,
+    PERMISSIONS: ["orders.read"],
+    assertOperationalAccess: vi.fn(actual.assertOperationalAccess),
+  };
+});
 vi.mock("@/lib/env", () => ({ env: () => ({ SHOP_ID: "shop-test" }) }));
 
 import { PUT as updatePaymentMethod } from "@/app/api/admin/payment-methods/[method]/route";
 import { GET as getProducts } from "@/app/api/admin/products/route";
+import { GET as getOrders } from "@/app/api/admin/orders/route";
 import { PUT as updateAvailability } from "@/app/api/admin/availability/[id]/route";
 import { PUT as updateUserPermission } from "@/app/api/admin/users/[id]/permissions/route";
 import { GET as getReviews } from "@/app/api/admin/reviews/route";
@@ -103,5 +113,25 @@ describe("admin route permission contract", () => {
     expect(response.status).toBe(403);
     expect(response.headers.get("content-type")).toContain("application/json");
     expect(await response.json()).toMatchObject({ code: "FORBIDDEN", correlationId: expect.any(String) });
+  });
+
+  it("blocks actors requiring password change at runtime across representative routes with PASSWORD_CHANGE_REQUIRED", async () => {
+    currentUser.mockResolvedValue({ id: "actor-temp", role: "ADMIN", shopId: "shop-test", mustChangePassword: true });
+    hasUserPermission.mockResolvedValue(true);
+
+    const routes = [
+      () => getProducts(new Request("http://localhost/api/admin/products")),
+      () => getOrders(new Request("http://localhost/api/admin/orders")),
+      () => getUsers(new Request("http://localhost/api/admin/users")),
+    ];
+
+    for (const invoke of routes) {
+      const response = await invoke();
+      expect(response.status).toBe(403);
+      expect(await response.json()).toMatchObject({
+        code: "FORBIDDEN",
+        detail: { reason: "PASSWORD_CHANGE_REQUIRED" },
+      });
+    }
   });
 });

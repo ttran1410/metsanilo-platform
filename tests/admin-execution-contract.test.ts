@@ -8,7 +8,15 @@ const { database, currentUser, hasUserPermission } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/db/client", () => ({ db: vi.fn(() => database) }));
-vi.mock("@/domain/access", () => ({ currentUser, hasUserPermission, assertOperationalAccess: vi.fn() }));
+vi.mock("@/domain/access", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/domain/access")>();
+  return {
+    ...actual,
+    currentUser,
+    hasUserPermission,
+    assertOperationalAccess: vi.fn(actual.assertOperationalAccess),
+  };
+});
 vi.mock("@/lib/env", () => ({ env: () => ({ SHOP_ID: "shop-test" }) }));
 
 import { authenticateAdminAny, executeAdmin } from "@/app/api/admin/module";
@@ -17,7 +25,7 @@ import { failure } from "@/app/api/response";
 
 describe("executeAdmin contract", () => {
   beforeEach(() => {
-    currentUser.mockResolvedValue({ id: "actor-1", role: "ADMIN", shopId: "shop-test", email: "admin@example.test" });
+    currentUser.mockResolvedValue({ id: "actor-1", role: "ADMIN", shopId: "shop-test", email: "admin@example.test", mustChangePassword: false });
     hasUserPermission.mockResolvedValue(true);
   });
 
@@ -100,6 +108,23 @@ describe("executeAdmin contract", () => {
     })).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
 
     expect(hasUserPermission).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("rejects an actor with mustChangePassword=true with 403 PASSWORD_CHANGE_REQUIRED before executing handler", async () => {
+    currentUser.mockResolvedValue({ id: "actor-temp", role: "ADMIN", shopId: "shop-test", mustChangePassword: true });
+    const run = vi.fn();
+
+    await expect(executeAdmin(new Request("http://localhost/api/admin/products"), {
+      permission: "catalog.product.read",
+      parse: async () => undefined,
+      run,
+    })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      status: 403,
+      detail: { reason: "PASSWORD_CHANGE_REQUIRED" },
+    });
+
     expect(run).not.toHaveBeenCalled();
   });
 

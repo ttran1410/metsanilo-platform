@@ -1,9 +1,10 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createDatabase, type Database } from "@/db/client";
 import { authAccounts, authSessions, authUsers, authVerifications, users } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/domain/passwords";
+import { env } from "./env";
 import { isCredentialStateValid, isTemporaryCredentialActive } from "./auth-integration";
 
 function configuredAuthUrl() {
@@ -16,11 +17,17 @@ type AuthPolicyHooks = Readonly<{
   beforeSessionCreate?: (userId: string) => Promise<boolean>;
 }>;
 
+export type CreateBetterAuthOptions = {
+  database?: Database;
+  policyHooks?: AuthPolicyHooks;
+  now?: () => Date;
+};
+
 /**
  * Parallel Better Auth instance. It is intentionally exposed under a separate
  * endpoint until shop-user synchronization and RBAC mapping are verified.
  */
-export function createBetterAuthInstance(options?: { database?: Database; policyHooks?: AuthPolicyHooks }) {
+export function createBetterAuthInstance(options?: CreateBetterAuthOptions) {
   const authUrl = configuredAuthUrl();
   const vercelEnvironment = process.env.VERCEL_ENV;
   const isProduction = vercelEnvironment === "production" || (!vercelEnvironment && process.env.NODE_ENV === "production");
@@ -28,6 +35,7 @@ export function createBetterAuthInstance(options?: { database?: Database; policy
   if (!isProduction && vercelEnvironment !== "preview" && authUrl) trustedOrigins.push(authUrl.origin);
 
   const database = options?.database ?? createDatabase(process.env.TURSO_DATABASE_URL || "file:local.db", process.env.TURSO_AUTH_TOKEN);
+  const nowProvider = options?.now ?? (() => new Date());
 
   return betterAuth({
     // Keep this parallel adapter independent from the legacy runtime preflight;
@@ -68,13 +76,13 @@ export function createBetterAuthInstance(options?: { database?: Database; policy
         create: {
           before: async (session: { userId: string }) => {
             try {
+              const currentShopId = env().SHOP_ID;
               const user = await database.query.users.findFirst({
-                where: eq(users.id, session.userId),
+                where: and(eq(users.id, session.userId), eq(users.shopId, currentShopId), eq(users.active, true)),
               });
-              if (user) {
-                if (!isCredentialStateValid(user)) return false;
-                if (user.mustChangePassword && !isTemporaryCredentialActive(user)) return false;
-              }
+              if (!user) return false;
+              if (!isCredentialStateValid(user)) return false;
+              if (user.mustChangePassword && !isTemporaryCredentialActive(user, nowProvider())) return false;
             } catch {
               return false; // Fail closed on database error
             }

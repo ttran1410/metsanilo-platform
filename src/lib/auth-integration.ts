@@ -21,6 +21,9 @@ export function isCredentialStateValid(user: {
   temporaryPasswordIssuedAt?: string | null;
   temporaryPasswordExpiresAt?: string | null;
 }): boolean {
+  if (typeof user.mustChangePassword !== "boolean") {
+    return false;
+  }
   if (user.mustChangePassword) {
     if (!isCanonicalIsoDate(user.temporaryPasswordIssuedAt) || !isCanonicalIsoDate(user.temporaryPasswordExpiresAt)) {
       return false;
@@ -102,9 +105,9 @@ export async function provisionUserWithAuth(
 ) {
   const id = input.id ?? randomUUID();
   const createdAt = input.createdAt ?? now.toISOString();
-  const nowDate = new Date(createdAt);
-  const issuedAt = nowDate.toISOString();
-  const expiresAt = new Date(nowDate.getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const recordCreationDate = new Date(createdAt);
+  const issuedAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
   await database.transaction(async (tx) => {
     await tx.insert(users).values({
       id,
@@ -127,8 +130,8 @@ export async function provisionUserWithAuth(
       email: input.email,
       emailVerified: false,
       image: null,
-      createdAt: nowDate,
-      updatedAt: nowDate,
+      createdAt: recordCreationDate,
+      updatedAt: recordCreationDate,
     });
     await tx.insert(authAccounts).values({
       id: `credential-${id}`,
@@ -136,8 +139,8 @@ export async function provisionUserWithAuth(
       providerId: "credential",
       userId: id,
       password: input.passwordHash,
-      createdAt: nowDate,
-      updatedAt: nowDate,
+      createdAt: recordCreationDate,
+      updatedAt: recordCreationDate,
     });
     const defaults = defaultPermissionsForRole(input.role);
     if (defaults.length) {
@@ -182,15 +185,19 @@ export async function reconcileBootstrapAdmin(
     });
 
     if (existing) {
-      if (existing.mustChangePassword || existing.temporaryPasswordIssuedAt !== null || existing.temporaryPasswordExpiresAt !== null) {
+      if (!isCredentialStateValid(existing) || existing.mustChangePassword) {
         throw new Error(`Bootstrap admin ${input.id} has invalid or temporary credential state. Remediation required.`);
+      }
+
+      if (existing.email !== input.email) {
+        throw new Error(
+          `Bootstrap admin ${input.id} email is immutable (existing: ${existing.email}, configured: ${input.email}). Remediation or explicit migration required.`
+        );
       }
 
       await tx
         .update(users)
         .set({
-          username: input.email,
-          email: input.email,
           displayName: input.displayName,
           active: true,
         })
@@ -201,7 +208,7 @@ export async function reconcileBootstrapAdmin(
         .values({
           id: input.id,
           name: input.displayName,
-          email: input.email,
+          email: existing.email,
           emailVerified: false,
           image: null,
           createdAt: nowDate,
@@ -211,7 +218,6 @@ export async function reconcileBootstrapAdmin(
           target: authUsers.id,
           set: {
             name: input.displayName,
-            email: input.email,
             emailVerified: false,
             updatedAt: nowDate,
           },
@@ -274,9 +280,9 @@ export async function reconcileBootstrapAdmin(
   });
 }
 
-export async function assertNoOrphanedForcedChangeUsers(database: Database) {
+export async function assertNoOrphanedForcedChangeUsers(database: Database, shopId: string = env().SHOP_ID) {
   const forcedChangeUsers = await database.query.users.findMany({
-    where: and(eq(users.mustChangePassword, true), eq(users.active, true)),
+    where: and(eq(users.shopId, shopId), eq(users.mustChangePassword, true), eq(users.active, true)),
   });
   const unTimestamped = forcedChangeUsers.filter((u) => !isCredentialStateValid(u));
   if (unTimestamped.length > 0) {
