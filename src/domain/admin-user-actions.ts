@@ -12,7 +12,7 @@ export async function updateAdminProfile(database: Database, context: AdminActio
   const now = new Date().toISOString();
   const [updated] = await database.update(users).set({ displayName }).where(and(eq(users.id, context.actor.id), eq(users.shopId, context.shop.id))).returning();
   if (!updated) throw new DomainError("NOT_FOUND", "User profile not found", 404);
-  if (context.actor.id !== "legacy-admin") await database.update(authUsers).set({ name: displayName, updatedAt: new Date() }).where(eq(authUsers.id, context.actor.id));
+  await database.update(authUsers).set({ name: displayName, updatedAt: new Date() }).where(eq(authUsers.id, context.actor.id));
   return { id: updated.id, displayName: updated.displayName, email: updated.email, username: updated.username, role: updated.role, active: updated.active, updatedAt: now };
 }
 
