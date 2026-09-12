@@ -18,7 +18,7 @@ export function LoginForm() {
     const response = await fetch("/api/auth/better/sign-in/email", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: values.get("email"), password: values.get("password"), rememberMe: true }),
+      body: JSON.stringify({ email: values.get("email"), password: values.get("password"), rememberMe: false }),
     });
 
     if (response.ok) {
