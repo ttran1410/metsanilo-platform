@@ -28,7 +28,7 @@ export async function POST(request: Request, routeContext: { params: Promise<{ i
         return previewAdminAvailability(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, id, input);
       },
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

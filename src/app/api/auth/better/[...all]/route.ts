@@ -1,5 +1,9 @@
 import { toNextJsHandler } from "better-auth/next-js";
 import { getBetterAuthInstance } from "@/lib/better-auth";
+import { resolveCorrelationId } from "@/lib/correlation-id";
+import { methodNotAllowed } from "@/app/api/response";
+
+import { withCorrelationHeader } from "@/lib/better-auth-wrapper";
 
 export const runtime = "nodejs";
 
@@ -13,16 +17,33 @@ function isAllowedBetterAuthRequest(request: Request): boolean {
   try {
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/+$/, "");
-    return ALLOWED_BETTER_AUTH_PATHS.some((path) => pathname.endsWith(path));
+    const prefix = "/api/auth/better";
+    if (!pathname.startsWith(prefix)) return false;
+    const relativePath = pathname.slice(prefix.length) || "/";
+    return ALLOWED_BETTER_AUTH_PATHS.includes(relativePath);
   } catch {
     return false;
   }
 }
 
-function endpointDisabledResponse() {
-  return Response.json(
-    { code: "ENDPOINT_DISABLED", message: "Use canonical application authentication endpoints." },
-    { status: 404 },
+function endpointDisabledResponse(request: Request) {
+  const correlationId = resolveCorrelationId(request);
+  return new Response(
+    request.method === "HEAD"
+      ? null
+      : JSON.stringify({
+          code: "ENDPOINT_DISABLED",
+          message: "Use canonical application authentication endpoints.",
+          correlationId,
+        }),
+    {
+      status: 404,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store, max-age=0",
+        "x-correlation-id": correlationId,
+      },
+    },
   );
 }
 
@@ -31,17 +52,64 @@ function previewAuthDisabled(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse();
-  return toNextJsHandler(getBetterAuthInstance()).GET(request);
+  const correlationId = resolveCorrelationId(request);
+  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse(request);
+  const response = await toNextJsHandler(getBetterAuthInstance()).GET(request);
+  return withCorrelationHeader(response, correlationId);
 }
 
 export async function POST(request: Request) {
-  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse();
+  const correlationId = resolveCorrelationId(request);
+  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse(request);
   if (previewAuthDisabled(request)) {
-    return Response.json(
-      { code: "PREVIEW_AUTH_DISABLED", message: "Admin authentication is unavailable on preview deployments." },
-      { status: 404 }
+    return new Response(
+      request.method === "HEAD"
+        ? null
+        : JSON.stringify({
+            code: "PREVIEW_AUTH_DISABLED",
+            message: "Admin authentication is unavailable on preview deployments.",
+            correlationId,
+          }),
+      {
+        status: 404,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store, max-age=0",
+          "x-correlation-id": correlationId,
+        },
+      },
     );
   }
-  return toNextJsHandler(getBetterAuthInstance()).POST(request);
+  const response = await toNextJsHandler(getBetterAuthInstance()).POST(request);
+  return withCorrelationHeader(response, correlationId);
+}
+
+export async function PUT(request: Request) {
+  return methodNotAllowed(["GET", "POST", "HEAD"], request);
+}
+
+export async function PATCH(request: Request) {
+  return methodNotAllowed(["GET", "POST", "HEAD"], request);
+}
+
+export async function DELETE(request: Request) {
+  return methodNotAllowed(["GET", "POST", "HEAD"], request);
+}
+
+export async function OPTIONS(request: Request) {
+  return methodNotAllowed(["GET", "POST", "HEAD"], request);
+}
+
+export async function HEAD(request: Request) {
+  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse(request);
+  const getRequest = new Request(request.url, {
+    method: "GET",
+    headers: request.headers,
+  });
+  const getResponse = await GET(getRequest);
+  return new Response(null, {
+    status: getResponse.status,
+    statusText: getResponse.statusText,
+    headers: getResponse.headers,
+  });
 }

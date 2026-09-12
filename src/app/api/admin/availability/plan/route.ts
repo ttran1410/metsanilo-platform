@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability plan", 422);
     const permission = parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write";
     const result = await executeAdmin(request, { permission, parse: async () => parsed.data, run: async (input, { database, context }) => { const actionContext = { actor: context.actor, shop: { id: context.shop.shopId } }; return input.preview ? previewAdminAvailabilityPlan(database, actionContext, input) : planAdminAvailability(database, actionContext, input); } });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

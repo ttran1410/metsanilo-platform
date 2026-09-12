@@ -11,6 +11,6 @@ const command = z.object({ type: z.enum(["CUSTOMER_UNAVAILABLE", "ADDRESS_ISSUE"
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const result = await executeAdmin(request, { permission: "orders.transition", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid delivery exception", 422); return parsed.data; }, run: async (input, { database, context: { actor } }) => addAdminDeliveryException(database, { actor, shop: { id: env().SHOP_ID } }, { orderId: (await params).id, ...input }) });
-    return success(result);
+    return success(result, request);
   } catch (error) { return failure(error, request); }
 }

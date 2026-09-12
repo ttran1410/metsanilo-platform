@@ -37,7 +37,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         return getUserAccessDetail(database, userId);
       },
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -53,29 +53,29 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (parsed.data.action === "update") {
       if (parsed.data.email !== undefined) throw new DomainError("FORBIDDEN", "Email address cannot be changed from User & Permissions", 403);
       const result = await executeAdmin(request, { permission: "shop_users.manage", parse: async () => parsed.data, run: async (input, { database, context }) => executeAdminUserCommand(database, { actor: context.actor, shop: { id: context.shop.shopId }, request }, { action: "update", userId: id, displayName: input.displayName, role: input.role }) });
-      return success(result);
+      return success(result, request);
     }
 
     if (parsed.data.action === "role") {
       if (!parsed.data.role) throw new DomainError("VALIDATION_ERROR", "Role is required", 422);
       const result = await executeAdmin(request, { permission: "shop_users.manage", parse: async () => parsed.data.role!, run: async (role, { database, context }) => executeAdminUserCommand(database, { actor: context.actor, shop: { id: context.shop.shopId }, request }, { action: "role", userId: id, role }) });
-      return success(result);
+      return success(result, request);
     }
 
     if (parsed.data.action === "active") {
       if (parsed.data.active === undefined) throw new DomainError("VALIDATION_ERROR", "Active status is required", 422);
       const result = await executeAdmin(request, { permission: "shop_users.manage", parse: async () => parsed.data.active!, run: async (active, { database, context }) => executeAdminUserCommand(database, { actor: context.actor, shop: { id: context.shop.shopId }, request }, { action: "active", userId: id, active }) });
-      return success(result);
+      return success(result, request);
     }
 
     if (parsed.data.action === "reset_permissions") {
       const result = await executeAdmin(request, { permission: "shop_permissions.assign", parse: async () => undefined, run: async (_input, { database, context }) => executeAdminUserCommand(database, { actor: context.actor, shop: { id: context.shop.shopId }, request }, { action: "reset_permissions", userId: id }) });
-      return success(result);
+      return success(result, request);
     }
 
     if (parsed.data.action === "revoke_sessions") {
       const result = await executeAdmin(request, { permission: "shop_users.manage", parse: async () => undefined, run: async (_input, { database, context }) => executeAdminUserCommand(database, { actor: context.actor, shop: { id: context.shop.shopId }, request }, { action: "revoke_sessions", userId: id }) });
-      return success(result);
+      return success(result, request);
     }
 
     throw new DomainError("VALIDATION_ERROR", "Unknown action", 422);

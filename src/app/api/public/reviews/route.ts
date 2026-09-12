@@ -19,13 +19,15 @@ const input = z.object({
 
 export async function GET(request: Request) {
   try {
-    if (!(await getReviewsVisibility(db()))) return success({ reviews: [], rollup: { ratingAvg: 5.0, reviewCount: 0, starDistribution: { "5": 0, "4": 0, "3": 0, "2": 0, "1": 0 } } });
+    if (!(await getReviewsVisibility(db()))) {
+      return success({ reviews: [], rollup: { ratingAvg: 5.0, reviewCount: 0, starDistribution: { "5": 0, "4": 0, "3": 0, "2": 0, "1": 0 } } }, request);
+    }
     const locale = new URL(request.url).searchParams.get("locale") === "fi" ? "fi" : "en";
     const reviewsList = await listPublishedReviews(db(), { locale });
     const rollup = await getReviewRollup(db());
-    return success({ reviews: reviewsList, rollup });
+    return success({ reviews: reviewsList, rollup }, request);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }
 
@@ -34,21 +36,19 @@ export async function POST(request: Request) {
     if (!(await getReviewsVisibility(db()))) throw new DomainError("NOT_FOUND", "Reviews are not available", 404);
     const parsed = input.safeParse(await request.json());
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid review", 422);
-    return success(
-      await createPublicReview(db(), {
-        displayName: parsed.data.displayName,
-        isAnonymous: parsed.data.isAnonymous,
-        crmConsent: parsed.data.crmConsent,
-        rating: parsed.data.rating,
-        originalText: parsed.data.reviewText,
-        publicationAcknowledgement: parsed.data.publicationAcknowledgement,
-        contact: parsed.data.contact,
-        productId: parsed.data.productId,
-        locale: parsed.data.locale,
-      }),
-      201,
-    );
+    const result = await createPublicReview(db(), {
+      displayName: parsed.data.displayName,
+      isAnonymous: parsed.data.isAnonymous,
+      crmConsent: parsed.data.crmConsent,
+      rating: parsed.data.rating,
+      originalText: parsed.data.reviewText,
+      publicationAcknowledgement: parsed.data.publicationAcknowledgement,
+      contact: parsed.data.contact,
+      productId: parsed.data.productId,
+      locale: parsed.data.locale,
+    });
+    return success(result, request, 201);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

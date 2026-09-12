@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   try {
     const result = await executeAdmin(request, { permission: "orders.read", parse: async () => new URL(request.url).searchParams, run: async (params, { database, context }) => getAdminOrderQueue(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, { productId: params.get("productId") ?? undefined, seasonId: params.get("seasonId") ?? undefined, from: params.get("from") ?? undefined, to: params.get("to") ?? undefined }) });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

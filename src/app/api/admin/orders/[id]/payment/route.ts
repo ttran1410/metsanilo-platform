@@ -19,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
       run: async (input, { database, context: { actor } }) => recordAdminOrderPayment(database, { actor, shop: { id: env().SHOP_ID } }, { orderId: (await params).id, ...input }),
     });
-    return success(result, 201);
+    return success(result, request, 201);
   } catch (error) {
     return failure(error, request);
   }

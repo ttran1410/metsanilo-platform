@@ -8,7 +8,6 @@ import {
   revokeUserSessions,
 } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
-import { SESSION_COOKIE } from "@/domain/session";
 import { currentAuthContext } from "@/domain/access";
 import { env } from "@/lib/env";
 import { failure, success } from "../../../../response";
@@ -63,7 +62,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     assertCanManageUserSessions(actor, targetUser);
 
     const sessions = await getUserSessions(database, id);
-    const response = success(sessions);
+    const response = success(sessions, request);
     response.headers.set("Cache-Control", "no-store");
     return response;
   } catch (error) {
@@ -112,9 +111,9 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       result = await revokeUserSessions(database, request, id, parsed.data.reason);
     }
 
-    const response = success(result);
+    const response = success(result, request);
     if (actor.id === id && (parsed.data.scope === "all" || currentContext.sessionId === parsed.data.sessionId)) {
-      response.cookies.delete(SESSION_COOKIE);
+      response.cookies.delete("metsanilo_session");
       response.cookies.delete("better-auth.session_token");
       response.cookies.delete("__Secure-better-auth.session_token");
     }

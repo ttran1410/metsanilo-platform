@@ -14,7 +14,7 @@ import { resetEnvForTests } from "@/lib/env";
 import { POST as changePassword } from "@/app/api/auth/change-password/route";
 import { GET as betterAuthGet, POST as betterAuthPost } from "@/app/api/auth/better/[...all]/route";
 import { POST as legacyLogin } from "@/app/api/auth/login/route";
-import { GET as sessionStatus, POST as touchSession, DELETE as deleteSession } from "@/app/api/auth/session/route";
+import { POST as touchSession, DELETE as deleteSession } from "@/app/api/auth/session/route";
 import { GET as adminSessionList, DELETE as adminSessionRevoke } from "@/app/api/admin/users/[id]/sessions/route";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-auth-test-"));
@@ -157,27 +157,18 @@ describe("Better Auth baseline", () => {
     expect(await response.json()).toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("keeps the legacy login path compatible with the session-status endpoint", async () => {
+  it("returns 410 Gone for retired legacy login path", async () => {
     const credentials = await provision("phase4-legacy");
     const login = await legacyLogin(new Request("http://localhost:3000/api/auth/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ email: credentials.email, password: credentials.password }),
     }));
-    expect(login.status).toBe(200);
-    const setCookie = login.headers.get("set-cookie") ?? "";
-    const cookie = setCookie.split(";")[0];
-    expect(cookie).toContain("metsanilo_session=");
-    expect(setCookie).toMatch(/HttpOnly/i);
-    expect(setCookie).toMatch(/SameSite=Lax/i);
-    if (process.env.NODE_ENV === "production") expect(setCookie).toMatch(/Secure/i);
-
-    const status = await sessionStatus(new Request("http://localhost:3000/api/auth/session", { headers: { cookie: cookie! } }));
-    expect(status.status).toBe(200);
-    expect((await status.json()).data).toMatchObject({
-      mechanism: "legacy_cookie",
-      currentSessionId: "legacy-current",
-      user: { id: "phase4-legacy", email: credentials.email, role: "ADMIN" },
+    expect(login.status).toBe(410);
+    expect(await login.json()).toMatchObject({
+      code: "ENDPOINT_RETIRED",
+      correlationId: expect.any(String),
+      message: expect.stringContaining("Legacy login"),
     });
   });
 
@@ -414,7 +405,10 @@ describe("Better Auth baseline", () => {
         body: JSON.stringify({ email: "admin@example.test", password: "Password123!" }),
       }));
       expect(response.status).toBe(404);
-      expect(await response.json()).toMatchObject({ code: "PREVIEW_AUTH_DISABLED" });
+      expect(await response.json()).toMatchObject({
+        code: "PREVIEW_AUTH_DISABLED",
+        correlationId: expect.any(String),
+      });
     } finally {
       delete process.env.VERCEL_ENV;
     }
@@ -558,7 +552,7 @@ describe("Better Auth baseline", () => {
     // Verify Set-Cookie clears session cookie (max-age=0)
     const setCookie = changeRes.headers.get("set-cookie");
     expect(setCookie).toBeDefined();
-    expect(setCookie).toMatch(/Max-Age=0/i);
+    expect(setCookie).toMatch(/(Max-Age=0|Expires=)/i);
 
     // 3. Verify in database: mustChangePassword cleared, temporary timestamps null, sessionVersion incremented
     const updatedUser = await database.query.users.findFirst({
@@ -637,6 +631,7 @@ describe("Better Auth baseline", () => {
       expect(postBody).toMatchObject({
         code: "ENDPOINT_DISABLED",
         message: expect.stringContaining("canonical"),
+        correlationId: expect.any(String),
       });
 
       const getRes = await betterAuthGet(new Request(url, { method: "GET" }));
@@ -644,6 +639,7 @@ describe("Better Auth baseline", () => {
       const getBody = await getRes.json();
       expect(getBody).toMatchObject({
         code: "ENDPOINT_DISABLED",
+        correlationId: expect.any(String),
       });
     }
   });
@@ -701,7 +697,10 @@ describe("Better Auth baseline", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ email: credentials.email, password: credentials.password }),
     }));
-    expect(legacyResponse.status).toBe(401);
-    expect(await legacyResponse.json()).toMatchObject({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+    expect(legacyResponse.status).toBe(410);
+    expect(await legacyResponse.json()).toMatchObject({
+      code: "ENDPOINT_RETIRED",
+      correlationId: expect.any(String),
+    });
   });
 });

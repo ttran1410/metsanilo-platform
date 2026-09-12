@@ -4,13 +4,10 @@ import type { Database } from "@/db/client";
 import { auditEntries, authSessions, userPermissions, users } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
-import { readSession, SESSION_COOKIE } from "./session";
 import { assertPassword, hashPassword, verifyPassword } from "./passwords";
 import {
   evaluateSessionTiming,
   getBetterAuthSession,
-  isCredentialStateValid,
-  isTemporaryCredentialActive,
   maskIpAddress,
   normalizeUserAgent,
   provisionUserWithAuth,
@@ -42,23 +39,11 @@ export function normalizePermission(permission: string): Permission | null {
     : LEGACY_PERMISSION_ALIASES[permission] ?? null;
 }
 
-function usernameFromRequest(request: Request) {
-  const authorization = request.headers.get("authorization");
-  if (!authorization?.startsWith("Basic ")) throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
-  const decoded = Buffer.from(authorization.slice(6), "base64").toString("utf8");
-  const separator = decoded.indexOf(":");
-  if (separator <= 0) {
-    recordLegacyAuthUsage(request, "http_basic", 401);
-    throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
-  }
-  return decoded.slice(0, separator);
-}
-
 export type AuthContext = {
   actor: typeof users.$inferSelect;
-  mechanism: "better_auth" | "legacy_cookie" | "http_basic";
-  sessionId?: string;
-  timing?: SessionTiming;
+  mechanism: "better_auth";
+  sessionId: string;
+  timing: SessionTiming;
 };
 
 export async function currentAuthContext(
@@ -66,96 +51,44 @@ export async function currentAuthContext(
   request: Request,
   now: Date = new Date()
 ): Promise<AuthContext> {
-  const shopId = env().SHOP_ID;
+  const hasLegacyCookie = request.headers.get("cookie")?.includes("metsanilo_session");
+  const authHeader = request.headers.get("authorization")?.trim();
+  const hasBasicAuth = authHeader ? /^basic\s+/i.test(authHeader) : false;
+
   let betterSession: Awaited<ReturnType<typeof getBetterAuthSession>>;
   try {
     betterSession = await getBetterAuthSession(request);
   } catch {
+    if (hasLegacyCookie) recordLegacyAuthUsage(request, "legacy_cookie", 401);
+    if (hasBasicAuth) recordLegacyAuthUsage(request, "extraneous_basic", 401);
     throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
   }
 
-  if (betterSession?.user?.id && betterSession?.session?.id) {
-    const validated = await validateBetterAuthSession(database, betterSession.session.id, betterSession.user.id, now);
-    if (!validated.valid) {
-      if (validated.reason === "expired") {
-        throw new DomainError("UNAUTHORIZED", "Session expired", 401);
-      }
-      throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
+  if (!betterSession?.user?.id || !betterSession?.session?.id) {
+    if (hasLegacyCookie) recordLegacyAuthUsage(request, "legacy_cookie", 401);
+    if (hasBasicAuth) recordLegacyAuthUsage(request, "extraneous_basic", 401);
+    throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
+  }
+
+  const validated = await validateBetterAuthSession(database, betterSession.session.id, betterSession.user.id, now);
+  if (!validated.valid) {
+    if (hasLegacyCookie) recordLegacyAuthUsage(request, "legacy_cookie", 401);
+    if (hasBasicAuth) recordLegacyAuthUsage(request, "extraneous_basic", 401);
+    if (validated.reason === "expired") {
+      throw new DomainError("UNAUTHORIZED", "Session expired", 401);
     }
-    return {
-      actor: validated.user,
-      mechanism: "better_auth",
-      sessionId: betterSession.session.id,
-      timing: validated.timing,
-    };
+    throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
   }
 
-  const cookie = request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1];
-  const legacyMechanism = cookie ? ("legacy_cookie" as const) : ("http_basic" as const);
-  const nowSec = Math.floor(now.getTime() / 1000);
-  const session = readSession(cookie, nowSec);
+  if (hasLegacyCookie) recordLegacyAuthUsage(request, "legacy_cookie", 200);
+  if (hasBasicAuth) recordLegacyAuthUsage(request, "extraneous_basic", 200);
 
-  if (cookie && !session) {
-    recordLegacyAuthUsage(request, "legacy_cookie", 401);
-    throw new DomainError("UNAUTHORIZED", "Session expired", 401);
-  }
-
-  const identifier = session?.email ?? usernameFromRequest(request);
-  const user =
-    (await database.query.users.findFirst({
-      where: and(eq(users.shopId, shopId), eq(users.email, identifier), eq(users.active, true)),
-    })) ??
-    (await database.query.users.findFirst({
-      where: and(eq(users.shopId, shopId), eq(users.username, identifier), eq(users.active, true)),
-    }));
-
-  if (session && user && user.sessionVersion !== session.sessionVersion) {
-    recordLegacyAuthUsage(request, legacyMechanism, 401);
-    throw new DomainError("UNAUTHORIZED", "Session expired", 401);
-  }
-
-  if (user) {
-    if (!isCredentialStateValid(user)) {
-      recordLegacyAuthUsage(request, legacyMechanism, 403);
-      throw new DomainError("FORBIDDEN", "Invalid credential state", 403);
-    }
-    if (user.mustChangePassword && !isTemporaryCredentialActive(user, now)) {
-      recordLegacyAuthUsage(request, legacyMechanism, 403);
-      throw new DomainError("FORBIDDEN", "Temporary credential expired", 403);
-    }
-    recordLegacyAuthUsage(request, legacyMechanism, 200);
-    return {
-      actor: user,
-      mechanism: legacyMechanism,
-      timing: session?.timing,
-    };
-  }
-
-  if (identifier === "manager") {
-    recordLegacyAuthUsage(request, legacyMechanism, 200);
-    return {
-      actor: {
-        id: "legacy-admin",
-        shopId,
-        email: null,
-        username: null,
-        passwordHash: "",
-        mustChangePassword: false,
-        sessionVersion: 1,
-        displayName: "Legacy admin",
-        role: "ADMIN" as const,
-        active: true,
-        createdAt: "legacy",
-        temporaryPasswordIssuedAt: null,
-        temporaryPasswordExpiresAt: null,
-      },
-      mechanism: legacyMechanism,
-      timing: session?.timing,
-    };
-  }
-
-  recordLegacyAuthUsage(request, legacyMechanism, 403);
-  throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
+  return {
+    actor: validated.user,
+    mechanism: "better_auth",
+    sessionId: betterSession.session.id,
+    timing: validated.timing,
+  };
 }
 
 export async function currentUser(database: Database, request: Request, now: Date = new Date()) {

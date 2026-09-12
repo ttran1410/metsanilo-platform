@@ -28,7 +28,7 @@ The dependency direction is: `src/app` composes `src/domain` and `src/lib`; `src
 
 - Scope every database query and mutation by `env().SHOP_ID` or validated shop context. Shop isolation is a security boundary even though deployment is currently single-shop.
 - Admin UI visibility is not authorization. Admin API routes must enforce permission at the route boundary; `proxy` is only an early session gate.
-- Preserve both Better Auth and signed `metsanilo_session` authentication paths until an explicitly approved migration removes one.
+- Enforce Better Auth as the canonical authentication provider. Legacy `metsanilo_session`, Basic Auth fallback, and synthetic identities are decommissioned; `users.password_hash`, `users.session_version`, and `ADMIN_SESSION_SECRET` remain active/synchronized for rollback window safety.
 - Keep money as integer cents and volume as integer millilitres. Preserve order idempotency, transactions, capacity reservations, expected-version checks, legal lifecycle transitions, and audit writes.
 - Use `DomainError` and `src/app/api/response.ts` for API failures. Preserve stable error codes, field errors, and correlation IDs.
 - Use explicit `[locale]` routing and `src/lib/i18n`/locale formatters. Do not branch ad hoc on language or change persisted status codes for display text.

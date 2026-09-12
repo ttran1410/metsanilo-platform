@@ -21,6 +21,8 @@
     "db:release": "tsx scripts/release.ts",
     "customer-retention": "tsx scripts/customer-retention.ts",
     "customer-retention-backfill": "tsx scripts/customer-retention-backfill.ts",
+    "audit:auth": "tsx scripts/audit-auth-readiness.ts",
+    "smoke:auth": "tsx scripts/auth-readiness-smoke.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
