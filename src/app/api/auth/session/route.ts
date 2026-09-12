@@ -2,7 +2,6 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { currentAuthContext, getUserSessions, revokeCurrentSession, revokeOtherUserSessions } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
-import { readSession, SESSION_COOKIE, sessionMaxAge, touchLegacySession } from "@/domain/session";
 import { touchBetterAuthSession } from "@/lib/auth-integration";
 import { failure, success } from "../../response";
 
@@ -34,9 +33,9 @@ export async function GET(request: Request) {
     const authContext = await currentAuthContext(db(), request);
     const serverNow = new Date().toISOString();
 
-    if (authContext.mechanism === "better_auth") {
-      const sessions = await getUserSessions(db(), authContext.actor.id);
-      const response = success({
+    const sessions = await getUserSessions(db(), authContext.actor.id);
+    const response = success(
+      {
         mechanism: "better_auth",
         user: {
           id: authContext.actor.id,
@@ -53,70 +52,9 @@ export async function GET(request: Request) {
         remainingSeconds: authContext.timing?.remainingSeconds ?? 0,
         warning: authContext.timing?.warning ?? false,
         sessions,
-      }, request);
-      response.headers.set("Cache-Control", "no-store");
-      return response;
-    }
-
-    if (authContext.mechanism === "legacy_cookie") {
-      const timing = authContext.timing;
-      const sessions = timing
-        ? [
-            {
-              id: "legacy-current",
-              ipAddress: "Current Device",
-              userAgent: "Legacy Browser Session",
-              createdAt: new Date(timing.idleExpiresAt.getTime() - 60 * 60 * 1000).toISOString(),
-              lastActivityAt: new Date(timing.idleExpiresAt.getTime() - 60 * 60 * 1000).toISOString(),
-              idleExpiresAt: timing.idleExpiresAt.toISOString(),
-              absoluteExpiresAt: timing.absoluteExpiresAt.toISOString(),
-              effectiveExpiresAt: timing.effectiveExpiresAt.toISOString(),
-              remainingSeconds: timing.remainingSeconds,
-              warning: timing.warning,
-            },
-          ]
-        : [];
-
-      const response = success({
-        mechanism: "legacy_cookie",
-        user: {
-          id: authContext.actor.id,
-          displayName: authContext.actor.displayName,
-          email: authContext.actor.email,
-          role: authContext.actor.role,
-        },
-        currentSessionId: "legacy-current",
-        serverNow,
-        idleExpiresAt: timing?.idleExpiresAt.toISOString() ?? serverNow,
-        absoluteExpiresAt: timing?.absoluteExpiresAt.toISOString() ?? serverNow,
-        effectiveExpiresAt: timing?.effectiveExpiresAt.toISOString() ?? serverNow,
-        expiryReason: timing?.expiryReason ?? null,
-        remainingSeconds: timing?.remainingSeconds ?? 0,
-        warning: timing?.warning ?? false,
-        sessions,
-      }, request);
-      response.headers.set("Cache-Control", "no-store");
-      return response;
-    }
-
-    const response = success({
-      mechanism: "http_basic",
-      user: {
-        id: authContext.actor.id,
-        displayName: authContext.actor.displayName,
-        email: authContext.actor.email,
-        role: authContext.actor.role,
       },
-      currentSessionId: null,
-      serverNow,
-      idleExpiresAt: serverNow,
-      absoluteExpiresAt: serverNow,
-      effectiveExpiresAt: serverNow,
-      remainingSeconds: 0,
-      warning: false,
-      expiryReason: null,
-      sessions: [],
-    }, request);
+      request,
+    );
     response.headers.set("Cache-Control", "no-store");
     return response;
   } catch (error) {
@@ -132,15 +70,15 @@ export async function POST(request: Request) {
     const authContext = await currentAuthContext(db(), request);
     const serverNow = new Date();
 
-    if (authContext.mechanism === "better_auth") {
-      if (!authContext.sessionId) {
-        throw new DomainError("UNAUTHORIZED", "Missing session ID", 401);
-      }
-      const touched = await touchBetterAuthSession(db(), authContext.sessionId, authContext.actor.id, serverNow);
-      if (!touched.valid) {
-        throw new DomainError("UNAUTHORIZED", "Session expired", 401);
-      }
-      const response = success({
+    if (!authContext.sessionId) {
+      throw new DomainError("UNAUTHORIZED", "Missing session ID", 401);
+    }
+    const touched = await touchBetterAuthSession(db(), authContext.sessionId, authContext.actor.id, serverNow);
+    if (!touched.valid) {
+      throw new DomainError("UNAUTHORIZED", "Session expired", 401);
+    }
+    const response = success(
+      {
         mechanism: "better_auth",
         currentSessionId: authContext.sessionId,
         serverNow: serverNow.toISOString(),
@@ -150,51 +88,9 @@ export async function POST(request: Request) {
         expiryReason: touched.timing.expiryReason,
         remainingSeconds: touched.timing.remainingSeconds,
         warning: touched.timing.warning,
-      }, request);
-      response.headers.set("Cache-Control", "no-store");
-      return response;
-    }
-
-    if (authContext.mechanism === "legacy_cookie") {
-      const cookie = request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1];
-      const parsed = readSession(cookie, Math.floor(serverNow.getTime() / 1000));
-      if (!parsed) {
-        throw new DomainError("UNAUTHORIZED", "Session expired", 401);
-      }
-      const refreshedCookie = touchLegacySession(parsed, Math.floor(serverNow.getTime() / 1000));
-      if (!refreshedCookie) {
-        throw new DomainError("UNAUTHORIZED", "Session expired", 401);
-      }
-      const updatedSession = readSession(refreshedCookie, Math.floor(serverNow.getTime() / 1000))!;
-      const response = success({
-        mechanism: "legacy_cookie",
-        currentSessionId: "legacy-current",
-        serverNow: serverNow.toISOString(),
-        idleExpiresAt: updatedSession.timing.idleExpiresAt.toISOString(),
-        absoluteExpiresAt: updatedSession.timing.absoluteExpiresAt.toISOString(),
-        effectiveExpiresAt: updatedSession.timing.effectiveExpiresAt.toISOString(),
-        expiryReason: updatedSession.timing.expiryReason,
-        remainingSeconds: updatedSession.timing.remainingSeconds,
-        warning: updatedSession.timing.warning,
-      }, request);
-      response.cookies.set(SESSION_COOKIE, refreshedCookie, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
-        maxAge: sessionMaxAge,
-      });
-      response.headers.set("Cache-Control", "no-store");
-      return response;
-    }
-
-    const response = success({
-      mechanism: "http_basic",
-      currentSessionId: null,
-      serverNow: serverNow.toISOString(),
-      remainingSeconds: 0,
-      warning: false,
-    }, request);
+      },
+      request,
+    );
     response.headers.set("Cache-Control", "no-store");
     return response;
   } catch (error) {
@@ -224,28 +120,31 @@ export async function DELETE(request: Request) {
     if (parsed.data.scope === "current") {
       await revokeCurrentSession(db(), request);
       const response = success({ revoked: true, scope: "current" }, request);
-      response.cookies.delete(SESSION_COOKIE);
       response.cookies.delete("better-auth.session_token");
       response.cookies.delete("__Secure-better-auth.session_token");
+      response.cookies.delete("metsanilo_session");
       response.headers.set("Cache-Control", "no-store");
       return response;
     }
 
     if (parsed.data.scope === "others") {
-      if (authContext.mechanism !== "better_auth" || !authContext.sessionId) {
+      if (!authContext.sessionId) {
         throw new DomainError(
           "UNSUPPORTED_SESSION_SCOPE",
-          "Cannot revoke other sessions on stateless legacy authentication",
-          422
+          "Cannot revoke other sessions without active session ID",
+          422,
         );
       }
 
       const result = await revokeOtherUserSessions(db(), request, authContext.sessionId);
-      const response = success({
-        revoked: true,
-        scope: "others",
-        affectedCount: result.affectedCount,
-      }, request);
+      const response = success(
+        {
+          revoked: true,
+          scope: "others",
+          affectedCount: result.affectedCount,
+        },
+        request,
+      );
       response.headers.set("Cache-Control", "no-store");
       return response;
     }

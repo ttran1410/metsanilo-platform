@@ -8,7 +8,6 @@ import { DomainError } from "@/domain/errors";
 import { assertPassword, hashPassword, verifyPassword } from "@/domain/passwords";
 import { env } from "@/lib/env";
 import { failure, success } from "../../response";
-import { SESSION_COOKIE } from "@/domain/session";
 import { revokeAllUserSessions, setCredentialHash } from "@/lib/auth-integration";
 
 const command = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(8) });
@@ -82,13 +81,9 @@ export async function POST(request: Request) {
     });
 
     const response = success({ changed: true, requireSignIn: true }, request);
-    response.cookies.set(SESSION_COOKIE, "", {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 0,
-    });
+    response.cookies.delete("better-auth.session_token");
+    response.cookies.delete("__Secure-better-auth.session_token");
+    response.cookies.delete("metsanilo_session");
 
     return response;
   } catch (error) {
