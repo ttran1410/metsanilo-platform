@@ -11,7 +11,10 @@ export async function getBetterAuthSession(request: Request) {
 }
 
 export async function mapActiveShopUser(database: Database, userId: string) {
-  return database.query.users.findFirst({ where: and(eq(users.id, userId), eq(users.shopId, env().SHOP_ID), eq(users.active, true)) });
+  const user = await database.query.users.findFirst({ where: and(eq(users.id, userId), eq(users.shopId, env().SHOP_ID), eq(users.active, true)) });
+  if (!user) return undefined;
+  const credential = await database.query.authAccounts.findFirst({ where: and(eq(authAccounts.userId, userId), eq(authAccounts.providerId, "credential")) });
+  return credential?.password ? user : undefined;
 }
 
 export async function revokeAllUserSessions(database: Pick<Database, "delete">, userId: string) {

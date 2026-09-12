@@ -98,6 +98,13 @@ describe("Better Auth baseline", () => {
     await expect(currentUser(database, new Request("http://localhost:3000/admin", { headers: { cookie: signedIn.cookie } }))).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
   });
 
+  it("fails closed when the mapped user has no Better Auth credential account", async () => {
+    const credentials = await provision("missing-credential");
+    const signedIn = await signIn(credentials.email, credentials.password);
+    await database.delete(authAccounts).where(eq(authAccounts.userId, "missing-credential"));
+    await expect(currentUser(database, new Request("http://localhost:3000/admin", { headers: { cookie: signedIn.cookie } }))).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
+  });
+
   it("rejects a tampered Better Auth cookie", async () => {
     await expect(currentUser(database, new Request("http://localhost:3000/admin", {
       headers: { cookie: "better-auth.session_token=tampered" },
