@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
 import { authAccounts, authUsers, shops, users } from "@/db/schema";
 import { hashPassword } from "@/domain/passwords";
@@ -62,5 +62,18 @@ describe("seed Better Auth reconciliation", () => {
     await database.insert(authUsers).values({ id: "other", name: "Other", email: value.email, emailVerified: false, createdAt: value.now, updatedAt: value.now });
     await expect(reconcileBootstrapAdmin(database, value)).rejects.toThrow();
     expect(await database.query.users.findFirst({ where: eq(users.id, value.id) })).toMatchObject({ email: "old@example.test", displayName: "Old" });
+  });
+
+  it("rolls back users and auth users when the credential write fails", async () => {
+    const value = input();
+    await database.run(sql`CREATE TRIGGER fail_seed_auth_account BEFORE INSERT ON auth_accounts BEGIN SELECT RAISE(ABORT, 'injected auth account failure'); END`);
+    try {
+      await expect(reconcileBootstrapAdmin(database, value)).rejects.toThrow();
+    } finally {
+      await database.run(sql`DROP TRIGGER fail_seed_auth_account`);
+    }
+    expect(await database.query.users.findFirst({ where: eq(users.id, value.id) })).toBeUndefined();
+    expect(await database.query.authUsers.findFirst({ where: eq(authUsers.id, value.id) })).toBeUndefined();
+    expect(await database.query.authAccounts.findFirst({ where: eq(authAccounts.id, `credential-${value.id}`) })).toBeUndefined();
   });
 });
