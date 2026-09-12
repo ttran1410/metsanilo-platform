@@ -119,10 +119,17 @@ describe("admin route permission contract", () => {
     currentUser.mockResolvedValue({ id: "actor-temp", role: "ADMIN", shopId: "shop-test", mustChangePassword: true });
     hasUserPermission.mockResolvedValue(true);
 
-    const routes = [
+    const routes: Array<() => Promise<Response>> = [
       () => getProducts(new Request("http://localhost/api/admin/products")),
       () => getOrders(new Request("http://localhost/api/admin/orders")),
       () => getUsers(new Request("http://localhost/api/admin/users")),
+      // Delegated collection mutations
+      () => updateReview(new Request("http://localhost/api/admin/reviews", { method: "PUT", body: "{}" })),
+      () => moderateReview(new Request("http://localhost/api/admin/reviews", { method: "PATCH", body: "{}" })),
+      // Parameterized / individual member mutations
+      () => updateProduct(new Request("http://localhost/api/admin/products/p1", { method: "PATCH", body: "{}" }), { params: Promise.resolve({ id: "p1" }) }),
+      () => updateOrderStatus(new Request("http://localhost/api/admin/orders/o1/status", { method: "POST", body: "{}" }), { params: Promise.resolve({ id: "o1" }) }),
+      () => deleteThemeDraft(new Request("http://localhost/api/admin/storefront-theme/drafts/d1", { method: "DELETE" }), { params: Promise.resolve({ draftId: "d1" }) }),
     ];
 
     for (const invoke of routes) {

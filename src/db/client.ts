@@ -21,3 +21,7 @@ export function db() {
   database ??= createDatabase(config.TURSO_DATABASE_URL, config.TURSO_AUTH_TOKEN);
   return database;
 }
+
+export function resetDatabaseForTests() {
+  database = undefined;
+}

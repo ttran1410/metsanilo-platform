@@ -111,3 +111,7 @@ export function getBetterAuthInstance() {
   if (!cached || cached.configKey !== configKey) cached = { configKey, instance: createBetterAuthInstance() };
   return cached.instance;
 }
+
+export function resetBetterAuthForTests() {
+  cached = undefined;
+}

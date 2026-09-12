@@ -3,13 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { migrate } from "drizzle-orm/libsql/migrator";
-import { eq } from "drizzle-orm";
-import { createDatabaseConnection, type Database } from "@/db/client";
+import { eq, sql } from "drizzle-orm";
+import { createDatabaseConnection, resetDatabaseForTests, type Database } from "@/db/client";
 import { authAccounts, authSessions, authUsers, shops, users } from "@/db/schema";
 import { createUser, currentUser } from "@/domain/access";
 import { hashPassword } from "@/domain/passwords";
-import { createBetterAuthInstance } from "@/lib/better-auth";
+import { createBetterAuthInstance, resetBetterAuthForTests } from "@/lib/better-auth";
+import { reconcileBootstrapAdmin } from "@/lib/auth-integration";
 import { resetEnvForTests } from "@/lib/env";
+import { POST as changePassword } from "@/app/api/auth/change-password/route";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-auth-test-"));
 let database: Database;
@@ -24,6 +26,8 @@ beforeEach(async () => {
   process.env.BETTER_AUTH_URL = "http://localhost:3000/api/auth/better";
   process.env.BETTER_AUTH_SECRET = "test-only-better-auth-secret-at-least-32-characters";
   resetEnvForTests();
+  resetDatabaseForTests();
+  resetBetterAuthForTests();
   const connection = createDatabaseConnection(process.env.TURSO_DATABASE_URL);
   database = connection.database;
   closeDatabase = connection.close;
@@ -36,7 +40,11 @@ beforeEach(async () => {
 });
 
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
-afterEach(() => closeDatabase());
+afterEach(() => {
+  resetDatabaseForTests();
+  resetBetterAuthForTests();
+  closeDatabase();
+});
 
 async function provision(id: string, shopId = "shop-main", active = true) {
   const email = `${id}@example.test`;
@@ -207,5 +215,156 @@ describe("Better Auth baseline", () => {
     await database.insert(authUsers).values({ id: "existing-auth-user", name: "Existing", email: "conflict@example.test", emailVerified: false, createdAt: now, updatedAt: now });
     await expect(createUser(database, new Request("http://localhost/manager", { headers: { cookie: admin } }), { email: "conflict@example.test", password: "Password123!", displayName: "Conflict", role: "STAFF" })).rejects.toThrow();
     expect(await database.query.users.findFirst({ where: eq(users.email, "conflict@example.test") })).toBeUndefined();
+  });
+
+  it("fails closed without issuing session when database query throws in beforeSessionCreate hook", async () => {
+    const credentials = await provision("hook-fail-user");
+    // Mock database query failure specifically in hook user lookup while preserving drizzle adapter methods
+    const faultyDb = Object.create(database);
+    faultyDb.query = {
+      ...database.query,
+      users: {
+        ...database.query.users,
+        findFirst: vi.fn(async () => {
+          throw new Error("Simulated database query outage");
+        }),
+      },
+    };
+
+    const faultyAuth = createBetterAuthInstance({ database: faultyDb });
+    const result = await signIn(credentials.email, credentials.password, faultyAuth);
+    expect(result.response.status).toBe(401);
+    expect(result.cookie).toBe("");
+    expect(await database.select().from(authSessions)).toHaveLength(0);
+  });
+
+  it("preserves active Better Auth session when reconcileBootstrapAdmin is rerun", async () => {
+    const bootstrapInput = {
+      id: "bootstrap-admin-session-test",
+      shopId: "shop-main",
+      email: "bootstrap-active@example.test",
+      displayName: "Bootstrap Admin",
+      passwordHash: hashPassword("Password123!"),
+      now: new Date("2026-09-12T12:00:00.000Z"),
+    };
+
+    // Initial seed
+    await reconcileBootstrapAdmin(database, bootstrapInput);
+
+    // Sign in to establish an active Better Auth session
+    const signedIn = await signIn(bootstrapInput.email, "Password123!");
+    expect(signedIn.response.status).toBe(200);
+    expect(signedIn.cookie).toContain("better-auth.session_token=");
+    expect(await database.select().from(authSessions)).toHaveLength(1);
+
+    const request = new Request("http://localhost:3000/api/admin/orders", {
+      headers: { cookie: signedIn.cookie },
+    });
+    await expect(currentUser(database, request)).resolves.toMatchObject({
+      id: bootstrapInput.id,
+      shopId: "shop-main",
+      active: true,
+    });
+
+    // Rerun reconcileBootstrapAdmin (e.g. during redeploy or seed command)
+    await reconcileBootstrapAdmin(database, {
+      ...bootstrapInput,
+      displayName: "Bootstrap Admin (Updated Profile)",
+    });
+
+    // Verify session remains intact and active in database
+    expect(await database.select().from(authSessions)).toHaveLength(1);
+    // Verify currentUser request still resolves successfully with existing session cookie
+    await expect(currentUser(database, request)).resolves.toMatchObject({
+      id: bootstrapInput.id,
+      displayName: "Bootstrap Admin (Updated Profile)",
+      active: true,
+    });
+  });
+
+  it("completes full password change lifecycle: revokes Better Auth sessions, clears cookie, rejects old password, and authenticates with new password", async () => {
+    const credentials = await provision("temp-lifecycle-user");
+    const issued = "2026-09-12T12:00:00.000Z";
+    const expires = "2026-09-13T12:00:00.000Z";
+    await database
+      .update(users)
+      .set({
+        mustChangePassword: true,
+        temporaryPasswordIssuedAt: issued,
+        temporaryPasswordExpiresAt: expires,
+      })
+      .where(eq(users.id, "temp-lifecycle-user"));
+
+    // 1. Sign in with temporary credential -> succeeds with restricted session
+    const signedIn = await signIn(credentials.email, credentials.password);
+    expect(signedIn.response.status).toBe(200);
+    expect(signedIn.cookie).toContain("better-auth.session_token=");
+    expect(await database.select().from(authSessions)).toHaveLength(1);
+
+    // 2. Perform password change using current session cookie
+    const changeReq = new Request("http://localhost:3000/api/auth/change-password", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: signedIn.cookie,
+      },
+      body: JSON.stringify({
+        currentPassword: credentials.password,
+        newPassword: "BrandNewSecurePassword123!",
+      }),
+    });
+
+    const changeRes = await changePassword(changeReq);
+    expect(changeRes.status).toBe(200);
+    const body = await changeRes.json();
+    expect(body).toMatchObject({ data: { changed: true, requireSignIn: true } });
+
+    // Verify Set-Cookie clears session cookie (max-age=0)
+    const setCookie = changeRes.headers.get("set-cookie");
+    expect(setCookie).toBeDefined();
+    expect(setCookie).toMatch(/Max-Age=0/i);
+
+    // 3. Verify in database: mustChangePassword cleared, temporary timestamps null, sessionVersion incremented
+    const updatedUser = await database.query.users.findFirst({
+      where: eq(users.id, "temp-lifecycle-user"),
+    });
+    expect(updatedUser?.mustChangePassword).toBe(false);
+    expect(updatedUser?.temporaryPasswordIssuedAt).toBeNull();
+    expect(updatedUser?.temporaryPasswordExpiresAt).toBeNull();
+    expect(updatedUser?.sessionVersion).toBe(2);
+
+    // 4. Verify Better Auth sessions revoked in database
+    expect(await database.select().from(authSessions)).toHaveLength(0);
+
+    // 5. Subsequent request with old session cookie is rejected (UNAUTHORIZED)
+    const subsequentReq = new Request("http://localhost:3000/api/admin/orders", {
+      headers: { cookie: signedIn.cookie },
+    });
+    await expect(currentUser(database, subsequentReq)).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+      status: 401,
+    });
+
+    // 6. Signing in with old password fails (401)
+    const oldSignIn = await signIn(credentials.email, credentials.password);
+    expect(oldSignIn.response.status).toBe(401);
+    expect(oldSignIn.cookie).toBe("");
+    expect(await database.select().from(authSessions)).toHaveLength(0);
+
+    // 7. Signing in with new password succeeds (200) and issues active session
+    const newSignIn = await signIn(credentials.email, "BrandNewSecurePassword123!");
+    expect(newSignIn.response.status).toBe(200);
+    expect(newSignIn.cookie).toContain("better-auth.session_token=");
+    expect(await database.select().from(authSessions)).toHaveLength(1);
+
+    // Operational request with new cookie succeeds
+    const newReq = new Request("http://localhost:3000/api/admin/orders", {
+      headers: { cookie: newSignIn.cookie },
+    });
+    await expect(currentUser(database, newReq)).resolves.toMatchObject({
+      id: "temp-lifecycle-user",
+      mustChangePassword: false,
+      active: true,
+    });
   });
 });
