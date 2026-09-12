@@ -100,6 +100,10 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
     throw new SmokeConfigError("Admin credentials (AUTH_SMOKE_ADMIN_EMAIL & AUTH_SMOKE_ADMIN_PASSWORD) are required");
   }
 
+  if (options.allowProduction && (!managerEmail || !managerPassword)) {
+    throw new SmokeConfigError("Manager credentials (AUTH_SMOKE_MANAGER_EMAIL & AUTH_SMOKE_MANAGER_PASSWORD) are required when targeting production");
+  }
+
   async function testUserFlow(roleName: string, email: string, pass: string, expectedRole?: string) {
     const jar = new CookieJar();
     const correlationId = crypto.randomUUID();

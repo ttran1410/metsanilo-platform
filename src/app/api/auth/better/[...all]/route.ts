@@ -17,7 +17,10 @@ function isAllowedBetterAuthRequest(request: Request): boolean {
   try {
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/+$/, "");
-    return ALLOWED_BETTER_AUTH_PATHS.some((path) => pathname.endsWith(path));
+    const prefix = "/api/auth/better";
+    if (!pathname.startsWith(prefix)) return false;
+    const relativePath = pathname.slice(prefix.length) || "/";
+    return ALLOWED_BETTER_AUTH_PATHS.includes(relativePath);
   } catch {
     return false;
   }

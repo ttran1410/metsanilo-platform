@@ -161,4 +161,32 @@ describe("Better Auth wrapper multi-cookie & HEAD preservation", () => {
     expect(headRes.headers.get("x-correlation-id")).toBeDefined();
     expect(await headRes.text()).toBe("");
   });
+
+  it("strictly enforces exact relative path allowlist and rejects unexpected prefixes or nested paths", async () => {
+    const { GET, POST } = await import("@/app/api/auth/better/[...all]/route");
+
+    // Unexpected nested paths that happen to end with allowed path segments must be 404
+    const badPaths = [
+      "http://localhost:3000/api/auth/better/unexpected/sign-out",
+      "http://localhost:3000/api/auth/better/foo/sign-in/email",
+      "http://localhost:3000/api/auth/better/prefix-get-session",
+      "http://localhost:3000/api/auth/better/nested/v1/sign-in/email",
+    ];
+
+    for (const path of badPaths) {
+      const getRes = await GET(new Request(path, { method: "GET" }));
+      expect(getRes.status).toBe(404);
+      expect(await getRes.json()).toMatchObject({
+        code: "ENDPOINT_DISABLED",
+        correlationId: expect.any(String),
+      });
+
+      const postRes = await POST(new Request(path, { method: "POST" }));
+      expect(postRes.status).toBe(404);
+      expect(await postRes.json()).toMatchObject({
+        code: "ENDPOINT_DISABLED",
+        correlationId: expect.any(String),
+      });
+    }
+  });
 });
