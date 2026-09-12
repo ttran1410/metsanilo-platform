@@ -11,7 +11,7 @@ export async function GET(request: Request) {
       permission: "availability.read",
       parse: async () => undefined,
       run: async (_input, { database, context }) => ({ groups: await findAdminAvailabilityDuplicates(database, { actor: context.actor, shop: { id: env().SHOP_ID } }) }),
-    }));
+    }), request);
   } catch (error) {
     return failure(error, request);
   }

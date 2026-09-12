@@ -24,7 +24,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const permission = parsed.data.cutoffOverride !== undefined ? "availability.cutoff.override" : parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write";
     const result = await executeAdmin(request, { permission, parse: async () => parsed.data, run: async (input, { database, context }) => updateAdminAvailability(database, { actor: context.actor, shop: { id: context.shop.shopId } }, id, input) });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

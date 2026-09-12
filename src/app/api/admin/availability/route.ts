@@ -17,7 +17,7 @@ export async function GET(request: Request) {
         seasonId: searchParams.get("seasonId") ?? undefined,
       }),
     });
-    return success(workspace);
+    return success(workspace, request);
   } catch (error) {
     return failure(error, request);
   }

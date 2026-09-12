@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
     const result = await executeAdmin(request, { permission: "orders.read", parse: async () => id, run: async (orderId, { database, context: { actor } }) => new URL(request.url).searchParams.get("view") === "edit" ? getAdminOrderEditData(database, { actor, shop: { id: env().SHOP_ID } }, orderId) : getAdminOrderDetail(database, { actor, shop: { id: env().SHOP_ID } }, orderId) });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -75,7 +75,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         const version = input.expectedVersion ?? (await getAdminOrderDetail(database, { actor, shop: { id: env().SHOP_ID } }, id)).order.version;
         return transitionAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, { orderId: id, status: input.status, expectedVersion: version, reason: input.reason, contactChannel: input.contactChannel });
       } });
-      return success(result);
+      return success(result, request);
     }
 
     const parsed = updateSchema.safeParse({ ...body, orderId: id });
@@ -83,7 +83,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       throw fromZodError(parsed.error, "Unable to update order details. Please check input fields.");
     }
     const result = await executeAdmin(request, { permission: "orders.update", parse: async () => parsed.data, run: async (input, { database, context: { actor } }) => updateAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, { ...input, orderId: id }) });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -93,7 +93,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     const { id } = await params;
     const result = await executeAdmin(request, { permission: "orders.delete", parse: async () => id, run: async (orderId, { database, context: { actor } }) => deleteAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, orderId) });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

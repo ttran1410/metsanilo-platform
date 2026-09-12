@@ -8,8 +8,8 @@ export async function POST(request: Request) {
   try {
     const contentLength = Number(request.headers.get("content-length") ?? 0);
     if (contentLength > 16_384) return new Response("Payload too large", { status: 413 });
-    return success(await submitOrder(db(), await request.json()), 201);
+    return success(await submitOrder(db(), await request.json()), request, 201);
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

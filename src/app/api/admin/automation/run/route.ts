@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       parse: async () => undefined,
       run: async (_input, { database, context }) => runAdminAutomation(database, { actor: context.actor, shop: { id: context.shop.shopId } }),
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

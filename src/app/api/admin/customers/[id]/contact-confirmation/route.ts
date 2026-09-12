@@ -14,7 +14,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const { id } = await context.params;
     const result = await executeAdmin(request, { permission: "customers.retention.manage", parse: async (incoming) => { const parsed = inputSchema.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid contact confirmation input", 422); return parsed.data; }, run: async (input, { database, context: { actor } }) => confirmAdminCustomerContact(database, { actor, shop: { id: env().SHOP_ID } }, id, input.channel, input.note) });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

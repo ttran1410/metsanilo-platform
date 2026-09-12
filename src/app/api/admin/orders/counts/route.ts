@@ -12,7 +12,7 @@ export async function GET(request: Request) {
       parse: async () => undefined,
       run: async (_input, { database, context }) => getAdminOrderQuickViewCounts(database, { actor: context.actor, shop: { id: env().SHOP_ID } }),
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

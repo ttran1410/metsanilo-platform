@@ -28,7 +28,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const { id } = await context.params;
     const profile = await executeAdmin(request, { permission: "customers.read", parse: async () => id, run: async (customerId, { database, context: { actor, shop } }) => getAdminCustomerProfile(database, { actor, shop: { id: shop.shopId } }, customerId) });
     if (!profile) throw new DomainError("NOT_FOUND", "Customer not found", 404);
-    return success(profile);
+    return success(profile, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -49,13 +49,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         throw new DomainError("VALIDATION_ERROR", "duplicateId is required to merge customers", 422);
       }
       const merged = await executeAdmin(request, { permission: "customers.write", parse: async () => parsed.data, run: async (input, { database, context }) => executeAdminCustomerCommand(database, { actor: context.actor, shop: { id: context.shop.shopId } }, { action: "merge", id, duplicateId: input.duplicateId! }) });
-      return success(merged);
+      return success(merged, request);
     }
 
     // Handle Notes Action
     if (parsed.data.action === "notes") {
       const result = await executeAdmin(request, { permission: "customers.write", parse: async () => parsed.data, run: async (input, { database, context }) => executeAdminCustomerCommand(database, { actor: context.actor, shop: { id: context.shop.shopId } }, { action: "notes", id, values: { notes: input.notes } }) });
-      return success(result);
+      return success(result, request);
     }
 
     // Default Profile Update
@@ -67,7 +67,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       await executeAdmin(request, { permission: "customers.write", parse: async () => parsed.data.marketingConsent, run: async (marketingConsent, { database, context }) => executeAdminCustomerCommand(database, { actor: context.actor, shop: { id: context.shop.shopId } }, { action: "notes", id, values: { marketingConsent } }) });
     }
 
-    return success(updatedCustomer);
+    return success(updatedCustomer, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -77,7 +77,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const { id } = await context.params;
     const result = await executeAdmin(request, { permission: "customers.anonymize", parse: async () => id, run: async (customerId, { database, context: { actor, shop } }) => anonymizeAdminCustomer(database, { actor, shop: { id: shop.shopId } }, customerId) });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       permission: "settings.read",
       parse: async () => undefined,
       run: async (_input, { database, context }) => getAdminStorefrontTheme(database, { actor: context.actor, shop: { id: context.shop.shopId } }),
-    }));
+    }), request);
   } catch (error) {
     return failure(error, request);
   }
@@ -38,7 +38,7 @@ export async function PUT(request: Request) {
     return saveAdminStorefrontThemeDraft(database, { actor: context.actor, shop: { id: context.shop.shopId } }, body.themeKey);
       },
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     throw new DomainError("VALIDATION_ERROR", "Invalid theme lifecycle action", 422);
       },
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -79,7 +79,7 @@ export async function DELETE(request: Request) {
     return discardAdminStorefrontThemeDraft(database, { actor: context.actor, shop: { id: context.shop.shopId } }, draftId);
       },
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

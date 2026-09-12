@@ -18,6 +18,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid order pricing", 422);
     const { id } = await params;
     const result = await executeAdmin(request, { permission: "orders.update", parse: async () => ({ orderId: id, ...parsed.data }), run: async (input, { database, context: { actor } }) => updateAdminOrderPricing(database, { actor, shop: { id: env().SHOP_ID } }, input) });
-    return success(result);
+    return success(result, request);
   } catch (error) { return failure(error, request); }
 }

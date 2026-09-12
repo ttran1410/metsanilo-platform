@@ -25,7 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
       run: async (input, { database, context: { actor } }) => transitionAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, { orderId: (await params).id, ...input }),
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

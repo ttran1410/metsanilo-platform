@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       });
     });
 
-    const response = success({ changed: true, requireSignIn: true });
+    const response = success({ changed: true, requireSignIn: true }, request);
     response.cookies.set(SESSION_COOKIE, "", {
       httpOnly: true,
       sameSite: "lax",

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       } });
       return getAdminOrders(database, actionContext);
     } });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

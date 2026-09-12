@@ -16,7 +16,7 @@ export async function GET(
     const { id, seasonId } = await context.params;
     const summary = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => ({ id, seasonId }), run: async ({ seasonId: selectedSeasonId }, { database, context }) => getAdminSeasonSummary(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, selectedSeasonId) });
     if (summary.season.productId !== id) throw new DomainError("NOT_FOUND", "Harvest season not found", 404);
-    return success(summary);
+    return success(summary, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -41,7 +41,7 @@ export async function PATCH(
   try {
     const { seasonId } = await context.params;
     const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async (incoming) => { const parsed = updateSeasonSchema.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season update payload", 422); return parsed.data; }, run: async (input, { database, context: { actor } }) => input.action === "extend" ? extendAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, seasonId, input.additionalDays ?? 7) : updateAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, seasonId, { nameFi: input.nameFi, nameEn: input.nameEn, startDate: input.startDate, endDate: input.endDate, status: input.status, targetVolumeMl: input.targetVolumeMl, notes: input.notes }) });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -54,7 +54,7 @@ export async function DELETE(
   try {
     const { seasonId } = await context.params;
     const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async () => seasonId, run: async (id, { database, context: { actor } }) => { await deleteAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, id); return { deleted: true }; } });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

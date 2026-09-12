@@ -53,7 +53,7 @@ export async function GET(request: Request) {
         remainingSeconds: authContext.timing?.remainingSeconds ?? 0,
         warning: authContext.timing?.warning ?? false,
         sessions,
-      });
+      }, request);
       response.headers.set("Cache-Control", "no-store");
       return response;
     }
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
         remainingSeconds: timing?.remainingSeconds ?? 0,
         warning: timing?.warning ?? false,
         sessions,
-      });
+      }, request);
       response.headers.set("Cache-Control", "no-store");
       return response;
     }
@@ -116,7 +116,7 @@ export async function GET(request: Request) {
       warning: false,
       expiryReason: null,
       sessions: [],
-    });
+    }, request);
     response.headers.set("Cache-Control", "no-store");
     return response;
   } catch (error) {
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
         expiryReason: touched.timing.expiryReason,
         remainingSeconds: touched.timing.remainingSeconds,
         warning: touched.timing.warning,
-      });
+      }, request);
       response.headers.set("Cache-Control", "no-store");
       return response;
     }
@@ -176,7 +176,7 @@ export async function POST(request: Request) {
         expiryReason: updatedSession.timing.expiryReason,
         remainingSeconds: updatedSession.timing.remainingSeconds,
         warning: updatedSession.timing.warning,
-      });
+      }, request);
       response.cookies.set(SESSION_COOKIE, refreshedCookie, {
         httpOnly: true,
         sameSite: "lax",
@@ -194,7 +194,7 @@ export async function POST(request: Request) {
       serverNow: serverNow.toISOString(),
       remainingSeconds: 0,
       warning: false,
-    });
+    }, request);
     response.headers.set("Cache-Control", "no-store");
     return response;
   } catch (error) {
@@ -223,7 +223,7 @@ export async function DELETE(request: Request) {
 
     if (parsed.data.scope === "current") {
       await revokeCurrentSession(db(), request);
-      const response = success({ revoked: true, scope: "current" });
+      const response = success({ revoked: true, scope: "current" }, request);
       response.cookies.delete(SESSION_COOKIE);
       response.cookies.delete("better-auth.session_token");
       response.cookies.delete("__Secure-better-auth.session_token");
@@ -245,7 +245,7 @@ export async function DELETE(request: Request) {
         revoked: true,
         scope: "others",
         affectedCount: result.affectedCount,
-      });
+      }, request);
       response.headers.set("Cache-Control", "no-store");
       return response;
     }

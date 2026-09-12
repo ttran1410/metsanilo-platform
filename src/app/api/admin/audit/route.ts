@@ -20,7 +20,7 @@ export async function GET(request: Request) {
         return getAdminAuditData(database, { actor: context.actor, shop: { id: context.shop.shopId } }, { page, limit, search: params.get("q") ?? params.get("search") ?? "", severity, category, actor, dateRange });
       },
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

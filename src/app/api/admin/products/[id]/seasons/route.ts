@@ -34,7 +34,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   try {
     const { id } = await context.params;
     const seasons = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database, context }) => listAdminSeasons(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, productId) });
-    return success(seasons);
+    return success(seasons, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -50,7 +50,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid season inputs", 422);
       return createAdminSeason(database, { actor, shop: { id: env().SHOP_ID } }, { ...parsed.data, productId: id });
     } });
-    return success(result, 201);
+    return success(result, request, 201);
   } catch (error) {
     return failure(error, request);
   }

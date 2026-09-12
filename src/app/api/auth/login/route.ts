@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       recordLegacyAuthUsage(request, "login_endpoint", 401);
       return new Response(JSON.stringify({ code: "UNAUTHORIZED", message: "Invalid email or password" }), { status: 401, headers: { "content-type": "application/json" } });
     }
-    const response = success({ email: user.email, mustChangePassword: user.mustChangePassword });
+    const response = success({ email: user.email, mustChangePassword: user.mustChangePassword }, request);
     response.cookies.set(SESSION_COOKIE, createSession(user.email!, user.sessionVersion, user.mustChangePassword), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: sessionMaxAge });
     recordLegacyAuthUsage(request, "login_endpoint", 200);
     return response;

@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
     const result = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => id, run: async (productId, { database, context }) => { const detail = await getAdminProductDetailWithAvailability(database, { actor: context.actor, shop: { id: context.shop.shopId } }, productId); if (!detail) throw new DomainError("NOT_FOUND", "Product not found", 404); return detail; } });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -26,10 +26,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id } = await params;
     const permission = parsed.data.action === "delete" ? "catalog.product.delete" : "catalog.product.write";
     const result = await executeAdmin(request, { permission, parse: async () => parsed.data, run: async (input, { database, context }) => { const actionContext = { actor: context.actor, shop: { id: context.shop.shopId } }; if (input.action === "delete") return deleteProduct(database, actionContext, id); if (input.action === "active") return input.active ? restoreProduct(database, actionContext, id) : archiveProduct(database, actionContext, id); return updateProduct(database, actionContext, id, input.product); } });
-    return success(result);
+    return success(result, request);
   } catch (error) { return failure(error, request); }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try { const id = (await params).id; const result = await executeAdmin(request, { permission: "catalog.product.delete", parse: async () => id, run: async (productId, { database, context }) => deleteProduct(database, { actor: context.actor, shop: { id: context.shop.shopId } }, productId) }); return success(result); } catch (error) { return failure(error, request); }
+  try { const id = (await params).id; const result = await executeAdmin(request, { permission: "catalog.product.delete", parse: async () => id, run: async (productId, { database, context }) => deleteProduct(database, { actor: context.actor, shop: { id: context.shop.shopId } }, productId) }); return success(result, request); } catch (error) { return failure(error, request); }
 }

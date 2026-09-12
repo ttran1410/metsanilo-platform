@@ -50,7 +50,7 @@ export async function GET(request: Request) {
         });
       },
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
         return markAdminFilteredNotificationsRead(database, { actor, shop: { id: env().SHOP_ID } }, input.filters);
       },
     });
-    return success(result);
+    return success(result, request);
   } catch (error) {
     return failure(error, request);
   }

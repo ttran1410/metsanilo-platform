@@ -63,7 +63,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     assertCanManageUserSessions(actor, targetUser);
 
     const sessions = await getUserSessions(database, id);
-    const response = success(sessions);
+    const response = success(sessions, request);
     response.headers.set("Cache-Control", "no-store");
     return response;
   } catch (error) {
@@ -112,7 +112,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       result = await revokeUserSessions(database, request, id, parsed.data.reason);
     }
 
-    const response = success(result);
+    const response = success(result, request);
     if (actor.id === id && (parsed.data.scope === "all" || currentContext.sessionId === parsed.data.sessionId)) {
       response.cookies.delete(SESSION_COOKIE);
       response.cookies.delete("better-auth.session_token");
