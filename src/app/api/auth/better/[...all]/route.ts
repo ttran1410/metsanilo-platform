@@ -1,5 +1,7 @@
 import { toNextJsHandler } from "better-auth/next-js";
 import { getBetterAuthInstance } from "@/lib/better-auth";
+import { resolveCorrelationId } from "@/lib/correlation-id";
+import { methodNotAllowed } from "@/app/api/response";
 
 export const runtime = "nodejs";
 
@@ -19,10 +21,37 @@ function isAllowedBetterAuthRequest(request: Request): boolean {
   }
 }
 
-function endpointDisabledResponse() {
+function withCorrelationHeader(response: Response, correlationId: string): Response {
+  try {
+    response.headers.set("x-correlation-id", correlationId);
+    return response;
+  } catch {
+    const headers = new Headers(response.headers);
+    headers.set("x-correlation-id", correlationId);
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+}
+
+function endpointDisabledResponse(request: Request) {
+  const correlationId = resolveCorrelationId(request);
   return Response.json(
-    { code: "ENDPOINT_DISABLED", message: "Use canonical application authentication endpoints." },
-    { status: 404 },
+    {
+      error: {
+        code: "ENDPOINT_DISABLED",
+        message: "Use canonical application authentication endpoints.",
+      },
+      correlationId,
+    },
+    {
+      status: 404,
+      headers: {
+        "x-correlation-id": correlationId,
+      },
+    },
   );
 }
 
@@ -31,17 +60,48 @@ function previewAuthDisabled(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse();
-  return toNextJsHandler(getBetterAuthInstance()).GET(request);
+  const correlationId = resolveCorrelationId(request);
+  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse(request);
+  const response = await toNextJsHandler(getBetterAuthInstance()).GET(request);
+  return withCorrelationHeader(response, correlationId);
 }
 
 export async function POST(request: Request) {
-  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse();
+  const correlationId = resolveCorrelationId(request);
+  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse(request);
   if (previewAuthDisabled(request)) {
     return Response.json(
-      { code: "PREVIEW_AUTH_DISABLED", message: "Admin authentication is unavailable on preview deployments." },
-      { status: 404 }
+      {
+        error: {
+          code: "PREVIEW_AUTH_DISABLED",
+          message: "Admin authentication is unavailable on preview deployments.",
+        },
+        correlationId,
+      },
+      {
+        status: 404,
+        headers: {
+          "x-correlation-id": correlationId,
+        },
+      },
     );
   }
-  return toNextJsHandler(getBetterAuthInstance()).POST(request);
+  const response = await toNextJsHandler(getBetterAuthInstance()).POST(request);
+  return withCorrelationHeader(response, correlationId);
+}
+
+export async function PUT(request: Request) {
+  return methodNotAllowed(["GET", "POST"], request);
+}
+
+export async function PATCH(request: Request) {
+  return methodNotAllowed(["GET", "POST"], request);
+}
+
+export async function DELETE(request: Request) {
+  return methodNotAllowed(["GET", "POST"], request);
+}
+
+export async function OPTIONS(request: Request) {
+  return methodNotAllowed(["GET", "POST"], request);
 }
