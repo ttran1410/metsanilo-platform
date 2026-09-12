@@ -10,4 +10,3 @@
 - Follow `docs/engineering/ci-cd.md`, `docs/engineering/database-migrations.md`, `docs/engineering/backup-restore-policy.md`, and `docs/engineering/production-deployment.md`; report commands run, targets, results, and unverified assumptions without secret values.
 - `audit:auth` (`scripts/audit-auth-readiness.ts`) runs database readiness verification before cutovers (verifying 100% active user credential coverage, bidirectional orphan checks, and role coverage).
 - `smoke:auth` (`scripts/auth-readiness-smoke.ts`) executes live HTTP authentication smoke tests against a specified target URL (`AUTH_SMOKE_BASE_URL`), protecting against unintended execution on the canonical production origin unless `AUTH_SMOKE_ALLOW_PRODUCTION=true` is set.
-

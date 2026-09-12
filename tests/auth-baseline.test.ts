@@ -166,9 +166,9 @@ describe("Better Auth baseline", () => {
     }));
     expect(login.status).toBe(410);
     expect(await login.json()).toMatchObject({
-      error: {
-        code: "ENDPOINT_RETIRED",
-      },
+      code: "ENDPOINT_RETIRED",
+      correlationId: expect.any(String),
+      message: expect.stringContaining("Legacy login"),
     });
   });
 
@@ -405,7 +405,10 @@ describe("Better Auth baseline", () => {
         body: JSON.stringify({ email: "admin@example.test", password: "Password123!" }),
       }));
       expect(response.status).toBe(404);
-      expect(await response.json()).toMatchObject({ error: { code: "PREVIEW_AUTH_DISABLED" } });
+      expect(await response.json()).toMatchObject({
+        code: "PREVIEW_AUTH_DISABLED",
+        correlationId: expect.any(String),
+      });
     } finally {
       delete process.env.VERCEL_ENV;
     }
@@ -626,19 +629,17 @@ describe("Better Auth baseline", () => {
       expect(postRes.status).toBe(404);
       const postBody = await postRes.json();
       expect(postBody).toMatchObject({
-        error: {
-          code: "ENDPOINT_DISABLED",
-          message: expect.stringContaining("canonical"),
-        },
+        code: "ENDPOINT_DISABLED",
+        message: expect.stringContaining("canonical"),
+        correlationId: expect.any(String),
       });
 
       const getRes = await betterAuthGet(new Request(url, { method: "GET" }));
       expect(getRes.status).toBe(404);
       const getBody = await getRes.json();
       expect(getBody).toMatchObject({
-        error: {
-          code: "ENDPOINT_DISABLED",
-        },
+        code: "ENDPOINT_DISABLED",
+        correlationId: expect.any(String),
       });
     }
   });
@@ -697,6 +698,9 @@ describe("Better Auth baseline", () => {
       body: JSON.stringify({ email: credentials.email, password: credentials.password }),
     }));
     expect(legacyResponse.status).toBe(410);
-    expect(await legacyResponse.json()).toMatchObject({ error: { code: "ENDPOINT_RETIRED" } });
+    expect(await legacyResponse.json()).toMatchObject({
+      code: "ENDPOINT_RETIRED",
+      correlationId: expect.any(String),
+    });
   });
 });

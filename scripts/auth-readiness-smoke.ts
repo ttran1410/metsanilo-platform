@@ -100,7 +100,7 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
     throw new SmokeConfigError("Admin credentials (AUTH_SMOKE_ADMIN_EMAIL & AUTH_SMOKE_ADMIN_PASSWORD) are required");
   }
 
-  async function testUserFlow(roleName: string, email: string, pass: string) {
+  async function testUserFlow(roleName: string, email: string, pass: string, expectedRole?: string) {
     const jar = new CookieJar();
     const correlationId = crypto.randomUUID();
 
@@ -143,6 +143,8 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
     const sessionData = (await sessionRes.json()) as { data?: { user?: { email?: string; role?: string } } };
     if (sessionData.data?.user?.email?.toLowerCase() !== email.toLowerCase()) {
       errors.push(`[${roleName}] Session email mismatch: expected ${email}, got ${sessionData.data?.user?.email}`);
+    } else if (expectedRole && sessionData.data?.user?.role !== expectedRole) {
+      errors.push(`[${roleName}] Session role mismatch: expected ${expectedRole}, got ${sessionData.data?.user?.role}`);
     } else {
       results.push(`[${roleName}] Session verified for ${email} (role: ${sessionData.data?.user?.role})`);
     }
@@ -155,19 +157,34 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
       },
     });
 
+    jar.updateFromHeaders(logoutRes.headers);
+
     if (logoutRes.status !== 200) {
       errors.push(`[${roleName}] Sign-out failed with status ${logoutRes.status}`);
     } else {
       results.push(`[${roleName}] Sign-out succeeded`);
     }
+
+    // 4. Post-logout invalidation check
+    const postLogoutSessionRes = await fetchImpl(`${origin}/api/auth/session`, {
+      headers: {
+        cookie: jar.getCookieHeader(),
+      },
+    });
+
+    if (postLogoutSessionRes.status === 401) {
+      results.push(`[${roleName}] Post-logout session invalidation verified (status 401)`);
+    } else {
+      errors.push(`[${roleName}] Post-logout session was not invalidated; status ${postLogoutSessionRes.status}`);
+    }
   }
 
   // Run Admin Flow
-  await testUserFlow("ADMIN", adminEmail, adminPassword);
+  await testUserFlow("ADMIN", adminEmail, adminPassword, "ADMIN");
 
   // Run Manager Flow if provided
   if (managerEmail && managerPassword) {
-    await testUserFlow("MANAGER", managerEmail, managerPassword);
+    await testUserFlow("MANAGER", managerEmail, managerPassword, "MANAGER");
   }
 
   // Security / Negative checks

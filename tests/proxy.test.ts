@@ -11,19 +11,25 @@ describe("proxy routing and security", () => {
     expect(correlation).toBeDefined();
   });
 
-  it("returns 401 JSON for unauthenticated admin API requests without basic auth challenge", () => {
+  it("returns top-level 401 JSON for unauthenticated admin API requests without basic auth challenge", async () => {
     const request = new NextRequest("https://example.test/api/admin/orders");
     const response = proxy(request);
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toBeNull();
     expect(response.headers.get("x-correlation-id")).toBeDefined();
+    const body = await response.json();
+    expect(body).toEqual({
+      code: "UNAUTHORIZED",
+      message: "Authentication required",
+      correlationId: expect.any(String),
+    });
   });
 
-  it("redirects unauthenticated admin UI requests to /admin/login", () => {
-    const request = new NextRequest("https://example.test/admin/orders");
+  it("redirects unauthenticated admin UI requests to /admin/login with safe relative next parameter", () => {
+    const request = new NextRequest("https://example.test/admin/orders?filter=active");
     const response = proxy(request);
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://example.test/admin/login");
+    expect(response.headers.get("location")).toBe("https://example.test/admin/login?next=%2Fadmin%2Forders%3Ffilter%3Dactive");
     expect(response.headers.get("x-correlation-id")).toBeDefined();
   });
 
@@ -37,17 +43,28 @@ describe("proxy routing and security", () => {
     expect(response.status).toBe(200);
   });
 
-  it("records legacy telemetry for legacy cookie and basic auth attempts", () => {
+  it("records http_basic telemetry on unauthenticated request and extraneous_basic on authenticated request", () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
-    const request = new NextRequest("https://example.test/api/admin/orders", {
+
+    // 1. Unauthenticated attempt with Basic Auth -> http_basic
+    const unauthReq = new NextRequest("https://example.test/api/admin/orders", {
       headers: {
         authorization: "Basic YWRtaW46cGFzc3dvcmQ=",
         cookie: "metsanilo_session=legacy-token",
       },
     });
-    const response = proxy(request);
-    expect(response.status).toBe(401);
-    expect(info).toHaveBeenCalled();
+    const unauthRes = proxy(unauthReq);
+    expect(unauthRes.status).toBe(401);
+
+    // 2. Authenticated attempt with redundant Basic Auth -> extraneous_basic
+    const authReq = new NextRequest("https://example.test/api/admin/orders", {
+      headers: {
+        authorization: "Basic YWRtaW46cGFzc3dvcmQ=",
+        cookie: "better-auth.session_token=valid-token",
+      },
+    });
+    const authRes = proxy(authReq);
+    expect(authRes.status).toBe(200);
 
     const loggedMechanisms = info.mock.calls.map((call) => {
       try {
@@ -58,6 +75,7 @@ describe("proxy routing and security", () => {
     });
 
     expect(loggedMechanisms).toContain("legacy_cookie");
+    expect(loggedMechanisms).toContain("http_basic");
     expect(loggedMechanisms).toContain("extraneous_basic");
     info.mockRestore();
   });

@@ -20,7 +20,7 @@ export async function auditAuthReadiness(
 ): Promise<AuditReadinessResult> {
   const errors: string[] = [];
 
-  const activeUsers = await database.query.users.findMany({
+  const activeShopUsers = await database.query.users.findMany({
     where: and(eq(users.shopId, shopId), eq(users.active, true)),
   });
 
@@ -39,7 +39,7 @@ export async function auditAuthReadiness(
   let adminCount = 0;
   let managerCount = 0;
 
-  for (const user of activeUsers) {
+  for (const user of activeShopUsers) {
     if (!user.passwordHash || user.passwordHash.trim().length === 0) {
       errors.push(`Active user ${user.id} (${user.email}) is missing passwordHash credential mirror.`);
     }
@@ -78,13 +78,12 @@ export async function auditAuthReadiness(
     errors.push("Role coverage check failed: no active MANAGER user found.");
   }
 
-  const allUsers = await database.query.users.findMany({
-    where: eq(users.shopId, shopId),
-  });
-  const allUserIds = new Set(allUsers.map((u) => u.id));
+  // Check global identity invariants: auth_users.id === users.id
+  const allGlobalUsers = await database.query.users.findMany();
+  const allGlobalUserIds = new Set(allGlobalUsers.map((u) => u.id));
 
   for (const authUser of allAuthUsers) {
-    if (!allUserIds.has(authUser.id)) {
+    if (!allGlobalUserIds.has(authUser.id)) {
       errors.push(`Orphan auth_user found: ${authUser.id} (${authUser.email}) has no matching shop user.`);
     }
   }
@@ -97,7 +96,7 @@ export async function auditAuthReadiness(
 
   return {
     ok: errors.length === 0,
-    activeUsersCount: activeUsers.length,
+    activeUsersCount: activeShopUsers.length,
     adminCount,
     managerCount,
     errors,

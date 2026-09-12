@@ -57,9 +57,12 @@ describe("auth readiness smoke runner", () => {
         const urlStr = typeof input === "string" ? input : input.toString();
         const url = new URL(urlStr);
 
+        let currentSessionValid = true;
+
         if (url.pathname === "/api/auth/better/sign-in/email") {
           const body = JSON.parse(String(init?.body || "{}"));
           if (body.password === "ValidPassword123!") {
+            currentSessionValid = true;
             const resHeaders = new Headers({
               "set-cookie": "better-auth.session_token=mock-session-token; Path=/",
               "x-correlation-id": "corr-123",
@@ -73,6 +76,10 @@ describe("auth readiness smoke runner", () => {
         }
 
         if (url.pathname === "/api/auth/session") {
+          const cookieHeader = (init?.headers as Record<string, string>)?.["cookie"] ?? (init?.headers as Headers)?.get?.("cookie") ?? "";
+          if (!currentSessionValid || !cookieHeader || !cookieHeader.includes("better-auth.session_token")) {
+            return new Response(JSON.stringify({ code: "UNAUTHORIZED", message: "Authentication required" }), { status: 401 });
+          }
           return new Response(
             JSON.stringify({
               data: {
@@ -84,7 +91,11 @@ describe("auth readiness smoke runner", () => {
         }
 
         if (url.pathname === "/api/auth/better/sign-out") {
-          return new Response(JSON.stringify({ success: true }), { status: 200 });
+          currentSessionValid = false;
+          const resHeaders = new Headers({
+            "set-cookie": "better-auth.session_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+          });
+          return new Response(JSON.stringify({ success: true }), { status: 200, headers: resHeaders });
         }
 
         if (url.pathname === "/api/auth/better/sign-up/email") {

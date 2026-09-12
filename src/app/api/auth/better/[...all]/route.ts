@@ -21,13 +21,20 @@ function isAllowedBetterAuthRequest(request: Request): boolean {
   }
 }
 
-function withCorrelationHeader(response: Response, correlationId: string): Response {
+export function withCorrelationHeader(response: Response, correlationId: string): Response {
   try {
     response.headers.set("x-correlation-id", correlationId);
     return response;
   } catch {
+    const rawSetCookies = response.headers.getSetCookie?.() ?? [response.headers.get("set-cookie") ?? ""].filter(Boolean);
     const headers = new Headers(response.headers);
     headers.set("x-correlation-id", correlationId);
+    if (rawSetCookies.length > 1) {
+      headers.delete("set-cookie");
+      for (const cookie of rawSetCookies) {
+        headers.append("set-cookie", cookie);
+      }
+    }
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
@@ -38,17 +45,19 @@ function withCorrelationHeader(response: Response, correlationId: string): Respo
 
 function endpointDisabledResponse(request: Request) {
   const correlationId = resolveCorrelationId(request);
-  return Response.json(
-    {
-      error: {
-        code: "ENDPOINT_DISABLED",
-        message: "Use canonical application authentication endpoints.",
-      },
-      correlationId,
-    },
+  return new Response(
+    request.method === "HEAD"
+      ? null
+      : JSON.stringify({
+          code: "ENDPOINT_DISABLED",
+          message: "Use canonical application authentication endpoints.",
+          correlationId,
+        }),
     {
       status: 404,
       headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store, max-age=0",
         "x-correlation-id": correlationId,
       },
     },
@@ -70,17 +79,19 @@ export async function POST(request: Request) {
   const correlationId = resolveCorrelationId(request);
   if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse(request);
   if (previewAuthDisabled(request)) {
-    return Response.json(
-      {
-        error: {
-          code: "PREVIEW_AUTH_DISABLED",
-          message: "Admin authentication is unavailable on preview deployments.",
-        },
-        correlationId,
-      },
+    return new Response(
+      request.method === "HEAD"
+        ? null
+        : JSON.stringify({
+            code: "PREVIEW_AUTH_DISABLED",
+            message: "Admin authentication is unavailable on preview deployments.",
+            correlationId,
+          }),
       {
         status: 404,
         headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store, max-age=0",
           "x-correlation-id": correlationId,
         },
       },
@@ -104,4 +115,19 @@ export async function DELETE(request: Request) {
 
 export async function OPTIONS(request: Request) {
   return methodNotAllowed(["GET", "POST"], request);
+}
+
+export async function HEAD(request: Request) {
+  const correlationId = resolveCorrelationId(request);
+  if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse(request);
+  const getRequest = new Request(request.url, {
+    method: "GET",
+    headers: request.headers,
+  });
+  const getResponse = await GET(getRequest);
+  return new Response(null, {
+    status: getResponse.status,
+    statusText: getResponse.statusText,
+    headers: getResponse.headers,
+  });
 }
