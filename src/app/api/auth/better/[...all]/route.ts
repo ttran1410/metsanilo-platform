@@ -3,6 +3,8 @@ import { getBetterAuthInstance } from "@/lib/better-auth";
 import { resolveCorrelationId } from "@/lib/correlation-id";
 import { methodNotAllowed } from "@/app/api/response";
 
+import { withCorrelationHeader } from "@/lib/better-auth-wrapper";
+
 export const runtime = "nodejs";
 
 const ALLOWED_BETTER_AUTH_PATHS = [
@@ -18,28 +20,6 @@ function isAllowedBetterAuthRequest(request: Request): boolean {
     return ALLOWED_BETTER_AUTH_PATHS.some((path) => pathname.endsWith(path));
   } catch {
     return false;
-  }
-}
-
-export function withCorrelationHeader(response: Response, correlationId: string): Response {
-  try {
-    response.headers.set("x-correlation-id", correlationId);
-    return response;
-  } catch {
-    const rawSetCookies = response.headers.getSetCookie?.() ?? [response.headers.get("set-cookie") ?? ""].filter(Boolean);
-    const headers = new Headers(response.headers);
-    headers.set("x-correlation-id", correlationId);
-    if (rawSetCookies.length > 1) {
-      headers.delete("set-cookie");
-      for (const cookie of rawSetCookies) {
-        headers.append("set-cookie", cookie);
-      }
-    }
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
   }
 }
 
@@ -118,7 +98,6 @@ export async function OPTIONS(request: Request) {
 }
 
 export async function HEAD(request: Request) {
-  const correlationId = resolveCorrelationId(request);
   if (!isAllowedBetterAuthRequest(request)) return endpointDisabledResponse(request);
   const getRequest = new Request(request.url, {
     method: "GET",

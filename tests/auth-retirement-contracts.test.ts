@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GET as loginGet, POST as loginPost, PUT as loginPut, PATCH as loginPatch, DELETE as loginDelete, OPTIONS as loginOptions, HEAD as loginHead } from "@/app/api/auth/login/route";
 import { GET as logoutGet, POST as logoutPost, PUT as logoutPut, PATCH as logoutPatch, DELETE as logoutDelete, OPTIONS as logoutOptions, HEAD as logoutHead } from "@/app/api/auth/logout/route";
-import { GET as betterGet, POST as betterPost, PUT as betterPut, PATCH as betterPatch, DELETE as betterDelete, OPTIONS as betterOptions, HEAD as betterHead } from "@/app/api/auth/better/[...all]/route";
+import { HEAD as betterHead } from "@/app/api/auth/better/[...all]/route";
 
 describe("Retirement endpoint contracts (/api/auth/login, /api/auth/logout)", () => {
   it("login endpoint returns top-level 410 with correlation header, no-store, and cookie purge for POST and other methods", async () => {
@@ -56,7 +56,7 @@ describe("Retirement endpoint contracts (/api/auth/login, /api/auth/logout)", ()
     expect(patchRes.status).toBe(405);
     const deleteRes = await loginDelete(new Request("http://localhost:3000/api/auth/login", { method: "DELETE" }));
     expect(deleteRes.status).toBe(405);
-    const optionsRes = await loginOptions(new Request("http://localhost:3000/api/auth/login", { method: "OPTIONS" }));
+    const optionsRes = await loginOptions();
     expect(optionsRes.status).toBe(204);
   });
 
@@ -116,7 +116,7 @@ describe("Retirement endpoint contracts (/api/auth/login, /api/auth/logout)", ()
     expect(patchRes.status).toBe(405);
     const deleteRes = await logoutDelete(new Request("http://localhost:3000/api/auth/logout", { method: "DELETE" }));
     expect(deleteRes.status).toBe(405);
-    const optionsRes = await logoutOptions(new Request("http://localhost:3000/api/auth/logout", { method: "OPTIONS" }));
+    const optionsRes = await logoutOptions();
     expect(optionsRes.status).toBe(204);
   });
 });
@@ -133,7 +133,8 @@ describe("Better Auth wrapper multi-cookie & HEAD preservation", () => {
     headers.append("set-cookie", "cookie2=val2; Path=/");
     const multiCookieResponse = new Response("ok", { headers });
 
-    const wrapped = (await import("@/app/api/auth/better/[...all]/route")).withCorrelationHeader(
+    const { withCorrelationHeader } = await import("@/lib/better-auth-wrapper");
+    const wrapped = withCorrelationHeader(
       multiCookieResponse,
       "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
     );
