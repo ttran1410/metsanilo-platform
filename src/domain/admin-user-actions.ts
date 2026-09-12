@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, authAccounts, authUsers, users } from "@/db/schema";
+import { auditEntries, authUsers, users } from "@/db/schema";
 import { DomainError } from "./errors";
 import { hashPassword, randomPassword } from "./passwords";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
+import { revokeAllUserSessions, setCredentialHash } from "@/lib/auth-integration";
 
 export async function updateAdminProfile(database: Database, context: AdminActionContext, displayName: string) {
   assertAdminActionContext(context);
@@ -27,7 +28,8 @@ export async function resetAdminUserPassword(database: Database, context: AdminA
   const now = new Date().toISOString();
   await database.transaction(async (tx) => {
     await tx.update(users).set({ passwordHash, sessionVersion: target.sessionVersion + 1 }).where(and(eq(users.id, target.id), eq(users.shopId, context.shop.id)));
-    await tx.update(authAccounts).set({ password: passwordHash, updatedAt: new Date() }).where(and(eq(authAccounts.userId, target.id), eq(authAccounts.providerId, "credential")));
+    await setCredentialHash(tx, target.id, passwordHash);
+    await revokeAllUserSessions(tx, target.id);
     await tx.insert(auditEntries).values({ id: randomUUID(), shopId: context.shop.id, actor: context.actor.email ?? context.actor.id, action: "user.password_reset", entityType: "user", entityId: target.id, detailsJson: JSON.stringify({ targetRole: target.role }), createdAt: now });
   });
   return { email: target.email, temporaryPassword };

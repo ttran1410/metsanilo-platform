@@ -6,7 +6,7 @@ import { migrate } from "drizzle-orm/libsql/migrator";
 import { eq } from "drizzle-orm";
 import { createDatabaseConnection, type Database } from "@/db/client";
 import { authAccounts, authSessions, authUsers, shops, users } from "@/db/schema";
-import { currentUser } from "@/domain/access";
+import { createUser, currentUser } from "@/domain/access";
 import { hashPassword } from "@/domain/passwords";
 import { createBetterAuthInstance } from "@/lib/better-auth";
 import { resetEnvForTests } from "@/lib/env";
@@ -88,14 +88,14 @@ describe("Better Auth baseline", () => {
     const credentials = await provision(`blocked-${sequence}`, shopId, active);
     const signedIn = await signIn(credentials.email, credentials.password);
     expect(signedIn.response.status).toBe(200);
-    await expect(currentUser(database, new Request("http://localhost:3000/admin", { headers: { cookie: signedIn.cookie } }))).rejects.toMatchObject({ code: "UNAUTHORIZED", status: 401 });
+    await expect(currentUser(database, new Request("http://localhost:3000/admin", { headers: { cookie: signedIn.cookie } }))).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
   });
 
   it("fails closed when the Better Auth identity has no shop membership", async () => {
     const credentials = await provision("missing-membership");
     const signedIn = await signIn(credentials.email, credentials.password);
     await database.delete(users).where(eq(users.id, "missing-membership"));
-    await expect(currentUser(database, new Request("http://localhost:3000/admin", { headers: { cookie: signedIn.cookie } }))).rejects.toMatchObject({ code: "UNAUTHORIZED", status: 401 });
+    await expect(currentUser(database, new Request("http://localhost:3000/admin", { headers: { cookie: signedIn.cookie } }))).rejects.toMatchObject({ code: "FORBIDDEN", status: 403 });
   });
 
   it("rejects a tampered Better Auth cookie", async () => {
@@ -129,5 +129,23 @@ describe("Better Auth baseline", () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ code: "FORBIDDEN" });
     expect(await database.query.users.findFirst({ where: eq(users.id, "immutable-email") })).toMatchObject({ email: credentials.email });
+  });
+
+  it("provisions the application and Better Auth identities atomically", async () => {
+    const credentials = await provision("provisioning-admin");
+    const admin = (await signIn(credentials.email, credentials.password)).cookie;
+    const created = await createUser(database, new Request("http://localhost/manager", { headers: { cookie: admin } }), { email: "provisioned@example.test", password: "Password123!", displayName: "Provisioned", role: "STAFF" });
+    expect(created.email).toBe("provisioned@example.test");
+    expect(await database.query.authUsers.findFirst({ where: eq(authUsers.id, created.id) })).toMatchObject({ email: created.email, emailVerified: false });
+    expect(await database.query.authAccounts.findFirst({ where: eq(authAccounts.userId, created.id) })).toMatchObject({ providerId: "credential", password: created.passwordHash });
+  });
+
+  it("rolls back user provisioning when the Better Auth identity conflicts", async () => {
+    const credentials = await provision("rollback-admin");
+    const admin = (await signIn(credentials.email, credentials.password)).cookie;
+    const now = new Date();
+    await database.insert(authUsers).values({ id: "existing-auth-user", name: "Existing", email: "conflict@example.test", emailVerified: false, createdAt: now, updatedAt: now });
+    await expect(createUser(database, new Request("http://localhost/manager", { headers: { cookie: admin } }), { email: "conflict@example.test", password: "Password123!", displayName: "Conflict", role: "STAFF" })).rejects.toThrow();
+    expect(await database.query.users.findFirst({ where: eq(users.email, "conflict@example.test") })).toBeUndefined();
   });
 });
