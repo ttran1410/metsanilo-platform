@@ -30,7 +30,7 @@ export function SessionGuard() {
 
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [effectiveExpiresAt, setEffectiveExpiresAt] = useState<string | null>(null);
-  const [mechanism, setMechanism] = useState<"better_auth" | "legacy_cookie" | "http_basic" | null>(null);
+  const [mechanism, setMechanism] = useState<"better_auth" | null>(null);
   const [expiryReason, setExpiryReason] = useState<"idle_timeout" | "absolute_timeout" | null>(null);
   const [isWarningOpen, setIsWarningOpen] = useState(false);
   const [isExtending, setIsExtending] = useState(false);
@@ -85,12 +85,6 @@ export function SessionGuard() {
       const body = await response.json();
       currentSessionIdRef.current = body.data?.currentSessionId ?? null;
       setMechanism(body.data?.mechanism ?? null);
-      if (body.data?.mechanism === "http_basic") {
-        setEffectiveExpiresAt(null);
-        setRemainingSeconds(null);
-        setIsWarningOpen(false);
-        return;
-      }
       setExpiryReason(body.data?.expiryReason ?? null);
       if (body.data?.serverNow && body.data?.effectiveExpiresAt) {
         const serverNowMs = Date.parse(body.data.serverNow);
@@ -287,7 +281,7 @@ export function SessionGuard() {
 
   // 4. Timer interval for 1-second countdown and warning state management
   useEffect(() => {
-    if (!effectiveExpiresAt || mechanism === "http_basic") return;
+    if (!effectiveExpiresAt) return;
 
     const interval = setInterval(() => {
       const expiresMs = Date.parse(effectiveExpiresAt);

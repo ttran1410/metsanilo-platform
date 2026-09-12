@@ -29,7 +29,7 @@ type SessionInfo = {
 };
 
 type SessionStatusResponse = {
-  mechanism: "better_auth" | "legacy_cookie" | "http_basic";
+  mechanism: "better_auth";
   currentSessionId: string | null;
   serverNow: string;
   idleExpiresAt: string;
@@ -264,7 +264,7 @@ export function ProfileForm({ initial }: { initial: Profile }) {
                 {revokingOthers ? "Revoking…" : `Revoke ${otherSessionsCount} other ${otherSessionsCount === 1 ? "session" : "sessions"}`}
               </button>
             )}
-            {sessionStatus?.mechanism !== "http_basic" && sessionStatus?.currentSessionId && (
+            {Boolean(sessionStatus?.currentSessionId) && (
               <button
                 type="button"
                 className="btn btn-secondary text-xs py-1.5 px-3 text-danger font-semibold"
@@ -277,15 +277,9 @@ export function ProfileForm({ initial }: { initial: Profile }) {
           </div>
         </div>
 
-        {sessionStatus?.mechanism === "legacy_cookie" && (
-          <div className="p-3 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl text-xs">
-            You are signed in with a legacy signed session. Individual remote session management is available when authenticated via Modern Auth.
-          </div>
-        )}
-
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sessionStatus?.sessions.map((s) => {
-            const isCurrent = s.id === sessionStatus.currentSessionId || s.id === "legacy-current";
+            const isCurrent = s.id === sessionStatus.currentSessionId;
             return (
               <div
                 key={s.id}
