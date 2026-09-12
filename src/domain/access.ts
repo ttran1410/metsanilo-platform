@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, authAccounts, authSessions, authUsers, userPermissions, users } from "@/db/schema";
+import { auditEntries, authSessions, userPermissions, users } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { readSession, SESSION_COOKIE } from "./session";
 import { assertPassword, hashPassword, verifyPassword } from "./passwords";
-import { getBetterAuthInstance } from "@/lib/better-auth";
+import { getBetterAuthSession, mapActiveShopUser, provisionUserWithAuth, revokeAllUserSessions } from "@/lib/auth-integration";
 import { recordLegacyAuthUsage } from "@/lib/auth-telemetry";
 import { defaultPermissionsForRole, PERMISSIONS, type Permission, type Role } from "@/lib/permissions";
 
@@ -39,16 +39,16 @@ function usernameFromRequest(request: Request) {
 
 export async function currentUser(database: Database, request: Request) {
   const shopId = env().SHOP_ID;
+  let betterSession: Awaited<ReturnType<typeof getBetterAuthSession>>;
   try {
-    const betterSession = await getBetterAuthInstance().api.getSession({ headers: request.headers });
-    if (betterSession?.user?.id) {
-      const mapped = await database.query.users.findFirst({
-        where: and(eq(users.id, betterSession.user.id), eq(users.shopId, shopId), eq(users.active, true)),
-      });
-      if (mapped) return mapped;
-    }
+    betterSession = await getBetterAuthSession(request);
   } catch {
-    /* Fall through */
+    throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
+  }
+  if (betterSession?.user?.id) {
+    const mapped = await mapActiveShopUser(database, betterSession.user.id);
+    if (!mapped) throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
+    return mapped;
   }
   const cookie = request.headers.get("cookie")?.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`))?.[1];
   const session = readSession(cookie);
@@ -172,49 +172,11 @@ export async function createUser(
   const id = randomUUID();
   const createdAt = new Date().toISOString();
   try {
-    const passwordHash = hashPassword(input.password);
-    await database.insert(users).values({
-      id,
-      shopId: env().SHOP_ID,
-      username: email,
-      email,
-      passwordHash,
-      mustChangePassword: true,
-      sessionVersion: 1,
-      displayName,
-      role: input.role,
-      active: true,
-      createdAt,
-    });
-    const now = new Date();
-    await database.insert(authUsers).values({ id, name: displayName, email, emailVerified: true, image: null, createdAt: now, updatedAt: now });
-    await database.insert(authAccounts).values({ id: randomUUID(), accountId: id, providerId: "credential", userId: id, password: passwordHash, createdAt: now, updatedAt: now });
-    const defaults = defaultPermissionsForRole(input.role);
-    if (defaults.length)
-      await database.insert(userPermissions).values(
-        defaults.map((permission) => ({
-          id: randomUUID(),
-          shopId: env().SHOP_ID,
-          userId: id,
-          permission,
-          granted: true,
-          updatedAt: createdAt,
-        }))
-      );
+    await provisionUserWithAuth(database, { id, shopId: env().SHOP_ID, email, displayName, role: input.role, passwordHash: hashPassword(input.password), createdAt, auditActor: actor.email ?? actor.username ?? actor.id });
   } catch (error) {
     if (String(error).toLowerCase().includes("unique")) throw new DomainError("DUPLICATE_USER", "Username already exists", 409);
     throw error;
   }
-  await database.insert(auditEntries).values({
-    id: randomUUID(),
-    shopId: env().SHOP_ID,
-    actor: actor.email ?? actor.username ?? actor.id,
-    action: "user.created",
-    entityType: "user",
-    entityId: id,
-    detailsJson: JSON.stringify({ email, role: input.role }),
-    createdAt,
-  });
   return (await database.query.users.findFirst({ where: eq(users.id, id) }))!;
 }
 
@@ -242,6 +204,7 @@ export async function setUserPermission(
     .insert(userPermissions)
     .values({ id: randomUUID(), shopId: env().SHOP_ID, userId: target.id, permission, granted: input.granted, updatedAt })
     .onConflictDoUpdate({ target: [userPermissions.userId, userPermissions.permission], set: { granted: input.granted, updatedAt } });
+  await revokeAllUserSessions(database, target.id);
   await database.insert(auditEntries).values({
     id: randomUUID(),
     shopId: env().SHOP_ID,
@@ -258,7 +221,7 @@ export async function setUserPermission(
 export async function updateUserProfile(
   database: Database,
   request: Request,
-  input: { userId: string; displayName?: string; email?: string | null; role?: Role }
+  input: { userId: string; displayName?: string; role?: Role }
 ) {
   const actor = await requirePermission(database, request, "shop_users.manage");
   const target = await database.query.users.findFirst({
@@ -284,18 +247,6 @@ export async function updateUserProfile(
   const updates: Partial<Pick<typeof users.$inferInsert, "displayName" | "email" | "role">> = {};
   if (input.displayName && input.displayName.trim()) {
     updates.displayName = input.displayName.trim();
-  }
-  if (input.email !== undefined) {
-    const emailVal = input.email && input.email.trim() ? input.email.trim().toLowerCase() : null;
-    if (emailVal && emailVal !== target.email) {
-      const existing = await database.query.users.findFirst({
-        where: and(eq(users.email, emailVal), eq(users.shopId, env().SHOP_ID)),
-      });
-      if (existing) {
-        throw new DomainError("CONFLICT", "Email is already in use by another user", 409);
-      }
-    }
-    updates.email = emailVal;
   }
   if (input.role) {
     updates.role = input.role;
@@ -333,11 +284,10 @@ export async function updateUserRole(database: Database, request: Request, input
   if (!target) throw new DomainError("NOT_FOUND", "User not found", 404);
 
   const updatedAt = new Date().toISOString();
-  await database
-    .update(users)
-    .set({ role: input.role })
-    .where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID)))
-    .run();
+  await database.transaction(async (tx) => {
+    await tx.update(users).set({ role: input.role }).where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID))).run();
+    await revokeAllUserSessions(tx, input.userId);
+  });
 
   await database.insert(auditEntries).values({
     id: randomUUID(),
@@ -360,11 +310,10 @@ export async function toggleUserActive(database: Database, request: Request, inp
   if (target.id === actor.id) throw new DomainError("FORBIDDEN", "Cannot suspend your own account", 403);
 
   const updatedAt = new Date().toISOString();
-  await database
-    .update(users)
-    .set({ active: input.active, sessionVersion: sql`${users.sessionVersion} + 1` })
-    .where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID)))
-    .run();
+  await database.transaction(async (tx) => {
+    await tx.update(users).set({ active: input.active, sessionVersion: sql`${users.sessionVersion} + 1` }).where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID))).run();
+    await revokeAllUserSessions(tx, input.userId);
+  });
 
   await database.insert(auditEntries).values({
     id: randomUUID(),
@@ -405,6 +354,8 @@ export async function resetUserPermissionsToRole(database: Database, request: Re
     );
   }
 
+  await revokeAllUserSessions(database, userId);
+
   await database.insert(auditEntries).values({
     id: randomUUID(),
     shopId: env().SHOP_ID,
@@ -439,7 +390,7 @@ export async function revokeUserSessions(database: Database, request: Request, u
   const actor = await requirePermission(database, request, "shop_users.manage");
   const updatedAt = new Date().toISOString();
 
-  await database.delete(authSessions).where(eq(authSessions.userId, userId)).run();
+  await revokeAllUserSessions(database, userId);
   await database
     .update(users)
     .set({ sessionVersion: sql`${users.sessionVersion} + 1` })

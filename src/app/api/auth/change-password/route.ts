@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { auditEntries, authAccounts, users } from "@/db/schema";
+import { auditEntries, users } from "@/db/schema";
 import { currentUser } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { assertPassword, hashPassword, verifyPassword } from "@/domain/passwords";
@@ -9,6 +9,7 @@ import { env } from "@/lib/env";
 import { failure, success } from "../../response";
 import { createSession, SESSION_COOKIE, sessionMaxAge } from "@/domain/session";
 import { getBetterAuthInstance } from "@/lib/better-auth";
+import { setCredentialHash } from "@/lib/auth-integration";
 
 const command = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(8) });
 export const runtime = "nodejs";
@@ -53,10 +54,7 @@ export async function POST(request: Request) {
       .set({ passwordHash, mustChangePassword: false, sessionVersion: nextVersion })
       .where(and(eq(users.id, actor.id), eq(users.shopId, env().SHOP_ID)));
 
-    await db()
-      .update(authAccounts)
-      .set({ password: passwordHash, updatedAt: new Date() })
-      .where(and(eq(authAccounts.userId, actor.id), eq(authAccounts.providerId, "credential")));
+    await setCredentialHash(db(), actor.id, passwordHash);
 
     await db().insert(auditEntries).values({
       id: crypto.randomUUID(),

@@ -37,6 +37,10 @@ export function validateRuntimeEnvironment(options?: { production?: boolean }) {
     if (config.TURSO_DATABASE_URL.startsWith("file:")) errors.push("TURSO_DATABASE_URL must be a remote Turso URL");
     if (!config.TURSO_AUTH_TOKEN) errors.push("TURSO_AUTH_TOKEN is required");
     if (!config.ADMIN_SESSION_SECRET || config.ADMIN_SESSION_SECRET.length < 32) errors.push("ADMIN_SESSION_SECRET must be at least 32 characters");
+    if (!config.BETTER_AUTH_SECRET || config.BETTER_AUTH_SECRET.length < 32) errors.push("BETTER_AUTH_SECRET must be at least 32 characters");
+    let betterAuthOrigin = "";
+    try { betterAuthOrigin = new URL(config.BETTER_AUTH_URL ?? "").origin; } catch { /* handled below */ }
+    if (betterAuthOrigin !== "https://metsanilo.vercel.app") errors.push("BETTER_AUTH_URL must use https://metsanilo.vercel.app in production");
   }
   if (!config.SHOP_ID || !config.SHOP_SLUG) errors.push("SHOP_ID and SHOP_SLUG are required");
   return errors.length ? { ok: false as const, errors } : { ok: true as const, config };
