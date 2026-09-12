@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { db } from "@/db/client";
 import { auditEntries, users } from "@/db/schema";
 import { currentUser } from "@/domain/access";
@@ -7,16 +8,16 @@ import { DomainError } from "@/domain/errors";
 import { assertPassword, hashPassword, verifyPassword } from "@/domain/passwords";
 import { env } from "@/lib/env";
 import { failure, success } from "../../response";
-import { createSession, SESSION_COOKIE, sessionMaxAge } from "@/domain/session";
-import { getBetterAuthInstance } from "@/lib/better-auth";
-import { setCredentialHash } from "@/lib/auth-integration";
+import { SESSION_COOKIE } from "@/domain/session";
+import { revokeAllUserSessions, setCredentialHash } from "@/lib/auth-integration";
 
 const command = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(8) });
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const actor = await currentUser(db(), request);
+    const database = db();
+    const actor = await currentUser(database, request);
     const parsed = command.safeParse(await request.json());
     if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid password format", 422);
 
@@ -34,50 +35,63 @@ export async function POST(request: Request) {
       throw new DomainError("UNAUTHORIZED", "Current password is incorrect", 401);
     }
 
-    if (request.headers.get("cookie")?.includes("better-auth")) {
-      await getBetterAuthInstance().api.changePassword({
-        body: {
-          currentPassword: parsed.data.currentPassword,
-          newPassword: parsed.data.newPassword,
-          revokeOtherSessions: true,
-        },
-        headers: request.headers,
-      });
-    }
-
     const now = new Date().toISOString();
-    const nextVersion = actor.sessionVersion + 1;
     const passwordHash = hashPassword(parsed.data.newPassword);
 
-    await db()
-      .update(users)
-      .set({ passwordHash, mustChangePassword: false, sessionVersion: nextVersion })
-      .where(and(eq(users.id, actor.id), eq(users.shopId, env().SHOP_ID)));
+    await database.transaction(async (tx) => {
+      const updateResult = await tx
+        .update(users)
+        .set({
+          passwordHash,
+          mustChangePassword: false,
+          temporaryPasswordIssuedAt: null,
+          temporaryPasswordExpiresAt: null,
+          sessionVersion: sql`${users.sessionVersion} + 1`,
+        })
+        .where(and(eq(users.id, actor.id), eq(users.shopId, env().SHOP_ID)))
+        .run();
 
-    await setCredentialHash(db(), actor.id, passwordHash);
+      if (updateResult.rowsAffected !== 1) {
+        throw new DomainError("CONFLICT", "User was modified concurrently", 409);
+      }
 
-    await db().insert(auditEntries).values({
-      id: crypto.randomUUID(),
-      shopId: env().SHOP_ID,
-      actor: actor.email ?? actor.id,
-      action: "user.password_changed",
-      entityType: "user",
-      entityId: actor.id,
-      detailsJson: JSON.stringify({ selfService: true }),
-      createdAt: now,
+      await setCredentialHash(tx, actor.id, passwordHash);
+      await revokeAllUserSessions(tx, actor.id);
+
+      await tx.insert(auditEntries).values({
+        id: randomUUID(),
+        shopId: env().SHOP_ID,
+        actor: actor.email ?? actor.id,
+        action: "user.password_changed",
+        entityType: "user",
+        entityId: actor.id,
+        detailsJson: JSON.stringify({ selfService: true }),
+        createdAt: now,
+      });
+
+      await tx.insert(auditEntries).values({
+        id: randomUUID(),
+        shopId: env().SHOP_ID,
+        actor: actor.email ?? actor.id,
+        action: "user.sessions_revoked",
+        entityType: "user",
+        entityId: actor.id,
+        detailsJson: JSON.stringify({ reason: "password_changed", selfService: true }),
+        createdAt: now,
+      });
     });
 
-    const response = success({ changed: true });
-    response.cookies.set(SESSION_COOKIE, createSession(actor.email!, nextVersion, false), {
+    const response = success({ changed: true, requireSignIn: true });
+    response.cookies.set(SESSION_COOKIE, "", {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: sessionMaxAge,
+      maxAge: 0,
     });
 
     return response;
   } catch (error) {
-    return failure(error);
+    return failure(error, request);
   }
 }

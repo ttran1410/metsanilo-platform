@@ -1,10 +1,10 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
-import { authAccounts, authUsers, availability, packages, products, shops, users } from "../src/db/schema";
+import { availability, packages, products, shops } from "../src/db/schema";
 import * as schema from "../src/db/schema";
 import { validateRuntimeEnvironment } from "../src/lib/env";
 import { hashPassword } from "../src/domain/passwords";
-import { reconcileBootstrapAdmin } from "../src/lib/auth-integration";
+import { assertNoOrphanedForcedChangeUsers, reconcileBootstrapAdmin } from "../src/lib/auth-integration";
 
 const preflight = validateRuntimeEnvironment({ production: process.env.NODE_ENV === "production" || process.env.RELEASE_PREFLIGHT === "true" });
 if (!preflight.ok) throw new Error(`Environment preflight failed: ${preflight.errors.join("; ")}`);
@@ -49,6 +49,8 @@ if (existingShops.some((shop) => shop.id !== shopId)) {
 if (existingShops.some((shop) => shop.id === shopId) && process.env.SEED_ALLOW_EXISTING !== "true") {
   throw new Error("Seed refused: existing shop detected. Set SEED_ALLOW_EXISTING=true after reviewing the configured values.");
 }
+
+await assertNoOrphanedForcedChangeUsers(database);
 
 if (process.env.SEED_DRY_RUN === "true") {
   console.log(`Seed preflight passed for ${shopId}; no changes written.`);

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ForcedPasswordForm } from "./form";
 
 export default function ChangePasswordPage() {
@@ -22,7 +23,9 @@ export default function ChangePasswordPage() {
           <p className="admin-login-lede">
             For security, update your temporary password before continuing to the operations workspace.
           </p>
-          <ForcedPasswordForm />
+          <Suspense fallback={null}>
+            <ForcedPasswordForm />
+          </Suspense>
         </section>
       </div>
     </main>

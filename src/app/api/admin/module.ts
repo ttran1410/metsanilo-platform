@@ -1,6 +1,6 @@
 import type { NextResponse } from "next/server";
 import { db } from "@/db/client";
-import { currentUser, hasUserPermission, type Permission } from "@/domain/access";
+import { assertOperationalAccess, currentUser, hasUserPermission, type Permission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
 
@@ -58,6 +58,7 @@ async function authenticateAdminContext(request: Request): Promise<AdminExecutio
   if (actor.shopId !== shop.shopId) {
     throw new DomainError("FORBIDDEN", "Admin account is not active in this shop", 403);
   }
+  assertOperationalAccess(actor);
   return { actor, shop };
 }
 

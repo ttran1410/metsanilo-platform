@@ -1,11 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { getSafeAdminRedirect } from "@/lib/safe-redirect";
 
 export function ForcedPasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -70,7 +72,9 @@ export function ForcedPasswordForm() {
       setBusy(false);
 
       if (response.ok) {
-        router.push("/admin");
+        const nextParam = searchParams?.get("next");
+        const safeNext = getSafeAdminRedirect(nextParam, "/admin");
+        router.push(`/admin/login?changed=true&next=${encodeURIComponent(safeNext)}`);
       } else {
         setError(body.message ?? body.code ?? "Password change failed.");
       }

@@ -12,7 +12,7 @@ These concerns are evidenced risks or inconsistencies, not permission to broaden
 | Severity | Concern | Impact | Evidence |
 |---|---|---|---|
 | High | `db:release` always runs seed | Routine releases can fail on an existing shop or, with `SEED_ALLOW_EXISTING=true`, reset bootstrap admin password and force password change | `scripts/release.ts`, `scripts/seed.ts` |
-| High | Better Auth secret is optional in production validation | The auth module has a development fallback secret while production preflight only requires the legacy secret | `src/lib/env.ts`, `src/lib/better-auth.ts` |
+| Resolved | Better Auth secret is enforced in production validation | `src/lib/env.ts` now enforces `BETTER_AUTH_SECRET` (>= 32 chars) and canonical `BETTER_AUTH_URL` origin in production preflight | `src/lib/env.ts`, `scripts/preflight.ts` |
 | High | No committed backup/restore or migration rollback automation | App rollback cannot undo incompatible schema changes | `scripts`, `package.json`, Vercel/Turso CLI help |
 | Medium | Internal requirements may diverge from implementation | The ignored internal tree can contain stale intent and must not silently override code/tests or tracked decisions | `.gitignore`, `docs/adr/0001-tracked-engineering-authority.md` |
 | Medium | Vercel Blob credential is implicit and absent from production preflight | Media operations may fail after deployment despite app/database health passing | `src/lib/media-storage.ts`, `.env.example`, `src/lib/env.ts` |

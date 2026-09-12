@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { LoginForm } from "./form";
 
@@ -23,7 +24,9 @@ export default function ManagerLoginPage() {
           <p className="admin-login-lede">
             Sign in to manage reservations, harvest availability, and customer handovers.
           </p>
-          <LoginForm />
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
         </section>
 
         <p className="admin-login-footer">

@@ -40,11 +40,19 @@ describe("seed Better Auth reconciliation", () => {
     expect((await database.select().from(authUsers))[0].emailVerified).toBe(false);
   });
 
-  it("is idempotent and updates the deterministic seed state", async () => {
+  it("is idempotent and updates the deterministic seed state while preserving immutable email", async () => {
     await reconcileBootstrapAdmin(database, input());
-    await reconcileBootstrapAdmin(database, input({ email: "new-admin@example.test", displayName: "New admin", passwordHash: hashPassword("NewPassword123!") }));
+    await reconcileBootstrapAdmin(database, input({ displayName: "Updated admin", passwordHash: hashPassword("NewPassword123!") }));
     expect(await database.select().from(users)).toHaveLength(1);
-    expect(await database.query.users.findFirst({ where: eq(users.id, input().id) })).toMatchObject({ email: "new-admin@example.test", displayName: "New admin" });
+    expect(await database.query.users.findFirst({ where: eq(users.id, input().id) })).toMatchObject({ email: "admin@example.test", displayName: "Updated admin" });
+  });
+
+  it("fails preflight and rejects email change during seed rerun", async () => {
+    await reconcileBootstrapAdmin(database, input());
+    await expect(
+      reconcileBootstrapAdmin(database, input({ email: "changed-email@example.test" }))
+    ).rejects.toThrow(/email is immutable/);
+    expect(await database.query.users.findFirst({ where: eq(users.id, input().id) })).toMatchObject({ email: "admin@example.test" });
   });
 
   it("repairs a partial identity missing its credential account", async () => {

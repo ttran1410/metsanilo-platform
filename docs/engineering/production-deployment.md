@@ -52,7 +52,7 @@ Run the explicit production preflight:
 RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/dist/cli.mjs scripts/preflight.ts
 ```
 
-The current preflight does not validate Better Auth secret/URL, Blob credentials, canonical URL, or Vercel/Turso identity. Confirm those separately without printing values.
+Production preflight (`scripts/preflight.ts` via `validateRuntimeEnvironment` and `assertNoOrphanedForcedChangeUsers`) enforces remote Turso credentials, `ADMIN_SESSION_SECRET` (>= 32 chars), `BETTER_AUTH_SECRET` (>= 32 chars), `BETTER_AUTH_URL` canonical origin (`https://metsanilo.vercel.app`), and zero orphaned forced-change user credential states. Blob credentials, canonical domain routing, and Vercel/Turso CLI identities must still be confirmed separately without printing values.
 
 ## Run quality and migration gates
 
