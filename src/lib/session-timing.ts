@@ -105,3 +105,59 @@ export function evaluateSessionTiming(
     expiryReason,
   };
 }
+
+export type SessionTimestampStateInput = {
+  createdAt: Date | number | string;
+  lastActivityAt?: Date | number | string | null;
+  providerExpiresAt?: Date | number | string | null;
+};
+
+export type SessionTimestampValidationErrorCode =
+  | "INVALID_CREATED_AT"
+  | "INVALID_LAST_ACTIVITY_AT"
+  | "LAST_ACTIVITY_BEFORE_CREATION"
+  | "LAST_ACTIVITY_AFTER_ABSOLUTE_LIMIT"
+  | "INVALID_PROVIDER_EXPIRY"
+  | "PROVIDER_EXPIRY_BEFORE_CREATION";
+
+export type SessionTimestampValidation = {
+  valid: boolean;
+  errors: SessionTimestampValidationErrorCode[];
+};
+
+export function validateSessionTimestampState(input: SessionTimestampStateInput): SessionTimestampValidation {
+  const errors: SessionTimestampValidationErrorCode[] = [];
+  const createdMs = parseTimestamp(input.createdAt);
+
+  if (createdMs === null || createdMs <= 0) {
+    errors.push("INVALID_CREATED_AT");
+    return { valid: false, errors };
+  }
+
+  const maxAbsoluteMs = createdMs + ABSOLUTE_LIFETIME_MS;
+
+  if (input.lastActivityAt !== undefined && input.lastActivityAt !== null) {
+    const lastActivityMs = parseTimestamp(input.lastActivityAt);
+    if (lastActivityMs === null || lastActivityMs <= 0) {
+      errors.push("INVALID_LAST_ACTIVITY_AT");
+    } else if (lastActivityMs < createdMs) {
+      errors.push("LAST_ACTIVITY_BEFORE_CREATION");
+    } else if (lastActivityMs > maxAbsoluteMs) {
+      errors.push("LAST_ACTIVITY_AFTER_ABSOLUTE_LIMIT");
+    }
+  }
+
+  if (input.providerExpiresAt !== undefined && input.providerExpiresAt !== null) {
+    const providerExpiresMs = parseTimestamp(input.providerExpiresAt);
+    if (providerExpiresMs === null || providerExpiresMs <= 0) {
+      errors.push("INVALID_PROVIDER_EXPIRY");
+    } else if (providerExpiresMs < createdMs) {
+      errors.push("PROVIDER_EXPIRY_BEFORE_CREATION");
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}

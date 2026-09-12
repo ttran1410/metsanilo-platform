@@ -54,6 +54,33 @@ RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/di
 
 Production preflight (`scripts/preflight.ts` via `validateRuntimeEnvironment` and `assertNoOrphanedForcedChangeUsers`) enforces remote Turso credentials, `ADMIN_SESSION_SECRET` (>= 32 chars), `BETTER_AUTH_SECRET` (>= 32 chars), `BETTER_AUTH_URL` canonical origin (`https://metsanilo.vercel.app`), and zero orphaned forced-change user credential states. Blob credentials, canonical domain routing, and Vercel/Turso CLI identities must still be confirmed separately without printing values.
 
+## Auth Migration Cutover Readiness (Phase 6 Rehearsal vs Phase 7 Live Cutover)
+
+Before promoting any Better Auth cutover to production:
+
+1. **Phase 6: Rehearse on Disposable Database**
+   Run the self-contained migration and invariant rehearsal CLI:
+   ```bash
+   npm run rehearse:auth
+   ```
+   This initializes an isolated disposable SQLite database, runs the dynamic migration chain from 0000 to the current journal head, reconciles bootstrap and manager credentials, and executes the strict single-shop invariant audit with automatic cleanup.
+
+   To execute the comprehensive automated test suite (dynamic journal integrity, pinned historical regression `0040_wide_anthem` -> `0041_noisy_legion`, fail-closed CLI target guards, operational sign-in/password/session flows, and atomic transaction rollback faults):
+   ```bash
+   npm run test:rehearsal
+   ```
+
+2. **Phase 6: Read-Only Production Readiness Audit**
+   Run the read-only preflight check against production without applying schema changes or data modifications:
+   ```bash
+   RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/dist/cli.mjs scripts/audit-auth-readiness.ts --target=production
+   ```
+   This verifies Scrypt format compliance, exact mirror matching (`users.password_hash === auth_accounts.password`), session timestamp integrity, and single-shop boundary isolation.
+
+3. **Phase 7: Live Cutover Window**
+   Phase 7 live migration and production traffic cutover are separate actions requiring explicit repository owner authorization, scheduled maintenance, and backup verification. Never infer live migration authority from Phase 6 rehearsal readiness.
+
+
 ## Run quality and migration gates
 
 1. Run the checks appropriate to the change:
