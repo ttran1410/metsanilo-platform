@@ -37,6 +37,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
+  // Early cookie presence gate for Edge routing performance. Authoritative session
+  // validity and role authorization are strictly enforced downstream at the API/domain boundary.
   const betterSession = request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
   if (betterSession) {
     if (hasLegacyCookie) {
