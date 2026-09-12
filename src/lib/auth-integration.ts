@@ -313,6 +313,10 @@ export async function setCredentialHash(database: Pick<Database, "update">, user
   if (result.rowsAffected !== 1) throw new Error("Better Auth credential account is missing");
 }
 
+export type ProvisionUserDependencies = {
+  beforeCredentialInsert?: () => void | Promise<void>;
+};
+
 export async function provisionUserWithAuth(
   database: Database,
   input: {
@@ -325,7 +329,8 @@ export async function provisionUserWithAuth(
     createdAt?: string;
     auditActor?: string;
   },
-  now: Date = new Date()
+  now: Date = new Date(),
+  overrides: Partial<ProvisionUserDependencies> = {}
 ) {
   const id = input.id ?? randomUUID();
   const createdAt = input.createdAt ?? now.toISOString();
@@ -357,6 +362,9 @@ export async function provisionUserWithAuth(
       createdAt: recordCreationDate,
       updatedAt: recordCreationDate,
     });
+    if (overrides.beforeCredentialInsert) {
+      await overrides.beforeCredentialInsert();
+    }
     await tx.insert(authAccounts).values({
       id: `credential-${id}`,
       accountId: id,

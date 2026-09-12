@@ -16,11 +16,17 @@ export async function updateAdminProfile(database: Database, context: AdminActio
   return { id: updated.id, displayName: updated.displayName, email: updated.email, username: updated.username, role: updated.role, active: updated.active, updatedAt: now };
 }
 
+export type CredentialMutationDependencies = {
+  setCredentialHash: (database: Pick<Database, "update">, userId: string, password: string) => Promise<void>;
+  revokeAllUserSessions: (database: Pick<Database, "delete">, userId: string) => Promise<void>;
+};
+
 export async function resetAdminUserPassword(
   database: Database,
   context: AdminActionContext,
   id: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  overrides: Partial<CredentialMutationDependencies> = {}
 ) {
   assertAdminActionContext(context);
   if (context.actor.id === id) throw new DomainError("FORBIDDEN", "Use change password for your own account", 403);
@@ -53,8 +59,11 @@ export async function resetAdminUserPassword(
       throw new DomainError("CONFLICT", "User was modified concurrently", 409);
     }
 
-    await setCredentialHash(tx, target.id, passwordHash);
-    await revokeAllUserSessions(tx, target.id);
+    const setCredential = overrides.setCredentialHash ?? setCredentialHash;
+    const revokeSessions = overrides.revokeAllUserSessions ?? revokeAllUserSessions;
+
+    await setCredential(tx, target.id, passwordHash);
+    await revokeSessions(tx, target.id);
     await tx.insert(auditEntries).values({
       id: randomUUID(),
       shopId: context.shop.id,

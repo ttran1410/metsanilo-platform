@@ -12,6 +12,7 @@ import {
   normalizeUserAgent,
   provisionUserWithAuth,
   revokeAllUserSessions,
+  setCredentialHash,
   type SessionTiming,
   validateBetterAuthSession,
 } from "@/lib/auth-integration";
@@ -657,4 +658,113 @@ export async function authenticateUser(database: Database, email: string, passwo
   });
   if (!user || !verifyPassword(password, user.passwordHash)) throw new DomainError("UNAUTHORIZED", "Invalid email or password", 401);
   return user;
+}
+
+export type SelfPasswordActionActor = { id: string; role: Role; shopId: string; email?: string | null };
+export type SelfPasswordActionShop = { id: string };
+export type SelfPasswordActionContext = { actor: SelfPasswordActionActor; shop: SelfPasswordActionShop };
+
+export type SelfPasswordDependencies = {
+  setCredentialHash: (database: Pick<Database, "update">, userId: string, password: string) => Promise<void>;
+  revokeAllUserSessions: (database: Pick<Database, "delete">, userId: string) => Promise<void>;
+};
+
+export async function changeOwnPassword(
+  database: Database,
+  context: SelfPasswordActionContext,
+  input: { currentPassword: string; newPassword: string },
+  now: Date = new Date(),
+  overrides: Partial<SelfPasswordDependencies> = {}
+) {
+  const configuredShopId = env().SHOP_ID;
+  if (context.actor.shopId !== context.shop.id || context.shop.id !== configuredShopId) {
+    throw new DomainError("FORBIDDEN", "Action context shop mismatch", 403);
+  }
+
+  if (typeof input.currentPassword !== "string" || input.currentPassword.length === 0) {
+    throw new DomainError("VALIDATION_ERROR", "Current password is required", 422);
+  }
+
+  try {
+    assertPassword(input.newPassword);
+  } catch (err) {
+    throw new DomainError(
+      "VALIDATION_ERROR",
+      err instanceof Error ? err.message : "Password does not meet security rules",
+      422
+    );
+  }
+
+  const target = await database.query.users.findFirst({
+    where: and(
+      eq(users.id, context.actor.id),
+      eq(users.shopId, context.shop.id),
+      eq(users.active, true)
+    ),
+  });
+
+  if (!target) {
+    throw new DomainError("NOT_FOUND", "User not found", 404);
+  }
+
+  if (!verifyPassword(input.currentPassword, target.passwordHash)) {
+    throw new DomainError("UNAUTHORIZED", "Current password is incorrect", 401);
+  }
+
+  const nowIso = now.toISOString();
+  const passwordHash = hashPassword(input.newPassword);
+
+  const setCredential = overrides.setCredentialHash ?? setCredentialHash;
+  const revokeSessions = overrides.revokeAllUserSessions ?? revokeAllUserSessions;
+
+  await database.transaction(async (tx) => {
+    const updateResult = await tx
+      .update(users)
+      .set({
+        passwordHash,
+        mustChangePassword: false,
+        temporaryPasswordIssuedAt: null,
+        temporaryPasswordExpiresAt: null,
+        sessionVersion: sql`${users.sessionVersion} + 1`,
+      })
+      .where(
+        and(
+          eq(users.id, target.id),
+          eq(users.shopId, context.shop.id),
+          eq(users.passwordHash, target.passwordHash)
+        )
+      )
+      .run();
+
+    if (updateResult.rowsAffected !== 1) {
+      throw new DomainError("CONFLICT", "User was modified concurrently", 409);
+    }
+
+    await setCredential(tx, target.id, passwordHash);
+    await revokeSessions(tx, target.id);
+
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId: context.shop.id,
+      actor: context.actor.email ?? context.actor.id,
+      action: "user.password_changed",
+      entityType: "user",
+      entityId: target.id,
+      detailsJson: JSON.stringify({ selfService: true }),
+      createdAt: nowIso,
+    });
+
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId: context.shop.id,
+      actor: context.actor.email ?? context.actor.id,
+      action: "user.sessions_revoked",
+      entityType: "user",
+      entityId: target.id,
+      detailsJson: JSON.stringify({ reason: "password_changed", selfService: true }),
+      createdAt: nowIso,
+    });
+  });
+
+  return { changed: true, requireSignIn: true };
 }
