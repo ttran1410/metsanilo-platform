@@ -21,6 +21,7 @@ import { useUserAccountActionController } from "./actions/use-user-account-actio
 import { useUserProfileEditorController } from "./actions/use-user-profile-editor-controller";
 import { parseUsersUrlState, serializeUsersUrlState } from "./url-state";
 import { getAdminQuery, invalidateAdminQuery } from "../shared/query-cache";
+import { formatDateTime } from "@/lib/format";
 
 export type UserRow = {
   id: string;
@@ -45,7 +46,12 @@ type SessionItem = {
   ipAddress?: string | null;
   userAgent?: string | null;
   createdAt: string;
-  expiresAt: string;
+  lastActivityAt?: string;
+  idleExpiresAt?: string;
+  absoluteExpiresAt?: string;
+  effectiveExpiresAt?: string;
+  remainingSeconds?: number;
+  warning?: boolean;
 };
 
 type AuditItem = {
@@ -356,7 +362,13 @@ function UserWorkspaceContent({
   const { pendingPermissions, setPendingPermissions, savingPermissions, stagePermission, savePermissionChanges } =
     usePermissionEditorController(selectedUser, refreshUsersList, setError, setMessage);
 
-  const { handleResetToDefaults, handleToggleActive, handleResetPassword, handleRevokeSessions } = useUserAccountActionController({
+  const {
+    handleResetToDefaults,
+    handleToggleActive,
+    handleResetPassword,
+    handleRevokeSessions,
+    handleRevokeSingleSession,
+  } = useUserAccountActionController({
     selectedUser,
     setConfirmation,
     setCreatedInfo,
@@ -381,6 +393,15 @@ function UserWorkspaceContent({
     selectedUser &&
     (actorRole === "ADMIN" || selectedUser.role === "STAFF" || selectedUser.role === "CONTENT_CREATOR") &&
     (actorRole === "ADMIN" || selectedUser.role !== "ADMIN");
+
+  const canManageTargetSessions =
+    canManageUsers &&
+    selectedUser &&
+    (actorRole === "ADMIN" ||
+      (actorRole === "MANAGER" &&
+        selectedUser.role !== "ADMIN" &&
+        (selectedUser.role !== "MANAGER" || selectedUser.id === actorId)));
+
   const pendingPermissionCount = Object.keys(pendingPermissions).length;
 
   return (
@@ -734,7 +755,7 @@ function UserWorkspaceContent({
                   <span>Active sessions <strong>{sessions.length}</strong></span>
                 </div>
 
-                {canManageUsers && (
+                {canManageTargetSessions && (
                   <button
                     type="button"
                     className="btn btn-secondary text-xs py-1 px-2.5 text-danger font-semibold"
@@ -859,15 +880,34 @@ function UserWorkspaceContent({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Active Sessions */}
               <div className="card p-4 flex flex-col gap-3">
-                <h4 className="admin-user-panel-title"><LockKeyhole aria-hidden="true" /> Active sessions <span>{sessions.length}</span></h4>
+                <h4 className="admin-user-panel-title">
+                  <LockKeyhole aria-hidden="true" /> Active sessions <span>{sessions.length}</span>
+                </h4>
 
-                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto">
                   {sessions.map((s) => (
-                    <div key={s.id} className="p-2.5 bg-surface-muted rounded-xl border border-line text-xs font-mono">
-                      <div className="font-bold text-ink truncate">{s.userAgent || "Browser Session"}</div>
-                      <div className="muted text-[11px] flex justify-between mt-1">
-                        <span>IP: {s.ipAddress || "Internal"}</span>
-                        <span>{s.createdAt.slice(0, 10)}</span>
+                    <div
+                      key={s.id}
+                      className="p-3 bg-surface-muted rounded-xl border border-line text-xs flex flex-col gap-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-bold text-ink truncate">{s.userAgent || "Browser Session"}</div>
+                          <div className="muted text-[11px] font-mono mt-0.5">IP: {s.ipAddress || "Masked IP"}</div>
+                        </div>
+                        {canManageTargetSessions && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary text-xs py-0.5 px-2 text-danger shrink-0 font-medium"
+                            onClick={() => void handleRevokeSingleSession(s.id)}
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </div>
+                      <div className="muted text-[11px] border-t border-line/60 pt-1.5 flex justify-between font-mono">
+                        <span>Active: {formatDateTime(s.lastActivityAt ?? s.createdAt)}</span>
+                        <span>Expires: {s.effectiveExpiresAt ? formatDateTime(s.effectiveExpiresAt) : "—"}</span>
                       </div>
                     </div>
                   ))}

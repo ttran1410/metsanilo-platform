@@ -37,6 +37,7 @@ import { PATCH as updateFulfillmentMember } from "@/app/api/admin/fulfillment-lo
 import { PUT as updatePaymentMember } from "@/app/api/admin/payment-methods/[method]/route";
 import { PATCH as updatePackageMember } from "@/app/api/admin/packages/[id]/route";
 import { DELETE as deleteThemeDraft } from "@/app/api/admin/storefront-theme/drafts/[draftId]/route";
+import { GET as getUserSessions, DELETE as revokeUserSessions } from "@/app/api/admin/users/[id]/sessions/route";
 
 describe("admin route permission contract", () => {
   beforeEach(() => {
@@ -83,6 +84,28 @@ describe("admin route permission contract", () => {
     ["Availability", getAvailability, "/api/admin/availability"],
   ])("returns a safe JSON permission error for canonical %s reads", async (_name, handler, path) => {
     const response = await handler(new Request(`http://localhost${path}`));
+    expect(response.status).toBe(403);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(await response.json()).toMatchObject({ code: "FORBIDDEN", correlationId: expect.any(String) });
+  });
+
+  it("protects the administrative user-session listing with permission", async () => {
+    const response = await getUserSessions(new Request("http://localhost/api/admin/users/u1/sessions"), {
+      params: Promise.resolve({ id: "u1" }),
+    });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: "FORBIDDEN", correlationId: expect.any(String) });
+  });
+
+  it("keeps administrative session revocation behind permission and JSON error handling", async () => {
+    const response = await revokeUserSessions(
+      new Request("http://localhost/api/admin/users/u1/sessions", {
+        method: "DELETE",
+        headers: { origin: "http://localhost", "content-type": "application/json" },
+        body: JSON.stringify({ scope: "all" }),
+      }),
+      { params: Promise.resolve({ id: "u1" }) },
+    );
     expect(response.status).toBe(403);
     expect(response.headers.get("content-type")).toContain("application/json");
     expect(await response.json()).toMatchObject({ code: "FORBIDDEN", correlationId: expect.any(String) });

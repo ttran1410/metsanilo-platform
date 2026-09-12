@@ -1,6 +1,12 @@
 "use client";
 
-import { resetUserPassword, resetUserPermissions, revokeUserSessions, updateUserStatus } from "./user-admin-actions";
+import {
+  resetUserPassword,
+  resetUserPermissions,
+  revokeAllUserSessionsAdmin,
+  revokeSingleUserSession,
+  updateUserStatus,
+} from "./user-admin-actions";
 import type { Role } from "@/lib/permissions";
 
 type UserTarget = { id: string; email: string | null; displayName: string; role: Role };
@@ -51,12 +57,36 @@ export function useUserAccountActionController({ selectedUser, setConfirmation, 
     if (!selectedUser) return;
     setConfirmation({ title: "Revoke active sessions?", description: `Sign out ${selectedUser.displayName} from every active session?`, confirmLabel: "Revoke sessions", destructive: true, onConfirm: async () => {
       setError(""); setMessage("");
-      const result = await revokeUserSessions(selectedUser.id);
+      const result = await revokeAllUserSessionsAdmin(selectedUser.id);
       if (!result.ok) return setError(result.message ?? "Could not revoke sessions.");
       setMessage(`All active sessions revoked for ${selectedUser.displayName}.`);
       void reloadExtras(selectedUser.id);
     } });
   }
 
-  return { handleResetToDefaults, handleToggleActive, handleResetPassword, handleRevokeSessions };
+  async function handleRevokeSingleSession(sessionId: string) {
+    if (!selectedUser) return;
+    setConfirmation({
+      title: "Revoke user session?",
+      description: `Revoke this active session for ${selectedUser.displayName}? The user will be signed out from that device.`,
+      confirmLabel: "Revoke session",
+      destructive: true,
+      onConfirm: async () => {
+        setError("");
+        setMessage("");
+        const result = await revokeSingleUserSession(selectedUser.id, sessionId);
+        if (!result.ok) return setError(result.message ?? "Could not revoke session.");
+        setMessage(`Session revoked for ${selectedUser.displayName}.`);
+        void reloadExtras(selectedUser.id);
+      },
+    });
+  }
+
+  return {
+    handleResetToDefaults,
+    handleToggleActive,
+    handleResetPassword,
+    handleRevokeSessions,
+    handleRevokeSingleSession,
+  };
 }

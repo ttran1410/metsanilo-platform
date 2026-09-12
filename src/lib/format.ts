@@ -19,6 +19,11 @@ export function formatStorefrontDate(value: string | Date, locale: Locale, optio
   return new Intl.DateTimeFormat(intlLocale(locale), options ?? { day: "numeric", month: "short", year: "numeric" }).format(date);
 }
 
+export function formatDateTime(value: string | Date, options?: Intl.DateTimeFormatOptions) {
+  const date = typeof value === "string" ? new Date(value) : value;
+  return new Intl.DateTimeFormat(undefined, options ?? { dateStyle: "short", timeStyle: "short" }).format(date);
+}
+
 export function formatLitres(ml: number, locale: Locale) {
   return new Intl.NumberFormat(intlLocale(locale), {
     maximumFractionDigits: 3,

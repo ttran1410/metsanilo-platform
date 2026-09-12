@@ -104,6 +104,23 @@ export function createBetterAuthInstance(options?: CreateBetterAuthOptions) {
             }
             return true;
           },
+          after: async (session: { id: string; createdAt?: Date | number }) => {
+            try {
+              const createdDate =
+                session.createdAt instanceof Date
+                  ? session.createdAt
+                  : typeof session.createdAt === "number"
+                  ? new Date(session.createdAt)
+                  : nowProvider();
+              await database
+                .update(authSessions)
+                .set({ lastActivityAt: createdDate })
+                .where(eq(authSessions.id, session.id))
+                .run();
+            } catch {
+              // Best-effort post-create initialization
+            }
+          },
         },
       },
     },
