@@ -112,6 +112,14 @@ describe("Temporary Credential Concurrency and Transaction Rollback Integration"
       "user.temporary_password_issued",
       "user.temporary_password_regenerated",
     ]);
+
+    // Invariant: Audit payload must never leak temporary plaintext password or password hashes
+    for (const audit of audits) {
+      expect(audit.detailsJson).not.toContain(firstReset.temporaryPassword);
+      expect(audit.detailsJson).not.toContain(secondReset.temporaryPassword);
+      expect(audit.detailsJson).not.toContain(initialHash);
+      expect(audit.detailsJson).not.toContain("password");
+    }
   });
 
   it("rolls back all changes atomically if audit entry write fails during resetAdminUserPassword", async () => {
