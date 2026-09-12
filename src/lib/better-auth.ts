@@ -1,12 +1,11 @@
-import { randomUUID } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { and, eq } from "drizzle-orm";
 import { createDatabase, type Database } from "@/db/client";
-import { auditEntries, authAccounts, authSessions, authUsers, authVerifications, users } from "@/db/schema";
+import { authAccounts, authSessions, authUsers, authVerifications, users } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/domain/passwords";
 import { env } from "./env";
-import { isCredentialStateValid, isTemporaryCredentialActive } from "./auth-integration";
+import { isCredentialStateValid, isTemporaryCredentialActive, recordTemporaryCredentialExpired } from "./auth-integration";
 
 function configuredAuthUrl() {
   const value = process.env.BETTER_AUTH_URL?.trim();
@@ -85,19 +84,7 @@ export function createBetterAuthInstance(options?: CreateBetterAuthOptions) {
               if (!isCredentialStateValid(user)) return false;
               if (user.mustChangePassword && !isTemporaryCredentialActive(user, nowProvider())) {
                 try {
-                  await database.insert(auditEntries).values({
-                    id: randomUUID(),
-                    shopId: currentShopId,
-                    actor: user.email ?? user.id,
-                    action: "user.temporary_password_expired",
-                    entityType: "user",
-                    entityId: user.id,
-                    detailsJson: JSON.stringify({
-                      expiresAt: user.temporaryPasswordExpiresAt,
-                      attemptedAt: nowProvider().toISOString(),
-                    }),
-                    createdAt: nowProvider().toISOString(),
-                  });
+                  await recordTemporaryCredentialExpired(database, user, nowProvider());
                 } catch {
                   // Fail closed regardless of audit insert outcome
                 }

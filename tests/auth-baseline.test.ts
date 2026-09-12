@@ -13,6 +13,7 @@ import { reconcileBootstrapAdmin } from "@/lib/auth-integration";
 import { resetEnvForTests } from "@/lib/env";
 import { POST as changePassword } from "@/app/api/auth/change-password/route";
 import { GET as betterAuthGet, POST as betterAuthPost } from "@/app/api/auth/better/[...all]/route";
+import { POST as legacyLogin } from "@/app/api/auth/login/route";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-auth-test-"));
 let database: Database;
@@ -379,7 +380,8 @@ describe("Better Auth baseline", () => {
       "http://localhost:3000/api/auth/better/change-password",
       "http://localhost:3000/api/auth/better/set-password",
       "http://localhost:3000/api/auth/better/reset-password",
-      "http://localhost:3000/api/auth/better/forget-password",
+      "http://localhost:3000/api/auth/better/reset-password/example-token",
+      "http://localhost:3000/api/auth/better/request-password-reset",
     ];
 
     for (const url of blockedPaths) {
@@ -441,5 +443,25 @@ describe("Better Auth baseline", () => {
     expect(audits.map((a) => a.action)).toContain("user.temporary_password_expired");
     const expiryAudit = audits.find((a) => a.action === "user.temporary_password_expired");
     expect(expiryAudit?.detailsJson).toContain(expires);
+
+    // Repeated attempts for the same issuance must not create audit noise.
+    const secondResponse = await auth.handler(
+      new Request("http://localhost:3000/api/auth/better/sign-in/email", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "http://localhost:3000" },
+        body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+      })
+    );
+    expect(secondResponse.status).toBe(401);
+    const repeatedAudits = await database.select().from(auditEntries).where(eq(auditEntries.entityId, "expired-temp-user"));
+    expect(repeatedAudits.filter((entry) => entry.action === "user.temporary_password_expired")).toHaveLength(1);
+
+    const legacyResponse = await legacyLogin(new Request("http://localhost:3000/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+    }));
+    expect(legacyResponse.status).toBe(401);
+    expect(await legacyResponse.json()).toMatchObject({ code: "UNAUTHORIZED", message: "Invalid email or password" });
   });
 });

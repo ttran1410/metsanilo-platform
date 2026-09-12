@@ -7,13 +7,14 @@ const BLOCKED_BETTER_AUTH_PATHS = [
   "/change-password",
   "/set-password",
   "/reset-password",
-  "/forget-password",
+  "/request-password-reset",
 ];
 
 function isBlockedBetterAuthRequest(request: Request): boolean {
   try {
     const url = new URL(request.url);
-    return BLOCKED_BETTER_AUTH_PATHS.some((path) => url.pathname.endsWith(path));
+    const pathname = url.pathname.replace(/\/+$/, "");
+    return BLOCKED_BETTER_AUTH_PATHS.some((path) => pathname.endsWith(path)) || /\/reset-password\/[^/]+$/.test(pathname);
   } catch {
     return false;
   }
