@@ -8,8 +8,6 @@ import { assertPassword, hashPassword, verifyPassword } from "./passwords";
 import {
   evaluateSessionTiming,
   getBetterAuthSession,
-  isCredentialStateValid,
-  isTemporaryCredentialActive,
   maskIpAddress,
   normalizeUserAgent,
   provisionUserWithAuth,

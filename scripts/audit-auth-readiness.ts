@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import * as schema from "@/db/schema";
-import { users, authUsers, authAccounts } from "@/db/schema";
+import { users } from "@/db/schema";
 import { validateRuntimeEnvironment } from "@/lib/env";
 
 export type AuditReadinessResult = {

@@ -14,7 +14,7 @@ import { resetEnvForTests } from "@/lib/env";
 import { POST as changePassword } from "@/app/api/auth/change-password/route";
 import { GET as betterAuthGet, POST as betterAuthPost } from "@/app/api/auth/better/[...all]/route";
 import { POST as legacyLogin } from "@/app/api/auth/login/route";
-import { GET as sessionStatus, POST as touchSession, DELETE as deleteSession } from "@/app/api/auth/session/route";
+import { POST as touchSession, DELETE as deleteSession } from "@/app/api/auth/session/route";
 import { GET as adminSessionList, DELETE as adminSessionRevoke } from "@/app/api/admin/users/[id]/sessions/route";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-auth-test-"));
