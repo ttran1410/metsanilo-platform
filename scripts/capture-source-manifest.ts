@@ -109,14 +109,13 @@ export async function captureSourceManifest(
 
   const executeCapture = async (tx: DatabaseExecutor): Promise<SourceDatabaseManifest> => {
     // 1. Migration Head (Fail-closed)
-    let migrationRow: { id: number; hash: string; created_at: number } | undefined;
+    let migrationRow: { hash: string; created_at: number } | undefined;
     try {
       const result = await (tx as Database).all(
-        sql`SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY created_at DESC, id DESC LIMIT 1`
+        sql`SELECT hash, created_at FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 1`
       );
       if (result && result.length > 0) {
         migrationRow = {
-          id: Number((result[0] as { id: number }).id),
           hash: String((result[0] as { hash: string }).hash),
           created_at: Number((result[0] as { created_at: number }).created_at),
         };
@@ -138,7 +137,7 @@ export async function captureSourceManifest(
     const matchingJournalEntry = journal.entries.find((e) => e.when === migrationRow.created_at);
     if (!matchingJournalEntry) {
       throw new Error(
-        `MANIFEST_CAPTURE_FAILED: Migration head ${migrationRow.id} (${migrationRow.created_at}) does not match the repository migration journal.`
+        `MANIFEST_CAPTURE_FAILED: Migration head (${migrationRow.created_at}) does not match the repository migration journal.`
       );
     }
     const migrationTag = matchingJournalEntry.tag;
