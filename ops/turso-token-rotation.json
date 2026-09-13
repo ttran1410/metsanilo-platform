@@ -1,0 +1,6 @@
+{
+  "database": "metsanilo-production",
+  "createdAt": "2026-09-13T00:00:00Z",
+  "expiresAt": "2026-12-12T00:00:00Z",
+  "rotateBeforeDays": 14
+}
