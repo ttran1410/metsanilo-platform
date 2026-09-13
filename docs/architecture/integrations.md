@@ -12,7 +12,7 @@ This inventory distinguishes implemented integrations from configured or future 
 | System | Purpose | Configuration | Current caveat |
 |---|---|---|---|
 | Turso/libSQL | Primary transactional database | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Production operations require explicit target verification, owner approval, and the database runbooks |
-| Better Auth | Admin credential/session provider | `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, DB variables | Canonical provider after migration `0042`; legacy detection/410 tombstones are temporary observation-window controls. Production preflight enforces secret (>= 32 chars) and canonical origin |
+| Better Auth | Admin credential/session provider | `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, DB variables | Sole provider after migration `0042`; retired legacy endpoints are removed and cannot authenticate. Production preflight enforces secret (>= 32 chars) and canonical origin |
 | Local filesystem | Development product/page media storage | `MEDIA_STORAGE=local`, `MEDIA_LOCAL_DIR` | Not shared across processes and not durable on Vercel |
 | Vercel Blob | Production product/page media storage | `MEDIA_STORAGE=blob`, `BLOB_READ_WRITE_TOKEN` | Blob token is missing from `.env.example` and production preflight |
 | Vercel | Next.js hosting/deployments | Ignored `.vercel/project.json`, cloud env vars | Local project is linked; auth identity was not confirmed |

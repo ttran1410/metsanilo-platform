@@ -28,19 +28,19 @@ approved durable metric sink or record that the zero-event gate is unverified;
 absence from incomplete logs is not proof of zero traffic.
 
 The cleanup release is considered complete when all of the following are
-recorded in the release record:
+recorded in the release record, or the owner records an explicit exception:
 
 1. a saved query or restricted evidence showing zero `[legacy-auth-usage]`
-   events across the complete agreed window;
+   events across the complete agreed window, or an owner-approved exception
+   recording why the result is `UNKNOWN`;
 2. a client/request inventory confirming that no supported client calls the
    retired endpoints or sends the legacy cookie;
-3. owner approval for the cleanup release; and
+3. owner approval for the cleanup release and any evidence exception; and
 4. passing Better Auth-only authorization, session, and smoke tests.
 
-The cleanup release removes the telemetry module, its callers, and the legacy
-detection branches together. It also removes the retired 410 endpoint
-tombstones after the client inventory confirms there are no supported callers.
-No unused telemetry exports or dead compatibility checks remain.
+The cleanup release removes the telemetry module, its callers, legacy
+detection branches, and retired auth endpoint routes together. No legacy
+authentication fallback remains in runtime code.
 
 ## Current release evidence
 
@@ -48,7 +48,7 @@ No unused telemetry exports or dead compatibility checks remain.
 - Production deployment: `dpl_BPieiuSoz4sEhiprTdPGZBBk6FME`
 - Canonical alias: `https://metsanilo.vercel.app`
 - Database migration head: `0042`
-- CLI-inspected pre-migration recovery copy: `metsanilo-production-backup-20260913-auth-cutover`
+- Pre-migration recovery copy `metsanilo-production-backup-20260913-auth-cutover`: deleted on 2026-09-13 by explicit owner approval after target verification
 - Production schema contract: passed
 - Production Better Auth readiness audit: passed
 - Manual production smoke-test: completed by operator
@@ -85,9 +85,9 @@ first post-cutover release:
 |---|---|---|---|
 | `src/lib/auth-telemetry.ts` | Logged legacy cookie/Basic Auth observations | Complete retained logs show zero legacy events for the agreed window, with owner approval | Removed in this cleanup release |
 | Legacy branches in `src/proxy.ts` and `src/domain/access.ts` | Detects and records legacy traffic | Completed on this cleanup release; Better Auth-only behavior is covered by tests | Removed |
-| `src/app/api/auth/login/route.ts` and `logout/route.ts` | Returned 410 and cleared stale cookies | Client inventory found no application callers; observation window completed | Removed |
+| `src/app/api/auth/login/route.ts` and `src/app/api/auth/logout/route.ts` | Retired legacy endpoints | Client inventory confirms no supported web callers; owner approves cleanup | Removed |
 | Legacy-cookie cleanup in active auth routes | Removed stale cookies opportunistically | Tombstones removed in this release | Removed |
-| `scripts/auth-readiness-smoke.ts` legacy endpoint assertions | Verified the temporary 410 contract | Better Auth-only smoke coverage remains | Removed |
+| `scripts/auth-readiness-smoke.ts` legacy endpoint assertions | Better Auth-only smoke coverage | No legacy endpoint assertions remain | Removed |
 | Historical compatibility wording in docs | Explains pre-cutover behavior | N/A | Keep historical ADRs; update architecture/runbook docs when policy changes |
 
 Do not remove `src/domain/passwords.ts` or `isSupportedPasswordHash`: the

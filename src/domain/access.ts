@@ -643,17 +643,6 @@ function zodEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-export async function authenticateUser(database: Database, email: string, password: string) {
-  const user = await database.query.users.findFirst({
-    where: and(eq(users.email, email.trim().toLowerCase()), eq(users.shopId, env().SHOP_ID), eq(users.active, true)),
-  });
-  const credential = user
-    ? await database.query.authAccounts.findFirst({ where: and(eq(authAccounts.userId, user.id), eq(authAccounts.providerId, "credential")) })
-    : undefined;
-  if (!user || !credential?.password || !verifyPassword(password, credential.password)) throw new DomainError("UNAUTHORIZED", "Invalid email or password", 401);
-  return user;
-}
-
 export type SelfPasswordActionActor = { id: string; role: Role; shopId: string; email?: string | null };
 export type SelfPasswordActionShop = { id: string };
 export type SelfPasswordActionContext = { actor: SelfPasswordActionActor; shop: SelfPasswordActionShop };

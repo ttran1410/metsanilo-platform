@@ -184,9 +184,9 @@ export const users = sqliteTable(
   (table) => [uniqueIndex("users_email_unique").on(table.email)],
 );
 
-// Better Auth tables are isolated from the shop RBAC users table during the
-// migration period. They can be mapped to shop users after the provider is
-// explicitly enabled and existing accounts have been reconciled.
+// Better Auth owns credential/session state; the shop RBAC users table remains
+// the application membership and authorization boundary. The stable user ID
+// mapping is enforced by provisioning and readiness checks.
 export const authUsers = sqliteTable("auth_users", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
