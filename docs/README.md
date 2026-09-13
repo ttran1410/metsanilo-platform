@@ -27,6 +27,7 @@ Start here when you need repository context. `AGENTS.md` contains mandatory guar
 - [Database migrations](engineering/database-migrations.md) covers generation, validation, production application, verification, and recovery limits.
 - [Production deployment](engineering/production-deployment.md) is the Vercel and Turso CLI runbook.
 - [CI/CD process](engineering/ci-cd.md) defines commit/PR gates, migration detection, owner approval, deployment, alias verification, and rollback boundaries.
+- [Turso token rotation](engineering/turso-token-rotation.md) defines the read-only reminder and owner-approved credential rotation procedure.
 - [Proposed backup and restore policy](engineering/backup-restore-policy.md) gives a reviewable Turso naming, retention, restore, and drill baseline.
 - [Customer retention release notes](release-notes/customer-retention.md) cover the existing retention backfill and apply procedure.
 

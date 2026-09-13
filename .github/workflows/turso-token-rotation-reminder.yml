@@ -1,0 +1,76 @@
+name: Turso token rotation reminder
+
+on:
+  schedule:
+    - cron: "17 7 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check rotation metadata and production health
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: |
+          set -euo pipefail
+
+          metadata='ops/turso-token-rotation.json'
+          database=$(jq -r '.database' "$metadata")
+          expires_at=$(jq -r '.expiresAt' "$metadata")
+          rotate_before_days=$(jq -r '.rotateBeforeDays' "$metadata")
+          expires_epoch=$(date -d "$expires_at" +%s)
+          now_epoch=$(date -u +%s)
+          days_left=$(( (expires_epoch - now_epoch) / 86400 ))
+          issue_title="Turso token rotation: ${database}"
+          reasons=()
+
+          if (( days_left <= rotate_before_days )); then
+            reasons+=("token metadata expires in ${days_left} day(s) on ${expires_at}")
+          fi
+
+          health_status=$(curl -sS -o /tmp/health.json -w '%{http_code}' https://metsanilo.vercel.app/api/health || true)
+          if [[ "$health_status" != "200" ]] || ! jq -e '.status == "ok"' /tmp/health.json >/dev/null 2>&1; then
+            reasons+=("production health check failed (HTTP ${health_status})")
+          fi
+
+          if [[ -n "${VERCEL_TOKEN:-}" && -n "${VERCEL_PROJECT_ID:-}" ]]; then
+            env_query="https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/env?target=production"
+            if [[ -n "${VERCEL_TEAM_ID:-}" ]]; then
+              env_query+="&teamId=${VERCEL_TEAM_ID}"
+            fi
+            env_status=$(curl -sS -o /tmp/vercel-env.json -w '%{http_code}' \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" "$env_query" || true)
+            if [[ "$env_status" != "200" ]] || ! jq -e '.envs | map(.key) | index("TURSO_AUTH_TOKEN")' /tmp/vercel-env.json >/dev/null 2>&1; then
+              reasons+=("Vercel Production TURSO_AUTH_TOKEN is missing or could not be verified")
+            fi
+          else
+            reasons+=("repository secrets VERCEL_TOKEN and VERCEL_PROJECT_ID are not configured")
+          fi
+
+          if ((${#reasons[@]} == 0)); then
+            echo "Turso token check OK: ${days_left} day(s) remain for ${database}."
+            exit 0
+          fi
+
+          body="Automated Turso token rotation check requires attention for ${database}.\n\n"
+          for reason in "${reasons[@]}"; do
+            body+="- ${reason}\n"
+          done
+          body+="\nFollow docs/engineering/turso-token-rotation.md. This workflow does not create, replace, or revoke credentials."
+
+          if ! gh issue list --state open --search "in:title ${issue_title}" --json title --jq '.[].title' | grep -Fxq "$issue_title"; then
+            gh issue create --title "$issue_title" --body "$body"
+          else
+            echo "An open reminder issue already exists: ${issue_title}"
+          fi
