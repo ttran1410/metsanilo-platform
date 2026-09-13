@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-import { openSync, writeFileSync, closeSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { openSync, writeFileSync, closeSync, existsSync, fsyncSync, renameSync, unlinkSync } from "node:fs";
 import { resolve } from "node:path";
 import { sql } from "drizzle-orm";
 import { createClient } from "@libsql/client";
@@ -13,6 +13,7 @@ export type SourceDatabaseManifest = {
   capturedAt: string;
   databaseName: string;
   databaseHostname: string;
+  shopId?: string;
   migration: {
     id: number;
     hash: string;
@@ -70,6 +71,7 @@ export function calculateManifestSha256(manifestData: Omit<SourceDatabaseManifes
     capturedAt: manifestData.capturedAt,
     databaseName: manifestData.databaseName,
     databaseHostname: manifestData.databaseHostname,
+    shopId: manifestData.shopId,
     migration: {
       id: manifestData.migration.id,
       hash: manifestData.migration.hash,
@@ -103,6 +105,7 @@ export async function captureSourceManifest(
     databaseUrl?: string;
     databaseName?: string;
     databaseHostname?: string;
+    shopId?: string;
     capturedAt?: string;
   } = {}
 ): Promise<SourceDatabaseManifest> {
@@ -116,9 +119,10 @@ export async function captureSourceManifest(
 
   const dbName = options.databaseName ?? urlInfo.databaseName;
   const dbHostname = options.databaseHostname ?? urlInfo.databaseHostname;
+  const shopId = options.shopId?.trim() || undefined;
 
   const executeCapture = async (tx: DatabaseExecutor): Promise<SourceDatabaseManifest> => {
-    // 1. Migration Head
+    // 1. Migration Head (Fail-closed)
     let migrationRow: { id: number; hash: string; created_at: number } | undefined;
     try {
       const result = await (tx as Database).all(
@@ -131,36 +135,61 @@ export async function captureSourceManifest(
           created_at: Number((result[0] as { created_at: number }).created_at),
         };
       }
-    } catch {
-      // Table might not exist or empty
+    } catch (err: unknown) {
+      throw new Error(
+        `MANIFEST_CAPTURE_FAILED: Unable to query __drizzle_migrations table: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
     }
 
-    const latestJournalEntry = journal.entries[journal.entries.length - 1];
-    const migrationTag =
-      journal.entries.find((e) => e.when === migrationRow?.created_at)?.tag ??
-      latestJournalEntry?.tag ??
-      "0041_noisy_legion";
+    if (!migrationRow || !migrationRow.hash || migrationRow.hash.trim().length === 0) {
+      throw new Error(
+        "MANIFEST_CAPTURE_FAILED: __drizzle_migrations is empty or missing valid migration hash. Refusing to generate incomplete manifest."
+      );
+    }
 
-    const migrationInfo = migrationRow
-      ? {
-          id: migrationRow.id,
-          hash: migrationRow.hash,
-          createdAt: migrationRow.created_at,
-          repoTag: migrationTag,
-        }
-      : {
-          id: journal.entries.length - 1,
-          hash: "",
-          createdAt: latestJournalEntry ? latestJournalEntry.when : 0,
-          repoTag: migrationTag,
-        };
+    const matchingJournalEntry = journal.entries.find((e) => e.when === migrationRow.created_at);
+    const latestJournalEntry = journal.entries[journal.entries.length - 1];
+    const migrationTag = matchingJournalEntry?.tag ?? latestJournalEntry?.tag ?? "0041_noisy_legion";
+
+    const migrationInfo = {
+      id: migrationRow.id,
+      hash: migrationRow.hash,
+      createdAt: migrationRow.created_at,
+      repoTag: migrationTag,
+    };
 
     // 2. Table Counts
-    const usersCountResult = await (tx as Database).all(sql`SELECT count(*) as count FROM users`);
-    const authUsersCountResult = await (tx as Database).all(sql`SELECT count(*) as count FROM auth_users`);
-    const authAccountsCountResult = await (tx as Database).all(sql`SELECT count(*) as count FROM auth_accounts`);
-    const authSessionsCountResult = await (tx as Database).all(sql`SELECT count(*) as count FROM auth_sessions`);
-    const auditEntriesCountResult = await (tx as Database).all(sql`SELECT count(*) as count FROM audit_entries`);
+    let usersCountResult;
+    let authUsersCountResult;
+    let authAccountsCountResult;
+    let authSessionsCountResult;
+    let auditEntriesCountResult;
+
+    if (shopId) {
+      usersCountResult = await (tx as Database).all(
+        sql`SELECT count(*) as count FROM users WHERE shop_id = ${shopId}`
+      );
+      authUsersCountResult = await (tx as Database).all(
+        sql`SELECT count(*) as count FROM auth_users WHERE id IN (SELECT id FROM users WHERE shop_id = ${shopId})`
+      );
+      authAccountsCountResult = await (tx as Database).all(
+        sql`SELECT count(*) as count FROM auth_accounts WHERE user_id IN (SELECT id FROM users WHERE shop_id = ${shopId})`
+      );
+      authSessionsCountResult = await (tx as Database).all(
+        sql`SELECT count(*) as count FROM auth_sessions WHERE user_id IN (SELECT id FROM users WHERE shop_id = ${shopId})`
+      );
+      auditEntriesCountResult = await (tx as Database).all(
+        sql`SELECT count(*) as count FROM audit_entries WHERE shop_id = ${shopId}`
+      );
+    } else {
+      usersCountResult = await (tx as Database).all(sql`SELECT count(*) as count FROM users`);
+      authUsersCountResult = await (tx as Database).all(sql`SELECT count(*) as count FROM auth_users`);
+      authAccountsCountResult = await (tx as Database).all(sql`SELECT count(*) as count FROM auth_accounts`);
+      authSessionsCountResult = await (tx as Database).all(sql`SELECT count(*) as count FROM auth_sessions`);
+      auditEntriesCountResult = await (tx as Database).all(sql`SELECT count(*) as count FROM audit_entries`);
+    }
 
     const counts = {
       users: Number((usersCountResult[0] as { count: number })?.count ?? 0),
@@ -171,9 +200,16 @@ export async function captureSourceManifest(
     };
 
     // 3. Session Version Stats
-    const userVersionRows = (await (tx as Database).all(
-      sql`SELECT id, session_version as sessionVersion FROM users ORDER BY id ASC`
-    )) as Array<{ id: string; sessionVersion: number | null }>;
+    let userVersionRows: Array<{ id: string; sessionVersion: number | null }>;
+    if (shopId) {
+      userVersionRows = (await (tx as Database).all(
+        sql`SELECT id, session_version as sessionVersion FROM users WHERE shop_id = ${shopId} ORDER BY id ASC`
+      )) as Array<{ id: string; sessionVersion: number | null }>;
+    } else {
+      userVersionRows = (await (tx as Database).all(
+        sql`SELECT id, session_version as sessionVersion FROM users ORDER BY id ASC`
+      )) as Array<{ id: string; sessionVersion: number | null }>;
+    }
 
     let minVersion = 0;
     let maxVersion = 0;
@@ -207,6 +243,7 @@ export async function captureSourceManifest(
       capturedAt,
       databaseName: dbName,
       databaseHostname: dbHostname,
+      shopId,
       migration: migrationInfo,
       counts,
       sessionVersion,
@@ -226,20 +263,42 @@ export async function captureSourceManifest(
   return await executeCapture(database);
 }
 
-export function writeManifestSafely(filePath: string, manifest: SourceDatabaseManifest): void {
+export function writeManifestSafely(
+  filePath: string,
+  manifest: SourceDatabaseManifest,
+  options?: { allowOverwrite?: boolean }
+): void {
   const resolved = resolve(filePath);
+  if (existsSync(resolved) && !options?.allowOverwrite) {
+    throw new Error(
+      `MANIFEST_WRITE_FAILED: Manifest file already exists at '${resolved}'. Overwriting audit artifacts is prohibited.`
+    );
+  }
+
   const content = JSON.stringify(manifest, null, 2) + "\n";
-  const fd = openSync(resolved, "w", 0o600);
+  const tempPath = `${resolved}.tmp.${randomUUID()}`;
+  const fd = openSync(tempPath, "wx", 0o600);
   try {
     writeFileSync(fd, content, { encoding: "utf8" });
+    fsyncSync(fd);
+  } catch (err) {
+    try {
+      unlinkSync(tempPath);
+    } catch {
+      // ignore temp cleanup error
+    }
+    throw err;
   } finally {
     closeSync(fd);
   }
+
+  renameSync(tempPath, resolved);
 }
 
 async function main() {
   const args = process.argv.slice(2);
   let outputFile: string | undefined;
+  let shopId: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -247,6 +306,10 @@ async function main() {
       outputFile = args[++i];
     } else if (arg.startsWith("--output=")) {
       outputFile = arg.slice("--output=".length);
+    } else if (arg === "--shop-id" && i + 1 < args.length) {
+      shopId = args[++i];
+    } else if (arg.startsWith("--shop-id=")) {
+      shopId = arg.slice("--shop-id=".length);
     }
   }
 
@@ -260,7 +323,7 @@ async function main() {
 
   try {
     const database = drizzle(client, { schema });
-    const manifest = await captureSourceManifest(database, { databaseUrl });
+    const manifest = await captureSourceManifest(database, { databaseUrl, shopId });
 
     if (outputFile) {
       writeManifestSafely(outputFile, manifest);

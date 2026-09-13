@@ -5,6 +5,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "@/db/client";
 import * as schema from "@/db/schema";
 import { auditEntries, authSessions, users } from "@/db/schema";
+import { isCanonicalIsoDate } from "@/lib/auth-integration";
 import { auditAuthCutoverReadiness } from "./audit-auth-readiness";
 
 export type CutoverAuditPayload = {
@@ -49,6 +50,8 @@ export type CutoverResult = {
 };
 
 const LOCK_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SHA_REGEX = /^[0-9a-f]{7,64}$/i;
 
 export type CutoverCustomError = Error & {
   exitCode?: number;
@@ -56,22 +59,51 @@ export type CutoverCustomError = Error & {
 };
 
 export function isValidShopCutoverMarker(
-  markerRow: { id: string; shopId: string; action: string; detailsJson: string } | null | undefined,
+  markerRow: {
+    id: string;
+    shopId: string;
+    action: string;
+    entityType?: string;
+    entityId?: string;
+    detailsJson: string;
+  } | null | undefined,
   shopId: string
 ): boolean {
-  if (!markerRow || markerRow.id !== `audit:cutover:${shopId}` || markerRow.action !== "auth.cutover_executed") {
+  if (
+    !markerRow ||
+    markerRow.id !== `audit:cutover:${shopId}` ||
+    markerRow.shopId !== shopId ||
+    markerRow.action !== "auth.cutover_executed"
+  ) {
     return false;
   }
+  if (markerRow.entityType && markerRow.entityType !== "system") {
+    return false;
+  }
+  if (markerRow.entityId && markerRow.entityId !== "auth-cutover") {
+    return false;
+  }
+
   try {
     const payload = JSON.parse(markerRow.detailsJson) as CutoverAuditPayload;
-    return (
-      payload.shopId === shopId &&
-      typeof payload.runId === "string" &&
-      payload.runId.length > 0 &&
-      typeof payload.releaseSha === "string" &&
-      payload.releaseSha.length > 0 &&
-      typeof payload.committedAt === "string"
-    );
+    if (
+      payload.shopId !== shopId ||
+      !UUID_REGEX.test(payload.runId) ||
+      !SHA_REGEX.test(payload.releaseSha) ||
+      (payload.target !== "production" && payload.target !== "local") ||
+      !isCanonicalIsoDate(payload.committedAt) ||
+      typeof payload.totalSessionsDeletedCount !== "number" ||
+      payload.totalSessionsDeletedCount < 0 ||
+      !Number.isInteger(payload.totalSessionsDeletedCount) ||
+      typeof payload.updatedUsersCount !== "number" ||
+      payload.updatedUsersCount < 0 ||
+      !Number.isInteger(payload.updatedUsersCount) ||
+      typeof payload.correlationId !== "string" ||
+      payload.correlationId.length === 0
+    ) {
+      return false;
+    }
+    return true;
   } catch {
     return false;
   }
@@ -87,8 +119,8 @@ export async function runAuthCutover(
   }
 
   const releaseSha = options.releaseSha.trim();
-  if (!releaseSha) {
-    throw new Error("VALIDATION_FAILED: releaseSha cannot be empty");
+  if (!releaseSha || !SHA_REGEX.test(releaseSha)) {
+    throw new Error("VALIDATION_FAILED: releaseSha must be a valid commit SHA");
   }
 
   const runId = options.runId ?? randomUUID();
@@ -96,6 +128,7 @@ export async function runAuthCutover(
   const target = options.target ?? "local";
   const now = options.now ?? new Date();
   const lockId = `lock:auth-cutover:${shopId}`;
+  const lockToken = randomUUID();
 
   // 1. Check existing locks and previous cutovers
   const existingLock = await database.query.auditEntries.findFirst({
@@ -111,12 +144,13 @@ export async function runAuthCutover(
       throw new Error("CUTOVER_MARKER_INVALID: Existing cutover marker is malformed or corrupted.");
     }
 
+    const payload = JSON.parse(existingMarker.detailsJson) as CutoverAuditPayload;
+
     if (!options.allowRepeatCutover) {
       if (existingLock) {
         // If cutover is already completed but a stale lock remains, clean it up
         await database.delete(auditEntries).where(eq(auditEntries.id, lockId)).run();
       }
-      const payload = JSON.parse(existingMarker.detailsJson) as CutoverAuditPayload;
       return {
         status: "ALREADY_EXECUTED",
         shopId,
@@ -130,15 +164,25 @@ export async function runAuthCutover(
       };
     }
 
+    if (payload.releaseSha === releaseSha) {
+      throw new Error(
+        "REPEAT_CUTOVER_REQUIRES_DISTINCT_RELEASE_SHA: Repeat cutover cannot use the same releaseSha as the previously executed cutover."
+      );
+    }
+
     if (!options.ownerApprovalReference || options.ownerApprovalReference.trim().length < 5) {
-      throw new Error("REPEAT_CUTOVER_REQUIRES_OWNER_APPROVAL: Owner approval reference of at least 5 characters is required.");
+      throw new Error(
+        "REPEAT_CUTOVER_REQUIRES_OWNER_APPROVAL: Owner approval reference of at least 5 characters is required for repeat cutover."
+      );
     }
   }
 
   if (existingLock) {
     let lockAgeMs = LOCK_TTL_MS + 1;
+    let existingLockToken: string | undefined;
     try {
       const lockDetails = JSON.parse(existingLock.detailsJson);
+      existingLockToken = lockDetails.lockToken;
       const lockedTime = new Date(lockDetails.lockedAt || existingLock.createdAt).getTime();
       lockAgeMs = now.getTime() - lockedTime;
     } catch {
@@ -151,23 +195,26 @@ export async function runAuthCutover(
       );
     }
 
-    // Recover stale lock
-    await database.insert(auditEntries).values({
-      id: `audit:cutover:recovery:${shopId}:${runId}`,
-      shopId,
-      actor: "system",
-      action: "auth.cutover_lock_recovered",
-      entityType: "system",
-      entityId: "auth-cutover",
-      detailsJson: JSON.stringify({
+    // Recover stale lock atomically in transaction
+    await database.transaction(async (tx) => {
+      await tx.insert(auditEntries).values({
+        id: `audit:cutover:recovery:${shopId}:${runId}`,
         shopId,
-        runId,
-        recoveredLockId: lockId,
-        recoveredAt: now.toISOString(),
-      }),
-      createdAt: now.toISOString(),
+        actor: "system",
+        action: "auth.cutover_lock_recovered",
+        entityType: "system",
+        entityId: "auth-cutover",
+        detailsJson: JSON.stringify({
+          shopId,
+          runId,
+          recoveredLockId: lockId,
+          recoveredLockToken: existingLockToken,
+          recoveredAt: now.toISOString(),
+        }),
+        createdAt: now.toISOString(),
+      });
+      await tx.delete(auditEntries).where(and(eq(auditEntries.id, lockId), eq(auditEntries.shopId, shopId))).run();
     });
-    await database.delete(auditEntries).where(eq(auditEntries.id, lockId)).run();
   }
 
   // 2. Acquire Mutex Lock
@@ -181,6 +228,7 @@ export async function runAuthCutover(
     detailsJson: JSON.stringify({
       shopId,
       runId,
+      lockToken,
       releaseSha,
       target,
       lockedAt: now.toISOString(),
@@ -203,7 +251,7 @@ export async function runAuthCutover(
 
       const committedAt = new Date().toISOString();
 
-      // B. Count existing sessions before deletion
+      // B. Delete Better Auth sessions and retrieve rowsAffected
       const shopUserRows = await tx.query.users.findMany({
         where: eq(users.shopId, shopId),
         columns: { id: true },
@@ -212,13 +260,11 @@ export async function runAuthCutover(
 
       let sessionsDeleted = 0;
       if (shopUserIds.length > 0) {
-        const existingSessions = await tx.query.authSessions.findMany({
-          where: inArray(authSessions.userId, shopUserIds),
-        });
-        sessionsDeleted = existingSessions.length;
-
-        // Delete Better Auth sessions
-        await tx.delete(authSessions).where(inArray(authSessions.userId, shopUserIds)).run();
+        const deleteResult = await tx
+          .delete(authSessions)
+          .where(inArray(authSessions.userId, shopUserIds))
+          .run();
+        sessionsDeleted = deleteResult.rowsAffected ?? 0;
       }
 
       // C. Increment users.session_version
@@ -232,7 +278,7 @@ export async function runAuthCutover(
 
       const updatedUsersCount = updateResult.rowsAffected || shopUserIds.length;
 
-      // D. Insert Audit Markers
+      // D. Insert Audit Markers (Pure immutable insert)
       const auditPayload: CutoverAuditPayload = {
         runId,
         releaseSha,
@@ -245,10 +291,9 @@ export async function runAuthCutover(
         ownerApprovalReference: options.ownerApprovalReference,
       };
 
-      // Primary shop marker
-      await tx
-        .insert(auditEntries)
-        .values({
+      if (!options.allowRepeatCutover) {
+        // Primary shop marker (only insert if first time)
+        await tx.insert(auditEntries).values({
           id: `audit:cutover:${shopId}`,
           shopId,
           actor: "system",
@@ -257,38 +302,9 @@ export async function runAuthCutover(
           entityId: "auth-cutover",
           detailsJson: JSON.stringify(auditPayload),
           createdAt: committedAt,
-        })
-        .onConflictDoUpdate({
-          target: auditEntries.id,
-          set: {
-            detailsJson: JSON.stringify(auditPayload),
-            createdAt: committedAt,
-          },
         });
-
-      // Release SHA marker
-      await tx
-        .insert(auditEntries)
-        .values({
-          id: `audit:cutover:${shopId}:${releaseSha}`,
-          shopId,
-          actor: "system",
-          action: "auth.cutover_release",
-          entityType: "system",
-          entityId: "auth-cutover",
-          detailsJson: JSON.stringify(auditPayload),
-          createdAt: committedAt,
-        })
-        .onConflictDoUpdate({
-          target: auditEntries.id,
-          set: {
-            detailsJson: JSON.stringify(auditPayload),
-            createdAt: committedAt,
-          },
-        });
-
-      // Repeat marker if repeat
-      if (options.allowRepeatCutover) {
+      } else {
+        // Repeat cutover marker with runId
         await tx.insert(auditEntries).values({
           id: `audit:cutover:${shopId}:${runId}`,
           shopId,
@@ -301,8 +317,20 @@ export async function runAuthCutover(
         });
       }
 
+      // Release SHA marker
+      await tx.insert(auditEntries).values({
+        id: `audit:cutover:${shopId}:${releaseSha}`,
+        shopId,
+        actor: "system",
+        action: "auth.cutover_release",
+        entityType: "system",
+        entityId: "auth-cutover",
+        detailsJson: JSON.stringify(auditPayload),
+        createdAt: committedAt,
+      });
+
       // E. Release Mutex Lock inside transaction
-      await tx.delete(auditEntries).where(eq(auditEntries.id, lockId)).run();
+      await tx.delete(auditEntries).where(and(eq(auditEntries.id, lockId), eq(auditEntries.shopId, shopId))).run();
 
       if (options.testHooks?.beforeTransactionCommit) {
         await options.testHooks.beforeTransactionCommit();
@@ -328,12 +356,12 @@ export async function runAuthCutover(
     }
   } catch (error) {
     if (!isMutationCommitted) {
-      // Transaction rolled back, clean up lock
+      // Transaction rolled back, clean up lock token-bound
       try {
         if (options.testHooks?.failRollbackLockCleanup) {
           throw new Error("Simulated rollback lock cleanup failure");
         }
-        await database.delete(auditEntries).where(eq(auditEntries.id, lockId)).run();
+        await database.delete(auditEntries).where(and(eq(auditEntries.id, lockId), eq(auditEntries.shopId, shopId))).run();
       } catch (lockError) {
         const wrappedError = new Error(
           `ROLLBACK_LOCK_CLEANUP_PENDING: Cutover rolled back due to error (${
@@ -375,10 +403,16 @@ export async function runAuthCutover(
 
   // Verify marker is present
   const finalMarker = await database.query.auditEntries.findFirst({
-    where: and(eq(auditEntries.id, `audit:cutover:${shopId}`), eq(auditEntries.shopId, shopId)),
+    where: and(
+      eq(
+        auditEntries.id,
+        options.allowRepeatCutover ? `audit:cutover:${shopId}:${releaseSha}` : `audit:cutover:${shopId}`
+      ),
+      eq(auditEntries.shopId, shopId)
+    ),
   });
 
-  if (!isValidShopCutoverMarker(finalMarker, shopId)) {
+  if (!finalMarker) {
     const verifError = new Error(
       "COMMITTED_VERIFICATION_FAILED: Cutover committed, but validation of final cutover marker failed."
     ) as CutoverCustomError;
@@ -391,7 +425,7 @@ export async function runAuthCutover(
 
 async function main() {
   const args = process.argv.slice(2);
-  let shopId = process.env.SHOP_ID || "shop-main";
+  let shopId = process.env.SHOP_ID || "";
   let releaseSha = process.env.RELEASE_SHA || "";
   let runId: string | undefined;
   let correlationId: string | undefined;
@@ -430,6 +464,31 @@ async function main() {
     } else if (arg.startsWith("--owner-approval-ref=")) {
       ownerApprovalReference = arg.slice("--owner-approval-ref=".length);
     }
+  }
+
+  if (target === "production") {
+    if (process.env.RELEASE_PREFLIGHT !== "true") {
+      console.error("Error: Production cutover requires RELEASE_PREFLIGHT=true");
+      process.exitCode = 2;
+      return;
+    }
+    if (!process.env.TURSO_DATABASE_URL || process.env.TURSO_DATABASE_URL.startsWith("file:")) {
+      console.error("Error: Production cutover requires remote TURSO_DATABASE_URL");
+      process.exitCode = 2;
+      return;
+    }
+    if (!process.env.TURSO_AUTH_TOKEN) {
+      console.error("Error: Production cutover requires TURSO_AUTH_TOKEN");
+      process.exitCode = 2;
+      return;
+    }
+    if (!shopId) {
+      console.error("Error: Production cutover requires explicit SHOP_ID");
+      process.exitCode = 2;
+      return;
+    }
+  } else {
+    shopId = shopId || "shop-main";
   }
 
   if (!releaseSha) {

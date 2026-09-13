@@ -25,6 +25,17 @@ export type BackupVerificationResult = {
   sourceManifest: SourceDatabaseManifest;
 };
 
+export function maskDatabaseUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    parsed.password = "***";
+    parsed.username = parsed.username ? "***" : "";
+    return parsed.toString();
+  } catch {
+    return rawUrl.startsWith("file:") ? rawUrl : "masked-database-url";
+  }
+}
+
 export function validateBackupManifestIntegrity(manifest: SourceDatabaseManifest): void {
   if (manifest.manifestVersion !== 1) {
     throw new Error(`Unsupported manifest version: ${manifest.manifestVersion}`);
@@ -55,7 +66,9 @@ export async function verifyBackupDatabase(
 
     if (prodHost !== "" && prodHost !== "localhost" && backupHost === prodHost) {
       throw new Error(
-        `ANTI_PRODUCTION_GUARD_TRIGGERED: Backup database URL (${options.backupDatabaseUrl}) points to production hostname '${prodHost}'.`
+        `ANTI_PRODUCTION_GUARD_TRIGGERED: Backup database URL (${maskDatabaseUrl(
+          options.backupDatabaseUrl
+        )}) points to production hostname '${prodHost}'.`
       );
     }
   }
@@ -63,9 +76,19 @@ export async function verifyBackupDatabase(
   // 3. Capture backup database manifest
   const backupManifest = await captureSourceManifest(backupDatabase, {
     databaseUrl: options.backupDatabaseUrl,
+    shopId: sourceManifest.shopId,
   });
 
-  // 4. Verify Migration Head
+  // 4. Verify Expected Metadata (Backup name and group)
+  if (options.expectedBackupName && options.expectedBackupName.trim().length > 0) {
+    if (backupManifest.databaseName.toLowerCase() !== options.expectedBackupName.trim().toLowerCase()) {
+      errors.push(
+        `Backup database name mismatch: expected '${options.expectedBackupName}', got '${backupManifest.databaseName}'`
+      );
+    }
+  }
+
+  // 5. Verify Migration Head
   if (backupManifest.migration.id !== sourceManifest.migration.id) {
     errors.push(
       `Migration ID mismatch: backup has ${backupManifest.migration.id}, source has ${sourceManifest.migration.id}`
@@ -82,7 +105,7 @@ export async function verifyBackupDatabase(
     );
   }
 
-  // 5. Verify Table Counts
+  // 6. Verify Table Counts
   if (backupManifest.counts.users !== sourceManifest.counts.users) {
     errors.push(`Table users count mismatch: backup ${backupManifest.counts.users} != source ${sourceManifest.counts.users}`);
   }
@@ -99,7 +122,7 @@ export async function verifyBackupDatabase(
     errors.push(`Table audit_entries count mismatch: backup ${backupManifest.counts.auditEntries} != source ${sourceManifest.counts.auditEntries}`);
   }
 
-  // 6. Verify Session Version Stats
+  // 7. Verify Session Version Stats
   if (backupManifest.sessionVersion.userCount !== sourceManifest.sessionVersion.userCount) {
     errors.push(`Session version userCount mismatch: backup ${backupManifest.sessionVersion.userCount} != source ${sourceManifest.sessionVersion.userCount}`);
   }

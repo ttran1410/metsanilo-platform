@@ -71,13 +71,13 @@ describe("Canonical Evidence & Checksum Tests", () => {
       shopId: "shop-main",
       action: "auth.cutover_executed",
       detailsJson: JSON.stringify({
-        runId: "run-123",
+        runId: "12345678-1234-4234-8234-123456789abc",
         releaseSha: "abcdef1234567890abcdef1234567890abcdef12",
         target: "production",
         shopId: "shop-main",
         totalSessionsDeletedCount: 5,
         updatedUsersCount: 10,
-        correlationId: "corr-123",
+        correlationId: "87654321-4321-4321-8321-cba987654321",
         committedAt: "2026-09-13T03:00:00.000Z",
       } satisfies CutoverAuditPayload),
     };

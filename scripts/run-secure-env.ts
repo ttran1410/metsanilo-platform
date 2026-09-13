@@ -170,12 +170,20 @@ export function parseCliArgs(argv: string[]) {
       const kv = argv[i];
       const eqIdx = kv.indexOf("=");
       if (eqIdx === -1) throw new Error(`Invalid --set format: "${kv}", expected KEY=VALUE`);
-      setOverrides[kv.slice(0, eqIdx)] = kv.slice(eqIdx + 1);
+      const setKey = kv.slice(0, eqIdx);
+      if (setKey in setOverrides) {
+        throw new Error(`Duplicate --set key detected: "${setKey}"`);
+      }
+      setOverrides[setKey] = kv.slice(eqIdx + 1);
     } else if (arg.startsWith("--set=")) {
       const kv = arg.slice("--set=".length);
       const eqIdx = kv.indexOf("=");
       if (eqIdx === -1) throw new Error(`Invalid --set format: "${kv}", expected KEY=VALUE`);
-      setOverrides[kv.slice(0, eqIdx)] = kv.slice(eqIdx + 1);
+      const setKey = kv.slice(0, eqIdx);
+      if (setKey in setOverrides) {
+        throw new Error(`Duplicate --set key detected: "${setKey}"`);
+      }
+      setOverrides[setKey] = kv.slice(eqIdx + 1);
     } else {
       throw new Error(`Unknown argument before "--": ${arg}`);
     }
@@ -266,22 +274,34 @@ export async function runSecureEnv(argv: string[]): Promise<number> {
       stdio: "inherit",
     });
 
-    const forwardSignal = (sig: NodeJS.Signals) => {
-      if (child.pid) {
-        child.kill(sig);
-      }
+    const onSigint = () => {
+      if (child.pid) child.kill("SIGINT");
+    };
+    const onSigterm = () => {
+      if (child.pid) child.kill("SIGTERM");
+    };
+    const onSighup = () => {
+      if (child.pid) child.kill("SIGHUP");
     };
 
-    process.on("SIGINT", () => forwardSignal("SIGINT"));
-    process.on("SIGTERM", () => forwardSignal("SIGTERM"));
-    process.on("SIGHUP", () => forwardSignal("SIGHUP"));
+    const cleanupListeners = () => {
+      process.off("SIGINT", onSigint);
+      process.off("SIGTERM", onSigterm);
+      process.off("SIGHUP", onSighup);
+    };
+
+    process.on("SIGINT", onSigint);
+    process.on("SIGTERM", onSigterm);
+    process.on("SIGHUP", onSighup);
 
     child.on("error", (err: Error) => {
+      cleanupListeners();
       console.error(`Failed to start child process: ${err.message}`);
       resolve(1);
     });
 
     child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
+      cleanupListeners();
       if (signal === "SIGINT") resolve(130);
       else if (signal === "SIGTERM") resolve(143);
       else if (signal === "SIGHUP") resolve(129);

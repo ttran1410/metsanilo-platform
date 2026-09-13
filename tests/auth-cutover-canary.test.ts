@@ -97,6 +97,7 @@ describe("runAuthCutoverCanary", () => {
   it("runs full canary flow: pre-cutover invalidation, post-cutover re-login, credential rotation", async () => {
     await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
     await seedUserWithAuth("canary-mgr", "canary@example.test", "MANAGER", 1);
+    await seedUserWithAuth("mgr-secondary", "secondary-mgr@example.test", "MANAGER", 1);
 
     const result = await runAuthCutoverCanary(database, {
       shopId: "shop-main",
@@ -118,6 +119,7 @@ describe("runAuthCutoverCanary", () => {
 
   it("fails early if canary user is not MANAGER or is inactive", async () => {
     await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
+    await seedUserWithAuth("mgr-secondary", "secondary-mgr@example.test", "MANAGER", 1);
     await seedUserWithAuth("staff-user", "staff@example.test", "STAFF", 1);
 
     await expect(
@@ -129,9 +131,54 @@ describe("runAuthCutoverCanary", () => {
     ).rejects.toThrow(/INVALID_CANARY_ACCOUNT/);
   });
 
+  it("fails early if shop has fewer than 2 active MANAGER accounts", async () => {
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
+    await seedUserWithAuth("canary-mgr", "canary@example.test", "MANAGER", 1);
+
+    await expect(
+      runAuthCutoverCanary(database, {
+        shopId: "shop-main",
+        canaryUserId: "canary-mgr",
+        releaseSha: "rel-1",
+      })
+    ).rejects.toThrow(/CANARY_PRECHECK_FAILED.*at least 2 are required/);
+  });
+
+  it("fails early if canary account is the bootstrap admin", async () => {
+    process.env.ADMIN_BOOTSTRAP_USERNAME = "canary@example.test";
+    await seedUserWithAuth("canary-mgr", "canary@example.test", "MANAGER", 1);
+    await seedUserWithAuth("mgr-secondary", "secondary-mgr@example.test", "MANAGER", 1);
+
+    await expect(
+      runAuthCutoverCanary(database, {
+        shopId: "shop-main",
+        canaryUserId: "canary-mgr",
+        releaseSha: "rel-1",
+      })
+    ).rejects.toThrow(/CANARY_PRECHECK_FAILED.*cannot be the bootstrap admin account/);
+
+    delete process.env.ADMIN_BOOTSTRAP_USERNAME;
+  });
+
+  it("fails early with exitCode 2 in production mode if RELEASE_PREFLIGHT is not true", async () => {
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
+    await seedUserWithAuth("canary-mgr", "canary@example.test", "MANAGER", 1);
+    await seedUserWithAuth("mgr-secondary", "secondary-mgr@example.test", "MANAGER", 1);
+
+    await expect(
+      runAuthCutoverCanary(database, {
+        shopId: "shop-main",
+        canaryUserId: "canary-mgr",
+        releaseSha: "rel-1",
+        target: "production",
+      })
+    ).rejects.toThrow(/CANARY_PRECHECK_FAILED.*RELEASE_PREFLIGHT=true/);
+  });
+
   it("sets exit code 8 if canary credential revocation fails in finally block", async () => {
     await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
     await seedUserWithAuth("canary-mgr", "canary@example.test", "MANAGER", 1);
+    await seedUserWithAuth("mgr-secondary", "secondary-mgr@example.test", "MANAGER", 1);
 
     try {
       await runAuthCutoverCanary(database, {
@@ -153,6 +200,7 @@ describe("runAuthCutoverCanary", () => {
   it("sets exit code 7 if canary session cleanup fails in finally block", async () => {
     await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
     await seedUserWithAuth("canary-mgr", "canary@example.test", "MANAGER", 1);
+    await seedUserWithAuth("mgr-secondary", "secondary-mgr@example.test", "MANAGER", 1);
 
     try {
       await runAuthCutoverCanary(database, {
@@ -174,6 +222,7 @@ describe("runAuthCutoverCanary", () => {
   it("cleans up sessions and rotates canary credentials when cutover fails", async () => {
     await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
     await seedUserWithAuth("canary-mgr", "canary@example.test", "MANAGER", 1);
+    await seedUserWithAuth("mgr-secondary", "secondary-mgr@example.test", "MANAGER", 1);
 
     await expect(
       runAuthCutoverCanary(database, {

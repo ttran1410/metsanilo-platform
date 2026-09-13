@@ -64,6 +64,62 @@ export async function runAuthCutoverCanary(
     throw err;
   }
 
+  const bootstrapAdmin = process.env.ADMIN_BOOTSTRAP_USERNAME;
+  if (bootstrapAdmin && canaryUser.email === bootstrapAdmin) {
+    const err = new Error(
+      `CANARY_PRECHECK_FAILED: Canary account cannot be the bootstrap admin account ('${bootstrapAdmin}').`
+    ) as CanaryCustomError;
+    err.exitCode = 2;
+    throw err;
+  }
+
+  const activeManagers = await database.query.users.findMany({
+    where: and(
+      eq(users.shopId, shopId),
+      eq(users.active, true),
+      eq(users.role, "MANAGER")
+    ),
+  });
+
+  if (activeManagers.length < 2) {
+    const err = new Error(
+      `CANARY_PRECHECK_FAILED: Shop '${shopId}' has ${activeManagers.length} active MANAGER(s); at least 2 are required to safely run canary rotation.`
+    ) as CanaryCustomError;
+    err.exitCode = 2;
+    throw err;
+  }
+
+  if (options.target === "production") {
+    if (process.env.RELEASE_PREFLIGHT !== "true") {
+      const err = new Error(
+        "CANARY_PRECHECK_FAILED: Production target requires RELEASE_PREFLIGHT=true"
+      ) as CanaryCustomError;
+      err.exitCode = 2;
+      throw err;
+    }
+    if (!process.env.TURSO_DATABASE_URL || process.env.TURSO_DATABASE_URL.startsWith("file:")) {
+      const err = new Error(
+        "CANARY_PRECHECK_FAILED: Production target requires remote TURSO_DATABASE_URL"
+      ) as CanaryCustomError;
+      err.exitCode = 2;
+      throw err;
+    }
+    if (!process.env.TURSO_AUTH_TOKEN) {
+      const err = new Error(
+        "CANARY_PRECHECK_FAILED: Production target requires TURSO_AUTH_TOKEN"
+      ) as CanaryCustomError;
+      err.exitCode = 2;
+      throw err;
+    }
+    if (!shopId) {
+      const err = new Error(
+        "CANARY_PRECHECK_FAILED: Production target requires explicit SHOP_ID"
+      ) as CanaryCustomError;
+      err.exitCode = 2;
+      throw err;
+    }
+  }
+
   // 2. Initial Canary Credential Rotation (generate fresh in-memory credentials)
   await rotateCanaryCredential(database, {
     shopId,

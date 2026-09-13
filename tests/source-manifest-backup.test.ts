@@ -133,6 +133,9 @@ describe("Source Manifest & Backup Verification", () => {
 
     const parsed = JSON.parse(readFileSync(filePath, "utf8"));
     expect(() => validateBackupManifestIntegrity(parsed)).not.toThrow();
+
+    // Re-writing to existing path fails due to wx flag (no overwrite)
+    expect(() => writeManifestSafely(filePath, manifest)).toThrow();
   });
 
   it("successfully verifies identical backup database against source manifest", async () => {
@@ -144,12 +147,32 @@ describe("Source Manifest & Backup Verification", () => {
     });
 
     const result = await verifyBackupDatabase(backupDb, manifest, {
-      backupDatabaseUrl: "libsql://prod-backup.turso.io",
+      backupDatabaseUrl: "libsql://metsanilo-prod-backup-20260913.turso.io",
       productionHostname: "prod-source.turso.io",
+      expectedBackupName: "metsanilo-prod-backup-20260913",
+      expectedGroup: "default",
     });
 
     expect(result.ok).toBe(true);
     expect(result.errors).toEqual([]);
+  });
+
+  it("fails verification when backup name or group mismatches expected", async () => {
+    await seedUser(sourceDb, "user-1", "u1@example.com", 1);
+    await seedUser(backupDb, "user-1", "u1@example.com", 1);
+
+    const manifest = await captureSourceManifest(sourceDb, {
+      databaseUrl: "libsql://prod-source.turso.io",
+    });
+
+    const result = await verifyBackupDatabase(backupDb, manifest, {
+      backupDatabaseUrl: "libsql://metsanilo-prod-backup-20260913.turso.io",
+      productionHostname: "prod-source.turso.io",
+      expectedBackupName: "other-backup-name",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => e.includes("Backup database name mismatch"))).toBe(true);
   });
 
   it("detects manifest checksum tampering", async () => {

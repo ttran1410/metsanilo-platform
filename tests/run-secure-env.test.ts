@@ -86,6 +86,12 @@ KEY=second
       expect(parsed.childArgs).toEqual(["node", "script.js", "--target=prod"]);
     });
 
+    it("throws if duplicate --set key is provided", () => {
+      expect(() =>
+        parseCliArgs(["--set", "FOO=bar", "--set", "FOO=baz", "--", "node", "script.js"])
+      ).toThrowError(/Duplicate --set key detected: "FOO"/);
+    });
+
     it("throws if no child args are provided after --", () => {
       expect(() => parseCliArgs(["--require", "FOO"])).toThrowError(/No target command/);
     });

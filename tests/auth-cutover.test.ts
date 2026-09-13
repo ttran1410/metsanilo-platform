@@ -168,14 +168,14 @@ describe("runAuthCutover", () => {
 
     const firstResult = await runAuthCutover(database, {
       shopId: "shop-main",
-      releaseSha: "release-sha-1",
+      releaseSha: "1111111111111111111111111111111111111111",
     });
     expect(firstResult.status).toBe("COMMITTED");
 
     // Second run without allowRepeatCutover
     const secondResult = await runAuthCutover(database, {
       shopId: "shop-main",
-      releaseSha: "release-sha-2",
+      releaseSha: "2222222222222222222222222222222222222222",
     });
     expect(secondResult.status).toBe("ALREADY_EXECUTED");
     expect(secondResult.runId).toBe(firstResult.runId);
@@ -191,12 +191,12 @@ describe("runAuthCutover", () => {
 
     await runAuthCutover(database, {
       shopId: "shop-main",
-      releaseSha: "release-sha-1",
+      releaseSha: "1111111111111111111111111111111111111111",
     });
 
     const repeatResult = await runAuthCutover(database, {
       shopId: "shop-main",
-      releaseSha: "release-sha-2",
+      releaseSha: "2222222222222222222222222222222222222222",
       allowRepeatCutover: true,
       ownerApprovalReference: "INC-999-EMERGENCY-RESET",
     });
@@ -219,17 +219,36 @@ describe("runAuthCutover", () => {
 
     await runAuthCutover(database, {
       shopId: "shop-main",
-      releaseSha: "release-sha-1",
+      releaseSha: "1111111111111111111111111111111111111111",
     });
 
     await expect(
       runAuthCutover(database, {
         shopId: "shop-main",
-        releaseSha: "release-sha-2",
+        releaseSha: "2222222222222222222222222222222222222222",
         allowRepeatCutover: true,
         ownerApprovalReference: "",
       })
     ).rejects.toThrow(/REPEAT_CUTOVER_REQUIRES_OWNER_APPROVAL/);
+  });
+
+  it("rejects repeat cutover if attempting to rerun with the identical release SHA", async () => {
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER", 1);
+
+    await runAuthCutover(database, {
+      shopId: "shop-main",
+      releaseSha: "1111111111111111111111111111111111111111",
+    });
+
+    await expect(
+      runAuthCutover(database, {
+        shopId: "shop-main",
+        releaseSha: "1111111111111111111111111111111111111111",
+        allowRepeatCutover: true,
+        ownerApprovalReference: "INC-999-RECOVERY",
+      })
+    ).rejects.toThrow(/REPEAT_CUTOVER_REQUIRES_DISTINCT_RELEASE_SHA/);
   });
 
   it("rejects corrupted cutover marker with CUTOVER_MARKER_INVALID", async () => {
@@ -251,7 +270,7 @@ describe("runAuthCutover", () => {
     await expect(
       runAuthCutover(database, {
         shopId: "shop-main",
-        releaseSha: "release-sha-1",
+        releaseSha: "1111111111111111111111111111111111111111",
       })
     ).rejects.toThrow(/CUTOVER_MARKER_INVALID/);
   });
@@ -279,7 +298,7 @@ describe("runAuthCutover", () => {
     await expect(
       runAuthCutover(database, {
         shopId: "shop-main",
-        releaseSha: "release-sha-1",
+        releaseSha: "1111111111111111111111111111111111111111",
       })
     ).rejects.toThrow(/CONCURRENT_EXECUTION_REJECTED/);
   });
@@ -306,7 +325,7 @@ describe("runAuthCutover", () => {
 
     const result = await runAuthCutover(database, {
       shopId: "shop-main",
-      releaseSha: "release-sha-1",
+      releaseSha: "1111111111111111111111111111111111111111",
     });
 
     expect(result.status).toBe("COMMITTED");
@@ -325,7 +344,7 @@ describe("runAuthCutover", () => {
     await expect(
       runAuthCutover(database, {
         shopId: "shop-main",
-        releaseSha: "release-sha-1",
+        releaseSha: "1111111111111111111111111111111111111111",
       })
     ).rejects.toThrow(/VALIDATION_FAILED/);
 
@@ -348,7 +367,7 @@ describe("runAuthCutover", () => {
     await expect(
       runAuthCutover(database, {
         shopId: "shop-main",
-        releaseSha: "release-sha-1",
+        releaseSha: "1111111111111111111111111111111111111111",
         testHooks: {
           failRollbackLockCleanup: true,
         },
@@ -363,7 +382,7 @@ describe("runAuthCutover", () => {
     await expect(
       runAuthCutover(database, {
         shopId: "shop-main",
-        releaseSha: "release-sha-1",
+        releaseSha: "1111111111111111111111111111111111111111",
         testHooks: {
           failPostCommitLockCleanup: true,
         },
