@@ -25,6 +25,11 @@
     "rehearse:auth": "tsx scripts/rehearse-auth-cutover.ts",
     "test:rehearsal": "vitest run tests/auth-rehearsal-*.test.ts",
     "smoke:auth": "tsx scripts/auth-readiness-smoke.ts",
+    "manifest:source": "tsx scripts/capture-source-manifest.ts",
+    "verify:backup": "tsx scripts/verify-backup.ts",
+    "rotate:canary": "tsx scripts/rotate-canary-credential.ts",
+    "cutover:auth": "tsx scripts/cutover-auth.ts",
+    "cutover:auth:canary": "tsx scripts/auth-cutover-canary.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

@@ -8,7 +8,7 @@ import { createDatabaseConnection, type Database } from "@/db/client";
 import { authAccounts, authSessions, authUsers, shops, users } from "@/db/schema";
 import { hashPassword } from "@/domain/passwords";
 import { resetEnvForTests } from "@/lib/env";
-import { auditAuthReadiness, resolveAuditTarget } from "../scripts/audit-auth-readiness";
+import { auditAuthCutoverReadiness, auditAuthReadiness, resolveAuditTarget } from "../scripts/audit-auth-readiness";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-audit-readiness-"));
 let database: Database;
@@ -340,3 +340,21 @@ describe("auditAuthReadiness", () => {
     expect(strictResult.findings.some((f) => f.code === "CROSS_SHOP_AUTH_GRAPH")).toBe(true);
   });
 });
+
+describe("auditAuthCutoverReadiness", () => {
+  it("defaults strictSingleShop to true and runs on database or transaction handles", async () => {
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
+
+    const directResult = await auditAuthCutoverReadiness(database, "shop-main");
+    expect(directResult.ok).toBe(true);
+    expect(directResult.activeUsersCount).toBe(2);
+
+    await database.transaction(async (tx) => {
+      const txResult = await auditAuthCutoverReadiness(tx, "shop-main");
+      expect(txResult.ok).toBe(true);
+      expect(txResult.activeUsersCount).toBe(2);
+    });
+  });
+});
+

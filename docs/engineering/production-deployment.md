@@ -54,7 +54,7 @@ RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/di
 
 Production preflight (`scripts/preflight.ts` via `validateRuntimeEnvironment` and `assertNoOrphanedForcedChangeUsers`) enforces remote Turso credentials, `ADMIN_SESSION_SECRET` (>= 32 chars), `BETTER_AUTH_SECRET` (>= 32 chars), `BETTER_AUTH_URL` canonical origin (`https://metsanilo.vercel.app`), and zero orphaned forced-change user credential states. Blob credentials, canonical domain routing, and Vercel/Turso CLI identities must still be confirmed separately without printing values.
 
-## Auth Migration Cutover Readiness (Phase 6 Rehearsal vs Phase 7 Live Cutover)
+## Auth Migration Cutover Readiness (Phase 6 Rehearsal, Phase 7 Gate, and Phase 8 Cutover)
 
 Before promoting any Better Auth cutover to production:
 
@@ -70,15 +70,56 @@ Before promoting any Better Auth cutover to production:
    npm run test:rehearsal
    ```
 
-2. **Phase 6: Read-Only Production Readiness Audit**
-   Run the read-only preflight check against production without applying schema changes or data modifications:
+2. **Phase 7: Secure Preflight & Source Manifest Capture**
+   Execute readiness audit and capture source database manifest via secure runner:
    ```bash
-   RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/dist/cli.mjs scripts/audit-auth-readiness.ts --target=production
-   ```
-   This verifies Scrypt format compliance, exact mirror matching (`users.password_hash === auth_accounts.password`), session timestamp integrity, and single-shop boundary isolation.
+   tsx scripts/run-secure-env.ts \
+     --env-file .env.production.local \
+     --set RELEASE_PREFLIGHT=true \
+     -- \
+     tsx scripts/audit-auth-readiness.ts --target=production
 
-3. **Phase 7: Live Cutover Window**
-   Phase 7 live migration and production traffic cutover are separate actions requiring explicit repository owner authorization, scheduled maintenance, and backup verification. Never infer live migration authority from Phase 6 rehearsal readiness.
+   tsx scripts/run-secure-env.ts \
+     --env-file .env.production.local \
+     -- \
+     tsx scripts/capture-source-manifest.ts --output=source-manifest.json
+   ```
+
+3. **Phase 7: Backup Database Verification**
+   Verify the Turso backup database against the source manifest:
+   ```bash
+   tsx scripts/run-secure-env.ts \
+     --env-file .env.production.local \
+     --allow-protected-override TURSO_DATABASE_URL \
+     --set TURSO_DATABASE_URL="$BACKUP_TURSO_URL" \
+     -- \
+     tsx scripts/verify-backup.ts \
+       --manifest-file source-manifest.json \
+       --production-hostname "$PRODUCTION_HOSTNAME"
+   ```
+
+4. **Phase 8: Production Cutover & Canary Verification**
+   Execute atomic cutover and forced re-login verification:
+   ```bash
+   tsx scripts/run-secure-env.ts \
+     --env-file .env.production.local \
+     --set RELEASE_SHA="$(git rev-parse HEAD)" \
+     -- \
+     tsx scripts/auth-cutover-canary.ts \
+       --shop-id "$SHOP_ID" \
+       --canary-user-id "$CANARY_USER_ID" \
+       --release-sha "$(git rev-parse HEAD)" \
+       --target=production
+   ```
+   Exit codes:
+   - `0`: COMMITTED or ALREADY_EXECUTED
+   - `2`: VALIDATION_FAILED / CUTOVER_MARKER_INVALID
+   - `3`: COMMITTED_VERIFICATION_FAILED
+   - `4`: COMMITTED_LOCK_CLEANUP_PENDING
+   - `5`: ROLLBACK_LOCK_CLEANUP_PENDING
+   - `6`: CONCURRENT_EXECUTION_REJECTED
+   - `7`: CANARY_CLEANUP_FAILED
+   - `8`: CANARY_CREDENTIAL_REVOCATION_FAILED
 
 
 ## Run quality and migration gates
