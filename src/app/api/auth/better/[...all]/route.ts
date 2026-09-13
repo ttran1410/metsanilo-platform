@@ -4,6 +4,7 @@ import { resolveCorrelationId } from "@/lib/correlation-id";
 import { methodNotAllowed } from "@/app/api/response";
 
 import { withCorrelationHeader } from "@/lib/better-auth-wrapper";
+import { BETTER_AUTH_BASE_PATH } from "@/lib/auth-config";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,7 @@ function isAllowedBetterAuthRequest(request: Request): boolean {
   try {
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/+$/, "");
-    const prefix = "/api/auth/better";
+    const prefix = BETTER_AUTH_BASE_PATH;
     if (!pathname.startsWith(prefix)) return false;
     const relativePath = pathname.slice(prefix.length) || "/";
     return ALLOWED_BETTER_AUTH_PATHS.includes(relativePath);

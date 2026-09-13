@@ -3,6 +3,7 @@ import type { Database } from "@/db/client";
 import { authAccounts, authUsers, users } from "@/db/schema";
 import { hashPassword } from "@/domain/passwords";
 import { createBetterAuthInstance } from "@/lib/better-auth";
+import { BETTER_AUTH_BASE_PATH } from "@/lib/auth-config";
 import type { Role } from "@/lib/permissions";
 
 export async function provisionAuthenticatedTestUser(database: Database, input: { shopId: string; email: string; password: string; role: Role; id?: string }) {
@@ -18,8 +19,7 @@ export async function provisionAuthenticatedTestUser(database: Database, input: 
 export async function authenticatedTestRequest(database: Database, email: string, password: string, url = "http://localhost/manager") {
   const auth = createBetterAuthInstance({ database });
   const baseUrl = new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000");
-  const basePath = baseUrl.pathname === "/" ? "/api/auth" : baseUrl.pathname.replace(/\/$/, "");
-  const signInUrl = new URL(`${basePath}/sign-in/email`, baseUrl.origin);
+  const signInUrl = new URL(`${BETTER_AUTH_BASE_PATH}/sign-in/email`, baseUrl.origin);
   const response = await auth.handler(new Request(signInUrl, {
     method: "POST",
     headers: { "content-type": "application/json", origin: "http://localhost:3000" },

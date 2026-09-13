@@ -1,5 +1,7 @@
+import packageJson from "../../package.json";
+
 export const release = {
-  version: "0.0.2",
+  version: packageJson.version,
   // Manual Vercel CLI deployments do not always populate VERCEL_GIT_COMMIT_SHA.
   // Prefer the explicit release SHA so manual deployments cannot report a stale
   // build-time Git variable as the active release.

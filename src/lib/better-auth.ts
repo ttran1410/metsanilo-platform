@@ -6,6 +6,7 @@ import { authAccounts, authSessions, authUsers, authVerifications, users } from 
 import { hashPassword, verifyPassword } from "@/domain/passwords";
 import { env } from "./env";
 import { isCredentialStateValid, isTemporaryCredentialActive, recordTemporaryCredentialExpired } from "./auth-integration";
+import { BETTER_AUTH_BASE_PATH, PRODUCTION_ORIGIN } from "./auth-config";
 
 function configuredAuthUrl() {
   const value = process.env.BETTER_AUTH_URL?.trim();
@@ -31,7 +32,7 @@ export function createBetterAuthInstance(options?: CreateBetterAuthOptions) {
   const authUrl = configuredAuthUrl();
   const vercelEnvironment = process.env.VERCEL_ENV;
   const isProduction = vercelEnvironment === "production" || (!vercelEnvironment && process.env.NODE_ENV === "production");
-  const trustedOrigins = ["https://metsanilo.vercel.app"];
+  const trustedOrigins = [PRODUCTION_ORIGIN];
   if (!isProduction && vercelEnvironment !== "preview" && authUrl) trustedOrigins.push(authUrl.origin);
 
   const database = options?.database ?? createDatabase(process.env.TURSO_DATABASE_URL || "file:local.db", process.env.TURSO_AUTH_TOKEN);
@@ -57,7 +58,7 @@ export function createBetterAuthInstance(options?: CreateBetterAuthOptions) {
     // The catch-all Next route is mounted below /api/auth/better. Keep
     // Better Auth's internal base path aligned with that route so requests
     // are handled instead of falling through with a 404.
-    basePath: "/api/auth/better",
+    basePath: BETTER_AUTH_BASE_PATH,
     trustedOrigins,
     secret: process.env.BETTER_AUTH_SECRET || "local-development-better-auth-secret-change-me",
     emailAndPassword: {
