@@ -36,7 +36,7 @@ This reference reconciles maintainers' product context with current code and tes
 
 | Capability | Implemented portion | Missing or risky portion |
 |---|---|---|
-| Authentication | Better Auth plus legacy session compatibility | Migration completion, unified account lifecycle, and stronger production secret preflight |
+| Authentication | Better Auth canonical credentials and sessions; legacy endpoints return 410 during the post-cutover observation window | Complete observation sign-off, then remove compatibility telemetry/tombstones under the closeout runbook |
 | Automation | Outbox table, notification records, protected manual runner | No committed scheduler/worker recovery deployment |
 | Media | Local filesystem storage for development, Vercel Blob for production, and DB metadata | Blob credential preflight and cross-system compensation are missing; local storage isn't suitable for durable Vercel production data |
 | Retention | 24-month eligibility, 12-month contact confirmation, holds, dry-run/apply CLI, audit | Scheduled execution and approved production retention/backup interaction are not documented |

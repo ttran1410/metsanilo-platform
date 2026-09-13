@@ -1,5 +1,12 @@
 import { resolveCorrelationId } from "@/lib/correlation-id";
 
+/**
+ * Temporary post-cutover observation instrumentation.
+ * Remove this module and all callers after the gates in
+ * docs/engineering/auth-post-cutover-closeout.md are satisfied.
+ * These log events are not an authentication fallback or a durable metric.
+ */
+
 export type LegacyAuthMechanism = "login_endpoint" | "legacy_cookie" | "http_basic" | "extraneous_basic";
 
 function statusClass(status: number) {
