@@ -231,47 +231,6 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
     errors.push(`Negative test: Disabled Better Auth endpoint returned ${disabledRes.status} instead of 404`);
   }
 
-  const legacyLoginRes = await fetchImpl(`${origin}/api/auth/login`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username: adminEmail, password: adminPassword }),
-  });
-  if (legacyLoginRes.status === 410) {
-    if (!legacyLoginRes.headers.get("x-correlation-id")) {
-      errors.push("Negative test: Legacy login endpoint missing x-correlation-id");
-    }
-    results.push("Negative test: Legacy login endpoint correctly returned 410");
-  } else {
-    errors.push(`Negative test: Legacy login endpoint returned ${legacyLoginRes.status} instead of 410`);
-  }
-
-  const legacyLogoutNoOriginRes = await fetchImpl(`${origin}/api/auth/logout`, {
-    method: "POST",
-  });
-  if (legacyLogoutNoOriginRes.status === 403) {
-    if (!legacyLogoutNoOriginRes.headers.get("x-correlation-id")) {
-      errors.push("Negative test: Legacy logout without origin missing x-correlation-id");
-    }
-    results.push("Negative test: Legacy logout without Origin correctly returned 403");
-  } else {
-    errors.push(`Negative test: Legacy logout without Origin returned ${legacyLogoutNoOriginRes.status} instead of 403`);
-  }
-
-  const legacyLogoutRes = await fetchImpl(`${origin}/api/auth/logout`, {
-    method: "POST",
-    headers: {
-      origin,
-    },
-  });
-  if (legacyLogoutRes.status === 410) {
-    if (!legacyLogoutRes.headers.get("x-correlation-id")) {
-      errors.push("Negative test: Legacy logout endpoint missing x-correlation-id");
-    }
-    results.push("Negative test: Legacy logout endpoint correctly returned 410");
-  } else {
-    errors.push(`Negative test: Legacy logout endpoint returned ${legacyLogoutRes.status} instead of 410`);
-  }
-
   return {
     ok: errors.length === 0,
     results,

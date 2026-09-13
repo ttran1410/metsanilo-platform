@@ -31,7 +31,6 @@ export async function POST(request: Request) {
     const response = success(result, request);
     response.cookies.delete("better-auth.session_token");
     response.cookies.delete("__Secure-better-auth.session_token");
-    response.cookies.delete("metsanilo_session");
 
     return response;
   } catch (error) {

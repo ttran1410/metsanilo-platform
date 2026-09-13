@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 
@@ -43,40 +43,4 @@ describe("proxy routing and security", () => {
     expect(response.status).toBe(200);
   });
 
-  it("records http_basic telemetry on unauthenticated request and extraneous_basic on authenticated request", () => {
-    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
-
-    // 1. Unauthenticated attempt with Basic Auth -> http_basic
-    const unauthReq = new NextRequest("https://example.test/api/admin/orders", {
-      headers: {
-        authorization: "Basic YWRtaW46cGFzc3dvcmQ=",
-        cookie: "metsanilo_session=legacy-token",
-      },
-    });
-    const unauthRes = proxy(unauthReq);
-    expect(unauthRes.status).toBe(401);
-
-    // 2. Authenticated attempt with redundant Basic Auth -> extraneous_basic
-    const authReq = new NextRequest("https://example.test/api/admin/orders", {
-      headers: {
-        authorization: "Basic YWRtaW46cGFzc3dvcmQ=",
-        cookie: "better-auth.session_token=valid-token",
-      },
-    });
-    const authRes = proxy(authReq);
-    expect(authRes.status).toBe(200);
-
-    const loggedMechanisms = info.mock.calls.map((call) => {
-      try {
-        return JSON.parse(String(call[1])).mechanism;
-      } catch {
-        return null;
-      }
-    });
-
-    expect(loggedMechanisms).toContain("legacy_cookie");
-    expect(loggedMechanisms).toContain("http_basic");
-    expect(loggedMechanisms).toContain("extraneous_basic");
-    info.mockRestore();
-  });
 });

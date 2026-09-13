@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { resolveCorrelationId, CORRELATION_ID_HEADER } from "@/lib/correlation-id";
-import { recordLegacyAuthUsage } from "@/lib/auth-telemetry";
 
 function sanitizeNextUrl(url: URL): string | null {
   const pathname = url.pathname;
@@ -23,17 +22,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  const hasLegacyCookie = request.cookies.has("metsanilo_session");
-  const authHeader = request.headers.get("authorization")?.trim();
-  const hasBasicAuth = authHeader ? /^basic\s+/i.test(authHeader) : false;
-
   if (request.nextUrl.pathname === "/admin/login" || request.nextUrl.pathname.startsWith("/api/auth/")) {
-    if (hasLegacyCookie) {
-      recordLegacyAuthUsage(request, "legacy_cookie", 200, correlationId);
-    }
-    if (hasBasicAuth) {
-      recordLegacyAuthUsage(request, "extraneous_basic", 200, correlationId);
-    }
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
@@ -41,23 +30,11 @@ export function proxy(request: NextRequest) {
   // validity and role authorization are strictly enforced downstream at the API/domain boundary.
   const betterSession = request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
   if (betterSession) {
-    if (hasLegacyCookie) {
-      recordLegacyAuthUsage(request, "legacy_cookie", 200, correlationId);
-    }
-    if (hasBasicAuth) {
-      recordLegacyAuthUsage(request, "extraneous_basic", 200, correlationId);
-    }
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // Unauthenticated API request
   if (request.nextUrl.pathname.startsWith("/api/")) {
-    if (hasLegacyCookie) {
-      recordLegacyAuthUsage(request, "legacy_cookie", 401, correlationId);
-    }
-    if (hasBasicAuth) {
-      recordLegacyAuthUsage(request, "http_basic", 401, correlationId);
-    }
     return NextResponse.json(
       {
         code: "UNAUTHORIZED",
@@ -75,13 +52,6 @@ export function proxy(request: NextRequest) {
   }
 
   // Unauthenticated UI request
-  if (hasLegacyCookie) {
-    recordLegacyAuthUsage(request, "legacy_cookie", 307, correlationId);
-  }
-  if (hasBasicAuth) {
-    recordLegacyAuthUsage(request, "http_basic", 307, correlationId);
-  }
-
   const redirectUrl = new URL("/admin/login", request.url);
   const nextParam = sanitizeNextUrl(request.nextUrl);
   if (nextParam) {

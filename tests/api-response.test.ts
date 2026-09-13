@@ -53,7 +53,7 @@ describe("admin API response contract", () => {
   });
 
   it("returns 405 Method Not Allowed with Allow and correlation headers", async () => {
-    const request = new Request("http://localhost/api/auth/login", {
+    const request = new Request("http://localhost/api/test-method", {
       method: "GET",
       headers: { "x-correlation-id": "cccccccc-dddd-4eee-8fff-000000000000" },
     });
@@ -69,7 +69,7 @@ describe("admin API response contract", () => {
   });
 
   it("returns 405 with empty body for HEAD requests", async () => {
-    const request = new Request("http://localhost/api/auth/login", {
+    const request = new Request("http://localhost/api/test-method", {
       method: "HEAD",
       headers: { "x-correlation-id": "dddddddd-eeee-4fff-8000-111111111111" },
     });
