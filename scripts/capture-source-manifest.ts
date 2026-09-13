@@ -261,9 +261,10 @@ export async function captureSourceManifest(
     };
   };
 
-  if (typeof database.transaction === "function") {
-    return await database.transaction(async (tx) => executeCapture(tx));
-  }
+  // Manifest capture is strictly read-only. Turso read-only tokens reject
+  // Drizzle's default transaction because it opens a write-capable session.
+  // Keep the individual reads on the read-only connection instead of
+  // accidentally requiring write permission for evidence capture.
   return await executeCapture(database);
 }
 
