@@ -39,8 +39,8 @@ export function createBetterAuthInstance(options?: CreateBetterAuthOptions) {
   const nowProvider = options?.now ?? (() => new Date());
 
   return betterAuth({
-    // Keep this parallel adapter independent from the legacy runtime preflight;
-    // the Better Auth endpoint validates its own secret and database settings.
+    // Better Auth is the canonical runtime provider; its endpoint validates
+    // its own secret and database settings independently of app preflight.
     database: drizzleAdapter(database, {
       provider: "sqlite",
       schema: {

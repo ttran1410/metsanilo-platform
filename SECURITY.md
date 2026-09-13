@@ -13,7 +13,7 @@ This file defines repository-visible security expectations. Report suspected exp
 
 - Scope every database query and mutation by the configured shop or validated shop context.
 - Admin navigation/UI flags are not authorization. Every Admin API route enforces authentication, membership, and permission server-side.
-- Preserve both Better Auth and the signed legacy session path until an approved migration removes one.
+- Better Auth is the sole authentication provider. Retired signed legacy sessions and HTTP Basic Auth must not authenticate requests; protected requests fail closed when Better Auth validation fails.
 - Parse untrusted input at the API boundary; enforce cross-record invariants again in the domain transaction.
 - Return expected failures through `DomainError` and the shared response adapter. Do not expose stack traces or internal SQL details.
 
