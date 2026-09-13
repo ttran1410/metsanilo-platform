@@ -43,13 +43,46 @@ export type AuditReadinessResult = {
   findings: AuthReadinessFinding[];
 };
 
+export type CutoverReadinessResult = {
+  ok: boolean;
+  activeUsersCount: number;
+  adminCount: number;
+  managerCount: number;
+  expiredTemporaryPasswordCount: number;
+  errors: string[];
+  findings: AuthReadinessFinding[];
+};
+
 export type AuditReadinessOptions = {
   strictSingleShop?: boolean;
   now?: Date;
 };
 
+export type DatabaseReader = Database | Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+export async function auditAuthCutoverReadiness(
+  database: DatabaseReader,
+  shopId: string,
+  options: AuditReadinessOptions = {}
+): Promise<CutoverReadinessResult> {
+  const readiness = await auditAuthReadiness(database, shopId, {
+    strictSingleShop: options.strictSingleShop ?? true,
+    now: options.now,
+  });
+
+  return {
+    ok: readiness.ok,
+    activeUsersCount: readiness.activeUsersCount,
+    adminCount: readiness.adminCount,
+    managerCount: readiness.managerCount,
+    expiredTemporaryPasswordCount: readiness.expiredTemporaryPasswordCount,
+    findings: readiness.findings,
+    errors: readiness.errors,
+  };
+}
+
 export async function auditAuthReadiness(
-  database: Database,
+  database: DatabaseReader,
   shopId: string,
   options: AuditReadinessOptions = {}
 ): Promise<AuditReadinessResult> {
