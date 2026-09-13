@@ -54,9 +54,15 @@ RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/di
 
 Production preflight (`scripts/preflight.ts` via `validateRuntimeEnvironment` and `assertNoOrphanedForcedChangeUsers`) enforces remote Turso credentials, `BETTER_AUTH_SECRET` (>= 32 chars), `BETTER_AUTH_URL` canonical origin (`https://metsanilo.vercel.app`), and zero orphaned forced-change user credential states. Blob credentials, canonical domain routing, and Vercel/Turso CLI identities must still be confirmed separately without printing values.
 
-## Auth Migration Cutover Readiness (Phase 6 Rehearsal, Phase 7 Gate, and Phase 8 Cutover)
+## Historical: Auth Migration Cutover Readiness (Phases 6–8)
 
-Before promoting any Better Auth cutover to production:
+The Better Auth cutover described below is complete. Keep these commands as a
+historical rehearsal and evidence reference; do not rerun production cutover
+or backup steps for routine releases. For the completed release outcome, see
+[the auth cutover release record](../release-notes/2026-09-auth-cutover-signoff.md)
+and [post-cutover closeout](auth-post-cutover-closeout.md).
+
+Before the Better Auth cutover was promoted to production:
 
 1. **Phase 6: Rehearse on Disposable Database**
    Run the self-contained migration and invariant rehearsal CLI:

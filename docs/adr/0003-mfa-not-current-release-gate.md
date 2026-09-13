@@ -11,18 +11,23 @@ Accepted on 2026-08-30 by the repository owner as a temporary risk decision.
 
 ## Context
 
-The application uses Better Auth and a legacy signed session path, but no MFA enrollment, challenge, recovery, or enforcement flow exists. Internal requirements previously treated MFA as a possible production gate.
+At the time this decision was recorded, the application used Better Auth and a
+legacy signed session path, but no MFA enrollment, challenge, recovery, or
+enforcement flow existed. The legacy path was subsequently removed as part of
+the Better Auth cutover. Internal requirements previously treated MFA as a
+possible production gate.
 
 The repository owner confirmed that MFA is not mandatory at the current project stage.
 
 ## Decision
 
-Do not block current production deployment solely because MFA is absent.
+Do not block the then-current production deployment solely because MFA was
+absent.
 
 This decision does not claim that password-only authentication satisfies a future security/compliance baseline. Continue to require:
 
 - strong unique admin passwords;
-- secure Better Auth and legacy session secrets;
+- secure Better Auth secrets;
 - HTTPS and secure cookies in production;
 - server-side permission enforcement;
 - session revocation/version behavior;

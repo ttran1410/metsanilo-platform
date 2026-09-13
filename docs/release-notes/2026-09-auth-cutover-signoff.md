@@ -15,7 +15,7 @@ status: closed
 - Turso database: `metsanilo-production`
 - Pre-migration head: `0041_noisy_legion`
 - Post-migration head: `0042_stormy_squadron_supreme`
-- Backup: `metsanilo-production-backup-20260913-auth-cutover` (direct CLI inspection passed; formal verifier pending)
+- Backup: `metsanilo-production-backup-20260913-auth-cutover` (target verified by CLI, then deleted by explicit owner approval during closeout)
 - Schema contract verification: passed
 - Better Auth readiness audit: passed
 - Manual production smoke-test: completed
