@@ -5,7 +5,7 @@ import { isValidShopCutoverMarker, type CutoverAuditPayload } from "../scripts/c
 describe("Canonical Evidence & Checksum Tests", () => {
   it("calculates deterministic SHA-256 hash independent of object property insertion order", () => {
     const baseManifest = {
-      manifestVersion: 1 as const,
+      manifestVersion: 2 as const,
       capturedAt: "2026-09-13T03:00:00.000Z",
       databaseName: "metsanilo-prod",
       databaseHostname: "metsanilo-prod.turso.io",
@@ -22,13 +22,6 @@ describe("Canonical Evidence & Checksum Tests", () => {
         authSessions: 5,
         auditEntries: 100,
       },
-      sessionVersion: {
-        userCount: 10,
-        min: 1,
-        max: 3,
-        sum: 15,
-        sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      },
     };
 
     const hash1 = calculateManifestSha256(baseManifest);
@@ -44,15 +37,8 @@ describe("Canonical Evidence & Checksum Tests", () => {
       },
       databaseHostname: "metsanilo-prod.turso.io",
       capturedAt: "2026-09-13T03:00:00.000Z",
-      manifestVersion: 1 as const,
+      manifestVersion: 2 as const,
       databaseName: "metsanilo-prod",
-      sessionVersion: {
-        sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        sum: 15,
-        max: 3,
-        min: 1,
-        userCount: 10,
-      },
       migration: {
         repoTag: "0041_noisy_legion",
         createdAt: 1789221020745,

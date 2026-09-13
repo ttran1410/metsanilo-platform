@@ -27,7 +27,6 @@ Never print, paste into logs, or commit secret values. `.env*` and `.vercel` are
 | `SHOP_ID` | Defaults to `shop-main` | Security/data-isolation boundary |
 | `SHOP_SLUG` | Defaults to `metsanilo` | Required by runtime validation |
 | `SHOP_TIMEZONE` | Defaults to `Europe/Helsinki` | Controls business dates/cutoffs |
-| `ADMIN_SESSION_SECRET` | Optional locally | At least 32 characters in production preflight |
 | `BETTER_AUTH_SECRET` | Better Auth uses a local fallback | At least 32 characters in production preflight |
 | `BETTER_AUTH_URL` | Optional locally; falls back to localhost | Must use canonical origin `https://metsanilo.vercel.app` in production preflight |
 | `MEDIA_STORAGE` | `local` or `blob`; defaults to `local` outside production and `blob` in production | Use `blob` for durable Vercel production media |
@@ -44,7 +43,7 @@ The seed is state-changing and not a harmless release check. It refuses an exist
 
 ## Production validation gaps
 
-`validateRuntimeEnvironment({ production: true })` currently checks remote Turso URL, Turso token, legacy session secret length, `BETTER_AUTH_SECRET` (>= 32 chars), `BETTER_AUTH_URL` canonical origin (`https://metsanilo.vercel.app`), `SHOP_ID`, and `SHOP_SLUG`. It does not check Vercel Blob credentials, canonical custom domain routing, or Vercel/Turso CLI target identity.
+`validateRuntimeEnvironment({ production: true })` currently checks remote Turso URL, Turso token, `BETTER_AUTH_SECRET` (>= 32 chars), `BETTER_AUTH_URL` canonical origin (`https://metsanilo.vercel.app`), `SHOP_ID`, and `SHOP_SLUG`. It does not check Vercel Blob credentials, canonical custom domain routing, or Vercel/Turso CLI target identity.
 
 Treat those omissions as checks the operator must perform until code-level preflight is strengthened.
 

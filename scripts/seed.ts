@@ -101,7 +101,7 @@ await database
 const bootstrapUserId = `user-${shopId}-admin`;
 const bootstrapDisplayName = process.env.ADMIN_DISPLAY_NAME?.trim() || "Shop admin";
 const bootstrapHash = hashPassword(bootstrapPassword);
-await reconcileBootstrapAdmin(database, { id: bootstrapUserId, shopId, email: bootstrapEmail, passwordHash: bootstrapHash, displayName: bootstrapDisplayName, now: nowDate });
+await reconcileBootstrapAdmin(database, { id: bootstrapUserId, shopId, email: bootstrapEmail, hashedPassword: bootstrapHash, displayName: bootstrapDisplayName, now: nowDate });
 
 await database
   .insert(products)

@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-30
+last_updated: 2026-09-13
 document_type: reference
 ---
 
@@ -12,6 +12,7 @@ Use this directory for durable, tracked architecture decisions that future maint
 - [ADR-0001: Keep private requirements separate and track public maintainer context](0001-tracked-engineering-authority.md)
 - [ADR-0002: Require owner approval and allow scoped ephemeral deployment credentials](0002-manual-production-approval-and-ephemeral-credentials.md)
 - [ADR-0003: Do not require MFA for the current release stage](0003-mfa-not-current-release-gate.md)
+- [ADR-0004: Make Better Auth the canonical credential and session store](0004-better-auth-canonical-credential-storage.md)
 
 The local `requirements/` tree is intentionally ignored, may contain stale intent, and is not repository authority. Do not commit or routinely edit it. Migrate an accepted rule into tracked documentation only after reconciling it with implementation and tests as required by ADR-0001.
 

@@ -59,7 +59,6 @@ async function seedUserWithAuth(
   id: string,
   email: string,
   role: "ADMIN" | "MANAGER" | "STAFF",
-  sessionVersion = 1,
   active = true,
   shopId = "shop-main"
 ) {
@@ -71,10 +70,8 @@ async function seedUserWithAuth(
     email,
     username: email,
     displayName: email,
-    passwordHash: hash,
     role,
     active,
-    sessionVersion,
     mustChangePassword: false,
     createdAt: now.toISOString(),
   });
@@ -97,9 +94,9 @@ async function seedUserWithAuth(
 }
 
 describe("runAuthCutover", () => {
-  it("executes successful cutover, invalidates sessions, increments session_version, and records audits", async () => {
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
-    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER", 1);
+  it("executes successful cutover, invalidates sessions, and records audits", async () => {
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
 
     // Create active sessions
     const now = new Date();
@@ -137,12 +134,6 @@ describe("runAuthCutover", () => {
     const remainingSessions = await database.query.authSessions.findMany();
     expect(remainingSessions.length).toBe(0);
 
-    // Assert users session_version incremented
-    const adminUser = await database.query.users.findFirst({ where: eq(users.id, "admin-1") });
-    const managerUser = await database.query.users.findFirst({ where: eq(users.id, "manager-1") });
-    expect(adminUser?.sessionVersion).toBe(2);
-    expect(managerUser?.sessionVersion).toBe(2);
-
     // Assert primary marker and release marker exist
     const shopMarker = await database.query.auditEntries.findFirst({
       where: eq(auditEntries.id, "audit:cutover:shop-main"),
@@ -163,8 +154,8 @@ describe("runAuthCutover", () => {
   });
 
   it("enforces single cutover guard and returns ALREADY_EXECUTED on subsequent runs", async () => {
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
-    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER", 1);
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
 
     const firstResult = await runAuthCutover(database, {
       shopId: "shop-main",
@@ -180,14 +171,12 @@ describe("runAuthCutover", () => {
     expect(secondResult.status).toBe("ALREADY_EXECUTED");
     expect(secondResult.runId).toBe(firstResult.runId);
 
-    // Version should not be incremented again
-    const adminUser = await database.query.users.findFirst({ where: eq(users.id, "admin-1") });
-    expect(adminUser?.sessionVersion).toBe(2);
+    // The existing cutover marker prevents a second execution.
   });
 
   it("permits repeat cutover when explicit allowRepeatCutover and ownerApprovalReference are provided", async () => {
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
-    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER", 1);
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
 
     await runAuthCutover(database, {
       shopId: "shop-main",
@@ -203,9 +192,6 @@ describe("runAuthCutover", () => {
 
     expect(repeatResult.status).toBe("COMMITTED");
 
-    const adminUser = await database.query.users.findFirst({ where: eq(users.id, "admin-1") });
-    expect(adminUser?.sessionVersion).toBe(3);
-
     const repeatMarker = await database.query.auditEntries.findFirst({
       where: eq(auditEntries.id, `audit:cutover:shop-main:${repeatResult.runId}`),
     });
@@ -214,8 +200,8 @@ describe("runAuthCutover", () => {
   });
 
   it("rejects repeat cutover if ownerApprovalReference is missing or invalid", async () => {
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
-    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER", 1);
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
 
     await runAuthCutover(database, {
       shopId: "shop-main",
@@ -233,8 +219,8 @@ describe("runAuthCutover", () => {
   });
 
   it("rejects repeat cutover if attempting to rerun with the identical release SHA", async () => {
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
-    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER", 1);
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
 
     await runAuthCutover(database, {
       shopId: "shop-main",
@@ -252,8 +238,8 @@ describe("runAuthCutover", () => {
   });
 
   it("rejects corrupted cutover marker with CUTOVER_MARKER_INVALID", async () => {
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
-    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER", 1);
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
 
     // Insert malformed marker
     await database.insert(auditEntries).values({
@@ -276,8 +262,8 @@ describe("runAuthCutover", () => {
   });
 
   it("rejects concurrent cutover attempt when active lock exists", async () => {
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
-    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER", 1);
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
 
     // Insert active lock (< 15 mins old)
     await database.insert(auditEntries).values({
@@ -304,8 +290,8 @@ describe("runAuthCutover", () => {
   });
 
   it("recovers stale lock (> 15 mins old), records recovery audit, and executes successfully", async () => {
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
-    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER", 1);
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
 
     const staleTime = new Date(Date.now() - 20 * 60 * 1000).toISOString();
     await database.insert(auditEntries).values({
@@ -339,7 +325,7 @@ describe("runAuthCutover", () => {
 
   it("rolls back transaction and cleans lock if readiness validation fails", async () => {
     // Missing active MANAGER role -> readiness will fail
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
 
     await expect(
       runAuthCutover(database, {
@@ -362,7 +348,7 @@ describe("runAuthCutover", () => {
   });
 
   it("wraps error with ROLLBACK_LOCK_CLEANUP_PENDING if rollback lock cleanup fails", async () => {
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
 
     await expect(
       runAuthCutover(database, {
@@ -376,8 +362,8 @@ describe("runAuthCutover", () => {
   });
 
   it("throws COMMITTED_LOCK_CLEANUP_PENDING if post-commit lock cleanup fails", async () => {
-    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
-    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER", 1);
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
+    await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
 
     await expect(
       runAuthCutover(database, {

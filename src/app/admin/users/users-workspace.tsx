@@ -30,7 +30,6 @@ export type UserRow = {
   role: Role;
   active?: boolean;
   mustChangePassword?: boolean;
-  sessionVersion?: number;
   createdAt?: string;
   permissions: string[];
   customOverrides?: {

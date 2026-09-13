@@ -9,7 +9,7 @@ import * as schema from "@/db/schema";
 import journal from "../drizzle/meta/_journal.json";
 
 export type SourceDatabaseManifest = {
-  manifestVersion: 1;
+  manifestVersion: 2;
   capturedAt: string;
   databaseName: string;
   databaseHostname: string;
@@ -26,13 +26,6 @@ export type SourceDatabaseManifest = {
     authAccounts: number;
     authSessions: number;
     auditEntries: number;
-  };
-  sessionVersion: {
-    userCount: number;
-    min: number;
-    max: number;
-    sum: number;
-    sha256: string;
   };
   manifestSha256: string;
 };
@@ -84,13 +77,6 @@ export function calculateManifestSha256(manifestData: Omit<SourceDatabaseManifes
       authAccounts: manifestData.counts.authAccounts,
       authSessions: manifestData.counts.authSessions,
       auditEntries: manifestData.counts.auditEntries,
-    },
-    sessionVersion: {
-      userCount: manifestData.sessionVersion.userCount,
-      min: manifestData.sessionVersion.min,
-      max: manifestData.sessionVersion.max,
-      sum: manifestData.sessionVersion.sum,
-      sha256: manifestData.sessionVersion.sha256,
     },
   });
 
@@ -158,7 +144,9 @@ export async function captureSourceManifest(
     const migrationTag = matchingJournalEntry.tag;
 
     const migrationInfo = {
-      id: migrationRow.id,
+      // Turso/libSQL may return NULL for the legacy `id` column. The journal
+      // index is the repository's stable migration identity in that case.
+      id: matchingJournalEntry.idx,
       hash: migrationRow.hash,
       createdAt: migrationRow.created_at,
       repoTag: migrationTag,
@@ -203,54 +191,14 @@ export async function captureSourceManifest(
       auditEntries: Number((auditEntriesCountResult[0] as { count: number })?.count ?? 0),
     };
 
-    // 3. Session Version Stats
-    let userVersionRows: Array<{ id: string; sessionVersion: number | null }>;
-    if (shopId) {
-      userVersionRows = (await (tx as Database).all(
-        sql`SELECT id, session_version as sessionVersion FROM users WHERE shop_id = ${shopId} ORDER BY id ASC`
-      )) as Array<{ id: string; sessionVersion: number | null }>;
-    } else {
-      userVersionRows = (await (tx as Database).all(
-        sql`SELECT id, session_version as sessionVersion FROM users ORDER BY id ASC`
-      )) as Array<{ id: string; sessionVersion: number | null }>;
-    }
-
-    let minVersion = 0;
-    let maxVersion = 0;
-    let sumVersion = 0;
-    let versionSha256 = "";
-
-    if (userVersionRows.length === 0) {
-      versionSha256 = createHash("sha256").update("", "utf8").digest("hex");
-    } else {
-      const versions = userVersionRows.map((r) => Number(r.sessionVersion ?? 0));
-      minVersion = Math.min(...versions);
-      maxVersion = Math.max(...versions);
-      sumVersion = versions.reduce((acc, v) => acc + v, 0);
-
-      const hashPayload = userVersionRows
-        .map((r) => `${r.id}:${r.sessionVersion ?? 0}`)
-        .join("\n");
-      versionSha256 = createHash("sha256").update(hashPayload, "utf8").digest("hex");
-    }
-
-    const sessionVersion = {
-      userCount: userVersionRows.length,
-      min: minVersion,
-      max: maxVersion,
-      sum: sumVersion,
-      sha256: versionSha256,
-    };
-
     const manifestData = {
-      manifestVersion: 1 as const,
+      manifestVersion: 2 as const,
       capturedAt,
       databaseName: dbName,
       databaseHostname: dbHostname,
       shopId,
       migration: migrationInfo,
       counts,
-      sessionVersion,
     };
 
     const manifestSha256 = calculateManifestSha256(manifestData);

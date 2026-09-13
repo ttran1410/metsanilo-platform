@@ -304,16 +304,7 @@ export async function runAuthCutover(
         sessionsDeleted = deleteResult.rowsAffected ?? 0;
       }
 
-      // C. Increment users.session_version
-      const updateResult = await tx
-        .update(users)
-        .set({
-          sessionVersion: sql`${users.sessionVersion} + 1`,
-        })
-        .where(eq(users.shopId, shopId))
-        .run();
-
-      const updatedUsersCount = updateResult.rowsAffected || shopUserIds.length;
+      const updatedUsersCount = shopUserIds.length;
 
       // D. Insert Audit Markers (Pure immutable insert)
       const auditPayload: CutoverAuditPayload = {

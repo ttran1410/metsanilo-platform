@@ -43,18 +43,15 @@ afterEach(() => {
 });
 
 describe("Temporary Credential Concurrency and Transaction Rollback Integration", () => {
-  it("handles concurrent password reset attempts with atomic sessionVersion increments and differentiated audit events", async () => {
+  it("handles repeated password reset attempts with atomic credential/session updates and differentiated audit events", async () => {
     const now = new Date("2026-09-12T12:00:00.000Z");
     const initialHash = hashPassword("InitialPassword123!");
-
     await database.insert(users).values({
       id: "target-user-1",
       shopId: "shop-main",
       username: "target@example.test",
       email: "target@example.test",
-      passwordHash: initialHash,
       mustChangePassword: false,
-      sessionVersion: 1,
       displayName: "Target User",
       role: "STAFF",
       active: true,
@@ -93,17 +90,11 @@ describe("Temporary Credential Concurrency and Transaction Rollback Integration"
     const userAfterFirst = await database.query.users.findFirst({
       where: eq(users.id, "target-user-1"),
     });
-    expect(userAfterFirst?.sessionVersion).toBe(2);
     expect(userAfterFirst?.mustChangePassword).toBe(true);
 
-    // Second reset: regenerates temporary password and increments sessionVersion to 3
+    // Second reset: regenerates the temporary password and revokes the current sessions
     const secondReset = await resetAdminUserPassword(database, adminContext, "target-user-1", new Date("2026-09-12T13:00:00.000Z"));
     expect(secondReset.temporaryPassword).toBeDefined();
-
-    const userAfterSecond = await database.query.users.findFirst({
-      where: eq(users.id, "target-user-1"),
-    });
-    expect(userAfterSecond?.sessionVersion).toBe(3);
 
     // Verify audit entries captured both issue and regenerate actions and session revocations
     const audits = await database.select().from(auditEntries).where(eq(auditEntries.entityId, "target-user-1"));
@@ -126,15 +117,12 @@ describe("Temporary Credential Concurrency and Transaction Rollback Integration"
   it("rolls back all changes atomically if audit entry write fails during resetAdminUserPassword", async () => {
     const now = new Date("2026-09-12T12:00:00.000Z");
     const initialHash = hashPassword("InitialPassword123!");
-
     await database.insert(users).values({
       id: "target-user-rollback",
       shopId: "shop-main",
       username: "target-rb@example.test",
       email: "target-rb@example.test",
-      passwordHash: initialHash,
       mustChangePassword: false,
-      sessionVersion: 1,
       displayName: "Target Rollback",
       role: "STAFF",
       active: true,
@@ -197,11 +185,9 @@ describe("Temporary Credential Concurrency and Transaction Rollback Integration"
     const user = await database.query.users.findFirst({
       where: eq(users.id, "target-user-rollback"),
     });
-    expect(user?.passwordHash).toBe(initialHash);
     expect(user?.mustChangePassword).toBe(false);
     expect(user?.temporaryPasswordIssuedAt).toBeNull();
     expect(user?.temporaryPasswordExpiresAt).toBeNull();
-    expect(user?.sessionVersion).toBe(1);
 
     // Verify session was NOT revoked because transaction rolled back
     const sessions = await database.select().from(authSessions).where(eq(authSessions.userId, "target-user-rollback"));
@@ -210,16 +196,12 @@ describe("Temporary Credential Concurrency and Transaction Rollback Integration"
 
   it("enforces conflict 409 if rowsAffected !== 1 due to concurrent user deactivation", async () => {
     const now = new Date("2026-09-12T12:00:00.000Z");
-    const initialHash = hashPassword("InitialPassword123!");
-
     await database.insert(users).values({
       id: "target-user-conflict",
       shopId: "shop-main",
       username: "target-cf@example.test",
       email: "target-cf@example.test",
-      passwordHash: initialHash,
       mustChangePassword: false,
-      sessionVersion: 1,
       displayName: "Target Conflict",
       role: "STAFF",
       active: true,

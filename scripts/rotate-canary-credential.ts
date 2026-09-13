@@ -6,7 +6,7 @@ import type { Database } from "@/db/client";
 import * as schema from "@/db/schema";
 import { auditEntries, users } from "@/db/schema";
 import { assertPassword, hashPassword, randomPassword } from "@/domain/passwords";
-import { revokeAllUserSessions, setCredentialHash } from "@/lib/auth-integration";
+import { revokeAllUserSessions, setCredentialPassword } from "@/lib/auth-integration";
 
 export type RotateCanaryOptions = {
   shopId: string;
@@ -55,13 +55,8 @@ export async function rotateCanaryCredential(
     const newHash = hashPassword(newPassword);
 
     // 1. Update Better Auth credential account
-    await setCredentialHash(tx as Database, user.id, newHash);
+    await setCredentialPassword(tx as Database, user.id, newHash);
 
-    // 2. Synchronize users.password_hash for rollback window safety
-    await (tx as Database)
-      .update(users)
-      .set({ passwordHash: newHash })
-      .where(eq(users.id, user.id));
 
     // 3. Revoke all active sessions for canary user
     await revokeAllUserSessions(tx as Database, user.id);

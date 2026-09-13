@@ -108,7 +108,6 @@ function buildWithLocalEnvironment() {
   const environment = {
     ...process.env,
     TURSO_DATABASE_URL: `file:${join(directory, "build.db")}`,
-    ADMIN_SESSION_SECRET: "local-verification-admin-session-secret-0001",
     BETTER_AUTH_SECRET: "local-verification-better-auth-secret-0001",
     BETTER_AUTH_URL: "http://localhost:3000",
     MEDIA_STORAGE: "local",

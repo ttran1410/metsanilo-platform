@@ -38,8 +38,8 @@ export function maskDatabaseUrl(rawUrl: string): string {
 }
 
 export function validateBackupManifestIntegrity(manifest: SourceDatabaseManifest): void {
-  if (manifest.manifestVersion !== 1) {
-    throw new Error(`Unsupported manifest version: ${manifest.manifestVersion}`);
+  if (manifest.manifestVersion !== 2) {
+    throw new Error(`LEGACY_MANIFEST_VERSION_UNSUPPORTED: ${manifest.manifestVersion}`);
   }
   const expectedHash = calculateManifestSha256(manifest);
   if (expectedHash !== manifest.manifestSha256) {
@@ -129,23 +129,6 @@ export async function verifyBackupDatabase(
   }
   if (backupManifest.counts.auditEntries !== sourceManifest.counts.auditEntries) {
     errors.push(`Table audit_entries count mismatch: backup ${backupManifest.counts.auditEntries} != source ${sourceManifest.counts.auditEntries}`);
-  }
-
-  // 7. Verify Session Version Stats
-  if (backupManifest.sessionVersion.userCount !== sourceManifest.sessionVersion.userCount) {
-    errors.push(`Session version userCount mismatch: backup ${backupManifest.sessionVersion.userCount} != source ${sourceManifest.sessionVersion.userCount}`);
-  }
-  if (backupManifest.sessionVersion.min !== sourceManifest.sessionVersion.min) {
-    errors.push(`Session version min mismatch: backup ${backupManifest.sessionVersion.min} != source ${sourceManifest.sessionVersion.min}`);
-  }
-  if (backupManifest.sessionVersion.max !== sourceManifest.sessionVersion.max) {
-    errors.push(`Session version max mismatch: backup ${backupManifest.sessionVersion.max} != source ${sourceManifest.sessionVersion.max}`);
-  }
-  if (backupManifest.sessionVersion.sum !== sourceManifest.sessionVersion.sum) {
-    errors.push(`Session version sum mismatch: backup ${backupManifest.sessionVersion.sum} != source ${sourceManifest.sessionVersion.sum}`);
-  }
-  if (backupManifest.sessionVersion.sha256 !== sourceManifest.sessionVersion.sha256) {
-    errors.push(`Session version SHA-256 hash mismatch: backup '${backupManifest.sessionVersion.sha256}' != source '${sourceManifest.sessionVersion.sha256}'`);
   }
 
   return {
