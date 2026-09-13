@@ -7,6 +7,7 @@ import { users } from "@/db/schema";
 import { isSupportedPasswordHash } from "@/domain/passwords";
 import { isCredentialStateValid, isTemporaryCredentialActive } from "@/lib/auth-integration";
 import { validateSessionTimestampState } from "@/lib/session-timing";
+import { PRODUCTION_ORIGIN } from "@/lib/auth-config";
 
 export type AuthReadinessFinding = {
   code:
@@ -455,8 +456,8 @@ export function validateAuditTargetConfig(targetInfo: {
     } catch {
       // handled below
     }
-    if (betterAuthOrigin !== "https://metsanilo.vercel.app") {
-      errors.push("BETTER_AUTH_URL must use https://metsanilo.vercel.app in production");
+    if (betterAuthOrigin !== PRODUCTION_ORIGIN) {
+      errors.push(`BETTER_AUTH_URL must use ${PRODUCTION_ORIGIN} in production`);
     }
   } else {
     if (!targetInfo.shopId || targetInfo.shopId.trim().length === 0) {
