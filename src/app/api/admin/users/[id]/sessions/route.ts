@@ -113,7 +113,6 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
     const response = success(result, request);
     if (actor.id === id && (parsed.data.scope === "all" || currentContext.sessionId === parsed.data.sessionId)) {
-      response.cookies.delete("metsanilo_session");
       response.cookies.delete("better-auth.session_token");
       response.cookies.delete("__Secure-better-auth.session_token");
     }

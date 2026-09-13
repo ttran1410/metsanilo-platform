@@ -13,7 +13,6 @@ import { reconcileBootstrapAdmin, revokeSessionById, touchBetterAuthSession } fr
 import { resetEnvForTests } from "@/lib/env";
 import { POST as changePassword } from "@/app/api/auth/change-password/route";
 import { GET as betterAuthGet, POST as betterAuthPost } from "@/app/api/auth/better/[...all]/route";
-import { POST as legacyLogin } from "@/app/api/auth/login/route";
 import { POST as touchSession, DELETE as deleteSession } from "@/app/api/auth/session/route";
 import { GET as adminSessionList, DELETE as adminSessionRevoke } from "@/app/api/admin/users/[id]/sessions/route";
 
@@ -157,20 +156,6 @@ describe("Better Auth baseline", () => {
     expect(await response.json()).toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("returns 410 Gone for retired legacy login path", async () => {
-    const credentials = await provision("phase4-legacy");
-    const login = await legacyLogin(new Request("http://localhost:3000/api/auth/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: credentials.email, password: credentials.password }),
-    }));
-    expect(login.status).toBe(410);
-    expect(await login.json()).toMatchObject({
-      code: "ENDPOINT_RETIRED",
-      correlationId: expect.any(String),
-      message: expect.stringContaining("Legacy login"),
-    });
-  });
 
   it("allows an ADMIN to list and revoke one target session", async () => {
     const actor = await provision("phase4-admin-actor");
@@ -705,15 +690,5 @@ describe("Better Auth baseline", () => {
     const repeatedAudits = await database.select().from(auditEntries).where(eq(auditEntries.entityId, "expired-temp-user"));
     expect(repeatedAudits.filter((entry) => entry.action === "user.temporary_password_expired")).toHaveLength(1);
 
-    const legacyResponse = await legacyLogin(new Request("http://localhost:3000/api/auth/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: credentials.email, password: credentials.password }),
-    }));
-    expect(legacyResponse.status).toBe(410);
-    expect(await legacyResponse.json()).toMatchObject({
-      code: "ENDPOINT_RETIRED",
-      correlationId: expect.any(String),
-    });
   });
 });

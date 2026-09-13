@@ -12,12 +12,12 @@ introducing another authentication authority or changing the migrated schema.
 
 ## Temporary observation code
 
-`src/lib/auth-telemetry.ts` and the legacy-detection branches in
-`src/proxy.ts` and `src/domain/access.ts` are retained intentionally during the
-post-cutover observation window. They only detect and log requests that
-still carry the retired legacy cookie or Basic Auth signal; they do not
-authenticate the request or provide a fallback identity. Treat this code as a
-temporary closeout control, not as a permanent authentication boundary.
+Before this cleanup release, the application temporarily retained telemetry
+and legacy-detection branches during the post-cutover observation window. They
+only detected and logged requests that still carried the retired legacy cookie
+or Basic Auth signal; they did not authenticate requests or provide a fallback
+identity. This cleanup release removes those controls after the observation
+window.
 
 The `[legacy-auth-usage]` records are application log events, not a durable
 counter. A request can produce more than one event when it passes through both
@@ -27,8 +27,8 @@ query and retain these records for the complete window. If it cannot, add an
 approved durable metric sink or record that the zero-event gate is unverified;
 absence from incomplete logs is not proof of zero traffic.
 
-After the observation window, remove it completely in a dedicated cleanup
-release once all of the following are recorded in the release record:
+The cleanup release is considered complete when all of the following are
+recorded in the release record:
 
 1. a saved query or restricted evidence showing zero `[legacy-auth-usage]`
    events across the complete agreed window;
@@ -37,9 +37,10 @@ release once all of the following are recorded in the release record:
 3. owner approval for the cleanup release; and
 4. passing Better Auth-only authorization, session, and smoke tests.
 
-The cleanup release must remove the telemetry module, its callers, and the
-legacy detection branches together. Do not leave unused telemetry exports or
-dead compatibility checks behind.
+The cleanup release removes the telemetry module, its callers, and the legacy
+detection branches together. It also removes the retired 410 endpoint
+tombstones after the client inventory confirms there are no supported callers.
+No unused telemetry exports or dead compatibility checks remain.
 
 ## Current release evidence
 
@@ -82,11 +83,11 @@ first post-cutover release:
 
 | Candidate | Current purpose | Removal gate | Planned action |
 |---|---|---|---|
-| `src/lib/auth-telemetry.ts` | Logs legacy cookie/Basic Auth observations | Complete retained logs show zero legacy events for the agreed window, with owner approval | Remove the mechanism and its callers from proxy/domain code |
-| Legacy branches in `src/proxy.ts` and `src/domain/access.ts` | Detects and records legacy traffic | Telemetry is retired; Better Auth-only behavior is covered by tests | Keep only Better Auth session gating and authorization flow |
-| `src/app/api/auth/login/route.ts` and `logout/route.ts` | Return 410 and clear stale cookies | Client inventory confirms no callers; one release of 410 behavior has passed | Delete routes, or retain minimal 410 tombstones if external clients may still call them |
-| Legacy-cookie cleanup in active auth routes | Removes stale cookies opportunistically | 410 tombstone decision is recorded | Remove cleanup branches together with tombstone policy |
-| `scripts/auth-readiness-smoke.ts` legacy endpoint assertions | Verifies the temporary 410 contract | Tombstones are removed or policy explicitly makes them permanent | Replace with Better Auth-only smoke coverage, then delete obsolete assertions |
+| `src/lib/auth-telemetry.ts` | Logged legacy cookie/Basic Auth observations | Complete retained logs show zero legacy events for the agreed window, with owner approval | Removed in this cleanup release |
+| Legacy branches in `src/proxy.ts` and `src/domain/access.ts` | Detects and records legacy traffic | Completed on this cleanup release; Better Auth-only behavior is covered by tests | Removed |
+| `src/app/api/auth/login/route.ts` and `logout/route.ts` | Returned 410 and cleared stale cookies | Client inventory found no application callers; observation window completed | Removed |
+| Legacy-cookie cleanup in active auth routes | Removed stale cookies opportunistically | Tombstones removed in this release | Removed |
+| `scripts/auth-readiness-smoke.ts` legacy endpoint assertions | Verified the temporary 410 contract | Better Auth-only smoke coverage remains | Removed |
 | Historical compatibility wording in docs | Explains pre-cutover behavior | N/A | Keep historical ADRs; update architecture/runbook docs when policy changes |
 
 Do not remove `src/domain/passwords.ts` or `isSupportedPasswordHash`: the

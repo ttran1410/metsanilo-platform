@@ -15,7 +15,6 @@ import {
   type SessionTiming,
   validateBetterAuthSession,
 } from "@/lib/auth-integration";
-import { recordLegacyAuthUsage } from "@/lib/auth-telemetry";
 import { defaultPermissionsForRole, PERMISSIONS, type Permission, type Role } from "@/lib/permissions";
 
 export { COMING_SOON_PERMISSIONS, PERMISSIONS, defaultPermissionsForRole } from "@/lib/permissions";
@@ -51,37 +50,24 @@ export async function currentAuthContext(
   request: Request,
   now: Date = new Date()
 ): Promise<AuthContext> {
-  const hasLegacyCookie = request.headers.get("cookie")?.includes("metsanilo_session");
-  const authHeader = request.headers.get("authorization")?.trim();
-  const hasBasicAuth = authHeader ? /^basic\s+/i.test(authHeader) : false;
-
   let betterSession: Awaited<ReturnType<typeof getBetterAuthSession>>;
   try {
     betterSession = await getBetterAuthSession(request);
   } catch {
-    if (hasLegacyCookie) recordLegacyAuthUsage(request, "legacy_cookie", 401);
-    if (hasBasicAuth) recordLegacyAuthUsage(request, "extraneous_basic", 401);
     throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
   }
 
   if (!betterSession?.user?.id || !betterSession?.session?.id) {
-    if (hasLegacyCookie) recordLegacyAuthUsage(request, "legacy_cookie", 401);
-    if (hasBasicAuth) recordLegacyAuthUsage(request, "extraneous_basic", 401);
     throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
   }
 
   const validated = await validateBetterAuthSession(database, betterSession.session.id, betterSession.user.id, now);
   if (!validated.valid) {
-    if (hasLegacyCookie) recordLegacyAuthUsage(request, "legacy_cookie", 401);
-    if (hasBasicAuth) recordLegacyAuthUsage(request, "extraneous_basic", 401);
     if (validated.reason === "expired") {
       throw new DomainError("UNAUTHORIZED", "Session expired", 401);
     }
     throw new DomainError("FORBIDDEN", "User is not active in this shop", 403);
   }
-
-  if (hasLegacyCookie) recordLegacyAuthUsage(request, "legacy_cookie", 200);
-  if (hasBasicAuth) recordLegacyAuthUsage(request, "extraneous_basic", 200);
 
   return {
     actor: validated.user,

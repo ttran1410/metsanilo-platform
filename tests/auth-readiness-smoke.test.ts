@@ -115,27 +115,6 @@ describe("auth readiness smoke runner", () => {
           });
         }
 
-        if (url.pathname === "/api/auth/login") {
-          return new Response(JSON.stringify({ code: "ENDPOINT_RETIRED" }), {
-            status: 410,
-            headers: { "x-correlation-id": "corr-login-retired" },
-          });
-        }
-
-        if (url.pathname === "/api/auth/logout") {
-          const originHeader = (init?.headers as Record<string, string>)?.["origin"] ?? (init?.headers as Headers)?.get?.("origin");
-          if (!originHeader || originHeader !== url.origin) {
-            return new Response(JSON.stringify({ code: "FORBIDDEN" }), {
-              status: 403,
-              headers: { "x-correlation-id": "corr-logout-forbidden" },
-            });
-          }
-          return new Response(JSON.stringify({ code: "ENDPOINT_RETIRED" }), {
-            status: 410,
-            headers: { "x-correlation-id": "corr-logout-retired" },
-          });
-        }
-
         return new Response("Not Found", { status: 404 });
       });
 

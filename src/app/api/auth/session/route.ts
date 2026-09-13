@@ -122,7 +122,6 @@ export async function DELETE(request: Request) {
       const response = success({ revoked: true, scope: "current" }, request);
       response.cookies.delete("better-auth.session_token");
       response.cookies.delete("__Secure-better-auth.session_token");
-      response.cookies.delete("metsanilo_session");
       response.headers.set("Cache-Control", "no-store");
       return response;
     }
