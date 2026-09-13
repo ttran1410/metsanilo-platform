@@ -1,4 +1,4 @@
-const PRODUCTION_ORIGIN = "https://metsanilo.vercel.app";
+import { PRODUCTION_ORIGIN } from "../src/lib/auth-config";
 
 export class SmokeConfigError extends Error {
   constructor(message: string) {

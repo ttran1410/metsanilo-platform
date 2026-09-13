@@ -8,6 +8,7 @@ import { authSessions, users } from "@/db/schema";
 import { runAuthCutover, type CutoverResult } from "./cutover-auth";
 import { rotateCanaryCredential } from "./rotate-canary-credential";
 import { revokeAllUserSessions, validateBetterAuthSession } from "@/lib/auth-integration";
+import { BETTER_AUTH_BASE_PATH } from "@/lib/auth-config";
 
 export type CanaryRunOptions = {
   shopId: string;
@@ -30,7 +31,7 @@ export type CanaryRunOptions = {
 type CanaryHttpState = { cookie: string };
 
 async function signInCanary(options: { baseUrl: string; email: string; password: string; fetchImpl: typeof fetch }): Promise<CanaryHttpState> {
-  const response = await options.fetchImpl(`${options.baseUrl.replace(/\/$/, "")}/api/auth/better/sign-in/email`, {
+  const response = await options.fetchImpl(`${options.baseUrl.replace(/\/$/, "")}${BETTER_AUTH_BASE_PATH}/sign-in/email`, {
     method: "POST",
     headers: { "content-type": "application/json", origin: options.baseUrl },
     body: JSON.stringify({ email: options.email, password: options.password, rememberMe: false }),
@@ -327,7 +328,7 @@ export async function runAuthCutoverCanary(
 
 async function main() {
   const args = process.argv.slice(2);
-  let shopId = process.env.SHOP_ID || "shop-main";
+  let shopId = process.env.SHOP_ID || "";
   let canaryUserId: string | undefined;
   let releaseSha = process.env.RELEASE_SHA || "";
   let target: "production" | "local" = "local";
