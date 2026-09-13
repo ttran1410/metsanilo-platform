@@ -114,6 +114,7 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
       headers: {
         "content-type": "application/json",
         "x-correlation-id": correlationId,
+        origin,
       },
       body: JSON.stringify({ email, password: pass }),
     });
@@ -162,9 +163,11 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
     const logoutRes = await fetchImpl(`${origin}/api/auth/better/sign-out`, {
       method: "POST",
       headers: {
+        "content-type": "application/json",
         cookie: jar.getCookieHeader(),
         origin,
       },
+      body: JSON.stringify({}),
     });
 
     jar.updateFromHeaders(logoutRes.headers);
@@ -202,7 +205,7 @@ export async function runAuthSmokeTests(options: SmokeTestOptions): Promise<{ ok
   // Security / Negative checks
   const badLoginRes = await fetchImpl(`${origin}/api/auth/better/sign-in/email`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", origin },
     body: JSON.stringify({ email: adminEmail, password: "definitely-wrong-password-123!" }),
   });
   if (badLoginRes.status === 401) {
