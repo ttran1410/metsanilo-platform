@@ -260,22 +260,30 @@ export async function updateUserProfile(
     updates.role = input.role;
   }
 
-  if (Object.keys(updates).length > 0) {
-    await database
-      .update(users)
-      .set(updates)
-      .where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID)))
-      .run();
+  const roleChanged = input.role !== undefined && input.role !== target.role;
 
-    await database.insert(auditEntries).values({
-      id: randomUUID(),
-      shopId: env().SHOP_ID,
-      actor: actor.email ?? actor.username ?? actor.id,
-      action: "user.profile_updated",
-      entityType: "user",
-      entityId: target.id,
-      detailsJson: JSON.stringify(updates),
-      createdAt: new Date().toISOString(),
+  if (Object.keys(updates).length > 0) {
+    await database.transaction(async (tx) => {
+      await tx
+        .update(users)
+        .set(updates)
+        .where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID)))
+        .run();
+
+      if (roleChanged) {
+        await revokeAllUserSessions(tx, target.id);
+      }
+
+      await tx.insert(auditEntries).values({
+        id: randomUUID(),
+        shopId: env().SHOP_ID,
+        actor: actor.email ?? actor.username ?? actor.id,
+        action: "user.profile_updated",
+        entityType: "user",
+        entityId: target.id,
+        detailsJson: JSON.stringify(updates),
+        createdAt: new Date().toISOString(),
+      });
     });
   }
 
