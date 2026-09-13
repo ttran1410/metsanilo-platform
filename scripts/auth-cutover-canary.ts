@@ -16,12 +16,39 @@ export type CanaryRunOptions = {
   target?: "production" | "local";
   allowRepeatCutover?: boolean;
   ownerApprovalReference?: string;
+  canaryPassword?: string;
+  baseUrl?: string;
+  fetchImpl?: typeof fetch;
   testHooks?: {
     failCanarySessionCleanup?: boolean;
     failCanaryCredentialRevocation?: boolean;
     simulateCutoverFailure?: boolean;
   };
 };
+
+type CanaryHttpState = { cookie: string };
+
+async function signInCanary(options: { baseUrl: string; email: string; password: string; fetchImpl: typeof fetch }): Promise<CanaryHttpState> {
+  const response = await options.fetchImpl(`${options.baseUrl.replace(/\/$/, "")}/api/auth/better/sign-in/email`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: options.baseUrl },
+    body: JSON.stringify({ email: options.email, password: options.password, rememberMe: false }),
+  });
+  if (!response.ok) throw new Error(`CANARY_LOGIN_FAILED: sign-in returned HTTP ${response.status}`);
+  const setCookie = response.headers.get("set-cookie");
+  const cookie = setCookie?.split(";", 1)[0];
+  if (!cookie) throw new Error("CANARY_LOGIN_FAILED: sign-in did not issue a session cookie");
+  return { cookie };
+}
+
+async function checkCanaryEndpoint(fetchImpl: typeof fetch, baseUrl: string, path: string, cookie: string, expectedStatus: number) {
+  const response = await fetchImpl(`${baseUrl.replace(/\/$/, "")}${path}`, {
+    headers: { cookie, origin: baseUrl },
+  });
+  if (response.status !== expectedStatus) {
+    throw new Error(`CANARY_HTTP_VERIFICATION_FAILED: ${path} returned HTTP ${response.status}, expected ${expectedStatus}`);
+  }
+}
 
 export type CanaryRunResult = {
   ok: boolean;
@@ -118,40 +145,65 @@ export async function runAuthCutoverCanary(
       err.exitCode = 2;
       throw err;
     }
+    if (!options.canaryPassword && !process.env.AUTH_CUTOVER_CANARY_PASSWORD) {
+      const err = new Error("CANARY_PRECHECK_FAILED: Production target requires AUTH_CUTOVER_CANARY_PASSWORD") as CanaryCustomError;
+      err.exitCode = 2;
+      throw err;
+    }
+    if (!options.baseUrl && !process.env.AUTH_CUTOVER_BASE_URL && !process.env.BETTER_AUTH_URL) {
+      const err = new Error("CANARY_PRECHECK_FAILED: Production target requires AUTH_CUTOVER_BASE_URL or BETTER_AUTH_URL") as CanaryCustomError;
+      err.exitCode = 2;
+      throw err;
+    }
   }
 
-  // 2. Initial Canary Credential Rotation (generate fresh in-memory credentials)
-  await rotateCanaryCredential(database, {
-    shopId,
-    canaryUserId,
-    correlationId,
-  });
+  const canaryPassword = options.canaryPassword ?? process.env.AUTH_CUTOVER_CANARY_PASSWORD;
+  const httpBaseUrl = options.baseUrl ?? process.env.AUTH_CUTOVER_BASE_URL ?? process.env.BETTER_AUTH_URL;
+  if (options.target === "production" && !/^[0-9a-f]{40}$/i.test(releaseSha)) {
+    throw new Error("VALIDATION_FAILED: production canary requires a full 40-character release SHA");
+  }
+  if (options.target === "production" && httpBaseUrl) {
+    let parsedBaseUrl: URL;
+    try {
+      parsedBaseUrl = new URL(httpBaseUrl);
+    } catch {
+      throw new Error("CANARY_PRECHECK_FAILED: Production base URL is invalid");
+    }
+    if (parsedBaseUrl.protocol !== "https:" || ["localhost", "127.0.0.1", "::1"].includes(parsedBaseUrl.hostname)) {
+      throw new Error("CANARY_PRECHECK_FAILED: Production base URL must use HTTPS and cannot target localhost");
+    }
+  }
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const useHttpVerification = options.target === "production" || Boolean(canaryPassword && httpBaseUrl);
 
-  // 3. Create Pre-Cutover Session in-memory
+  // 2. Establish the pre-cutover session. Production always uses real HTTP login.
   const preCutoverSessionId = `canary-sess-${randomUUID()}`;
   const preCutoverToken = `canary-tok-${randomUUID()}`;
   const now = new Date();
-  await database.insert(authSessions).values({
-    id: preCutoverSessionId,
-    userId: canaryUserId,
-    token: preCutoverToken,
-    expiresAt: new Date(now.getTime() + 60 * 60 * 1000),
-    createdAt: now,
-    updatedAt: now,
-    lastActivityAt: now,
-  });
+  let preCutoverCookie: string | undefined;
+  if (useHttpVerification) {
+    const login = await signInCanary({ baseUrl: httpBaseUrl!, email: canaryUser.email!, password: canaryPassword!, fetchImpl });
+    preCutoverCookie = login.cookie;
+  } else {
+    await database.insert(authSessions).values({
+      id: preCutoverSessionId,
+      userId: canaryUserId,
+      token: preCutoverToken,
+      expiresAt: new Date(now.getTime() + 60 * 60 * 1000),
+      createdAt: now,
+      updatedAt: now,
+      lastActivityAt: now,
+    });
+  }
 
   // Verify pre-cutover session is active
-  const preSessionValidation = await validateBetterAuthSession(
-    database,
-    preCutoverSessionId,
-    canaryUserId,
-    now
-  );
-  if (!preSessionValidation.valid) {
-    const err = new Error("Failed to initialize pre-cutover canary session") as CanaryCustomError;
-    err.exitCode = 2;
-    throw err;
+  if (!useHttpVerification) {
+    const preSessionValidation = await validateBetterAuthSession(database, preCutoverSessionId, canaryUserId, now);
+    if (!preSessionValidation.valid) {
+      const err = new Error("Failed to initialize pre-cutover canary session") as CanaryCustomError;
+      err.exitCode = 2;
+      throw err;
+    }
   }
 
   let cutoverResult: CutoverResult | undefined;
@@ -180,39 +232,32 @@ export async function runAuthCutoverCanary(
     });
 
     // 5. Assert Pre-Cutover Session is Invalidated (Forced Re-Login Verification)
-    const postCutoverValidation = await validateBetterAuthSession(
-      database,
-      preCutoverSessionId,
-      canaryUserId,
-      new Date()
-    );
-    preCutoverSessionInvalidated = !postCutoverValidation.valid;
+    if (useHttpVerification) {
+      await checkCanaryEndpoint(fetchImpl, httpBaseUrl!, "/api/auth/session", preCutoverCookie!, 401);
+      await checkCanaryEndpoint(fetchImpl, httpBaseUrl!, "/api/admin/users", preCutoverCookie!, 401);
+      preCutoverSessionInvalidated = true;
+    } else {
+      const postCutoverValidation = await validateBetterAuthSession(database, preCutoverSessionId, canaryUserId, new Date());
+      preCutoverSessionInvalidated = !postCutoverValidation.valid;
+    }
 
     if (!preCutoverSessionInvalidated) {
       throw new Error("COMMITTED_VERIFICATION_FAILED: Pre-cutover canary session remained valid after cutover!");
     }
 
     // 6. Assert Canary Re-Login capability
-    const postLoginSessionId = `canary-post-${randomUUID()}`;
-    const postLoginToken = `canary-post-tok-${randomUUID()}`;
-    const postLoginNow = new Date();
-    await database.insert(authSessions).values({
-      id: postLoginSessionId,
-      userId: canaryUserId,
-      token: postLoginToken,
-      expiresAt: new Date(postLoginNow.getTime() + 60 * 60 * 1000),
-      createdAt: postLoginNow,
-      updatedAt: postLoginNow,
-      lastActivityAt: postLoginNow,
-    });
-
-    const postLoginValidation = await validateBetterAuthSession(
-      database,
-      postLoginSessionId,
-      canaryUserId,
-      postLoginNow
-    );
-    postCutoverReLoginSucceeded = postLoginValidation.valid;
+    if (useHttpVerification) {
+      const postLogin = await signInCanary({ baseUrl: httpBaseUrl!, email: canaryUser.email!, password: canaryPassword!, fetchImpl });
+      await checkCanaryEndpoint(fetchImpl, httpBaseUrl!, "/api/auth/session", postLogin.cookie, 200);
+      postCutoverReLoginSucceeded = true;
+    } else {
+      const postLoginSessionId = `canary-post-${randomUUID()}`;
+      const postLoginToken = `canary-post-tok-${randomUUID()}`;
+      const postLoginNow = new Date();
+      await database.insert(authSessions).values({ id: postLoginSessionId, userId: canaryUserId, token: postLoginToken, expiresAt: new Date(postLoginNow.getTime() + 60 * 60 * 1000), createdAt: postLoginNow, updatedAt: postLoginNow, lastActivityAt: postLoginNow });
+      const postLoginValidation = await validateBetterAuthSession(database, postLoginSessionId, canaryUserId, postLoginNow);
+      postCutoverReLoginSucceeded = postLoginValidation.valid;
+    }
 
     if (!postCutoverReLoginSucceeded) {
       throw new Error("COMMITTED_VERIFICATION_FAILED: Post-cutover canary re-login validation failed!");
@@ -317,6 +362,11 @@ async function main() {
   }
   if (!releaseSha) {
     console.error("Error: --release-sha <sha> is required.");
+    process.exitCode = 2;
+    return;
+  }
+  if (target === "production" && !/^[0-9a-f]{40}$/i.test(releaseSha)) {
+    console.error("Error: Production canary requires a full 40-character release SHA.");
     process.exitCode = 2;
     return;
   }

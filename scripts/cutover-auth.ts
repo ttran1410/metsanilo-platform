@@ -52,6 +52,7 @@ export type CutoverResult = {
 const LOCK_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA_REGEX = /^[0-9a-f]{7,64}$/i;
+const FULL_SHA_REGEX = /^[0-9a-f]{40}$/i;
 
 export type CutoverCustomError = Error & {
   exitCode?: number;
@@ -126,9 +127,22 @@ export async function runAuthCutover(
   const runId = options.runId ?? randomUUID();
   const correlationId = options.correlationId ?? randomUUID();
   const target = options.target ?? "local";
+  if (target === "production" && !FULL_SHA_REGEX.test(releaseSha)) {
+    throw new Error("VALIDATION_FAILED: production cutover requires a full 40-character release SHA");
+  }
   const now = options.now ?? new Date();
   const lockId = `lock:auth-cutover:${shopId}`;
   const lockToken = randomUUID();
+  const deleteLock = async (executor: Pick<Database, "delete">, token: string) =>
+    executor.delete(auditEntries).where(
+      and(
+        eq(auditEntries.id, lockId),
+        eq(auditEntries.shopId, shopId),
+        sql`json_extract(${auditEntries.detailsJson}, '$.lockToken') = ${token}`,
+      ),
+    ).run();
+  const deleteLegacyLock = async (executor: Pick<Database, "delete">) =>
+    executor.delete(auditEntries).where(and(eq(auditEntries.id, lockId), eq(auditEntries.shopId, shopId))).run();
 
   // 1. Check existing locks and previous cutovers
   const existingLock = await database.query.auditEntries.findFirst({
@@ -149,7 +163,21 @@ export async function runAuthCutover(
     if (!options.allowRepeatCutover) {
       if (existingLock) {
         // If cutover is already completed but a stale lock remains, clean it up
-        await database.delete(auditEntries).where(eq(auditEntries.id, lockId)).run();
+        let completedLockToken: string | undefined;
+        try {
+          const details = JSON.parse(existingLock.detailsJson) as { lockToken?: unknown };
+          if (typeof details.lockToken === "string" && UUID_REGEX.test(details.lockToken)) {
+            completedLockToken = details.lockToken;
+          }
+        } catch {
+          // Legacy lock: retain the compatibility cleanup below.
+        }
+        const cleanup = completedLockToken
+          ? await deleteLock(database, completedLockToken)
+          : await deleteLegacyLock(database);
+        if ((cleanup.rowsAffected ?? 0) !== 1) {
+          throw new Error("LOCK_STATE_CHANGED: Completed cutover lock changed before cleanup could complete.");
+        }
       }
       return {
         status: "ALREADY_EXECUTED",
@@ -195,6 +223,10 @@ export async function runAuthCutover(
       );
     }
 
+    if (existingLockToken && !UUID_REGEX.test(existingLockToken)) {
+      throw new Error("LOCK_STATE_INVALID: Existing cutover lock has an invalid lock token and cannot be recovered safely.");
+    }
+
     // Recover stale lock atomically in transaction
     await database.transaction(async (tx) => {
       await tx.insert(auditEntries).values({
@@ -213,7 +245,12 @@ export async function runAuthCutover(
         }),
         createdAt: now.toISOString(),
       });
-      await tx.delete(auditEntries).where(and(eq(auditEntries.id, lockId), eq(auditEntries.shopId, shopId))).run();
+      const recovered = existingLockToken
+        ? await deleteLock(tx, existingLockToken)
+        : await deleteLegacyLock(tx);
+      if ((recovered.rowsAffected ?? 0) !== 1) {
+        throw new Error("LOCK_STATE_CHANGED: Stale cutover lock changed before recovery could complete.");
+      }
     });
   }
 
@@ -330,7 +367,10 @@ export async function runAuthCutover(
       });
 
       // E. Release Mutex Lock inside transaction
-      await tx.delete(auditEntries).where(and(eq(auditEntries.id, lockId), eq(auditEntries.shopId, shopId))).run();
+      const released = await deleteLock(tx, lockToken);
+      if ((released.rowsAffected ?? 0) !== 1) {
+        throw new Error("LOCK_STATE_CHANGED: Cutover lock changed before commit cleanup could complete.");
+      }
 
       if (options.testHooks?.beforeTransactionCommit) {
         await options.testHooks.beforeTransactionCommit();
@@ -361,7 +401,7 @@ export async function runAuthCutover(
         if (options.testHooks?.failRollbackLockCleanup) {
           throw new Error("Simulated rollback lock cleanup failure");
         }
-        await database.delete(auditEntries).where(and(eq(auditEntries.id, lockId), eq(auditEntries.shopId, shopId))).run();
+        await deleteLock(database, lockToken);
       } catch (lockError) {
         const wrappedError = new Error(
           `ROLLBACK_LOCK_CLEANUP_PENDING: Cutover rolled back due to error (${
@@ -389,7 +429,10 @@ export async function runAuthCutover(
     });
 
     if (remainingLock) {
-      await database.delete(auditEntries).where(eq(auditEntries.id, lockId)).run();
+      const released = await deleteLock(database, lockToken);
+      if ((released.rowsAffected ?? 0) !== 1) {
+        throw new Error("LOCK_STATE_CHANGED: Cutover lock changed during post-commit cleanup.");
+      }
     }
   } catch (cleanupError) {
     const postCommitError = new Error(
@@ -493,6 +536,12 @@ async function main() {
 
   if (!releaseSha) {
     console.error("Error: --release-sha <sha> or RELEASE_SHA is required.");
+    process.exitCode = 2;
+    return;
+  }
+
+  if (target === "production" && !FULL_SHA_REGEX.test(releaseSha)) {
+    console.error("Error: Production cutover requires a full 40-character release SHA.");
     process.exitCode = 2;
     return;
   }

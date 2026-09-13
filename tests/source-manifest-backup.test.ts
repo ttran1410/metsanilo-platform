@@ -151,6 +151,7 @@ describe("Source Manifest & Backup Verification", () => {
       productionHostname: "prod-source.turso.io",
       expectedBackupName: "metsanilo-prod-backup-20260913",
       expectedGroup: "default",
+      actualBackupGroup: "default",
     });
 
     expect(result.ok).toBe(true);

@@ -14,6 +14,7 @@ import {
 export type BackupVerificationOptions = {
   expectedBackupName?: string;
   expectedGroup?: string;
+  actualBackupGroup?: string;
   productionHostname?: string;
   backupDatabaseUrl?: string;
 };
@@ -87,6 +88,14 @@ export async function verifyBackupDatabase(
       );
     }
   }
+  if (options.expectedGroup && options.expectedGroup.trim().length > 0) {
+    if (!options.actualBackupGroup) {
+      throw new Error("BACKUP_METADATA_UNAVAILABLE: Cannot verify expected backup group without provider metadata.");
+    }
+    if (options.actualBackupGroup.trim().toLowerCase() !== options.expectedGroup.trim().toLowerCase()) {
+      errors.push(`Backup group mismatch: expected '${options.expectedGroup}', got '${options.actualBackupGroup}'`);
+    }
+  }
 
   // 5. Verify Migration Head
   if (backupManifest.migration.id !== sourceManifest.migration.id) {
@@ -155,6 +164,7 @@ async function main() {
   let productionHostname: string | undefined;
   let expectedBackupName: string | undefined;
   let expectedGroup: string | undefined;
+  let actualBackupGroup = process.env.TURSO_BACKUP_GROUP;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -178,6 +188,10 @@ async function main() {
       expectedGroup = args[++i];
     } else if (arg.startsWith("--expected-group=")) {
       expectedGroup = arg.slice("--expected-group=".length);
+    } else if (arg === "--backup-group" && i + 1 < args.length) {
+      actualBackupGroup = args[++i];
+    } else if (arg.startsWith("--backup-group=")) {
+      actualBackupGroup = arg.slice("--backup-group=".length);
     }
   }
 
@@ -217,6 +231,7 @@ async function main() {
       productionHostname,
       expectedBackupName,
       expectedGroup,
+      actualBackupGroup,
     });
 
     if (result.ok) {

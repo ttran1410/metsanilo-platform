@@ -150,8 +150,12 @@ export async function captureSourceManifest(
     }
 
     const matchingJournalEntry = journal.entries.find((e) => e.when === migrationRow.created_at);
-    const latestJournalEntry = journal.entries[journal.entries.length - 1];
-    const migrationTag = matchingJournalEntry?.tag ?? latestJournalEntry?.tag ?? "0041_noisy_legion";
+    if (!matchingJournalEntry) {
+      throw new Error(
+        `MANIFEST_CAPTURE_FAILED: Migration head ${migrationRow.id} (${migrationRow.created_at}) does not match the repository migration journal.`
+      );
+    }
+    const migrationTag = matchingJournalEntry.tag;
 
     const migrationInfo = {
       id: migrationRow.id,
