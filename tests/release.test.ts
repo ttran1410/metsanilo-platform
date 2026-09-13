@@ -16,12 +16,12 @@ describe("release metadata", () => {
     expect(release.commit).toBe("e991be6df3776799ab3cb4c5a3a0187fe03f10ea");
   });
 
-  it("prefers the Vercel commit variable when it is available", async () => {
+  it("prefers the explicit release SHA over build-time Git metadata", async () => {
     vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "vercel-commit");
     vi.stubEnv("RELEASE_COMMIT_SHA", "explicit-release");
 
     const { release } = await import("@/lib/release");
 
-    expect(release.commit).toBe("vercel-commit");
+    expect(release.commit).toBe("explicit-release");
   });
 });
