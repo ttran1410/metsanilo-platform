@@ -7,7 +7,7 @@ import { migrate } from "drizzle-orm/libsql/migrator";
 import { createDatabaseConnection, type Database } from "@/db/client";
 import { resetDatabaseForTests } from "@/db/client";
 import { auditEntries, authAccounts, authSessions, authUsers, shops, users } from "@/db/schema";
-import { hashPassword } from "@/domain/passwords";
+import { hashPassword, verifyPassword } from "@/domain/passwords";
 import { resetEnvForTests } from "@/lib/env";
 import { runAuthCutoverCanary } from "../scripts/auth-cutover-canary";
 import { createBetterAuthInstance } from "@/lib/better-auth";
@@ -143,6 +143,7 @@ describe("runAuthCutoverCanary", () => {
       shopId: "shop-main",
       canaryUserId: "canary-mgr",
       releaseSha: "abcdef1234567890abcdef1234567890abcdef12",
+      finalCanaryPassword: "FinalCanary123!",
     });
 
     expect(result.ok).toBe(true);
@@ -155,6 +156,9 @@ describe("runAuthCutoverCanary", () => {
       where: and(eq(auditEntries.shopId, "shop-main"), eq(auditEntries.action, "auth.canary_rotated")),
     });
     expect(rotationAudit).toBeDefined();
+    const rotatedAccount = await database.query.authAccounts.findFirst({ where: eq(authAccounts.userId, "canary-mgr") });
+    expect(rotatedAccount?.password).toBeDefined();
+    expect(verifyPassword("FinalCanary123!", rotatedAccount!.password!)).toBe(true);
   });
 
   it("fails early if canary user is not MANAGER or is inactive", async () => {
