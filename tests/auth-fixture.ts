@@ -10,7 +10,7 @@ export async function provisionAuthenticatedTestUser(database: Database, input: 
   const id = input.id ?? randomUUID();
   const now = new Date();
   const passwordHash = hashPassword(input.password);
-  await database.insert(users).values({ id, shopId: input.shopId, username: input.email, email: input.email, passwordHash, mustChangePassword: false, sessionVersion: 1, displayName: input.email, role: input.role, active: true, createdAt: now.toISOString() });
+  await database.insert(users).values({ id, shopId: input.shopId, username: input.email, email: input.email, mustChangePassword: false, displayName: input.email, role: input.role, active: true, createdAt: now.toISOString() });
   await database.insert(authUsers).values({ id, name: input.email, email: input.email, emailVerified: false, createdAt: now, updatedAt: now });
   await database.insert(authAccounts).values({ id: `credential-${id}`, accountId: id, providerId: "credential", userId: id, password: passwordHash, createdAt: now, updatedAt: now });
   return authenticatedTestRequest(database, input.email, input.password);

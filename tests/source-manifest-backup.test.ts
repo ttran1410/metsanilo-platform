@@ -70,7 +70,7 @@ afterAll(() => {
   rmSync(directory, { recursive: true, force: true });
 });
 
-async function seedUser(db: Database, id: string, email: string, sessionVersion = 1) {
+async function seedUser(db: Database, id: string, email: string) {
   const hash = hashPassword("Password123!");
   const now = new Date();
   await db.insert(users).values({
@@ -79,10 +79,8 @@ async function seedUser(db: Database, id: string, email: string, sessionVersion 
     email,
     username: email,
     displayName: email,
-    passwordHash: hash,
     role: "ADMIN",
     active: true,
-    sessionVersion,
     mustChangePassword: false,
     createdAt: now.toISOString(),
   });
@@ -106,22 +104,18 @@ async function seedUser(db: Database, id: string, email: string, sessionVersion 
 
 describe("Source Manifest & Backup Verification", () => {
   it("captures accurate manifest and writes safely with 0600 mode", async () => {
-    await seedUser(sourceDb, "user-1", "u1@example.com", 1);
-    await seedUser(sourceDb, "user-2", "u2@example.com", 3);
+    await seedUser(sourceDb, "user-1", "u1@example.com");
+    await seedUser(sourceDb, "user-2", "u2@example.com");
 
     const manifest = await captureSourceManifest(sourceDb, {
       databaseUrl: "file:local.db",
     });
 
-    expect(manifest.manifestVersion).toBe(1);
+    expect(manifest.manifestVersion).toBe(2);
     expect(manifest.counts.users).toBe(2);
     expect(manifest.counts.authUsers).toBe(2);
     expect(manifest.counts.authAccounts).toBe(2);
-    expect(manifest.sessionVersion.userCount).toBe(2);
-    expect(manifest.sessionVersion.min).toBe(1);
-    expect(manifest.sessionVersion.max).toBe(3);
-    expect(manifest.sessionVersion.sum).toBe(4);
-    expect(manifest.migration.repoTag).toBe("0041_noisy_legion");
+    expect(manifest.migration.repoTag).toBe("0042_stormy_squadron_supreme");
     expect(manifest.manifestSha256).toBeDefined();
 
     const filePath = join(directory, "manifest.json");
@@ -139,8 +133,8 @@ describe("Source Manifest & Backup Verification", () => {
   });
 
   it("successfully verifies identical backup database against source manifest", async () => {
-    await seedUser(sourceDb, "user-1", "u1@example.com", 1);
-    await seedUser(backupDb, "user-1", "u1@example.com", 1);
+    await seedUser(sourceDb, "user-1", "u1@example.com");
+    await seedUser(backupDb, "user-1", "u1@example.com");
 
     const manifest = await captureSourceManifest(sourceDb, {
       databaseUrl: "libsql://prod-source.turso.io",
@@ -159,8 +153,8 @@ describe("Source Manifest & Backup Verification", () => {
   });
 
   it("fails verification when backup name or group mismatches expected", async () => {
-    await seedUser(sourceDb, "user-1", "u1@example.com", 1);
-    await seedUser(backupDb, "user-1", "u1@example.com", 1);
+    await seedUser(sourceDb, "user-1", "u1@example.com");
+    await seedUser(backupDb, "user-1", "u1@example.com");
 
     const manifest = await captureSourceManifest(sourceDb, {
       databaseUrl: "libsql://prod-source.turso.io",
@@ -177,7 +171,7 @@ describe("Source Manifest & Backup Verification", () => {
   });
 
   it("detects manifest checksum tampering", async () => {
-    await seedUser(sourceDb, "user-1", "u1@example.com", 1);
+    await seedUser(sourceDb, "user-1", "u1@example.com");
     const manifest = await captureSourceManifest(sourceDb);
     manifest.manifestSha256 = "invalid-tampered-hash";
 
@@ -186,19 +180,18 @@ describe("Source Manifest & Backup Verification", () => {
     );
   });
 
-  it("fails verification when backup table count or session version mismatches", async () => {
-    await seedUser(sourceDb, "user-1", "u1@example.com", 1);
-    await seedUser(sourceDb, "user-2", "u2@example.com", 2);
+  it("fails verification when backup table count mismatches", async () => {
+    await seedUser(sourceDb, "user-1", "u1@example.com");
+    await seedUser(sourceDb, "user-2", "u2@example.com");
 
     // Backup only has 1 user
-    await seedUser(backupDb, "user-1", "u1@example.com", 1);
+    await seedUser(backupDb, "user-1", "u1@example.com");
 
     const manifest = await captureSourceManifest(sourceDb);
     const result = await verifyBackupDatabase(backupDb, manifest);
 
     expect(result.ok).toBe(false);
     expect(result.errors.some((e) => e.includes("Table users count mismatch"))).toBe(true);
-    expect(result.errors.some((e) => e.includes("Session version userCount mismatch"))).toBe(true);
   });
 
   it("triggers anti-production guard when backup url hostname equals production hostname", async () => {

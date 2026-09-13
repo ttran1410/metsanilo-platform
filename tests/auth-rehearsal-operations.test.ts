@@ -88,13 +88,11 @@ describe("Operational Flows and Domain Actions Rehearsal", () => {
       email,
       username: email,
       displayName: email,
-      passwordHash: hash,
       role,
       active: true,
       mustChangePassword,
       temporaryPasswordIssuedAt: issuedAt,
       temporaryPasswordExpiresAt: expiresAt,
-      sessionVersion: 1,
       createdAt: now.toISOString(),
     });
     await database.insert(authUsers).values({
@@ -337,7 +335,7 @@ describe("Operational Flows and Domain Actions Rehearsal", () => {
       email: "provfail@example.test",
       displayName: "Prov Fail",
       role: "STAFF" as const,
-      passwordHash: hashPassword("Pass123!"),
+      hashedPassword: hashPassword("Pass123!"),
     };
 
     await expect(
@@ -356,9 +354,6 @@ describe("Operational Flows and Domain Actions Rehearsal", () => {
 
     // 2. resetAdminUserPassword rollback
     await seedUser("user-reset-fail", "resetfail@example.test", "STAFF", "InitialPass123!");
-    const initialUser = (await database.query.users.findFirst({
-      where: (u, { eq }) => eq(u.id, "user-reset-fail"),
-    }))!;
     const initialAccount = (await database.query.authAccounts.findFirst({
       where: (a, { eq }) => eq(a.userId, "user-reset-fail"),
     }))!;
@@ -373,10 +368,10 @@ describe("Operational Flows and Domain Actions Rehearsal", () => {
         "user-reset-fail",
         new Date(),
         {
-          setCredentialHash: async () => {
+          setCredentialPassword: async () => {
             throw new Error("Fault injection: SIMULATED_RESET_FAILURE");
           },
-        }
+        },
       )
     ).rejects.toThrow("Fault injection: SIMULATED_RESET_FAILURE");
 
@@ -386,9 +381,7 @@ describe("Operational Flows and Domain Actions Rehearsal", () => {
     const postResetAccount = (await database.query.authAccounts.findFirst({
       where: (a, { eq }) => eq(a.userId, "user-reset-fail"),
     }))!;
-    expect(postResetUser.passwordHash).toBe(initialUser.passwordHash);
     expect(postResetUser.mustChangePassword).toBe(false);
-    expect(postResetUser.sessionVersion).toBe(initialUser.sessionVersion);
     expect(postResetAccount.password).toBe(initialAccount.password);
 
     // 3. changeOwnPassword rollback
@@ -402,21 +395,16 @@ describe("Operational Flows and Domain Actions Rehearsal", () => {
         { currentPassword: "InitialPass123!", newPassword: "NewSecretPass123!" },
         new Date(),
         {
-          setCredentialHash: async () => {
+          setCredentialPassword: async () => {
             throw new Error("Fault injection: SIMULATED_CHANGE_FAILURE");
           },
         }
       )
     ).rejects.toThrow("Fault injection: SIMULATED_CHANGE_FAILURE");
 
-    const postChangeUser = (await database.query.users.findFirst({
-      where: (u, { eq }) => eq(u.id, "user-reset-fail"),
-    }))!;
     const postChangeAccount = (await database.query.authAccounts.findFirst({
       where: (a, { eq }) => eq(a.userId, "user-reset-fail"),
     }))!;
-    expect(postChangeUser.passwordHash).toBe(initialUser.passwordHash);
-    expect(postChangeUser.sessionVersion).toBe(initialUser.sessionVersion);
     expect(postChangeAccount.password).toBe(initialAccount.password);
   });
 });

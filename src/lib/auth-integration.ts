@@ -304,7 +304,7 @@ export async function revokeAllUserSessions(database: Pick<Database, "delete">, 
 }
 
 /** Phase 2/3 exception: credential writes are centralized until the Admin plugin is evaluated. */
-export async function setCredentialHash(database: Pick<Database, "update">, userId: string, password: string) {
+export async function setCredentialPassword(database: Pick<Database, "update">, userId: string, password: string) {
   const result = await database
     .update(authAccounts)
     .set({ password, updatedAt: new Date() })
@@ -325,7 +325,7 @@ export async function provisionUserWithAuth(
     email: string;
     displayName: string;
     role: Role;
-    passwordHash: string;
+    hashedPassword: string;
     createdAt?: string;
     auditActor?: string;
   },
@@ -343,11 +343,9 @@ export async function provisionUserWithAuth(
       shopId: input.shopId,
       username: input.email,
       email: input.email,
-      passwordHash: input.passwordHash,
       mustChangePassword: true,
       temporaryPasswordIssuedAt: issuedAt,
       temporaryPasswordExpiresAt: expiresAt,
-      sessionVersion: 1,
       displayName: input.displayName,
       role: input.role,
       active: true,
@@ -370,7 +368,7 @@ export async function provisionUserWithAuth(
       accountId: id,
       providerId: "credential",
       userId: id,
-      password: input.passwordHash,
+      password: input.hashedPassword,
       createdAt: recordCreationDate,
       updatedAt: recordCreationDate,
     });
@@ -406,7 +404,7 @@ export async function provisionUserWithAuth(
 /** Reconcile the deterministic seed Admin identity atomically; never call this from login. */
 export async function reconcileBootstrapAdmin(
   database: Database,
-  input: { id: string; shopId: string; email: string; displayName: string; passwordHash: string; now?: Date }
+  input: { id: string; shopId: string; email: string; displayName: string; hashedPassword: string; now?: Date }
 ) {
   const nowDate = input.now ?? new Date();
   const createdAt = nowDate.toISOString();
@@ -426,6 +424,10 @@ export async function reconcileBootstrapAdmin(
           `Bootstrap admin ${input.id} email is immutable (existing: ${existing.email}, configured: ${input.email}). Remediation or explicit migration required.`
         );
       }
+
+      const credential = await tx.query.authAccounts.findFirst({
+        where: and(eq(authAccounts.userId, input.id), eq(authAccounts.providerId, "credential")),
+      });
 
       await tx
         .update(users)
@@ -455,34 +457,26 @@ export async function reconcileBootstrapAdmin(
           },
         });
 
-      await tx
-        .insert(authAccounts)
-        .values({
+      if (!credential) {
+        await tx.insert(authAccounts).values({
           id: `credential-${input.id}`,
           accountId: input.id,
           providerId: "credential",
           userId: input.id,
-          password: existing.passwordHash,
+          password: input.hashedPassword,
           createdAt: nowDate,
           updatedAt: nowDate,
-        })
-        .onConflictDoUpdate({
-          target: authAccounts.id,
-          set: {
-            updatedAt: nowDate,
-          },
         });
+      }
     } else {
       await tx.insert(users).values({
         id: input.id,
         shopId: input.shopId,
         username: input.email,
         email: input.email,
-        passwordHash: input.passwordHash,
         mustChangePassword: false,
         temporaryPasswordIssuedAt: null,
         temporaryPasswordExpiresAt: null,
-        sessionVersion: 1,
         displayName: input.displayName,
         role: "ADMIN",
         active: true,
@@ -504,7 +498,7 @@ export async function reconcileBootstrapAdmin(
         accountId: input.id,
         providerId: "credential",
         userId: input.id,
-        password: input.passwordHash,
+          password: input.hashedPassword,
         createdAt: nowDate,
         updatedAt: nowDate,
       });

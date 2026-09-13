@@ -34,8 +34,12 @@ export function failure(error: unknown, request: Request) {
       },
     );
   }
-  const errorMessage = error instanceof Error ? error.message : String(error ?? "Unknown error");
-  console.error("Request failed", { correlationId, error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
+  // Keep unexpected exception messages and stacks out of logs: database drivers
+  // and upstream providers can include credentials or customer data in them.
+  console.error("Request failed", {
+    correlationId,
+    errorType: error instanceof Error ? error.name : typeof error,
+  });
   return NextResponse.json(
     {
       code: "INTERNAL_ERROR",

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { createDatabaseConnection, type Database } from "@/db/client";
-import { authAccounts, authUsers, shops, users } from "@/db/schema";
+import { authAccounts, authUsers, shops } from "@/db/schema";
 import { hashPassword } from "@/domain/passwords";
 import { resetEnvForTests } from "@/lib/env";
 import { auditAuthReadiness } from "../scripts/audit-auth-readiness";
@@ -193,34 +193,9 @@ describe("Pinned Historical Cutover Regression (0040_wide_anthem -> 0041_noisy_l
       pickupTime: "20:00",
     });
 
-    await database.insert(users).values([
-      {
-        id: "admin-cutover",
-        shopId: "shop-main",
-        email: "admin@example.test",
-        username: "admin@example.test",
-        displayName: "Admin Cutover",
-        passwordHash: adminHash,
-        role: "ADMIN",
-        active: true,
-        mustChangePassword: false,
-        sessionVersion: 1,
-        createdAt: now.toISOString(),
-      },
-      {
-        id: "manager-cutover",
-        shopId: "shop-main",
-        email: "manager@example.test",
-        username: "manager@example.test",
-        displayName: "Manager Cutover",
-        passwordHash: managerHash,
-        role: "MANAGER",
-        active: true,
-        mustChangePassword: false,
-        sessionVersion: 1,
-        createdAt: now.toISOString(),
-      },
-    ]);
+    await database.run(sql`INSERT INTO users (id, shop_id, username, email, password_hash, must_change_password, session_version, display_name, role, active, created_at) VALUES
+      ('admin-cutover', 'shop-main', 'admin@example.test', 'admin@example.test', ${hashPassword("Password123!")}, 0, 1, 'Admin Cutover', 'ADMIN', 1, ${now.toISOString()}),
+      ('manager-cutover', 'shop-main', 'manager@example.test', 'manager@example.test', ${hashPassword("Password123!")}, 0, 1, 'Manager Cutover', 'MANAGER', 1, ${now.toISOString()})`);
 
     await database.insert(authUsers).values([
       {
@@ -311,8 +286,6 @@ describe("Pinned Historical Cutover Regression (0040_wide_anthem -> 0041_noisy_l
       email: "admin@example.test",
       role: "ADMIN",
       active: true,
-      passwordHash: adminHash,
-      sessionVersion: 1,
     });
 
     const postManager = await database.query.users.findFirst({
@@ -324,8 +297,6 @@ describe("Pinned Historical Cutover Regression (0040_wide_anthem -> 0041_noisy_l
       email: "manager@example.test",
       role: "MANAGER",
       active: true,
-      passwordHash: managerHash,
-      sessionVersion: 1,
     });
 
     const postAdminAccount = await database.query.authAccounts.findFirst({

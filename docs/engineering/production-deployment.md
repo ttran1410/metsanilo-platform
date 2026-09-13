@@ -35,7 +35,7 @@ The local `.vercel/project.json` is ignored and identifies a linked project, but
 
 2. If either identity is absent or wrong, stop and authenticate with the approved account. Do not use a personal or unrelated team/database target.
 3. Confirm the Vercel project link and production database name through read-only CLI/dashboard inspection. Do not infer the Turso database from `TURSO_DATABASE_URL` text alone.
-4. Confirm Vercel production has, at minimum, Turso URL/token, shop identity, both auth secret/URL settings, legacy session secret, `MEDIA_STORAGE=blob`, and `BLOB_READ_WRITE_TOKEN` when media is enabled.
+4. Confirm Vercel production has, at minimum, Turso URL/token, shop identity, Better Auth secret/URL settings, `MEDIA_STORAGE=blob`, and `BLOB_READ_WRITE_TOKEN` when media is enabled.
 5. If an agent needs temporary access, the owner must approve the exact release first. Use the shortest practical expiry and least privilege, keep values out of logs and files, and record revocation/expiry without recording the secret.
 
 ## Pull and validate production configuration
@@ -52,7 +52,7 @@ Run the explicit production preflight:
 RELEASE_PREFLIGHT=true node --env-file=.env.production.local node_modules/tsx/dist/cli.mjs scripts/preflight.ts
 ```
 
-Production preflight (`scripts/preflight.ts` via `validateRuntimeEnvironment` and `assertNoOrphanedForcedChangeUsers`) enforces remote Turso credentials, `ADMIN_SESSION_SECRET` (>= 32 chars), `BETTER_AUTH_SECRET` (>= 32 chars), `BETTER_AUTH_URL` canonical origin (`https://metsanilo.vercel.app`), and zero orphaned forced-change user credential states. Blob credentials, canonical domain routing, and Vercel/Turso CLI identities must still be confirmed separately without printing values.
+Production preflight (`scripts/preflight.ts` via `validateRuntimeEnvironment` and `assertNoOrphanedForcedChangeUsers`) enforces remote Turso credentials, `BETTER_AUTH_SECRET` (>= 32 chars), `BETTER_AUTH_URL` canonical origin (`https://metsanilo.vercel.app`), and zero orphaned forced-change user credential states. Blob credentials, canonical domain routing, and Vercel/Turso CLI identities must still be confirmed separately without printing values.
 
 ## Auth Migration Cutover Readiness (Phase 6 Rehearsal, Phase 7 Gate, and Phase 8 Cutover)
 

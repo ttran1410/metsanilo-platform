@@ -87,7 +87,7 @@ export async function runAuthCutoverRehearsal(
       shopId,
       email: adminEmail,
       displayName: "Bootstrap Admin (Rehearsal)",
-      passwordHash: hashPassword(adminPassword),
+      hashedPassword: hashPassword(adminPassword),
     });
 
     // 4. Seed an active MANAGER identity if missing for audit coverage
@@ -107,13 +107,11 @@ export async function runAuthCutoverRehearsal(
           email: "manager@metsanilo.test",
           username: "manager@metsanilo.test",
           displayName: "Rehearsal Manager",
-          passwordHash: managerHash,
           role: "MANAGER",
           active: true,
           mustChangePassword: false,
           temporaryPasswordIssuedAt: null,
           temporaryPasswordExpiresAt: null,
-          sessionVersion: 1,
           createdAt: now.toISOString(),
         });
         await tx.insert(schema.authUsers).values({

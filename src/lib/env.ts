@@ -11,7 +11,6 @@ const envSchema = z.object({
   SHOP_TIMEZONE: z.string().min(1).default("Europe/Helsinki"),
   BOOTSTRAP_ADMIN_EMAIL: z.string().email().optional(),
   BOOTSTRAP_ADMIN_PASSWORD: z.string().optional(),
-  ADMIN_SESSION_SECRET: z.string().min(32).optional(),
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
   BETTER_AUTH_URL: z.string().url().optional(),
 });
@@ -37,7 +36,6 @@ export function validateRuntimeEnvironment(options?: { production?: boolean }) {
   if (production) {
     if (config.TURSO_DATABASE_URL.startsWith("file:")) errors.push("TURSO_DATABASE_URL must be a remote Turso URL");
     if (!config.TURSO_AUTH_TOKEN) errors.push("TURSO_AUTH_TOKEN is required");
-    if (!config.ADMIN_SESSION_SECRET || config.ADMIN_SESSION_SECRET.length < 32) errors.push("ADMIN_SESSION_SECRET must be at least 32 characters");
     if (!config.BETTER_AUTH_SECRET || config.BETTER_AUTH_SECRET.length < 32) errors.push("BETTER_AUTH_SECRET must be at least 32 characters");
     let betterAuthOrigin = "";
     try { betterAuthOrigin = new URL(config.BETTER_AUTH_URL ?? "").origin; } catch { /* handled below */ }

@@ -155,7 +155,7 @@ The canonical production URL is **https://metsanilo.vercel.app/**. A Vercel depl
 
 Use the full [production deployment runbook](docs/engineering/production-deployment.md) and [database migration runbook](docs/engineering/database-migrations.md) for operator actions. The short path below assumes authenticated Vercel/Turso CLIs, a verified project/database target, explicit production authorization, and a reviewed backward-compatible migration.
 
-1. Set and verify environment variables on Vercel (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `SHOP_ID`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `ADMIN_SESSION_SECRET`, `MEDIA_STORAGE=blob`, and `BLOB_READ_WRITE_TOKEN` when media is enabled). Never commit or print their values.
+1. Set and verify environment variables on Vercel (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `SHOP_ID`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `MEDIA_STORAGE=blob`, and `BLOB_READ_WRITE_TOKEN` when media is enabled). Never commit or print their values.
 2. Pull the production environment into the ignored local file:
    ```bash
    vercel env pull .env.production.local --environment=production --yes

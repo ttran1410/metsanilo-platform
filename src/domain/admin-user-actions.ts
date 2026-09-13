@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { auditEntries, authUsers, users } from "@/db/schema";
 import { DomainError } from "./errors";
 import { hashPassword, randomPassword } from "./passwords";
 import { assertAdminActionContext, type AdminActionContext } from "./admin-action-context";
-import { revokeAllUserSessions, setCredentialHash } from "@/lib/auth-integration";
+import { revokeAllUserSessions, setCredentialPassword } from "@/lib/auth-integration";
 
 export async function updateAdminProfile(database: Database, context: AdminActionContext, displayName: string) {
   assertAdminActionContext(context);
@@ -17,7 +17,7 @@ export async function updateAdminProfile(database: Database, context: AdminActio
 }
 
 export type CredentialMutationDependencies = {
-  setCredentialHash: (database: Pick<Database, "update">, userId: string, password: string) => Promise<void>;
+  setCredentialPassword: (database: Pick<Database, "update">, userId: string, password: string) => Promise<void>;
   revokeAllUserSessions: (database: Pick<Database, "delete">, userId: string) => Promise<void>;
 };
 
@@ -37,7 +37,7 @@ export async function resetAdminUserPassword(
   if (context.actor.role === "MANAGER" && target.role === "ADMIN") throw new DomainError("FORBIDDEN", "Manager cannot reset an Admin password", 403);
 
   const temporaryPassword = randomPassword();
-  const passwordHash = hashPassword(temporaryPassword);
+  const hashedPassword = hashPassword(temporaryPassword);
   const issuedAt = now.toISOString();
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
   const auditAction = target.mustChangePassword ? "user.temporary_password_regenerated" : "user.temporary_password_issued";
@@ -46,11 +46,9 @@ export async function resetAdminUserPassword(
     const updateResult = await tx
       .update(users)
       .set({
-        passwordHash,
         mustChangePassword: true,
         temporaryPasswordIssuedAt: issuedAt,
         temporaryPasswordExpiresAt: expiresAt,
-        sessionVersion: sql`${users.sessionVersion} + 1`,
       })
       .where(and(eq(users.id, target.id), eq(users.shopId, context.shop.id), eq(users.active, true)))
       .run();
@@ -59,10 +57,10 @@ export async function resetAdminUserPassword(
       throw new DomainError("CONFLICT", "User was modified concurrently", 409);
     }
 
-    const setCredential = overrides.setCredentialHash ?? setCredentialHash;
+    const setCredential = overrides.setCredentialPassword ?? setCredentialPassword;
     const revokeSessions = overrides.revokeAllUserSessions ?? revokeAllUserSessions;
 
-    await setCredential(tx, target.id, passwordHash);
+    await setCredential(tx, target.id, hashedPassword);
     await revokeSessions(tx, target.id);
     await tx.insert(auditEntries).values({
       id: randomUUID(),

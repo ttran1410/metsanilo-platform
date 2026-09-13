@@ -59,7 +59,6 @@ async function seedUserWithAuth(
     email,
     username: email,
     displayName: email,
-    passwordHash: hash,
     role,
     active,
     mustChangePassword: false,
@@ -184,7 +183,6 @@ describe("auditAuthReadiness", () => {
       id: "manager-1",
       shopId: "shop-main",
       email: "manager@example.test",
-      passwordHash: hashPassword("Password123!"),
       role: "MANAGER",
       active: true,
       displayName: "Manager",
@@ -197,27 +195,21 @@ describe("auditAuthReadiness", () => {
     expect(result.findings.some((f) => f.code === "NO_CREDENTIAL_ACCOUNT")).toBe(true);
   });
 
-  it("fails if an active user is missing password_hash credential mirror", async () => {
+  it("accepts an active user with a credential stored in Better Auth", async () => {
     await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
     await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
-    // clear passwordHash
-    await database.update(users).set({ passwordHash: "" }).where(eq(users.id, "manager-1"));
-
     const result = await auditAuthReadiness(database, "shop-main");
-    expect(result.ok).toBe(false);
-    expect(result.findings.some((f) => f.code === "MISSING_PASSWORD_HASH")).toBe(true);
+    expect(result.ok).toBe(true);
   });
 
   it("fails if password hash is not valid Scrypt format", async () => {
     await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN");
     await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
     // set invalid hash format (e.g. bcrypt or argon2 or plain text)
-    await database.update(users).set({ passwordHash: "invalid-hash" }).where(eq(users.id, "manager-1"));
     await database.update(authAccounts).set({ password: "invalid-hash" }).where(eq(authAccounts.userId, "manager-1"));
 
     const result = await auditAuthReadiness(database, "shop-main");
     expect(result.ok).toBe(false);
-    expect(result.findings.some((f) => f.code === "INVALID_PASSWORD_HASH_FORMAT")).toBe(true);
     expect(result.findings.some((f) => f.code === "INVALID_CREDENTIAL_PASSWORD_FORMAT")).toBe(true);
   });
 
@@ -226,12 +218,11 @@ describe("auditAuthReadiness", () => {
     await seedUserWithAuth("manager-1", "manager@example.test", "MANAGER");
     const validHash = hashPassword("Password123!");
     // add leading whitespace
-    await database.update(users).set({ passwordHash: ` ${validHash}` }).where(eq(users.id, "manager-1"));
     await database.update(authAccounts).set({ password: ` ${validHash}` }).where(eq(authAccounts.userId, "manager-1"));
 
     const result = await auditAuthReadiness(database, "shop-main");
     expect(result.ok).toBe(false);
-    expect(result.findings.some((f) => f.code === "INVALID_PASSWORD_HASH_FORMAT")).toBe(true);
+    expect(result.findings.some((f) => f.code === "INVALID_CREDENTIAL_PASSWORD_FORMAT")).toBe(true);
   });
 
   it("fails if auth_accounts.account_id does not match users.id", async () => {
@@ -357,4 +348,3 @@ describe("auditAuthCutoverReadiness", () => {
     });
   });
 });
-

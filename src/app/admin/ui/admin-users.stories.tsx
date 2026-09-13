@@ -3,7 +3,7 @@ import { useState } from "react";
 import { UsersWorkspace, type UserRow } from "../users/users-workspace";
 import { AdminEmptyState, AdminNotice, AdminPageHeader } from "../presentation";
 
-const initialUsers: UserRow[] = [{ id: "story-user", email: "aino@metsanilo.local", displayName: "Aino Korhonen", role: "MANAGER", active: true, mustChangePassword: false, sessionVersion: 1, createdAt: "2026-01-01T10:00:00.000Z", permissions: ["orders.read", "availability.read"], customOverrides: { granted: [], revoked: [] } }];
+const initialUsers: UserRow[] = [{ id: "story-user", email: "aino@metsanilo.local", displayName: "Aino Korhonen", role: "MANAGER", active: true, mustChangePassword: false, createdAt: "2026-01-01T10:00:00.000Z", permissions: ["orders.read", "availability.read"], customOverrides: { granted: [], revoked: [] } }];
 
 function UsersStory({ canManageUsers = true, canAssignPermissions = true, canResetPasswords = true }: { canManageUsers?: boolean; canAssignPermissions?: boolean; canResetPasswords?: boolean }) {
   return <UsersWorkspace initialUsers={initialUsers} actorRole="ADMIN" canManageUsers={canManageUsers} canAssignPermissions={canAssignPermissions} canResetPasswords={canResetPasswords} />;

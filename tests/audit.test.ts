@@ -49,7 +49,6 @@ describe("Security & Audit Engine", () => {
       id: "usr_admin",
       shopId: "shop-main",
       email: "admin@metsanilo.fi",
-      passwordHash: "hash",
       displayName: "Juho Metsä",
       role: "ADMIN",
       active: true,

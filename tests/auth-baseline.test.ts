@@ -55,7 +55,7 @@ async function provision(id: string, shopId = "shop-main", active = true, role: 
   const now = new Date();
   const password = "Password123!";
   const passwordHash = hashPassword(password);
-  await database.insert(users).values({ id, shopId, username: email, email, passwordHash, mustChangePassword: false, sessionVersion: 1, displayName: id, role, active, createdAt: now.toISOString() });
+  await database.insert(users).values({ id, shopId, username: email, email, mustChangePassword: false, displayName: id, role, active, createdAt: now.toISOString() });
   await database.insert(authUsers).values({ id, name: id, email, emailVerified: false, createdAt: now, updatedAt: now });
   await database.insert(authAccounts).values({ id: `credential-${id}`, accountId: id, providerId: "credential", userId: id, password: passwordHash, createdAt: now, updatedAt: now });
   return { email, password };
@@ -211,19 +211,16 @@ describe("Better Auth baseline", () => {
     }), { params: Promise.resolve({ id: "phase4-all-target" }) });
     expect(response.status).toBe(200);
     expect(await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-all-target"))).toHaveLength(0);
-    const targetUser = await database.query.users.findFirst({ where: eq(users.id, "phase4-all-target") });
-    expect(targetUser?.sessionVersion).toBe(2);
     const audits = await database.select().from(auditEntries).where(eq(auditEntries.entityId, "phase4-all-target"));
     expect(audits.map((entry) => entry.action)).toContain("user.sessions_revoked");
   });
 
-  it("rolls back session revocation and version bump when the audit insert fails", async () => {
+  it("rolls back session revocation when the audit insert fails", async () => {
     const actor = await provision("phase4-rollback-actor");
     const target = await provision("phase4-rollback-target", "shop-main", true, "STAFF");
     const actorSignIn = await signIn(actor.email, actor.password);
     await signIn(target.email, target.password);
-    const beforeUser = (await database.select().from(users).where(eq(users.id, target.email.split("@")[0])))[0];
-    const beforeSessions = await database.select().from(authSessions).where(eq(authSessions.userId, target.email.split("@")[0]));
+    const beforeSessions = await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-rollback-target"));
     await database.run(sql.raw("CREATE TRIGGER fail_phase4_audit BEFORE INSERT ON audit_entries BEGIN SELECT RAISE(ABORT, 'forced audit failure'); END"));
 
     await expect(adminSessionRevoke(new Request("http://localhost:3000/api/admin/users/phase4-rollback-target/sessions", {
@@ -232,9 +229,7 @@ describe("Better Auth baseline", () => {
       body: JSON.stringify({ scope: "all", reason: "rollback test" }),
     }), { params: Promise.resolve({ id: "phase4-rollback-target" }) })).resolves.toMatchObject({ status: 500 });
 
-    const afterUser = (await database.select().from(users).where(eq(users.id, "phase4-rollback-target")))[0];
     const afterSessions = await database.select().from(authSessions).where(eq(authSessions.userId, "phase4-rollback-target"));
-    expect(afterUser?.sessionVersion).toBe(beforeUser?.sessionVersion);
     expect(afterSessions).toHaveLength(beforeSessions.length);
   });
 
@@ -454,7 +449,7 @@ describe("Better Auth baseline", () => {
     const created = await createUser(database, new Request("http://localhost/manager", { headers: { cookie: admin } }), { email: "provisioned@example.test", password: "Password123!", displayName: "Provisioned", role: "STAFF" });
     expect(created.email).toBe("provisioned@example.test");
     expect(await database.query.authUsers.findFirst({ where: eq(authUsers.id, created.id) })).toMatchObject({ email: created.email, emailVerified: false });
-    expect(await database.query.authAccounts.findFirst({ where: eq(authAccounts.userId, created.id) })).toMatchObject({ providerId: "credential", password: created.passwordHash });
+    expect(await database.query.authAccounts.findFirst({ where: eq(authAccounts.userId, created.id) })).toMatchObject({ providerId: "credential", password: expect.any(String) });
   });
 
   it("rolls back user provisioning when the Better Auth identity conflicts", async () => {
@@ -493,7 +488,7 @@ describe("Better Auth baseline", () => {
       shopId: "shop-main",
       email: "bootstrap-active@example.test",
       displayName: "Bootstrap Admin",
-      passwordHash: hashPassword("Password123!"),
+      hashedPassword: hashPassword("Password123!"),
       now: new Date("2026-09-12T12:00:00.000Z"),
     };
 
@@ -573,14 +568,13 @@ describe("Better Auth baseline", () => {
     expect(setCookie).toBeDefined();
     expect(setCookie).toMatch(/(Max-Age=0|Expires=)/i);
 
-    // 3. Verify in database: mustChangePassword cleared, temporary timestamps null, sessionVersion incremented
+    // 3. Verify in database: mustChangePassword cleared and temporary timestamps null
     const updatedUser = await database.query.users.findFirst({
       where: eq(users.id, "temp-lifecycle-user"),
     });
     expect(updatedUser?.mustChangePassword).toBe(false);
     expect(updatedUser?.temporaryPasswordIssuedAt).toBeNull();
     expect(updatedUser?.temporaryPasswordExpiresAt).toBeNull();
-    expect(updatedUser?.sessionVersion).toBe(2);
 
     // Verify audit entries captured both password change and session revocation
     const audits = await database.select().from(auditEntries).where(eq(auditEntries.entityId, "temp-lifecycle-user"));

@@ -121,20 +121,6 @@ export async function auditAuthReadiness(
   let expiredTemporaryPasswordCount = 0;
 
   for (const user of activeShopUsers) {
-    if (!user.passwordHash || user.passwordHash.trim().length === 0) {
-      findings.push({
-        code: "MISSING_PASSWORD_HASH",
-        message: `Active user ${user.id} (${user.email}) is missing passwordHash credential mirror.`,
-        details: { userId: user.id, email: user.email },
-      });
-    } else if (!isSupportedPasswordHash(user.passwordHash)) {
-      findings.push({
-        code: "INVALID_PASSWORD_HASH_FORMAT",
-        message: `Active user ${user.id} (${user.email}) has unsupported passwordHash format.`,
-        details: { userId: user.id, email: user.email },
-      });
-    }
-
     if (!isCredentialStateValid(user)) {
       findings.push({
         code: "INVALID_CREDENTIAL_STATE",
@@ -194,12 +180,6 @@ export async function auditAuthReadiness(
         findings.push({
           code: "INVALID_CREDENTIAL_PASSWORD_FORMAT",
           message: `Active user ${user.id} (${user.email}) has unsupported credential account password format.`,
-          details: { userId: user.id, email: user.email },
-        });
-      } else if (user.passwordHash && cred.password !== user.passwordHash) {
-        findings.push({
-          code: "CREDENTIAL_MIRROR_MISMATCH",
-          message: `Active user ${user.id} (${user.email}) has mismatch between users.password_hash and auth_accounts.password.`,
           details: { userId: user.id, email: user.email },
         });
       }
@@ -441,10 +421,6 @@ export function validateAuditTargetConfig(targetInfo: {
     }
     if (!targetInfo.shopId || targetInfo.shopId.trim().length === 0) {
       errors.push("SHOP_ID is required in production");
-    }
-    const adminSecret = process.env.ADMIN_SESSION_SECRET?.trim();
-    if (!adminSecret || adminSecret.length < 32) {
-      errors.push("ADMIN_SESSION_SECRET must be at least 32 characters");
     }
     const betterAuthSecret = process.env.BETTER_AUTH_SECRET?.trim();
     if (!betterAuthSecret || betterAuthSecret.length < 32) {

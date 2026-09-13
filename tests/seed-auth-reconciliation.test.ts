@@ -29,7 +29,7 @@ beforeEach(async () => {
 afterEach(() => closeDatabase());
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
 
-const input = (overrides = {}) => ({ id: "user-shop-main-admin", shopId: "shop-main", email: "admin@example.test", displayName: "Shop admin", passwordHash: hashPassword("Password123!"), now: new Date("2026-01-01T00:00:00.000Z"), ...overrides });
+const input = (overrides = {}) => ({ id: "user-shop-main-admin", shopId: "shop-main", email: "admin@example.test", displayName: "Shop admin", hashedPassword: hashPassword("Password123!"), now: new Date("2026-01-01T00:00:00.000Z"), ...overrides });
 
 describe("seed Better Auth reconciliation", () => {
   it("provisions all identities on a fresh database", async () => {
@@ -42,7 +42,7 @@ describe("seed Better Auth reconciliation", () => {
 
   it("is idempotent and updates the deterministic seed state while preserving immutable email", async () => {
     await reconcileBootstrapAdmin(database, input());
-    await reconcileBootstrapAdmin(database, input({ displayName: "Updated admin", passwordHash: hashPassword("NewPassword123!") }));
+    await reconcileBootstrapAdmin(database, input({ displayName: "Updated admin", hashedPassword: hashPassword("NewPassword123!") }));
     expect(await database.select().from(users)).toHaveLength(1);
     expect(await database.query.users.findFirst({ where: eq(users.id, input().id) })).toMatchObject({ email: "admin@example.test", displayName: "Updated admin" });
   });
@@ -57,7 +57,7 @@ describe("seed Better Auth reconciliation", () => {
 
   it("repairs a partial identity missing its credential account", async () => {
     const value = input();
-    await database.insert(users).values({ id: value.id, shopId: value.shopId, username: value.email, email: value.email, passwordHash: value.passwordHash, mustChangePassword: false, sessionVersion: 1, displayName: value.displayName, role: "ADMIN", active: true, createdAt: value.now.toISOString() });
+    await database.insert(users).values({ id: value.id, shopId: value.shopId, username: value.email, email: value.email, mustChangePassword: false, displayName: value.displayName, role: "ADMIN", active: true, createdAt: value.now.toISOString() });
     await database.insert(authUsers).values({ id: value.id, name: value.displayName, email: value.email, emailVerified: true, createdAt: value.now, updatedAt: value.now });
     await reconcileBootstrapAdmin(database, value);
     expect(await database.select().from(authAccounts)).toHaveLength(1);
@@ -66,7 +66,7 @@ describe("seed Better Auth reconciliation", () => {
 
   it("rolls back the user upsert when the auth email conflicts", async () => {
     const value = input();
-    await database.insert(users).values({ id: value.id, shopId: value.shopId, username: "old@example.test", email: "old@example.test", passwordHash: value.passwordHash, mustChangePassword: false, sessionVersion: 1, displayName: "Old", role: "ADMIN", active: true, createdAt: value.now.toISOString() });
+    await database.insert(users).values({ id: value.id, shopId: value.shopId, username: "old@example.test", email: "old@example.test", mustChangePassword: false, displayName: "Old", role: "ADMIN", active: true, createdAt: value.now.toISOString() });
     await database.insert(authUsers).values({ id: "other", name: "Other", email: value.email, emailVerified: false, createdAt: value.now, updatedAt: value.now });
     await expect(reconcileBootstrapAdmin(database, value)).rejects.toThrow();
     expect(await database.query.users.findFirst({ where: eq(users.id, value.id) })).toMatchObject({ email: "old@example.test", displayName: "Old" });

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, ne, or } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, authSessions, userPermissions, users } from "@/db/schema";
+import { auditEntries, authAccounts, authSessions, userPermissions, users } from "@/db/schema";
 import { env } from "@/lib/env";
 import { DomainError } from "./errors";
 import { assertPassword, hashPassword, verifyPassword } from "./passwords";
@@ -12,7 +12,6 @@ import {
   normalizeUserAgent,
   provisionUserWithAuth,
   revokeAllUserSessions,
-  setCredentialHash,
   type SessionTiming,
   validateBetterAuthSession,
 } from "@/lib/auth-integration";
@@ -180,7 +179,7 @@ export async function createUser(
   const id = randomUUID();
   const createdAt = new Date().toISOString();
   try {
-    await provisionUserWithAuth(database, { id, shopId: env().SHOP_ID, email, displayName, role: input.role, passwordHash: hashPassword(input.password), createdAt, auditActor: actor.email ?? actor.username ?? actor.id });
+    await provisionUserWithAuth(database, { id, shopId: env().SHOP_ID, email, displayName, role: input.role, hashedPassword: hashPassword(input.password), createdAt, auditActor: actor.email ?? actor.username ?? actor.id });
   } catch (error) {
     if (String(error).toLowerCase().includes("unique")) throw new DomainError("DUPLICATE_USER", "Username already exists", 409);
     throw error;
@@ -208,20 +207,22 @@ export async function setUserPermission(
   }
 
   const updatedAt = new Date().toISOString();
-  await database
-    .insert(userPermissions)
-    .values({ id: randomUUID(), shopId: env().SHOP_ID, userId: target.id, permission, granted: input.granted, updatedAt })
-    .onConflictDoUpdate({ target: [userPermissions.userId, userPermissions.permission], set: { granted: input.granted, updatedAt } });
-  await revokeAllUserSessions(database, target.id);
-  await database.insert(auditEntries).values({
-    id: randomUUID(),
-    shopId: env().SHOP_ID,
-    actor: actor.email ?? actor.username ?? actor.id,
-    action: input.granted ? "user.permission_granted" : "user.permission_revoked",
-    entityType: "user",
-    entityId: target.id,
-    detailsJson: JSON.stringify({ permission }),
-    createdAt: updatedAt,
+  await database.transaction(async (tx) => {
+    await tx
+      .insert(userPermissions)
+      .values({ id: randomUUID(), shopId: env().SHOP_ID, userId: target.id, permission, granted: input.granted, updatedAt })
+      .onConflictDoUpdate({ target: [userPermissions.userId, userPermissions.permission], set: { granted: input.granted, updatedAt } });
+    await revokeAllUserSessions(tx, target.id);
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId: env().SHOP_ID,
+      actor: actor.email ?? actor.username ?? actor.id,
+      action: input.granted ? "user.permission_granted" : "user.permission_revoked",
+      entityType: "user",
+      entityId: target.id,
+      detailsJson: JSON.stringify({ permission }),
+      createdAt: updatedAt,
+    });
   });
   return { userId: target.id, permission, granted: input.granted };
 }
@@ -327,7 +328,7 @@ export async function toggleUserActive(database: Database, request: Request, inp
 
   const updatedAt = new Date().toISOString();
   await database.transaction(async (tx) => {
-    await tx.update(users).set({ active: input.active, sessionVersion: sql`${users.sessionVersion} + 1` }).where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID))).run();
+    await tx.update(users).set({ active: input.active }).where(and(eq(users.id, input.userId), eq(users.shopId, env().SHOP_ID))).run();
     await revokeAllUserSessions(tx, input.userId);
   });
 
@@ -351,36 +352,38 @@ export async function resetUserPermissionsToRole(database: Database, request: Re
   if (!target) throw new DomainError("NOT_FOUND", "User not found", 404);
 
   const updatedAt = new Date().toISOString();
-  await database
-    .delete(userPermissions)
-    .where(and(eq(userPermissions.userId, userId), eq(userPermissions.shopId, env().SHOP_ID)))
-    .run();
-
   const defaults = defaultPermissionsForRole(target.role);
-  if (defaults.length) {
-    await database.insert(userPermissions).values(
-      defaults.map((permission) => ({
-        id: randomUUID(),
-        shopId: env().SHOP_ID,
-        userId,
-        permission,
-        granted: true,
-        updatedAt,
-      }))
-    );
-  }
+  await database.transaction(async (tx) => {
+    await tx
+      .delete(userPermissions)
+      .where(and(eq(userPermissions.userId, userId), eq(userPermissions.shopId, env().SHOP_ID)))
+      .run();
 
-  await revokeAllUserSessions(database, userId);
+    if (defaults.length) {
+      await tx.insert(userPermissions).values(
+        defaults.map((permission) => ({
+          id: randomUUID(),
+          shopId: env().SHOP_ID,
+          userId,
+          permission,
+          granted: true,
+          updatedAt,
+        }))
+      );
+    }
 
-  await database.insert(auditEntries).values({
-    id: randomUUID(),
-    shopId: env().SHOP_ID,
-    actor: actor.email ?? actor.username ?? actor.id,
-    action: "user.permissions_reset_to_default",
-    entityType: "user",
-    entityId: userId,
-    detailsJson: JSON.stringify({ role: target.role }),
-    createdAt: updatedAt,
+    await revokeAllUserSessions(tx, userId);
+
+    await tx.insert(auditEntries).values({
+      id: randomUUID(),
+      shopId: env().SHOP_ID,
+      actor: actor.email ?? actor.username ?? actor.id,
+      action: "user.permissions_reset_to_default",
+      entityType: "user",
+      entityId: userId,
+      detailsJson: JSON.stringify({ role: target.role }),
+      createdAt: updatedAt,
+    });
   });
 
   return { userId, role: target.role, defaults };
@@ -580,12 +583,6 @@ export async function revokeUserSessions(
   await database.transaction(async (tx) => {
     const result = await tx.delete(authSessions).where(eq(authSessions.userId, userId)).run();
     affectedCount = result.rowsAffected;
-    await tx
-      .update(users)
-      .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
-      .where(and(eq(users.id, userId), eq(users.shopId, shopId)))
-      .run();
-
     await tx.insert(auditEntries).values({
       id: randomUUID(),
       shopId,
@@ -664,7 +661,10 @@ export async function authenticateUser(database: Database, email: string, passwo
   const user = await database.query.users.findFirst({
     where: and(eq(users.email, email.trim().toLowerCase()), eq(users.shopId, env().SHOP_ID), eq(users.active, true)),
   });
-  if (!user || !verifyPassword(password, user.passwordHash)) throw new DomainError("UNAUTHORIZED", "Invalid email or password", 401);
+  const credential = user
+    ? await database.query.authAccounts.findFirst({ where: and(eq(authAccounts.userId, user.id), eq(authAccounts.providerId, "credential")) })
+    : undefined;
+  if (!user || !credential?.password || !verifyPassword(password, credential.password)) throw new DomainError("UNAUTHORIZED", "Invalid email or password", 401);
   return user;
 }
 
@@ -673,7 +673,7 @@ export type SelfPasswordActionShop = { id: string };
 export type SelfPasswordActionContext = { actor: SelfPasswordActionActor; shop: SelfPasswordActionShop };
 
 export type SelfPasswordDependencies = {
-  setCredentialHash: (database: Pick<Database, "update">, userId: string, password: string) => Promise<void>;
+  setCredentialPassword: (database: Pick<Database, "update">, userId: string, password: string) => Promise<void>;
   revokeAllUserSessions: (database: Pick<Database, "delete">, userId: string) => Promise<void>;
 };
 
@@ -715,40 +715,28 @@ export async function changeOwnPassword(
     throw new DomainError("NOT_FOUND", "User not found", 404);
   }
 
-  if (!verifyPassword(input.currentPassword, target.passwordHash)) {
+  const credential = await database.query.authAccounts.findFirst({
+    where: and(eq(authAccounts.userId, target.id), eq(authAccounts.providerId, "credential")),
+  });
+  const currentPasswordHash = credential?.password;
+  if (!currentPasswordHash || !verifyPassword(input.currentPassword, currentPasswordHash)) {
     throw new DomainError("UNAUTHORIZED", "Current password is incorrect", 401);
   }
 
   const nowIso = now.toISOString();
-  const passwordHash = hashPassword(input.newPassword);
+  const hashedPassword = hashPassword(input.newPassword);
 
-  const setCredential = overrides.setCredentialHash ?? setCredentialHash;
+  const setCredential = overrides.setCredentialPassword ?? (async (db, userId, password) => {
+    const result = await db.update(authAccounts).set({ password, updatedAt: new Date() }).where(
+      and(eq(authAccounts.userId, userId), eq(authAccounts.providerId, "credential"), eq(authAccounts.password, currentPasswordHash))
+    ).run();
+    if (result.rowsAffected !== 1) throw new DomainError("CONFLICT", "User was modified concurrently", 409);
+  });
   const revokeSessions = overrides.revokeAllUserSessions ?? revokeAllUserSessions;
 
   await database.transaction(async (tx) => {
-    const updateResult = await tx
-      .update(users)
-      .set({
-        passwordHash,
-        mustChangePassword: false,
-        temporaryPasswordIssuedAt: null,
-        temporaryPasswordExpiresAt: null,
-        sessionVersion: sql`${users.sessionVersion} + 1`,
-      })
-      .where(
-        and(
-          eq(users.id, target.id),
-          eq(users.shopId, context.shop.id),
-          eq(users.passwordHash, target.passwordHash)
-        )
-      )
-      .run();
-
-    if (updateResult.rowsAffected !== 1) {
-      throw new DomainError("CONFLICT", "User was modified concurrently", 409);
-    }
-
-    await setCredential(tx, target.id, passwordHash);
+    await tx.update(users).set({ mustChangePassword: false, temporaryPasswordIssuedAt: null, temporaryPasswordExpiresAt: null }).where(and(eq(users.id, target.id), eq(users.shopId, context.shop.id))).run();
+    await setCredential(tx, target.id, hashedPassword);
     await revokeSessions(tx, target.id);
 
     await tx.insert(auditEntries).values({

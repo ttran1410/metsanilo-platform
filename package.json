@@ -27,6 +27,7 @@
     "smoke:auth": "tsx scripts/auth-readiness-smoke.ts",
     "manifest:source": "tsx scripts/capture-source-manifest.ts",
     "verify:backup": "tsx scripts/verify-backup.ts",
+    "verify:schema-contract": "tsx scripts/verify-schema-contract.ts",
     "rotate:canary": "tsx scripts/rotate-canary-credential.ts",
     "cutover:auth": "tsx scripts/cutover-auth.ts",
     "cutover:auth:canary": "tsx scripts/auth-cutover-canary.ts",
