@@ -5,7 +5,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "@/db/client";
 import * as schema from "@/db/schema";
 import { auditEntries, users } from "@/db/schema";
-import { hashPassword, randomPassword } from "@/domain/passwords";
+import { assertPassword, hashPassword, randomPassword } from "@/domain/passwords";
 import { revokeAllUserSessions, setCredentialHash } from "@/lib/auth-integration";
 
 export type RotateCanaryOptions = {
@@ -13,6 +13,7 @@ export type RotateCanaryOptions = {
   canaryUserId: string;
   correlationId?: string;
   now?: Date;
+  password?: string;
 };
 
 export type RotateCanaryResult = {
@@ -49,7 +50,8 @@ export async function rotateCanaryCredential(
       );
     }
 
-    const newPassword = randomPassword(32);
+    const newPassword = options.password ?? randomPassword(32);
+    assertPassword(newPassword);
     const newHash = hashPassword(newPassword);
 
     // 1. Update Better Auth credential account

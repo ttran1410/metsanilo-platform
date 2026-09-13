@@ -17,6 +17,7 @@ export type CanaryRunOptions = {
   allowRepeatCutover?: boolean;
   ownerApprovalReference?: string;
   canaryPassword?: string;
+  finalCanaryPassword?: string;
   baseUrl?: string;
   fetchImpl?: typeof fetch;
   testHooks?: {
@@ -150,6 +151,11 @@ export async function runAuthCutoverCanary(
       err.exitCode = 2;
       throw err;
     }
+    if (!options.finalCanaryPassword && !process.env.AUTH_CUTOVER_CANARY_FINAL_PASSWORD) {
+      const err = new Error("CANARY_PRECHECK_FAILED: Production target requires AUTH_CUTOVER_CANARY_FINAL_PASSWORD") as CanaryCustomError;
+      err.exitCode = 2;
+      throw err;
+    }
     if (!options.baseUrl && !process.env.AUTH_CUTOVER_BASE_URL && !process.env.BETTER_AUTH_URL) {
       const err = new Error("CANARY_PRECHECK_FAILED: Production target requires AUTH_CUTOVER_BASE_URL or BETTER_AUTH_URL") as CanaryCustomError;
       err.exitCode = 2;
@@ -158,6 +164,7 @@ export async function runAuthCutoverCanary(
   }
 
   const canaryPassword = options.canaryPassword ?? process.env.AUTH_CUTOVER_CANARY_PASSWORD;
+  const finalCanaryPassword = options.finalCanaryPassword ?? process.env.AUTH_CUTOVER_CANARY_FINAL_PASSWORD;
   const httpBaseUrl = options.baseUrl ?? process.env.AUTH_CUTOVER_BASE_URL ?? process.env.BETTER_AUTH_URL;
   if (options.target === "production" && !/^[0-9a-f]{40}$/i.test(releaseSha)) {
     throw new Error("VALIDATION_FAILED: production canary requires a full 40-character release SHA");
@@ -283,6 +290,7 @@ export async function runAuthCutoverCanary(
         shopId,
         canaryUserId,
         correlationId,
+        password: finalCanaryPassword,
       });
       finalRotationAuditId = finalRotation.auditId;
     } catch (rotErr: unknown) {
