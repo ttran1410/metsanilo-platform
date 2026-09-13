@@ -32,9 +32,9 @@ Never print, paste into logs, or commit secret values. `.env*` and `.vercel` are
 | `BETTER_AUTH_URL` | Optional locally; falls back to localhost | Must use canonical origin `https://metsanilo.vercel.app` in production preflight |
 | `MEDIA_STORAGE` | `local` or `blob`; defaults to `local` outside production and `blob` in production | Use `blob` for durable Vercel production media |
 | `MEDIA_LOCAL_DIR` | Defaults to `public/uploads` | Development-only filesystem location; don't use as durable Vercel storage |
-| `BLOB_READ_WRITE_TOKEN` | Used implicitly by `@vercel/blob` in Blob mode | Required for Blob upload/delete; missing from `.env.example` and env schema |
+| `BLOB_READ_WRITE_TOKEN` | Used implicitly by `@vercel/blob` in Blob mode | Required for Blob upload/delete; not validated by the runtime env schema |
 
-`BETTER_AUTH_ENABLED` appears in `.env.example` and the local wizard but is not read by inspected application code. [TODO] Remove it or implement/document the toggle after product confirmation.
+`BETTER_AUTH_ENABLED` is not an application setting and is intentionally absent from `.env.example`.
 
 ## Seed-only variables
 
