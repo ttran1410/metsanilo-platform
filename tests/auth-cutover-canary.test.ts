@@ -5,10 +5,14 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { createDatabaseConnection, type Database } from "@/db/client";
+import { resetDatabaseForTests } from "@/db/client";
 import { auditEntries, authAccounts, authSessions, authUsers, shops, users } from "@/db/schema";
 import { hashPassword } from "@/domain/passwords";
 import { resetEnvForTests } from "@/lib/env";
 import { runAuthCutoverCanary } from "../scripts/auth-cutover-canary";
+import { createBetterAuthInstance } from "@/lib/better-auth";
+import { GET as getSession } from "@/app/api/auth/session/route";
+import { GET as getAdminUsers } from "@/app/api/admin/users/route";
 
 const directory = mkdtempSync(join(tmpdir(), "metsanilo-canary-test-"));
 let database: Database;
@@ -46,6 +50,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   closeDatabase();
+  resetDatabaseForTests();
 });
 
 afterAll(() => {
@@ -94,6 +99,41 @@ async function seedUserWithAuth(
 }
 
 describe("runAuthCutoverCanary", () => {
+  it("runs the HTTP canary path and rejects the old cookie after cutover", async () => {
+    await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
+    await seedUserWithAuth("canary-mgr", "canary@example.test", "MANAGER", 1);
+    await seedUserWithAuth("mgr-secondary", "secondary-mgr@example.test", "MANAGER", 1);
+
+    let loginCount = 0;
+    const auth = createBetterAuthInstance({ database });
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/auth/better/sign-in/email")) {
+        loginCount += 1;
+        return auth.handler(new Request(url.replace("/api/auth/better", "/api/auth"), init));
+      }
+
+      const request = new Request(url, init);
+      if (url.endsWith("/api/auth/session")) return getSession(request);
+      if (url.endsWith("/api/admin/users")) return getAdminUsers(request);
+      return new Response("Not found", { status: 404 });
+    };
+
+    const result = await runAuthCutoverCanary(database, {
+      shopId: "shop-main",
+      canaryUserId: "canary-mgr",
+      releaseSha: "abcdef1234567890abcdef1234567890abcdef12",
+      canaryPassword: "Password123!",
+      baseUrl: "http://localhost:3000",
+      fetchImpl,
+    });
+
+    expect(result.preCutoverSessionInvalidated).toBe(true);
+    expect(result.postCutoverReLoginSucceeded).toBe(true);
+    expect(loginCount).toBe(2);
+    expect(await database.query.authSessions.findMany({ where: eq(authSessions.userId, "canary-mgr") })).toHaveLength(0);
+  });
+
   it("runs full canary flow: pre-cutover invalidation, post-cutover re-login, credential rotation", async () => {
     await seedUserWithAuth("admin-1", "admin@example.test", "ADMIN", 1);
     await seedUserWithAuth("canary-mgr", "canary@example.test", "MANAGER", 1);

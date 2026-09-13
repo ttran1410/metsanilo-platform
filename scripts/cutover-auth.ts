@@ -496,10 +496,20 @@ async function main() {
       correlationId = arg.slice("--correlation-id=".length);
     } else if (arg === "--target" && i + 1 < args.length) {
       const nextArg = args[++i];
-      target = nextArg === "production" ? "production" : "local";
+      if (nextArg !== "production" && nextArg !== "local") {
+        console.error(`Error: Invalid target '${nextArg}'. Allowed targets are 'production' or 'local'.`);
+        process.exitCode = 2;
+        return;
+      }
+      target = nextArg;
     } else if (arg.startsWith("--target=")) {
       const targetVal = arg.slice("--target=".length);
-      target = targetVal === "production" ? "production" : "local";
+      if (targetVal !== "production" && targetVal !== "local") {
+        console.error(`Error: Invalid target '${targetVal}'. Allowed targets are 'production' or 'local'.`);
+        process.exitCode = 2;
+        return;
+      }
+      target = targetVal;
     } else if (arg === "--allow-repeat-cutover") {
       allowRepeatCutover = true;
     } else if (arg === "--owner-approval-ref" && i + 1 < args.length) {
@@ -542,6 +552,12 @@ async function main() {
 
   if (target === "production" && !FULL_SHA_REGEX.test(releaseSha)) {
     console.error("Error: Production cutover requires a full 40-character release SHA.");
+    process.exitCode = 2;
+    return;
+  }
+  const expectedReleaseSha = process.env.RELEASE_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA;
+  if (target === "production" && (!expectedReleaseSha || expectedReleaseSha.toLowerCase() !== releaseSha.toLowerCase())) {
+    console.error("Error: Production cutover release SHA does not match the verified deployment commit.");
     process.exitCode = 2;
     return;
   }

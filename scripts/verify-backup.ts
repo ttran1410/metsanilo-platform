@@ -164,7 +164,7 @@ async function main() {
   let productionHostname: string | undefined;
   let expectedBackupName: string | undefined;
   let expectedGroup: string | undefined;
-  let actualBackupGroup = process.env.TURSO_BACKUP_GROUP;
+  const actualBackupGroup = process.env.TURSO_BACKUP_GROUP;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -188,10 +188,6 @@ async function main() {
       expectedGroup = args[++i];
     } else if (arg.startsWith("--expected-group=")) {
       expectedGroup = arg.slice("--expected-group=".length);
-    } else if (arg === "--backup-group" && i + 1 < args.length) {
-      actualBackupGroup = args[++i];
-    } else if (arg.startsWith("--backup-group=")) {
-      actualBackupGroup = arg.slice("--backup-group=".length);
     }
   }
 
