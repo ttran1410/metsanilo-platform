@@ -54,6 +54,10 @@ export function createBetterAuthInstance(options?: CreateBetterAuthOptions) {
     // production BETTER_AUTH_URL; this fallback only keeps module evaluation
     // safe for local/build environments.
     baseURL: authUrl?.toString() ?? "http://localhost:3000",
+    // The catch-all Next route is mounted below /api/auth/better. Keep
+    // Better Auth's internal base path aligned with that route so requests
+    // are handled instead of falling through with a 404.
+    basePath: "/api/auth/better",
     trustedOrigins,
     secret: process.env.BETTER_AUTH_SECRET || "local-development-better-auth-secret-change-me",
     emailAndPassword: {

@@ -110,7 +110,7 @@ describe("runAuthCutoverCanary", () => {
       const url = String(input);
       if (url.endsWith("/api/auth/better/sign-in/email")) {
         loginCount += 1;
-        return auth.handler(new Request(url.replace("/api/auth/better", "/api/auth"), init));
+        return auth.handler(new Request(url, init));
       }
 
       const request = new Request(url, init);
