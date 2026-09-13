@@ -429,6 +429,25 @@ describe("Better Auth baseline", () => {
     expect(await database.query.users.findFirst({ where: eq(users.id, "immutable-email") })).toMatchObject({ email: credentials.email });
   });
 
+  it("revokes an existing session when the profile editor changes a user's role", async () => {
+    const adminCredentials = await provision("profile-role-admin");
+    const managerCredentials = await provision("profile-role-manager", "shop-main", true, "MANAGER");
+    const adminSession = await signIn(adminCredentials.email, adminCredentials.password);
+    const managerSession = await signIn(managerCredentials.email, managerCredentials.password);
+    const { PATCH } = await import("@/app/api/admin/users/[id]/route");
+
+    const response = await PATCH(new Request("http://localhost:3000/api/admin/users/profile-role-manager", {
+      method: "PATCH",
+      headers: { "content-type": "application/json", cookie: adminSession.cookie },
+      body: JSON.stringify({ action: "update", displayName: "Staff User", role: "STAFF" }),
+    }), { params: Promise.resolve({ id: "profile-role-manager" }) });
+
+    expect(response.status).toBe(200);
+    expect(await database.query.users.findFirst({ where: eq(users.id, "profile-role-manager") })).toMatchObject({ role: "STAFF", displayName: "Staff User" });
+    await expect(currentUser(database, new Request("http://localhost:3000/manager", { headers: { cookie: managerSession.cookie } }))).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    expect(await database.select().from(authSessions).where(eq(authSessions.userId, "profile-role-manager"))).toHaveLength(0);
+  });
+
   it("provisions the application and Better Auth identities atomically", async () => {
     const credentials = await provision("provisioning-admin");
     const admin = (await signIn(credentials.email, credentials.password)).cookie;
