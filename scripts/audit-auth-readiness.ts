@@ -11,8 +11,6 @@ import { PRODUCTION_ORIGIN } from "@/lib/auth-config";
 
 export type AuthReadinessFinding = {
   code:
-    | "MISSING_PASSWORD_HASH"
-    | "INVALID_PASSWORD_HASH_FORMAT"
     | "MISSING_AUTH_USER"
     | "EMAIL_MISMATCH"
     | "NO_CREDENTIAL_ACCOUNT"
@@ -20,7 +18,6 @@ export type AuthReadinessFinding = {
     | "CREDENTIAL_ACCOUNT_ID_MISMATCH"
     | "EMPTY_CREDENTIAL_PASSWORD"
     | "INVALID_CREDENTIAL_PASSWORD_FORMAT"
-    | "CREDENTIAL_MIRROR_MISMATCH"
     | "INVALID_CREDENTIAL_STATE"
     | "ORPHAN_AUTH_USER"
     | "ORPHAN_AUTH_ACCOUNT"
@@ -489,7 +486,7 @@ async function main() {
     }
 
     if (audit.ok) {
-      console.log("Status: PASSED - All users and accounts are ready for legacy decommission.");
+      console.log("Status: PASSED - Better Auth credential and session graph is ready.");
       process.exitCode = 0;
     } else {
       console.error(`Status: FAILED - Found ${audit.findings.length} issue(s):`);

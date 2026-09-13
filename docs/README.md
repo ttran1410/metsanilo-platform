@@ -29,6 +29,7 @@ Start here when you need repository context. `AGENTS.md` contains mandatory guar
 - [CI/CD process](engineering/ci-cd.md) defines commit/PR gates, migration detection, owner approval, deployment, alias verification, and rollback boundaries.
 - [Turso token rotation](engineering/turso-token-rotation.md) defines the read-only reminder and owner-approved credential rotation procedure.
 - [Proposed backup and restore policy](engineering/backup-restore-policy.md) gives a reviewable Turso naming, retention, restore, and drill baseline.
+- [Better Auth post-cutover closeout](engineering/auth-post-cutover-closeout.md) records observation, evidence, recovery boundaries, and cleanup gates after migration `0042`.
 - [Customer retention release notes](release-notes/customer-retention.md) cover the existing retention backfill and apply procedure.
 
 ## Decisions

@@ -528,8 +528,8 @@ describe("Better Auth baseline", () => {
 
   it("completes full password change lifecycle: revokes Better Auth sessions, clears cookie, rejects old password, and authenticates with new password", async () => {
     const credentials = await provision("temp-lifecycle-user");
-    const issued = "2026-09-12T12:00:00.000Z";
-    const expires = "2026-09-13T12:00:00.000Z";
+    const issued = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     await database
       .update(users)
       .set({

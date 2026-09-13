@@ -78,7 +78,7 @@ describe("Operational Flows and Domain Actions Rehearsal", () => {
     mustChangePassword = false
   ) {
     const hash = hashPassword(password);
-    const now = new Date("2026-09-12T12:00:00.000Z");
+    const now = new Date();
     const issuedAt = mustChangePassword ? now.toISOString() : null;
     const expiresAt = mustChangePassword ? new Date(now.getTime() + 86400000).toISOString() : null;
 

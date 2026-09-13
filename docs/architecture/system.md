@@ -74,7 +74,7 @@ Public order creation is validated by `src/domain/order-input.ts`, resolves the 
 
 ## Runtime integrations and processes
 
-Turso/libSQL is the primary relational store. Better Auth is the canonical authentication provider, with legacy session endpoints decommissioned and rollback credential mirrors maintained. `src/lib/media-storage.ts` selects local filesystem storage outside production and Vercel Blob in production unless configured otherwise.
+Turso/libSQL is the primary relational store. Better Auth is the canonical authentication provider; `users` owns shop membership and RBAC, while the retired legacy session endpoints remain only as temporary 410 compatibility tombstones during the post-cutover observation window. `src/lib/media-storage.ts` selects local filesystem storage outside production and Vercel Blob in production unless configured otherwise.
 
 The repository has no separate worker service or queue consumer. `outbox_jobs` and an authenticated admin automation runner exist, but no tracked scheduler or recovery deployment is evidenced. Migrations, seed, release, retention, and deployment run outside the web process.
 
