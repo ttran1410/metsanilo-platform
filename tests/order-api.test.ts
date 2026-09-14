@@ -579,9 +579,9 @@ describe("shop roles and permissions", () => {
     expect(staffGrants.map((grant) => grant.permission)).not.toContain("shop_users.manage");
     const staffRequest = await authenticatedTestRequest(database, "picker@example.com", "Pick3r!pass");
     await expect(requirePermission(database, staffRequest, "orders.read")).resolves.toMatchObject({ email: "picker@example.com" });
-    await setUserPermission(database, adminRequest, { userId: staff.id, permission: "orders.read", granted: true });
+    await setUserPermission(database, adminRequest, { userId: staff.id, permission: "catalog.product.write", granted: true });
     await expect(requirePermission(database, staffRequest, "orders.read")).rejects.toMatchObject({ code: "UNAUTHORIZED", status: 401 });
     const refreshedStaffRequest = await authenticatedTestRequest(database, "picker@example.com", "Pick3r!pass");
-    await expect(requirePermission(database, refreshedStaffRequest, "orders.read")).resolves.toMatchObject({ email: "picker@example.com" });
+    await expect(requirePermission(database, refreshedStaffRequest, "catalog.product.write")).resolves.toMatchObject({ email: "picker@example.com" });
   });
 });

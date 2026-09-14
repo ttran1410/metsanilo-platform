@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     const authContext = await currentAuthContext(db(), request);
     const serverNow = new Date().toISOString();
 
-    const sessions = await getUserSessions(db(), authContext.actor.id);
+    const sessions = await getUserSessions(db(), authContext.actor, authContext.actor.id);
     const response = success(
       {
         mechanism: "better_auth",

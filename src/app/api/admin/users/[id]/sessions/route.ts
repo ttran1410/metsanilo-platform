@@ -1,15 +1,7 @@
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
-import { users } from "@/db/schema";
-import {
-  assertCanManageUserSessions,
-  getUserSessions,
-  revokeSingleSession,
-  revokeUserSessions,
-} from "@/domain/access";
+import { getUserSessions, revokeSingleSession, revokeUserSessions } from "@/domain/admin-user-actions";
 import { DomainError } from "@/domain/errors";
 import { currentAuthContext } from "@/domain/access";
-import { env } from "@/lib/env";
 import { failure, success } from "../../../../response";
 import { authenticateAdmin, parseJson } from "../../../module";
 
@@ -47,21 +39,10 @@ const deleteSchema = z.discriminatedUnion("scope", [
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const { actor, database } = await authenticateAdmin(request, "shop_users.read").then(async (ctx) => ({
-      actor: ctx.actor,
-      database: (await import("@/db/client")).db(),
-    }));
+    const { actor, shop } = await authenticateAdmin(request, "shop_users.read");
+    const database = (await import("@/db/client")).db();
 
-    const targetUser = await database.query.users.findFirst({
-      where: and(eq(users.id, id), eq(users.shopId, env().SHOP_ID)),
-    });
-    if (!targetUser) {
-      throw new DomainError("NOT_FOUND", "User not found", 404);
-    }
-
-    assertCanManageUserSessions(actor, targetUser);
-
-    const sessions = await getUserSessions(database, id);
+    const sessions = await getUserSessions(database, { actor, shop: { id: shop.shopId } }, id);
     const response = success(sessions, request);
     response.headers.set("Cache-Control", "no-store");
     return response;
@@ -76,19 +57,8 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   try {
     assertSameOrigin(request);
     const { id } = await context.params;
-    const { actor, database } = await authenticateAdmin(request, "shop_users.manage").then(async (ctx) => ({
-      actor: ctx.actor,
-      database: (await import("@/db/client")).db(),
-    }));
-
-    const targetUser = await database.query.users.findFirst({
-      where: and(eq(users.id, id), eq(users.shopId, env().SHOP_ID)),
-    });
-    if (!targetUser) {
-      throw new DomainError("NOT_FOUND", "User not found", 404);
-    }
-
-    assertCanManageUserSessions(actor, targetUser);
+    const { actor, shop } = await authenticateAdmin(request, "shop_users.manage");
+    const database = (await import("@/db/client")).db();
 
     const body = await parseJson<unknown>(request);
     const parsed = deleteSchema.safeParse(body);
@@ -102,13 +72,15 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     if (parsed.data.scope === "single") {
       result = await revokeSingleSession(
         database,
-        request,
-        id,
-        parsed.data.sessionId,
-        parsed.data.reason
+        { actor, shop: { id: shop.shopId } },
+        { targetUserId: id, sessionId: parsed.data.sessionId, reason: parsed.data.reason }
       );
     } else {
-      result = await revokeUserSessions(database, request, id, parsed.data.reason);
+      result = await revokeUserSessions(
+        database,
+        { actor, shop: { id: shop.shopId } },
+        { targetUserId: id, reason: parsed.data.reason }
+      );
     }
 
     const response = success(result, request);

@@ -1,10 +1,7 @@
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
-import { users } from "@/db/schema";
-import { assertCanManageUserSessions, getUserAccessDetail } from "@/domain/access";
+import { executeAdminUserCommand, getUserAccessDetail } from "@/domain/admin-user-actions";
 import { DomainError } from "@/domain/errors";
 import { failure, success } from "../../../response";
-import { executeAdminUserCommand } from "@/domain/admin-users-actions";
 import { authenticateAdminAny, executeAdmin, parseJson } from "../../module";
 
 export const runtime = "nodejs";
@@ -28,13 +25,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const result = await executeAdmin(request, {
       permission: "shop_users.read",
       parse: async () => id,
-      run: async (userId, { database, context }) => {
-        const target = await database.query.users.findFirst({
-          where: and(eq(users.id, userId), eq(users.shopId, context.shop.shopId)),
-        });
-        if (!target) throw new DomainError("NOT_FOUND", "User not found", 404);
-        assertCanManageUserSessions(context.actor, target);
-        return getUserAccessDetail(database, userId);
+      run: async (userId, { database, context: execContext }) => {
+        return getUserAccessDetail(
+          database,
+          { actor: execContext.actor, shop: { id: execContext.shop.shopId } },
+          userId
+        );
       },
     });
     return success(result, request);
@@ -52,29 +48,74 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     if (parsed.data.action === "update") {
       if (parsed.data.email !== undefined) throw new DomainError("FORBIDDEN", "Email address cannot be changed from User & Permissions", 403);
-      const result = await executeAdmin(request, { permission: "shop_users.manage", parse: async () => parsed.data, run: async (input, { database, context }) => executeAdminUserCommand(database, { actor: context.actor, shop: { id: context.shop.shopId }, request }, { action: "update", userId: id, displayName: input.displayName, role: input.role }) });
+      const result = await executeAdmin(request, {
+        permission: "shop_users.manage",
+        parse: async () => parsed.data,
+        run: async (input, { database, context: execContext }) =>
+          executeAdminUserCommand(
+            database,
+            { actor: execContext.actor, shop: { id: execContext.shop.shopId } },
+            { action: "update", userId: id, displayName: input.displayName, role: input.role }
+          ),
+      });
       return success(result, request);
     }
 
     if (parsed.data.action === "role") {
       if (!parsed.data.role) throw new DomainError("VALIDATION_ERROR", "Role is required", 422);
-      const result = await executeAdmin(request, { permission: "shop_users.manage", parse: async () => parsed.data.role!, run: async (role, { database, context }) => executeAdminUserCommand(database, { actor: context.actor, shop: { id: context.shop.shopId }, request }, { action: "role", userId: id, role }) });
+      const result = await executeAdmin(request, {
+        permission: "shop_users.manage",
+        parse: async () => parsed.data.role!,
+        run: async (role, { database, context: execContext }) =>
+          executeAdminUserCommand(
+            database,
+            { actor: execContext.actor, shop: { id: execContext.shop.shopId } },
+            { action: "role", userId: id, role }
+          ),
+      });
       return success(result, request);
     }
 
     if (parsed.data.action === "active") {
       if (parsed.data.active === undefined) throw new DomainError("VALIDATION_ERROR", "Active status is required", 422);
-      const result = await executeAdmin(request, { permission: "shop_users.manage", parse: async () => parsed.data.active!, run: async (active, { database, context }) => executeAdminUserCommand(database, { actor: context.actor, shop: { id: context.shop.shopId }, request }, { action: "active", userId: id, active }) });
+      const result = await executeAdmin(request, {
+        permission: "shop_users.manage",
+        parse: async () => parsed.data.active!,
+        run: async (active, { database, context: execContext }) =>
+          executeAdminUserCommand(
+            database,
+            { actor: execContext.actor, shop: { id: execContext.shop.shopId } },
+            { action: "active", userId: id, active }
+          ),
+      });
       return success(result, request);
     }
 
     if (parsed.data.action === "reset_permissions") {
-      const result = await executeAdmin(request, { permission: "shop_permissions.assign", parse: async () => undefined, run: async (_input, { database, context }) => executeAdminUserCommand(database, { actor: context.actor, shop: { id: context.shop.shopId }, request }, { action: "reset_permissions", userId: id }) });
+      const result = await executeAdmin(request, {
+        permission: "shop_permissions.assign",
+        parse: async () => undefined,
+        run: async (_input, { database, context: execContext }) =>
+          executeAdminUserCommand(
+            database,
+            { actor: execContext.actor, shop: { id: execContext.shop.shopId } },
+            { action: "reset_permissions", userId: id }
+          ),
+      });
       return success(result, request);
     }
 
     if (parsed.data.action === "revoke_sessions") {
-      const result = await executeAdmin(request, { permission: "shop_users.manage", parse: async () => undefined, run: async (_input, { database, context }) => executeAdminUserCommand(database, { actor: context.actor, shop: { id: context.shop.shopId }, request }, { action: "revoke_sessions", userId: id }) });
+      const result = await executeAdmin(request, {
+        permission: "shop_users.manage",
+        parse: async () => undefined,
+        run: async (_input, { database, context: execContext }) =>
+          executeAdminUserCommand(
+            database,
+            { actor: execContext.actor, shop: { id: execContext.shop.shopId } },
+            { action: "revoke_sessions", userId: id }
+          ),
+      });
       return success(result, request);
     }
 

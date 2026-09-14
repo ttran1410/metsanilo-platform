@@ -58,3 +58,14 @@ export function defaultPermissionsForRole(role: Role): Permission[] {
   if (role === "CONTENT_CREATOR") return ["cms.read", "cms.edit", "media.read", "media.write", "reviews.read", "reviews.create", "reviews.write", "reviews.moderate"];
   return [];
 }
+
+export const LEGACY_PERMISSION_ALIASES: Partial<Record<string, Permission>> = {
+  "catalog.product.delete_unreferenced": "catalog.product.delete",
+};
+
+export function normalizePermission(permission: string): Permission | null {
+  return (PERMISSIONS as readonly string[]).includes(permission)
+    ? (permission as Permission)
+    : LEGACY_PERMISSION_ALIASES[permission] ?? null;
+}
+
