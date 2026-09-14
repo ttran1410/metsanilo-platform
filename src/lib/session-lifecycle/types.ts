@@ -1,7 +1,7 @@
 import type { SessionSyncEvent } from "@/lib/session-sync";
 
 export type SessionExpiryReason = "idle_timeout" | "absolute_timeout" | "revoked" | "signed_out";
-export type SessionStatus = "idle" | "active" | "warning" | "expired" | "revoked";
+export type SessionStatus = "bootstrapping" | "active" | "warning" | "expired" | "revoked";
 
 export type SessionStatusSnapshot = {
   mechanism: "better_auth";

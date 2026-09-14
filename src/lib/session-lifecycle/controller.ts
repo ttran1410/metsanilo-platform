@@ -18,7 +18,7 @@ type Options = {
 
 export class SessionLifecycleController {
   private state: SessionLifecycleState = {
-    status: "idle", currentSessionId: null, effectiveExpiresAt: null, remainingSeconds: null,
+    status: "bootstrapping", currentSessionId: null, effectiveExpiresAt: null, remainingSeconds: null,
     clockOffsetMs: 0, lastTouchAttemptMs: null, isExtending: false, isWarningOpen: false,
     expiryReason: null, announcement: "", hasNavigated: false,
   };
@@ -31,6 +31,8 @@ export class SessionLifecycleController {
   private latestStatusSequence = 0;
   private latestTouchSequence = 0;
   private pendingTouch: Promise<void> | null = null;
+  private pendingStatus: Promise<void> | null = null;
+  private bootstrapRefreshAttempted = false;
   private nextUrl: string;
 
   constructor(private readonly options: Options) { this.nextUrl = options.nextUrl; }
@@ -63,20 +65,25 @@ export class SessionLifecycleController {
   }
 
   async refreshStatus() {
-    if (this.disposed || this.pendingTouch) return;
+    if (this.disposed || this.pendingTouch || this.pendingStatus) return this.pendingStatus ?? Promise.resolve();
     const sequence = ++this.requestSequence;
     this.latestStatusSequence = sequence;
-    try {
+    this.pendingStatus = (async () => {
+      try {
       const snapshot = await this.options.transport.fetchStatus();
       if (this.disposed || sequence !== this.latestStatusSequence || this.pendingTouch) return;
       this.commitSnapshot(snapshot);
-    } catch (error) {
-      this.handleTransportError(error);
-    }
+      } catch (error) {
+        this.handleTransportError(error);
+      } finally {
+        this.pendingStatus = null;
+      }
+    })();
+    return this.pendingStatus;
   }
 
   handleActivity() {
-    if (this.disposed || this.state.status === "expired" || this.state.status === "revoked") return;
+    if (this.disposed || (this.state.status !== "active" && this.state.status !== "warning")) return;
     const now = this.options.clock.now();
     if (this.state.lastTouchAttemptMs !== null && now - this.state.lastTouchAttemptMs < TOUCH_THROTTLE_MS) return;
     void this.touch(false);
@@ -85,7 +92,7 @@ export class SessionLifecycleController {
   extendSession() { return this.touch(true); }
 
   private touch(explicit: boolean) {
-    if (this.disposed || this.state.status === "expired" || this.state.status === "revoked") return Promise.resolve();
+    if (this.disposed || (this.state.status !== "active" && this.state.status !== "warning")) return Promise.resolve();
     if (this.pendingTouch) return this.pendingTouch;
     if (!explicit && this.state.lastTouchAttemptMs !== null && this.options.clock.now() - this.state.lastTouchAttemptMs < TOUCH_THROTTLE_MS) return Promise.resolve();
     const sequence = ++this.requestSequence;
@@ -122,6 +129,15 @@ export class SessionLifecycleController {
     const expiresAt = Date.parse(snapshot.effectiveExpiresAt);
     if (!Number.isFinite(serverNow) || !Number.isFinite(expiresAt)) return;
     if (this.state.currentSessionId !== null && snapshot.currentSessionId !== this.state.currentSessionId) return;
+    if (snapshot.currentSessionId === null) {
+      this.state = { ...this.state, status: "bootstrapping", effectiveExpiresAt: null, remainingSeconds: null, isWarningOpen: false };
+      this.emit();
+      if (!this.bootstrapRefreshAttempted) {
+        this.bootstrapRefreshAttempted = true;
+        queueMicrotask(() => { if (!this.disposed) void this.refreshStatus(); });
+      }
+      return;
+    }
     const remaining = Math.max(0, Math.floor((expiresAt - (this.options.clock.now() + serverNow - this.options.clock.now())) / 1000));
     this.state = { ...this.state, currentSessionId: snapshot.currentSessionId, clockOffsetMs: serverNow - this.options.clock.now(), effectiveExpiresAt: snapshot.effectiveExpiresAt, remainingSeconds: remaining, expiryReason: snapshot.expiryReason, status: remaining <= 0 ? "expired" : remaining <= WARNING_SECONDS ? "warning" : "active", isWarningOpen: remaining > 0 && remaining <= WARNING_SECONDS };
     if (remaining <= 0) this.transitionTerminal("expired", snapshot.expiryReason ?? "idle_timeout", true);
@@ -157,7 +173,7 @@ export class SessionLifecycleController {
         this.transitionTerminal("expired", "idle_timeout", true);
         return;
       }
-      this.state = { ...this.state, effectiveExpiresAt: event.effectiveExpiresAt, remainingSeconds: remaining, status: remaining <= WARNING_SECONDS ? "warning" : "active", isWarningOpen: remaining > 0 && remaining <= WARNING_SECONDS };
+      this.state = { ...this.state, effectiveExpiresAt: event.effectiveExpiresAt, remainingSeconds: remaining, expiryReason: null, status: remaining <= WARNING_SECONDS ? "warning" : "active", isWarningOpen: remaining > 0 && remaining <= WARNING_SECONDS };
       this.ensureTimer();
       this.emit();
     }

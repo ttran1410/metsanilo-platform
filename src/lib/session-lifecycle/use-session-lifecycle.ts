@@ -7,7 +7,7 @@ import { SessionLifecycleController } from "./controller";
 import { createBrowserClockPort, createBrowserNavigationPort, createBrowserSyncBusPort, createBrowserTimerPort, createBrowserTransportPort } from "./browser-ports";
 
 const initialState: SessionLifecycleState = {
-  status: "idle", currentSessionId: null, effectiveExpiresAt: null, remainingSeconds: null,
+  status: "bootstrapping", currentSessionId: null, effectiveExpiresAt: null, remainingSeconds: null,
   clockOffsetMs: 0, lastTouchAttemptMs: null, isExtending: false, isWarningOpen: false,
   expiryReason: null, announcement: "", hasNavigated: false,
 };
