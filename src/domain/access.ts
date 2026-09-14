@@ -208,7 +208,14 @@ export async function getUserSessions(
 ) {
   const actor = actorOrRequest instanceof Request
     ? await currentUser(database, actorOrRequest)
-    : actorOrRequest;
+    : await database.query.users.findFirst({
+        where: and(
+          eq(users.id, actorOrRequest.id),
+          eq(users.shopId, env().SHOP_ID),
+          eq(users.active, true),
+        ),
+      });
+  if (!actor) throw new DomainError("UNAUTHORIZED", "Authentication required", 401);
   const targetUserId = userId ?? actor.id;
   return getCanonicalUserSessions(database, { actor, shop: { id: env().SHOP_ID } }, targetUserId, now);
 }
