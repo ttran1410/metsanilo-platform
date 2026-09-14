@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "verify:quick": "node scripts/verify-local.mjs quick",
+    "verify:policy": "tsx scripts/verify-repository-policy.ts",
     "verify": "node scripts/verify-local.mjs full",
     "verify:release": "node scripts/verify-local.mjs release",
     "db:generate": "drizzle-kit generate",

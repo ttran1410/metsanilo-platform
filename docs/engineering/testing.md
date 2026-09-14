@@ -18,6 +18,7 @@ Vitest provides the automated test suite. Tests emphasize domain behavior, API c
 | Production build | `npm run build` | Next.js webpack build |
 | Storybook build | `npm run build-storybook` | [TODO] Not established as a required release check |
 | Local quick gate | `npm run verify:quick` | Typecheck, lint, and full Vitest suite |
+| Policy gate | `npm run verify:policy` | Instruction files, source-of-truth links, and private requirements boundary |
 | Local full gate | `npm run verify` | Quick gate plus production build |
 | Local release gate | `npm run verify:release -- main` | Full gate plus DB-change classification and disposable migration-chain validation |
 

@@ -125,6 +125,7 @@ function buildWithLocalEnvironment() {
 
 npm("typecheck");
 npm("lint");
+npm("verify:policy");
 npm("test");
 
 if (mode === "full" || mode === "release") {

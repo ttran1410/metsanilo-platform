@@ -6,9 +6,9 @@ status: current-manual-process
 
 # CI/CD process for pull requests and production releases
 
-Use this process to verify commits locally, merge pull requests safely, detect database work, deploy with owner approval, and verify the canonical URL `https://metsanilo.vercel.app/`. The repository currently uses local gates and does not contain a hosted CI workflow. It does contain a scheduled, read-only Turso token reminder; that workflow does not deploy or mutate credentials.
+Use this process to verify commits locally, merge pull requests safely, detect database work, deploy with owner approval, and verify the canonical URL `https://metsanilo.vercel.app/`. The repository has a read-only GitHub Actions verification workflow in `.github/workflows/verify.yml` and a scheduled, read-only Turso token reminder; neither workflow deploys or mutates production credentials.
 
-The owner confirmed on 2026-09-11 that local verification and manual production approval remain the operating model. GitHub Actions is not part of the current pipeline. Production must not auto-promote merely because `main` changes.
+The owner confirmed on 2026-09-11 that local verification and manual production approval remain the operating model. GitHub Actions verifies pull requests and selected branches, but production deployment remains manual. Production must not auto-promote merely because `main` changes.
 
 ## Pipeline ownership
 
