@@ -5,7 +5,8 @@ import { createDatabase, type Database } from "@/db/client";
 import { authAccounts, authSessions, authUsers, authVerifications, users } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/domain/passwords";
 import { env } from "./env";
-import { isCredentialStateValid, isTemporaryCredentialActive, recordTemporaryCredentialExpired } from "./auth-integration";
+import { isCredentialStateValid, isTemporaryCredentialActive } from "./credential-policy";
+import { recordTemporaryCredentialExpired } from "./credential-audit";
 import { BETTER_AUTH_BASE_PATH, PRODUCTION_ORIGIN } from "./auth-config";
 
 function configuredAuthUrl() {

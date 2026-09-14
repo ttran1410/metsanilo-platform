@@ -26,14 +26,23 @@ export {
   type SessionTimingInput,
 };
 
-export const CANONICAL_UTC_ISO_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+import {
+  CANONICAL_UTC_ISO_REGEX,
+  isCanonicalIsoDate,
+  isCredentialStateValid,
+  isTemporaryCredentialActive,
+  isTemporaryCredentialExpired,
+} from "./credential-policy";
+import { recordTemporaryCredentialExpired } from "./credential-audit";
 
-export function isCanonicalIsoDate(value: unknown): value is string {
-  if (typeof value !== "string" || !CANONICAL_UTC_ISO_REGEX.test(value)) return false;
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) return false;
-  return new Date(parsed).toISOString() === value;
-}
+export {
+  CANONICAL_UTC_ISO_REGEX,
+  isCanonicalIsoDate,
+  isCredentialStateValid,
+  isTemporaryCredentialActive,
+  isTemporaryCredentialExpired,
+  recordTemporaryCredentialExpired,
+};
 
 export function maskIpAddress(ip: string | null | undefined): string {
   if (!ip) return "Unknown IP";
@@ -75,70 +84,6 @@ export function normalizeUserAgent(ua: string | null | undefined): string {
   return `${browser} on ${os}`;
 }
 
-export function isCredentialStateValid(user: {
-  mustChangePassword?: boolean | null;
-  temporaryPasswordIssuedAt?: string | null;
-  temporaryPasswordExpiresAt?: string | null;
-}): boolean {
-  if (typeof user.mustChangePassword !== "boolean") {
-    return false;
-  }
-  if (user.mustChangePassword) {
-    if (!isCanonicalIsoDate(user.temporaryPasswordIssuedAt) || !isCanonicalIsoDate(user.temporaryPasswordExpiresAt)) {
-      return false;
-    }
-    return Date.parse(user.temporaryPasswordIssuedAt) <= Date.parse(user.temporaryPasswordExpiresAt);
-  }
-  return user.temporaryPasswordIssuedAt === null && user.temporaryPasswordExpiresAt === null;
-}
-
-export function isTemporaryCredentialActive(
-  user: {
-    mustChangePassword?: boolean | null;
-    temporaryPasswordIssuedAt?: string | null;
-    temporaryPasswordExpiresAt?: string | null;
-  },
-  now: Date = new Date()
-): boolean {
-  if (!user.mustChangePassword || !isCredentialStateValid(user)) return false;
-  return now.getTime() < new Date(user.temporaryPasswordExpiresAt!).getTime();
-}
-
-export function isTemporaryCredentialExpired(
-  user: {
-    mustChangePassword?: boolean | null;
-    temporaryPasswordIssuedAt?: string | null;
-    temporaryPasswordExpiresAt?: string | null;
-  },
-  now: Date = new Date()
-): boolean {
-  if (!user.mustChangePassword) return false;
-  if (!isCredentialStateValid(user)) return true;
-  return now.getTime() >= new Date(user.temporaryPasswordExpiresAt!).getTime();
-}
-
-/** Record an expiry observation once per temporary-credential issuance. */
-export async function recordTemporaryCredentialExpired(
-  database: Database,
-  user: { id: string; shopId?: string | null; email?: string | null; temporaryPasswordExpiresAt?: string | null },
-  now: Date = new Date(),
-) {
-  const existing = await database
-    .select({ detailsJson: auditEntries.detailsJson })
-    .from(auditEntries)
-    .where(and(eq(auditEntries.shopId, user.shopId ?? env().SHOP_ID), eq(auditEntries.entityId, user.id), eq(auditEntries.action, "user.temporary_password_expired")))
-    .all();
-  const expiry = user.temporaryPasswordExpiresAt ?? null;
-  if (existing.some((entry) => {
-    try { return (JSON.parse(entry.detailsJson) as { expiresAt?: string | null }).expiresAt === expiry; } catch { return false; }
-  })) return false;
-  await database.insert(auditEntries).values({
-    id: randomUUID(), shopId: env().SHOP_ID, actor: user.email ?? user.id,
-    action: "user.temporary_password_expired", entityType: "user", entityId: user.id,
-    detailsJson: JSON.stringify({ expiresAt: expiry, attemptedAt: now.toISOString() }), createdAt: now.toISOString(),
-  });
-  return true;
-}
 
 export async function getBetterAuthSession(request: Request) {
   return getBetterAuthInstance().api.getSession({ headers: request.headers });

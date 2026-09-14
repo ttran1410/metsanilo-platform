@@ -4,7 +4,7 @@ import { auditEntries, orderPayments, orders, products, reviews, users, userPerm
 import { env } from "@/lib/env";
 import type { AdminListQuery } from "@/lib/admin-list-query";
 import { paged } from "@/lib/admin-list-query";
-import { defaultPermissionsForRole, normalizePermission, type Permission } from "./access";
+import { defaultPermissionsForRole, normalizePermission, type Permission } from "@/lib/permissions";
 import { listManagerProducts } from "./products";
 
 function contains(value: string) {
@@ -37,10 +37,15 @@ export async function searchManagerReviews(database: Database, query: AdminListQ
   return paged(items, total, query);
 }
 
-export async function searchUsers(database: Database, query: AdminListQuery, filters?: { role?: string; active?: boolean }) {
-  const shopId = env().SHOP_ID;
+export async function searchUsers(
+  database: Database,
+  query: AdminListQuery,
+  filters?: { role?: string; active?: boolean },
+  shopId: string = env().SHOP_ID
+) {
+  const targetShopId = shopId;
   const filter = and(
-    eq(users.shopId, shopId),
+    eq(users.shopId, targetShopId),
     filters?.role ? eq(users.role, filters.role as typeof users.role.enumValues[number]) : undefined,
     filters?.active === undefined ? undefined : eq(users.active, filters.active),
     query.q ? or(like(users.displayName, contains(query.q)), like(users.email, contains(query.q)), like(users.username, contains(query.q))) : undefined,
@@ -48,7 +53,7 @@ export async function searchUsers(database: Database, query: AdminListQuery, fil
   const [{ total }] = await database.select({ total: count() }).from(users).where(filter);
   const rows = await database.select().from(users).where(filter).orderBy(asc(users.displayName)).limit(query.pageSize).offset(query.offset);
   const ids = rows.map((row) => row.id);
-  const grants = ids.length ? await database.select().from(userPermissions).where(and(eq(userPermissions.shopId, shopId), inArray(userPermissions.userId, ids))) : [];
+  const grants = ids.length ? await database.select().from(userPermissions).where(and(eq(userPermissions.shopId, targetShopId), inArray(userPermissions.userId, ids))) : [];
   const items = rows.map((user) => {
     const defaults = defaultPermissionsForRole(user.role);
     const userGrants = grants.filter((grant) => grant.userId === user.id);
