@@ -10,10 +10,10 @@ export function useSessionLifecycle() {
   const pathname = usePathname();
   const [, rerender] = useState(0);
   const [controller] = useState(() => new SessionLifecycleController({
-    clock: createBrowserClockPort(), timer: createBrowserTimerPort(), transport: createBrowserTransportPort(),
-    syncBus: createBrowserSyncBusPort(), navigation: createBrowserNavigationPort(router, pathname ?? "/admin/dashboard"),
-    nextUrl: pathname ?? "/admin/dashboard",
-  }));
+      clock: createBrowserClockPort(), timer: createBrowserTimerPort(), transport: createBrowserTransportPort(),
+      syncBus: createBrowserSyncBusPort(), navigation: createBrowserNavigationPort(router, pathname ?? "/admin/dashboard"),
+      nextUrl: pathname ?? "/admin/dashboard",
+    }));
   useEffect(() => {
     const unsubscribe = controller.subscribe(() => rerender((value) => value + 1));
     const activity = () => { if (!document.hidden) controller.handleActivity(); };

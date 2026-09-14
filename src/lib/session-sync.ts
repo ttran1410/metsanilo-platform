@@ -5,6 +5,7 @@ export type SessionSyncEvent =
 export function isSessionSyncEvent(value: unknown): value is SessionSyncEvent {
   if (!value || typeof value !== "object") return false;
   const event = value as Record<string, unknown>;
+  if ("eventId" in event && (typeof event.eventId !== "string" || event.eventId.length === 0 || event.eventId.length > 200)) return false;
   if (event.sessionId !== null && typeof event.sessionId !== "string") return false;
   if (typeof event.sentAt !== "string" || !Number.isFinite(Date.parse(event.sentAt))) return false;
   if (event.type === "session-touched") {

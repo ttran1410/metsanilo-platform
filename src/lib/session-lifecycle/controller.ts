@@ -28,7 +28,8 @@ export class SessionLifecycleController {
   private started = false;
   private disposed = false;
   private requestSequence = 0;
-  private committedStatusSequence = 0;
+  private latestStatusSequence = 0;
+  private latestTouchSequence = 0;
   private pendingTouch: Promise<void> | null = null;
   private seenEvents = new Map<string, number>();
 
@@ -61,10 +62,11 @@ export class SessionLifecycleController {
   async refreshStatus() {
     if (this.disposed || this.pendingTouch) return;
     const sequence = ++this.requestSequence;
+    this.latestStatusSequence = sequence;
     try {
       const snapshot = await this.options.transport.fetchStatus();
-      if (this.disposed || sequence < this.committedStatusSequence || this.pendingTouch) return;
-      this.commitSnapshot(snapshot, sequence);
+      if (this.disposed || sequence !== this.latestStatusSequence || this.pendingTouch) return;
+      this.commitSnapshot(snapshot);
     } catch (error) {
       this.handleTransportError(error);
     }
@@ -84,10 +86,17 @@ export class SessionLifecycleController {
     if (this.pendingTouch) return this.pendingTouch;
     if (!explicit && this.state.lastTouchAttemptMs !== null && this.options.clock.now() - this.state.lastTouchAttemptMs < TOUCH_THROTTLE_MS) return Promise.resolve();
     const sequence = ++this.requestSequence;
+    this.latestTouchSequence = sequence;
     this.state = { ...this.state, isExtending: true, lastTouchAttemptMs: this.options.clock.now() };
     this.emit();
     this.pendingTouch = this.options.transport.touch().then((snapshot) => {
-      if (!this.disposed && sequence >= this.committedStatusSequence) this.commitSnapshot(snapshot, sequence);
+      if (!this.disposed && sequence === this.latestTouchSequence) {
+        this.commitSnapshot(snapshot);
+        if (snapshot.currentSessionId) this.options.syncBus.publish({
+          type: "session-touched", eventId: createEventId(), sessionId: snapshot.currentSessionId,
+          effectiveExpiresAt: snapshot.effectiveExpiresAt, sentAt: new Date().toISOString(),
+        });
+      }
     }).catch((error) => this.handleTransportError(error)).finally(() => {
       this.pendingTouch = null;
       if (!this.disposed) { this.state = { ...this.state, isExtending: false }; this.emit(); }
@@ -97,16 +106,18 @@ export class SessionLifecycleController {
 
   async signOut() {
     if (this.disposed || this.state.hasNavigated) return;
+    this.requestSequence++;
+    this.latestStatusSequence = this.requestSequence;
+    this.latestTouchSequence = this.requestSequence;
     this.transitionTerminal("revoked", "signed_out", true);
     await this.options.transport.signOut().catch(() => undefined);
   }
 
-  private commitSnapshot(snapshot: SessionStatusSnapshot, sequence: number) {
+  private commitSnapshot(snapshot: SessionStatusSnapshot) {
     const serverNow = Date.parse(snapshot.serverNow);
     const expiresAt = Date.parse(snapshot.effectiveExpiresAt);
     if (!Number.isFinite(serverNow) || !Number.isFinite(expiresAt)) return;
     if (this.state.currentSessionId !== null && snapshot.currentSessionId !== this.state.currentSessionId) return;
-    this.committedStatusSequence = sequence;
     const remaining = Math.max(0, Math.floor((expiresAt - (this.options.clock.now() + serverNow - this.options.clock.now())) / 1000));
     this.state = { ...this.state, currentSessionId: snapshot.currentSessionId, clockOffsetMs: serverNow - this.options.clock.now(), effectiveExpiresAt: snapshot.effectiveExpiresAt, remainingSeconds: remaining, expiryReason: snapshot.expiryReason, status: remaining <= 0 ? "expired" : remaining <= WARNING_SECONDS ? "warning" : "active", isWarningOpen: remaining > 0 && remaining <= WARNING_SECONDS };
     if (remaining <= 0) this.transitionTerminal("expired", snapshot.expiryReason ?? "idle_timeout", true);
@@ -154,7 +165,7 @@ export class SessionLifecycleController {
     this.timerHandle = null;
     this.state = { ...this.state, status, expiryReason: reason, isWarningOpen: false, isExtending: false, hasNavigated: true };
     if (publish && this.state.currentSessionId) {
-      const event: OutboundSessionSyncEvent = { type: "session-revoked", eventId: crypto.randomUUID(), sessionId: this.state.currentSessionId, reason, sentAt: new Date().toISOString() };
+      const event: OutboundSessionSyncEvent = { type: "session-revoked", eventId: createEventId(), sessionId: this.state.currentSessionId, reason, sentAt: new Date().toISOString() };
       this.options.syncBus.publish(event);
     }
     this.options.navigation.redirectToLogin({ reason, nextUrl: this.options.nextUrl });
@@ -167,4 +178,8 @@ export class SessionLifecycleController {
   }
 
   private emit() { if (!this.disposed) for (const listener of this.listeners) listener(this.state); }
+}
+
+function createEventId() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
