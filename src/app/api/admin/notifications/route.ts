@@ -2,9 +2,7 @@ import { z } from "zod";
 import { DomainError } from "@/domain/errors";
 import { type NotificationFilters, type NotificationSeverity, type NotificationStateFilter } from "@/domain/notifications";
 import { getAdminNotifications, markAdminFilteredNotificationsRead, markAdminNotificationReadState } from "@/domain/admin-notification-actions";
-import { env } from "@/lib/env";
-import { failure, success } from "../../response";
-import { executeAdmin, parseJson } from "../module";
+import { executeAdminRoute, parseJson } from "../module";
 
 export const runtime = "nodejs";
 
@@ -36,44 +34,35 @@ function filtersFromUrl(url: URL): NotificationFilters {
 }
 
 export async function GET(request: Request) {
-  try {
-    const result = await executeAdmin(request, {
-      permission: "notifications.read",
-      parse: async () => new URL(request.url),
-      run: async (url, { database, context }) => {
-        const filters = filtersFromUrl(url);
-        return getAdminNotifications(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, {
-          ...filters,
-          page: Number(url.searchParams.get("page") || 1),
-          pageSize: url.searchParams.get("view") === "recent" ? 6 : 20,
-          recent: url.searchParams.get("view") === "recent",
-        });
-      },
-    });
-    return success(result, request);
-  } catch (error) {
-    return failure(error, request);
-  }
+  return executeAdminRoute(request, {
+    permission: "notifications.read",
+    parse: async () => new URL(request.url),
+    run: async (url, { database, context }) => {
+      const filters = filtersFromUrl(url);
+      return getAdminNotifications(database, { actor: context.actor, shop: { id: context.shop.shopId } }, {
+        ...filters,
+        page: Number(url.searchParams.get("page") || 1),
+        pageSize: url.searchParams.get("view") === "recent" ? 6 : 20,
+        recent: url.searchParams.get("view") === "recent",
+      });
+    },
+  });
 }
 
 export async function POST(request: Request) {
-  try {
-    const result = await executeAdmin(request, {
-      permission: "notifications.read",
-      parse: async (incoming) => {
-        const parsed = mutation.safeParse(await parseJson<unknown>(incoming));
-        if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid notification action", 422);
-        return parsed.data;
-      },
-      run: async (input, { database, context: { actor } }) => {
-        if (input.action === "read" || input.action === "unread") {
-          return markAdminNotificationReadState(database, { actor, shop: { id: env().SHOP_ID } }, input.id, input.action === "read");
-        }
-        return markAdminFilteredNotificationsRead(database, { actor, shop: { id: env().SHOP_ID } }, input.filters);
-      },
-    });
-    return success(result, request);
-  } catch (error) {
-    return failure(error, request);
-  }
+  return executeAdminRoute(request, {
+    permission: "notifications.read",
+    parse: async (incoming) => {
+      const parsed = mutation.safeParse(await parseJson<unknown>(incoming));
+      if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid notification action", 422);
+      return parsed.data;
+    },
+    run: async (input, { database, context: { actor, shop } }) => {
+      if (input.action === "read" || input.action === "unread") {
+        return markAdminNotificationReadState(database, { actor, shop: { id: shop.shopId } }, input.id, input.action === "read");
+      }
+      return markAdminFilteredNotificationsRead(database, { actor, shop: { id: shop.shopId } }, input.filters);
+    },
+  });
 }
+

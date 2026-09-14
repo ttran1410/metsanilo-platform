@@ -1,5 +1,13 @@
 import { getDashboard } from "@/domain/dashboard";
-import { failure, success } from "../../response";
-import { executeAdmin } from "../module";
+import { executeAdminRoute } from "../module";
+
 export const runtime = "nodejs";
-export async function GET(request: Request) { try { const result = await executeAdmin(request, { permission: "dashboard.read", parse: async () => undefined, run: async (_input, { database }) => getDashboard(database) }); return success(result, request); } catch (error) { return failure(error, request); } }
+
+export async function GET(request: Request) {
+  return executeAdminRoute(request, {
+    permission: "dashboard.read",
+    parse: async () => undefined,
+    run: async (_input, { database }) => getDashboard(database),
+  });
+}
+
