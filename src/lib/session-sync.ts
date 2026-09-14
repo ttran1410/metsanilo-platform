@@ -1,6 +1,6 @@
 export type SessionSyncEvent =
-  | { type: "session-touched"; sessionId: string | null; effectiveExpiresAt: string; sentAt: string }
-  | { type: "session-revoked"; sessionId: string | null; reason: "idle_timeout" | "absolute_timeout" | "revoked" | "signed_out"; sentAt: string };
+  | { type: "session-touched"; eventId?: string; sessionId: string | null; effectiveExpiresAt: string; sentAt: string }
+  | { type: "session-revoked"; eventId?: string; sessionId: string | null; reason: "idle_timeout" | "absolute_timeout" | "revoked" | "signed_out"; sentAt: string };
 
 export function isSessionSyncEvent(value: unknown): value is SessionSyncEvent {
   if (!value || typeof value !== "object") return false;
