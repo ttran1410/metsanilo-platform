@@ -15,6 +15,8 @@ Track only maintainer context that is safe to publish and required to build, rev
 - verified architecture, domain invariants, engineering standards, runbooks, and accepted public ADRs under `docs/`;
 - nested `AGENTS.md` files for subsystem-specific rules.
 
+`AGENTS.md` is the canonical agent policy. Optional vendor files such as `CLAUDE.md` and `GEMINI.md` are discovery adapters only; when present, they should point to `AGENTS.md`, remain short, and must not duplicate or contradict repository rules. Their presence is not mandatory for repository verification; see [Agent instruction compatibility](agent-compliance-matrix.md).
+
 The repository does not currently use a root `ARCHITECTURE.md`. The canonical architecture authority is [`docs/architecture/system.md`](../architecture/system.md), supported by the focused documents in `docs/architecture/`.
 
 Public docs must not contain credentials, private customer/business data, production exports, unpublished commercial plans, private incident evidence, or assumptions presented as decisions.

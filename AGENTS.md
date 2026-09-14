@@ -58,6 +58,12 @@ Use `npm ci` for a clean install. Local configuration is described by `.env.exam
 - [`src/db/AGENTS.md`](src/db/AGENTS.md): schema, migrations, query scope, and data safety.
 - [`scripts/AGENTS.md`](scripts/AGENTS.md): database/release scripts and production operation safety.
 
+## Instruction precedence and completion contract
+
+If instructions conflict, stop and report the conflict; do not silently choose a product policy. System, developer, and explicit user instructions take precedence over repository guidance. `AGENTS.md` is the canonical repository policy; vendor adapter files only point agents here and must not contain a second policy.
+
+Before declaring work complete, report changed files, root cause, affected call path, commands and tests run, migration/deployment classification, assumptions, skipped or unavailable checks, and unresolved `[TODO]`/`[ASK USER]` items.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

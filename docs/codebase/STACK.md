@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-09-10
-applies_to: audited snapshot on 2026-09-10
+last_updated: 2026-09-14
+applies_to: repository runtime policy
 document_type: reference
 ---
 
@@ -16,7 +16,7 @@ Use this reference to identify the runtime, build tools, and dependencies that a
 | Web runtime | Next.js 16.3.0, React 19.2.8 | Runtime dependencies |
 | Module format | ESM (`"type": "module"`) | `package.json` |
 | Package manager | npm | `package-lock.json` |
-| Node.js | README states 20.9+; audited host runs 24.13.1 | [TODO] No `engines`, `.nvmrc`, or toolchain file enforces a version |
+| Node.js | 24.x | `.nvmrc`; CI reads the same file |
 | Database | Turso/libSQL through Drizzle ORM 0.45.2 | `src/db/client.ts`, `drizzle.config.ts` |
 
 ## Production dependencies
