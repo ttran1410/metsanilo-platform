@@ -16,7 +16,7 @@ export const createBrowserTimerPort = (): TimerPort => ({ setInterval: (callback
 async function readSnapshot(response: Response): Promise<SessionStatusSnapshot> {
   const body = await response.json() as { data?: SessionStatusSnapshot; message?: string };
   if (!response.ok) throw Object.assign(new Error(body.message ?? "Session request failed"), { status: response.status });
-  if (!body.data?.serverNow || !body.data.effectiveExpiresAt || typeof body.data.currentSessionId !== "string" || typeof body.data.remainingSeconds !== "number") throw new Error("Invalid session response");
+  if (!body.data?.serverNow || !Number.isFinite(Date.parse(body.data.serverNow)) || !body.data.effectiveExpiresAt || !Number.isFinite(Date.parse(body.data.effectiveExpiresAt)) || (body.data.currentSessionId !== null && typeof body.data.currentSessionId !== "string") || !Number.isFinite(body.data.remainingSeconds) || body.data.mechanism !== "better_auth") throw new Error("Invalid session response");
   return body.data;
 }
 

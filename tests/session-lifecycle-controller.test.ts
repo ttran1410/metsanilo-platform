@@ -3,7 +3,7 @@ import { SessionLifecycleController } from "@/lib/session-lifecycle/controller";
 import type { SessionSyncEvent } from "@/lib/session-sync";
 import type { SessionStatusSnapshot } from "@/lib/session-lifecycle/types";
 
-const snapshot = (id = "s1", expires = "2026-09-14T12:10:00.000Z"): SessionStatusSnapshot => ({
+const snapshot = (id: string | null = "s1", expires = "2026-09-14T12:10:00.000Z"): SessionStatusSnapshot => ({
   mechanism: "better_auth", currentSessionId: id, serverNow: "2026-09-14T12:00:00.000Z",
   idleExpiresAt: expires, absoluteExpiresAt: "2026-09-14T20:00:00.000Z", effectiveExpiresAt: expires,
   expiryReason: null, remainingSeconds: 600, warning: false,
@@ -40,6 +40,23 @@ describe("SessionLifecycleController", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(controller.getState().currentSessionId).toBe("s1");
     expect(controller.getState().status).toBe("active");
+  });
+
+  it("accepts an initial snapshot without a session identity", async () => {
+    const { controller, transport } = make();
+    transport.status = Promise.resolve(snapshot(null));
+    controller.start();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(controller.getState().currentSessionId).toBeNull();
+    expect(controller.getState().status).toBe("active");
+  });
+
+  it("does not replace a known session identity with null", async () => {
+    const { controller, transport } = make();
+    controller.start(); await new Promise((resolve) => setTimeout(resolve, 0));
+    transport.status = Promise.resolve(snapshot(null));
+    await controller.refreshStatus();
+    expect(controller.getState().currentSessionId).toBe("s1");
   });
 
   it("throttles activity touches", async () => {
