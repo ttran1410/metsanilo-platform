@@ -13,7 +13,7 @@ export async function GET(request: Request) {
       run: async (searchParams, { database, context }) => {
         const idsParam = searchParams.get("ids");
         const selectedIds = idsParam ? idsParam.split(",").filter(Boolean) : [];
-        return getAdminOrdersForExport(database, { actor: context.actor, shop: { id: env().SHOP_ID } }, selectedIds);
+        return getAdminOrdersForExport(database, { actor: context.actor, shop: { id: context.shop.shopId } }, selectedIds);
       },
     });
 

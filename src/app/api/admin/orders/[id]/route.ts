@@ -1,22 +1,21 @@
 import { deleteAdminOrder, getAdminOrderDetail, getAdminOrderEditData, transitionAdminOrder, updateAdminOrder } from "@/domain/admin-order-actions";
-import { env } from "@/lib/env";
-import { failure, success } from "../../../response";
 import { fromZodError } from "@/domain/errors";
 import { z } from "zod";
-import { authenticateAdminAny, executeAdmin, parseJson } from "../../module";
+import { executeAdminRoute, parseJson } from "../../module";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params;
-    const result = await executeAdmin(request, { permission: "orders.read", parse: async () => id, run: async (orderId, { database, context: { actor } }) => new URL(request.url).searchParams.get("view") === "edit" ? getAdminOrderEditData(database, { actor, shop: { id: env().SHOP_ID } }, orderId) : getAdminOrderDetail(database, { actor, shop: { id: env().SHOP_ID } }, orderId) });
-    return success(result, request);
-  } catch (error) {
-    return failure(error, request);
-  }
+  return executeAdminRoute(request, {
+    permission: "orders.read",
+    parse: async () => (await params).id,
+    run: async (orderId, { database, context: { actor, shop } }) =>
+      new URL(request.url).searchParams.get("view") === "edit"
+        ? getAdminOrderEditData(database, { actor, shop: { id: shop.shopId } }, orderId)
+        : getAdminOrderDetail(database, { actor, shop: { id: shop.shopId } }, orderId),
+  });
 }
 
 const transitionActionSchema = z.object({
@@ -61,40 +60,34 @@ const updateSchema = z.object({
 });
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params;
-    await authenticateAdminAny(request, ["orders.transition", "orders.update"]);
-    const body = await parseJson<Record<string, unknown>>(request);
-
-    if (body && typeof body === "object" && body.action === "transition") {
-      const parsedTransition = transitionActionSchema.safeParse(body);
-      if (!parsedTransition.success) {
-        throw fromZodError(parsedTransition.error, "Unable to transition order status. Please check input parameters.");
+  return executeAdminRoute(request, {
+    permissions: ["orders.transition", "orders.update"],
+    parse: async (incoming) => parseJson<Record<string, unknown>>(incoming),
+    run: async (body, { database, context: { actor, shop } }) => {
+      const { id } = await params;
+      if (body && typeof body === "object" && body.action === "transition") {
+        const parsedTransition = transitionActionSchema.safeParse(body);
+        if (!parsedTransition.success) {
+          throw fromZodError(parsedTransition.error, "Unable to transition order status. Please check input parameters.");
+        }
+        const version = parsedTransition.data.expectedVersion ?? (await getAdminOrderDetail(database, { actor, shop: { id: shop.shopId } }, id)).order.version;
+        return transitionAdminOrder(database, { actor, shop: { id: shop.shopId } }, { orderId: id, status: parsedTransition.data.status, expectedVersion: version, reason: parsedTransition.data.reason, contactChannel: parsedTransition.data.contactChannel });
       }
-      const result = await executeAdmin(request, { permission: "orders.transition", parse: async () => parsedTransition.data, run: async (input, { database, context: { actor } }) => {
-        const version = input.expectedVersion ?? (await getAdminOrderDetail(database, { actor, shop: { id: env().SHOP_ID } }, id)).order.version;
-        return transitionAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, { orderId: id, status: input.status, expectedVersion: version, reason: input.reason, contactChannel: input.contactChannel });
-      } });
-      return success(result, request);
-    }
 
-    const parsed = updateSchema.safeParse({ ...body, orderId: id });
-    if (!parsed.success) {
-      throw fromZodError(parsed.error, "Unable to update order details. Please check input fields.");
-    }
-    const result = await executeAdmin(request, { permission: "orders.update", parse: async () => parsed.data, run: async (input, { database, context: { actor } }) => updateAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, { ...input, orderId: id }) });
-    return success(result, request);
-  } catch (error) {
-    return failure(error, request);
-  }
+      const parsed = updateSchema.safeParse({ ...body, orderId: id });
+      if (!parsed.success) {
+        throw fromZodError(parsed.error, "Unable to update order details. Please check input fields.");
+      }
+      return updateAdminOrder(database, { actor, shop: { id: shop.shopId } }, { ...parsed.data, orderId: id });
+    },
+  });
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await params;
-    const result = await executeAdmin(request, { permission: "orders.delete", parse: async () => id, run: async (orderId, { database, context: { actor } }) => deleteAdminOrder(database, { actor, shop: { id: env().SHOP_ID } }, orderId) });
-    return success(result, request);
-  } catch (error) {
-    return failure(error, request);
-  }
+  return executeAdminRoute(request, {
+    permission: "orders.delete",
+    parse: async () => (await params).id,
+    run: async (orderId, { database, context: { actor, shop } }) => deleteAdminOrder(database, { actor, shop: { id: shop.shopId } }, orderId),
+  });
 }
+
