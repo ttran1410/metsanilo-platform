@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { executeAdminUserCommand, getUserAccessDetail } from "@/domain/admin-user-actions";
 import { DomainError } from "@/domain/errors";
-import { executeAdminRoute, parseJson } from "../../module";
+import { assertAdminPermission, executeAdminRoute, parseJson } from "../../module";
 
 export const runtime = "nodejs";
 
@@ -40,6 +40,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid command payload", 422);
       return parsed.data;
     },
+    authorize: async (input, { context }) => {
+      await assertAdminPermission(context, input.action === "reset_permissions" ? "shop_permissions.assign" : "shop_users.manage");
+    },
     run: async (input, { database, context: execContext }) => {
       const { id } = await context.params;
       const actionContext = { actor: execContext.actor, shop: { id: execContext.shop.shopId } };
@@ -71,4 +74,3 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     },
   });
 }
-

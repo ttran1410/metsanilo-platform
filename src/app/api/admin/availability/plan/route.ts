@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { executeAdminRoute, parseJson } from "../../module";
+import { assertAdminPermission, executeAdminRoute, parseJson } from "../../module";
 import { planAdminAvailability, previewAdminAvailabilityPlan } from "@/domain/admin-availability-actions";
 import { DomainError } from "@/domain/errors";
 
@@ -26,6 +26,9 @@ export async function POST(request: Request) {
       if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability plan", 422);
       return parsed.data;
     },
+    authorize: async (input, { context }) => {
+      await assertAdminPermission(context, input.manualSoldOut ? "availability.sold_out" : "availability.write");
+    },
     run: async (input, { database, context }) => {
       const actionContext = { actor: context.actor, shop: { id: context.shop.shopId } };
       return input.preview
@@ -34,4 +37,3 @@ export async function POST(request: Request) {
     },
   });
 }
-

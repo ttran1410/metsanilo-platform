@@ -19,7 +19,7 @@ vi.mock("@/domain/access", async (importOriginal) => {
 });
 vi.mock("@/lib/env", () => ({ env: () => ({ SHOP_ID: "shop-test" }) }));
 
-import { authenticateAdminAny, executeAdmin, executeAdminRoute } from "@/app/api/admin/module";
+import { authenticateAdminAny, assertAdminPermission, executeAdmin, executeAdminRoute } from "@/app/api/admin/module";
 import { assertAdminActionContext } from "@/domain/admin-action-context";
 import { failure } from "@/app/api/response";
 
@@ -167,6 +167,7 @@ describe("executeAdminRoute contract", () => {
     );
 
     expect(response.status).toBe(201);
+    expect(response.headers.get("Cache-Control")).toBe("no-store, max-age=0");
     expect(response.headers.get("x-correlation-id")).toBe("123e4567-e89b-12d3-a456-426614174000");
     const json = await response.json();
     expect(json).toEqual({
@@ -235,5 +236,20 @@ describe("executeAdminRoute contract", () => {
     const json = await response.json();
     expect(json.data).toEqual({ query: "blueberry" });
   });
-});
 
+  it("runs action authorization after parsing", async () => {
+    hasUserPermission.mockImplementation(async (_db, _actor, permission) => permission === "orders.update");
+    const response = await executeAdminRoute(
+      new Request("http://localhost/api/admin/orders/order-1", { method: "PATCH" }),
+      {
+        permissions: ["orders.transition", "orders.update"],
+        parse: async () => ({ action: "transition" }),
+        authorize: async (input, { context }) => assertAdminPermission(context, input.action === "transition" ? "orders.transition" : "orders.update"),
+        run: async () => ({ ok: true }),
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("FORBIDDEN");
+  });
+});

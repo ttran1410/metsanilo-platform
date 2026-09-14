@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { updateAdminAvailability } from "@/domain/admin-availability-actions";
-import { executeAdminRoute, parseJson } from "../../module";
+import { assertAdminPermission, executeAdminRoute, parseJson } from "../../module";
 import { DomainError } from "@/domain/errors";
 
 export const runtime = "nodejs";
@@ -23,10 +23,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability command", 422);
       return parsed.data;
     },
+    authorize: async (input, { context }) => {
+      const permission = input.cutoffOverride !== undefined
+        ? "availability.cutoff.override"
+        : input.manualSoldOut
+          ? "availability.sold_out"
+          : "availability.write";
+      await assertAdminPermission(context, permission);
+    },
     run: async (input, { database, context }) => {
       const { id } = await params;
       return updateAdminAvailability(database, { actor: context.actor, shop: { id: context.shop.shopId } }, id, input);
     },
   });
 }
-

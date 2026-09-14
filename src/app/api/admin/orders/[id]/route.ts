@@ -1,7 +1,7 @@
 import { deleteAdminOrder, getAdminOrderDetail, getAdminOrderEditData, transitionAdminOrder, updateAdminOrder } from "@/domain/admin-order-actions";
 import { fromZodError } from "@/domain/errors";
 import { z } from "zod";
-import { executeAdminRoute, parseJson } from "../../module";
+import { assertAdminPermission, executeAdminRoute, parseJson } from "../../module";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +63,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return executeAdminRoute(request, {
     permissions: ["orders.transition", "orders.update"],
     parse: async (incoming) => parseJson<Record<string, unknown>>(incoming),
+    authorize: async (body, { context }) => {
+      await assertAdminPermission(context, body?.action === "transition" ? "orders.transition" : "orders.update");
+    },
     run: async (body, { database, context: { actor, shop } }) => {
       const { id } = await params;
       if (body && typeof body === "object" && body.action === "transition") {
@@ -90,4 +93,3 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     run: async (orderId, { database, context: { actor, shop } }) => deleteAdminOrder(database, { actor, shop: { id: shop.shopId } }, orderId),
   });
 }
-

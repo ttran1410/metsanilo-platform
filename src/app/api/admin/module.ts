@@ -72,6 +72,12 @@ export async function authenticateAdminAny(request: Request, permissions: readon
   return context;
 }
 
+export async function assertAdminPermission(context: AdminExecutionContext, permission: Permission): Promise<void> {
+  if (!(await hasUserPermission(db(), context.actor, permission))) {
+    throw new DomainError("FORBIDDEN", `Permission required: ${permission}`, 403);
+  }
+}
+
 export async function executeAdmin<TInput, TResult>(
   request: Request,
   definition: AdminDefinition<TInput, TResult>,
@@ -97,6 +103,7 @@ export type AdminRouteDefinition<TInput, TResult> = Readonly<
     | { permissions: readonly Permission[]; permission?: never }
   ) & {
     parse?: (request: Request) => Promise<TInput>;
+    authorize?: (input: TInput, context: AdminRequest) => Promise<void>;
     run: (input: TInput, context: AdminRequest) => Promise<TResult>;
     status?: number;
     headers?: Record<string, string> | Headers;
@@ -114,12 +121,14 @@ export async function executeAdminRoute<TInput = void, TResult = unknown>(
 
 
     const input = definition.parse ? await definition.parse(request) : (undefined as unknown as TInput);
-    const startedAt = Date.now();
-    const result = await definition.run(input, {
+    const adminRequest = {
       request,
       database: db(),
       context,
-    });
+    };
+    if (definition.authorize) await definition.authorize(input, adminRequest);
+    const startedAt = Date.now();
+    const result = await definition.run(input, adminRequest);
     console.info("[admin-timing]", JSON.stringify({
       route: new URL(request.url).pathname,
       phase: "application",
@@ -128,6 +137,7 @@ export async function executeAdminRoute<TInput = void, TResult = unknown>(
     }));
 
     const response = success(result, request, definition.status ?? 200);
+    response.headers.set("Cache-Control", "no-store, max-age=0");
     if (definition.headers) {
       if (definition.headers instanceof Headers) {
         definition.headers.forEach((value, key) => {
@@ -144,4 +154,3 @@ export async function executeAdminRoute<TInput = void, TResult = unknown>(
     return failure(error, request);
   }
 }
-
