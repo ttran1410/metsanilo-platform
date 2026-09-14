@@ -16,18 +16,18 @@ export const createBrowserTimerPort = (): TimerPort => ({ setInterval: (callback
 async function readSnapshot(response: Response): Promise<SessionStatusSnapshot> {
   const body = await response.json() as { data?: SessionStatusSnapshot; message?: string };
   if (!response.ok) throw Object.assign(new Error(body.message ?? "Session request failed"), { status: response.status });
-  if (!body.data?.serverNow || !body.data.effectiveExpiresAt) throw new Error("Invalid session response");
+  if (!body.data?.serverNow || !body.data.effectiveExpiresAt || typeof body.data.currentSessionId !== "string" || typeof body.data.remainingSeconds !== "number") throw new Error("Invalid session response");
   return body.data;
 }
 
 export const createBrowserTransportPort = (): SessionTransportPort => ({
   async fetchStatus() { return readSnapshot(await fetch("/api/auth/session", { cache: "no-store", headers: { "x-admin-request-scope": "session-status" } })); },
   async touch() { return readSnapshot(await fetch("/api/auth/session", { method: "POST", cache: "no-store", headers: { "content-type": "application/json" } })); },
-  async signOut() { await fetch("/api/auth/session", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "current" }) }); },
+  async signOut() { const response = await fetch("/api/auth/session", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "current" }) }); if (!response.ok) throw new Error(`Sign-out failed with status ${response.status}`); },
 });
 
 export const createBrowserNavigationPort = (router: AppRouterInstance, nextUrl: string): NavigationPort => ({
-  redirectToLogin: ({ reason }) => router.push(`/admin/login?reason=${reason}&next=${encodeURIComponent(sanitizeNextUrl(nextUrl))}`),
+  redirectToLogin: ({ reason, nextUrl: requestedNextUrl }) => router.push(`/admin/login?reason=${reason}&next=${encodeURIComponent(sanitizeNextUrl(requestedNextUrl ?? nextUrl))}`),
 });
 
 export const createBrowserSyncBusPort = (): SessionSyncBusPort => {

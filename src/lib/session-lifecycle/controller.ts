@@ -31,7 +31,6 @@ export class SessionLifecycleController {
   private latestStatusSequence = 0;
   private latestTouchSequence = 0;
   private pendingTouch: Promise<void> | null = null;
-  private seenEvents = new Map<string, number>();
   private nextUrl: string;
 
   constructor(private readonly options: Options) { this.nextUrl = options.nextUrl; }
@@ -149,10 +148,6 @@ export class SessionLifecycleController {
   private handleSyncEvent(event: SessionSyncEvent) {
     if (this.disposed) return;
     const now = this.options.clock.now();
-    for (const [id, time] of this.seenEvents) if (now - time > 300_000) this.seenEvents.delete(id);
-    const id = event.eventId ?? `${event.type}:${event.sessionId}:${event.sentAt}:${"reason" in event ? event.reason : event.effectiveExpiresAt}`;
-    if (this.seenEvents.has(id)) return;
-    this.seenEvents.set(id, now);
     if (this.state.currentSessionId === null || event.sessionId !== this.state.currentSessionId) return;
     if (event.type === "session-revoked") this.transitionTerminal("revoked", event.reason, false);
     else if (Date.parse(event.effectiveExpiresAt) > Date.parse(this.state.effectiveExpiresAt ?? "")) {

@@ -67,4 +67,12 @@ describe("SessionLifecycleController", () => {
     expect(redirects).toHaveLength(1);
     expect(controller.getState().status).toBe("revoked");
   });
+
+  it("uses the latest next URL when navigating", async () => {
+    const { controller, handlers, redirects } = make();
+    controller.start(); await new Promise((resolve) => setTimeout(resolve, 0));
+    controller.setNextUrl("/admin/orders?page=2");
+    for (const handler of handlers) handler({ type: "session-revoked", eventId: "e2", sessionId: "s1", reason: "revoked", sentAt: "2026-09-14T12:01:00.000Z" });
+    expect(redirects).toEqual([{ reason: "revoked", nextUrl: "/admin/orders?page=2" }]);
+  });
 });
