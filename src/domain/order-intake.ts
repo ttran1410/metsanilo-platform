@@ -122,6 +122,18 @@ export type IntakeTestHooks = {
   afterReservation?: (tx: Parameters<Parameters<Database["transaction"]>[0]>[0]) => Promise<void> | void;
 };
 
+function isIdempotencyUniqueViolation(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return message.includes("orders_shop_idempotency_unique") ||
+    (message.includes("unique constraint") && message.includes("idempotency_key"));
+}
+
+function isBusyDatabaseError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code).toLowerCase() : "";
+  return code === "sqlite_busy" || message.includes("database is locked") || message.includes("sqlite_busy") || message.includes("busy");
+}
+
 function normalizeCustomerFields(input: {
   mobile?: string;
   email?: string;
@@ -147,6 +159,8 @@ function normalizeCustomerFields(input: {
 }
 
 function checkPayloadEquivalence(existing: typeof orders.$inferSelect, input: OrderIntakeChannelInput): boolean {
+  const fingerprint = idempotencyFingerprint(input);
+  if (existing.idempotencyFingerprint) return existing.idempotencyFingerprint === fingerprint;
   const { normalizedMobile, normalizedEmail, fbProfile } = normalizeCustomerFields(input);
   if (existing.productId !== input.productId) return false;
   if (existing.packageId !== input.packageId) return false;
@@ -154,9 +168,15 @@ function checkPayloadEquivalence(existing: typeof orders.$inferSelect, input: Or
   if (existing.fulfillmentDate !== input.fulfillmentDate) return false;
   if (existing.fulfillmentMethod !== input.fulfillmentMethod) return false;
   if (existing.customerName !== input.customerName.trim()) return false;
+  if (existing.locale !== (input.locale || "fi")) return false;
   if ((existing.mobile || null) !== normalizedMobile) return false;
   if ((existing.email || null) !== normalizedEmail) return false;
   if ((existing.facebookProfile || null) !== fbProfile) return false;
+  if ((existing.streetAddress || null) !== (input.fulfillmentMethod === "PICKUP" ? null : input.streetAddress?.trim() || null)) return false;
+  if ((existing.postalCode || null) !== (input.fulfillmentMethod === "PICKUP" ? null : input.postalCode?.trim() || null)) return false;
+  if ((existing.city || null) !== (input.fulfillmentMethod === "PICKUP" ? null : input.city?.trim() || null)) return false;
+  if ((existing.notes || null) !== (input.notes?.trim() || null)) return false;
+  if (existing.status !== (input.channel === "PUBLIC" ? "NEW" : input.status)) return false;
 
   if (input.channel === "PUBLIC") {
     if (existing.orderSource !== "WEBSITE") return false;
@@ -169,10 +189,37 @@ function checkPayloadEquivalence(existing: typeof orders.$inferSelect, input: Or
   return true;
 }
 
+function idempotencyFingerprint(input: OrderIntakeChannelInput) {
+  const customer = normalizeCustomerFields(input);
+  return JSON.stringify({
+    channel: input.channel,
+    shopId: input.shopId,
+    locale: input.locale || "fi",
+    productId: input.productId,
+    packageId: input.packageId,
+    quantity: input.quantity,
+    fulfillmentDate: input.fulfillmentDate,
+    fulfillmentMethod: input.fulfillmentMethod,
+    customerName: input.customerName.trim(),
+    mobile: customer.normalizedMobile,
+    email: customer.normalizedEmail,
+    facebookProfile: customer.fbProfile,
+    streetAddress: input.fulfillmentMethod === "PICKUP" ? null : input.streetAddress?.trim() || null,
+    postalCode: input.fulfillmentMethod === "PICKUP" ? null : input.postalCode?.trim() || null,
+    city: input.fulfillmentMethod === "PICKUP" ? null : input.city?.trim() || null,
+    notes: input.notes?.trim() || null,
+    marketingConsent: input.channel === "PUBLIC" ? input.marketingConsent === true : null,
+    source: input.channel === "EXTERNAL" ? input.source : "WEBSITE",
+    status: input.channel === "EXTERNAL" ? input.status : "NEW",
+    deliveryFeeCents: input.channel === "EXTERNAL" && input.fulfillmentMethod === "DELIVERY" ? input.deliveryFeeCents ?? null : input.fulfillmentMethod === "PICKUP" ? 0 : null,
+  });
+}
+
 export async function intakeOrderCore(
   database: Database,
   input: OrderIntakeChannelInput,
   hooks?: IntakeTestHooks,
+  busyRetry = 0,
 ): Promise<OrderIntakeResult> {
   const expectedShopId = env().SHOP_ID;
   if (input.shopId !== expectedShopId) {
@@ -199,6 +246,7 @@ export async function intakeOrderCore(
     ...input,
     idempotencyKey: key,
   };
+  const fingerprint = idempotencyFingerprint(normalizedInput);
 
   const prior = await database.query.orders.findFirst({
     where: and(eq(orders.shopId, normalizedInput.shopId), eq(orders.idempotencyKey, normalizedInput.idempotencyKey)),
@@ -295,20 +343,28 @@ export async function intakeOrderCore(
       if (!current) {
         const availId = randomUUID();
         const now = nowIso();
-        await tx.insert(availability).values({
-          id: availId,
-          shopId: normalizedInput.shopId,
-          productId: normalizedInput.productId,
-          seasonId: season?.id ?? null,
-          businessDate: normalizedInput.fulfillmentDate,
-          capacityMl: 100000,
-          reservedMl: 0,
-          acceptsOrders: true,
-          manualSoldOut: false,
-          updatedAt: now,
-        });
+        await tx
+          .insert(availability)
+          .values({
+            id: availId,
+            shopId: normalizedInput.shopId,
+            productId: normalizedInput.productId,
+            seasonId: season?.id ?? null,
+            businessDate: normalizedInput.fulfillmentDate,
+            capacityMl: 100000,
+            reservedMl: 0,
+            acceptsOrders: true,
+            manualSoldOut: false,
+            updatedAt: now,
+          })
+          .onConflictDoNothing();
         current = (await tx.query.availability.findFirst({
-          where: and(eq(availability.id, availId), eq(availability.shopId, normalizedInput.shopId)),
+          where: and(
+            eq(availability.shopId, normalizedInput.shopId),
+            eq(availability.productId, normalizedInput.productId),
+            season ? eq(availability.seasonId, season.id) : isNull(availability.seasonId),
+            eq(availability.businessDate, normalizedInput.fulfillmentDate),
+          ),
         }))!;
       } else if (current.manualSoldOut) {
         throw new DomainError("SOLD_OUT", "Product is sold out", 409);
@@ -491,6 +547,7 @@ export async function intakeOrderCore(
       shopId: normalizedInput.shopId,
       publicReference: reference,
       idempotencyKey: normalizedInput.idempotencyKey,
+      idempotencyFingerprint: fingerprint,
       productId: row.product.id,
       customerId: customer.id,
       seasonId: season?.id ?? null,
@@ -633,5 +690,22 @@ export async function intakeOrderCore(
       receipt: toReceipt(createdOrder),
       order: createdOrder,
     };
+  }).catch(async (error: unknown) => {
+    if (isBusyDatabaseError(error) && busyRetry < 10) {
+      await new Promise((resolve) => setTimeout(resolve, 10 * (busyRetry + 1)));
+      return intakeOrderCore(database, normalizedInput, hooks, busyRetry + 1);
+    }
+    // A concurrent request may win the unique idempotency insert after both
+    // transactions pass their initial reads. Resolve that race as replay or
+    // conflict instead of leaking a driver-specific constraint error.
+    if (!isIdempotencyUniqueViolation(error)) throw error;
+    const concurrent = await database.query.orders.findFirst({
+      where: and(eq(orders.shopId, normalizedInput.shopId), eq(orders.idempotencyKey, normalizedInput.idempotencyKey)),
+    });
+    if (!concurrent) throw error;
+    if (!checkPayloadEquivalence(concurrent, normalizedInput)) {
+      throw new DomainError("IDEMPOTENCY_CONFLICT", "Idempotency key already used with different payload", 409);
+    }
+    return { receipt: toReceipt(concurrent), order: concurrent };
   });
 }

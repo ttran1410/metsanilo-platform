@@ -5,13 +5,12 @@ import { auditEntries, customers, fulfillmentLocations, notifications, orderPaym
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
-import { submitOrder, transitionOrder } from "./orders";
+import { transitionOrder } from "./orders";
 import { normalizeEmail, normalizeMobile } from "./order-input";
 
 const nowIso = () => new Date().toISOString();
 
 import { intakeOrderCore, type ExternalOrderChannelInput } from "./order-intake";
-import type { AdminActionActor } from "./admin-action-context";
 
 export async function createExternalOrder(
   database: Database,

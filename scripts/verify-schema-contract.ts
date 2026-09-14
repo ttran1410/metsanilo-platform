@@ -28,11 +28,12 @@ const database = drizzle(client, { schema });
 try {
   const migrations = await database.all(sql`SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY created_at DESC, id DESC LIMIT 1`);
   const head = migrations[0] as { id?: number; hash?: string; created_at?: number } | undefined;
-  const journalEntry = journal.entries.find((entry) => entry.idx === 42);
+  const journalEntry = journal.entries.at(-1);
+  const expectedMigrationLabel = journalEntry ? `${String(journalEntry.idx).padStart(4, "0")} (${journalEntry.tag})` : "latest (missing journal entry)";
   const migrationSqlPath = journalEntry ? `drizzle/${journalEntry.tag}.sql` : "";
   const expectedHash = migrationSqlPath ? createHash("sha256").update(readFileSync(migrationSqlPath)).digest("hex") : "";
   if (!head || !journalEntry || Number(head.created_at) !== journalEntry.when || String(head.hash) !== expectedHash) {
-    fail(`Schema contract migration head mismatch: expected 0042 (${journalEntry?.tag ?? "missing journal entry"}).`, 1);
+    fail(`Schema contract migration head mismatch: expected ${expectedMigrationLabel}.`, 1);
   }
 
   const columns = await database.all(sql`PRAGMA table_info(users)`);
@@ -76,7 +77,7 @@ try {
   const orphanCount = orphanChecks.reduce((total, rows) => total + rows.length, 0);
   if (orphanCount > 0) fail(`Schema contract invariant failed: ${orphanCount} orphan authentication records found.`);
 
-  console.log(`Schema contract verification passed for shop ${shopId}: migration head 0042, ${columns.length} users columns, no foreign-key or auth-graph violations.`);
+  console.log(`Schema contract verification passed for shop ${shopId}: migration head ${expectedMigrationLabel}, ${columns.length} users columns, no foreign-key or auth-graph violations.`);
 } catch (error) {
   if (error instanceof Error && error.message.startsWith("Schema contract invariant failed:")) fail(error.message);
   fail(`Schema contract verification failed: ${error instanceof Error ? error.message : String(error)}`);

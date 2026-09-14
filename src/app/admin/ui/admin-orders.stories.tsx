@@ -4,7 +4,7 @@ import { OrdersListing, type AdminOrder, type OrdersView } from "../orders/list/
 import { AdminEmptyState, AdminNotice, AdminPageHeader } from "../presentation";
 
 const baseOrder: AdminOrder = {
-  id: "story-order-1048", shopId: "story-shop", publicReference: "M-1048", idempotencyKey: "story-key-1048",
+  id: "story-order-1048", shopId: "story-shop", publicReference: "M-1048", idempotencyKey: "story-key-1048", idempotencyFingerprint: null,
   productId: "story-product", packageId: "story-package", customerId: null, seasonId: null,
   productNameFi: "Metsamustikka", productNameEn: "Wild blueberry", packageLabelFi: "1 litra", packageLabelEn: "1 litre",
   quantity: 1, volumeMl: 1000, itemSubtotalCents: 4800, deliveryFeeCents: 0, finalTotalCents: 4800,

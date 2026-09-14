@@ -205,6 +205,51 @@ describe("order intake transaction core & policies", () => {
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT", status: 409 });
   });
 
+  it("resolves concurrent requests with the same idempotency key as one order and one replay", async () => {
+    const input = {
+      ...defaultPickupInput("idem-concurrent-1"),
+      shopId: "shop-main",
+      actor: defaultActor,
+      source: "PHONE" as const,
+      status: "NEW" as const,
+    };
+    const results = await Promise.allSettled([
+      createExternalOrder(database, input),
+      createExternalOrder(database, input),
+    ]);
+    const successes = results.filter(
+      (result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof createExternalOrder>>> => result.status === "fulfilled",
+    );
+    const failures = results.filter((result) => result.status === "rejected");
+    expect(successes).toHaveLength(2);
+    expect(failures).toHaveLength(0);
+    expect(successes[0].value.id).toBe(successes[1].value.id);
+    expect(await database.select().from(orders)).toHaveLength(1);
+    expect((await database.query.availability.findFirst({ where: eq(availability.id, "avail-1") }))!.reservedMl).toBe(5000);
+  });
+
+  it("auto-provisions one availability row when concurrent override orders target a missing date", async () => {
+    await database.delete(availability).where(eq(availability.id, "avail-1"));
+    const input = (key: string) => ({
+      ...defaultPickupInput(key, "2099-08-20"),
+      shopId: "shop-main",
+      actor: defaultActor,
+      source: "PHONE" as const,
+      status: "NEW" as const,
+      allowDateOverride: true,
+    });
+    const results = await Promise.allSettled([
+      createExternalOrder(database, input("auto-provision-1")),
+      createExternalOrder(database, input("auto-provision-2")),
+    ]);
+    const successfulOrders = results.filter((result) => result.status === "fulfilled");
+    expect(successfulOrders.length).toBeGreaterThanOrEqual(1);
+    expect(successfulOrders.length).toBeLessThanOrEqual(2);
+    const rows = await database.select().from(availability).where(eq(availability.businessDate, "2099-08-20"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].reservedMl).toBe(successfulOrders.length * 5000);
+  });
+
   it("allows two otherwise identical legitimate orders with different idempotency keys", async () => {
     const first = await createExternalOrder(database, {
       ...defaultPickupInput("order-key-1"),

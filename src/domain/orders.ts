@@ -1,7 +1,7 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, customers, fulfillmentLocations, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
+import { auditEntries, availability, customers, fulfillmentLocations, orderNotes, orderPayments, orders, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { getLegalOrderTransitions } from "./order-transitions";
 import { todayInTimezone } from "@/lib/format";
@@ -12,11 +12,6 @@ import { getHarvestSeasonForDate } from "./seasons";
 import { resolveAvailabilityForDate, resolveSeasonForAvailability } from "./availability-resolver";
 
 const nowIso = () => new Date().toISOString();
-const publicReference = () => `R-${randomBytes(5).toString("hex").toUpperCase()}`;
-function localTimeInTimezone(timezone: string, now = new Date()) {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: false }).format(now);
-}
-
 import { intakeOrderCore, type OrderReceipt, toReceipt } from "./order-intake";
 
 export { type OrderReceipt, toReceipt };
