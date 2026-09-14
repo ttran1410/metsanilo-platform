@@ -22,7 +22,7 @@ export function useSessionLifecycle() {
     const nextUrl = pathname ?? "/admin/dashboard";
     const controller = new SessionLifecycleController({
       clock: createBrowserClockPort(), timer: createBrowserTimerPort(), transport: createBrowserTransportPort(),
-      syncBus: createBrowserSyncBusPort(), navigation: createBrowserNavigationPort(router, nextUrl), nextUrl,
+      syncBus: createBrowserSyncBusPort(), navigation: createBrowserNavigationPort(router), nextUrl,
     });
     controllerRef.current = controller;
     const unsubscribe = controller.subscribe(setState);

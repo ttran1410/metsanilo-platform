@@ -51,6 +51,7 @@ export class SessionLifecycleController {
     this.timerHandle = null;
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.options.syncBus.close();
     this.listeners.clear();
   }
 
@@ -152,6 +153,10 @@ export class SessionLifecycleController {
     if (event.type === "session-revoked") this.transitionTerminal("revoked", event.reason, false);
     else if (Date.parse(event.effectiveExpiresAt) > Date.parse(this.state.effectiveExpiresAt ?? "")) {
       const remaining = Math.max(0, Math.floor((Date.parse(event.effectiveExpiresAt) - (now + this.state.clockOffsetMs)) / 1000));
+      if (remaining <= 0) {
+        this.transitionTerminal("expired", "idle_timeout", true);
+        return;
+      }
       this.state = { ...this.state, effectiveExpiresAt: event.effectiveExpiresAt, remainingSeconds: remaining, status: remaining <= WARNING_SECONDS ? "warning" : "active", isWarningOpen: remaining > 0 && remaining <= WARNING_SECONDS };
       this.ensureTimer();
       this.emit();

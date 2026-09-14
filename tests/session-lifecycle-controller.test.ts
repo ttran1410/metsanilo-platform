@@ -22,15 +22,16 @@ function make() {
   const transport = new FakeTransport();
   const handlers = new Set<(event: SessionSyncEvent) => void>();
   const redirects: unknown[] = [];
+  const published: unknown[] = [];
   const controller = new SessionLifecycleController({
     clock: { now: () => now },
     timer: { setInterval: () => 1, clearInterval: () => undefined },
     transport,
-    syncBus: { publish: () => undefined, subscribe: (handler) => { handlers.add(handler); return () => handlers.delete(handler); }, close: () => undefined },
+    syncBus: { publish: (event) => published.push(event), subscribe: (handler) => { handlers.add(handler); return () => handlers.delete(handler); }, close: () => undefined },
     navigation: { redirectToLogin: (input) => redirects.push(input) },
     nextUrl: "/admin/dashboard",
   });
-  return { controller, transport, handlers, redirects, advance: (ms: number) => { now += ms; } };
+  return { controller, transport, handlers, redirects, published, advance: (ms: number) => { now += ms; } };
 }
 
 describe("SessionLifecycleController", () => {
@@ -91,5 +92,13 @@ describe("SessionLifecycleController", () => {
     controller.setNextUrl("/admin/orders?page=2");
     for (const handler of handlers) handler({ type: "session-revoked", eventId: "e2", sessionId: "s1", reason: "revoked", sentAt: "2026-09-14T12:01:00.000Z" });
     expect(redirects).toEqual([{ reason: "revoked", nextUrl: "/admin/orders?page=2" }]);
+  });
+
+  it("does not publish a touch event after an expired touch response", async () => {
+    const { controller, transport, published } = make();
+    controller.start(); await new Promise((resolve) => setTimeout(resolve, 0));
+    transport.touch = async () => snapshot("s1", "2026-09-14T11:59:00.000Z");
+    await controller.extendSession();
+    expect(published.some((event) => (event as { type?: string }).type === "session-touched")).toBe(false);
   });
 });

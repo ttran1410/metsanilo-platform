@@ -26,8 +26,8 @@ export const createBrowserTransportPort = (): SessionTransportPort => ({
   async signOut() { const response = await fetch("/api/auth/session", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ scope: "current" }) }); if (!response.ok) throw new Error(`Sign-out failed with status ${response.status}`); },
 });
 
-export const createBrowserNavigationPort = (router: AppRouterInstance, nextUrl: string): NavigationPort => ({
-  redirectToLogin: ({ reason, nextUrl: requestedNextUrl }) => router.push(`/admin/login?reason=${reason}&next=${encodeURIComponent(sanitizeNextUrl(requestedNextUrl ?? nextUrl))}`),
+export const createBrowserNavigationPort = (router: AppRouterInstance): NavigationPort => ({
+  redirectToLogin: ({ reason, nextUrl: requestedNextUrl }) => router.push(`/admin/login?reason=${reason}&next=${encodeURIComponent(sanitizeNextUrl(requestedNextUrl))}`),
 });
 
 export const createBrowserSyncBusPort = (): SessionSyncBusPort => {
