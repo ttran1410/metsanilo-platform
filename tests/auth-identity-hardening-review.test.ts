@@ -1,17 +1,45 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { and, eq } from "drizzle-orm";
+import { migrate } from "drizzle-orm/libsql/migrator";
 import { createDatabase, type Database } from "@/db/client";
-import { auditEntries, authUsers, userPermissions } from "@/db/schema";
+import { auditEntries, authUsers, shops, userPermissions } from "@/db/schema";
 import { createUser, executeAdminUserCommand, updateUserPermission, updateUserProfileAndRole } from "@/domain/admin-user-actions";
 
-const DB_URL = "file:local.db";
 const SHOP_ID = "shop-main";
+const migrationsFolder = join(process.cwd(), "drizzle");
+const testDirectories: string[] = [];
 
 describe("Identity & Access Review Hardening Tests", () => {
   let database: Database;
 
   beforeEach(async () => {
-    database = createDatabase(DB_URL);
+    const directory = mkdtempSync(join(tmpdir(), "metsanilo-identity-review-"));
+    testDirectories.push(directory);
+    database = createDatabase(`file:${join(directory, "test.db")}`);
+    await migrate(database, { migrationsFolder });
+    await database.insert(shops).values({
+      id: SHOP_ID,
+      slug: "main",
+      nameFi: "Pääkauppa",
+      nameEn: "Main",
+      timezone: "Europe/Helsinki",
+      active: true,
+      pickupNameFi: "Nouto",
+      pickupNameEn: "Pickup",
+      pickupAddress: "Test",
+      pickupInstructionsFi: "Test",
+      pickupInstructionsEn: "Test",
+      pickupTime: "20:00",
+    });
+  });
+
+  afterAll(() => {
+    for (const directory of testDirectories) {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it("createUser fails with CONFLICT 409 when authUsers already has the email", async () => {
