@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { createAdminProduct, getAdminProducts, listAdminProducts, reorderProducts } from "@/domain/admin-products-actions";
 import { DomainError } from "@/domain/errors";
-import { failure, success } from "../../response";
 import { hasListQuery, parseAdminListQuery } from "@/lib/admin-list-query";
-import { authenticateAdminAny, executeAdmin, parseJson } from "../module";
+import { executeAdminRoute, parseJson } from "../module";
 
 export const runtime = "nodejs";
 const product = z.object({
@@ -12,22 +11,42 @@ const product = z.object({
   packages: z.array(z.object({ labelFi: z.string(), labelEn: z.string(), volumeMl: z.number().int(), priceCents: z.number().int(), active: z.boolean().default(true), sortOrder: z.number().int().optional(), isDefault: z.boolean().optional() })).min(1),
 });
 
-export async function GET(request: Request) { try { const result = await executeAdmin(request, { permission: "catalog.product.read", parse: async () => undefined, run: async (_input, { database, context }) => { const actionContext = { actor: context.actor, shop: { id: context.shop.shopId } }; if (!hasListQuery(request)) return listAdminProducts(database, actionContext); const status = new URL(request.url).searchParams.get("status"); return getAdminProducts(database, actionContext, parseAdminListQuery(request), status === "in_season" || status === "upcoming" || status === "archived" ? status : undefined); } }); return success(result, request); } catch (error) { return failure(error, request); } }
+export async function GET(request: Request) {
+  return executeAdminRoute(request, {
+    permission: "catalog.product.read",
+    run: async (_input, { database, context }) => {
+      const actionContext = { actor: context.actor, shop: { id: context.shop.shopId } };
+      if (!hasListQuery(request)) return listAdminProducts(database, actionContext);
+      const status = new URL(request.url).searchParams.get("status");
+      return getAdminProducts(database, actionContext, parseAdminListQuery(request), status === "in_season" || status === "upcoming" || status === "archived" ? status : undefined);
+    },
+  });
+}
+
 export async function POST(request: Request) {
-  try {
-    const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async (incoming) => { const parsed = product.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422); return parsed.data; }, run: async (input, { database, context }) => createAdminProduct(database, { actor: context.actor, shop: { id: context.shop.shopId } }, input) });
-    return success(result, request, 201);
-  } catch (error) { return failure(error, request); }
+  return executeAdminRoute(request, {
+    permission: "catalog.product.write",
+    status: 201,
+    parse: async (incoming) => {
+      const parsed = product.safeParse(await parseJson<unknown>(incoming));
+      if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422);
+      return parsed.data;
+    },
+    run: async (input, { database, context }) => createAdminProduct(database, { actor: context.actor, shop: { id: context.shop.shopId } }, input),
+  });
 }
 
 export async function PATCH(request: Request) {
-  try {
-    await authenticateAdminAny(request, ["catalog.product.write"]);
-    const body = await parseJson<{ action?: string; productIds?: unknown }>(request);
-    if (body?.action === "reorder" && Array.isArray(body.productIds)) {
-      const result = await executeAdmin(request, { permission: "catalog.product.write", parse: async () => body.productIds as string[], run: async (productIds, { database, context }) => reorderProducts(database, { actor: context.actor, shop: { id: context.shop.shopId } }, productIds) });
-      return success(result, request);
-    }
-    throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422);
-  } catch (error) { return failure(error, request); }
+  return executeAdminRoute(request, {
+    permission: "catalog.product.write",
+    parse: async (incoming) => {
+      const body = await parseJson<{ action?: string; productIds?: unknown }>(incoming);
+      if (body?.action === "reorder" && Array.isArray(body.productIds)) {
+        return body.productIds as string[];
+      }
+      throw new DomainError("VALIDATION_ERROR", "Invalid product command", 422);
+    },
+    run: async (productIds, { database, context }) => reorderProducts(database, { actor: context.actor, shop: { id: context.shop.shopId } }, productIds),
+  });
 }
+
