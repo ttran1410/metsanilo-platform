@@ -13,6 +13,13 @@ You need a clean task branch, installed dependencies, and a disposable local dat
 
 Do not run `db:generate` unless `src/db/schema.ts` changed. Do not rewrite, reorder, rename, or delete an applied migration.
 
+Migration 0044 adds unique partial indexes for availability rows with and without
+a season. Before applying it, run `npm run db:preflight`. If it reports legacy
+availability duplicates, stop and resolve each `(shop_id, product_id,
+business_date)` group manually. The migration intentionally does not merge,
+delete, or choose a winner, because capacity and season semantics require a
+product decision. Re-run preflight after resolution, then apply the migration.
+
 ## Create a migration after a schema change
 
 1. Update `src/db/schema.ts` in the same change as the behavior that needs the schema.
