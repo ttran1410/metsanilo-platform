@@ -2,8 +2,7 @@ import { z } from "zod";
 import { shops } from "@/db/schema";
 import { DomainError } from "@/domain/errors";
 import { getAdminSettings, updateAdminSettings } from "@/domain/admin-settings-actions";
-import { executeAdmin, parseJson } from "@/app/api/admin/module";
-import { failure, success } from "../../response";
+import { executeAdminRoute, parseJson } from "@/app/api/admin/module";
 
 export const runtime = "nodejs";
 
@@ -28,15 +27,22 @@ function response(shop: typeof shops.$inferSelect, updatedBy?: string) {
 }
 
 export async function GET(request: Request) {
-  try {
-    const result = await executeAdmin(request, { permission: "settings.read", parse: async () => undefined, run: async (_input, { database, context }) => response(await getAdminSettings(database, { actor: context.actor, shop: { id: context.shop.shopId } })) });
-    return success(result, request);
-  } catch (error) { return failure(error, request); }
+  return executeAdminRoute(request, {
+    permission: "settings.read",
+    parse: async () => undefined,
+    run: async (_input, { database, context }) => response(await getAdminSettings(database, { actor: context.actor, shop: { id: context.shop.shopId } })),
+  });
 }
 
 export async function PUT(request: Request) {
-  try {
-    const result = await executeAdmin(request, { permission: "settings.operational", parse: async (incoming) => { const parsed = command.safeParse(await parseJson<unknown>(incoming)); if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid settings input", 422); return parsed.data; }, run: async (input, { database, context }) => response(await updateAdminSettings(database, { actor: context.actor, shop: { id: context.shop.shopId } }, { contactPhone: input.phone, contactEmail: input.email, contactHours: input.hours, nameFi: input.nameFi, nameEn: input.nameEn, businessName: input.businessName, businessId: input.businessId, howItWorksVisible: input.howItWorksVisible, aboutUsVisible: input.aboutUsVisible, reviewsVisible: input.reviewsVisible, active: input.active, sameDayCutoffEnabled: input.sameDayCutoffEnabled, sameDayCutoffTime: input.sameDayCutoffTime })) });
-    return success(result, request);
-  } catch (error) { return failure(error, request); }
+  return executeAdminRoute(request, {
+    permission: "settings.operational",
+    parse: async (incoming) => {
+      const parsed = command.safeParse(await parseJson<unknown>(incoming));
+      if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid settings input", 422);
+      return parsed.data;
+    },
+    run: async (input, { database, context }) => response(await updateAdminSettings(database, { actor: context.actor, shop: { id: context.shop.shopId } }, { contactPhone: input.phone, contactEmail: input.email, contactHours: input.hours, nameFi: input.nameFi, nameEn: input.nameEn, businessName: input.businessName, businessId: input.businessId, howItWorksVisible: input.howItWorksVisible, aboutUsVisible: input.aboutUsVisible, reviewsVisible: input.reviewsVisible, active: input.active, sameDayCutoffEnabled: input.sameDayCutoffEnabled, sameDayCutoffTime: input.sameDayCutoffTime })),
+  });
 }
+
