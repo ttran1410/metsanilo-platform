@@ -14,6 +14,7 @@ export function useSessionLifecycle() {
       syncBus: createBrowserSyncBusPort(), navigation: createBrowserNavigationPort(router, pathname ?? "/admin/dashboard"),
       nextUrl: pathname ?? "/admin/dashboard",
     }));
+  useEffect(() => { controller.setNextUrl(pathname ?? "/admin/dashboard"); }, [controller, pathname]);
   useEffect(() => {
     const unsubscribe = controller.subscribe(() => rerender((value) => value + 1));
     const activity = () => { if (!document.hidden) controller.handleActivity(); };

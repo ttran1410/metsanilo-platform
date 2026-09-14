@@ -32,8 +32,11 @@ export class SessionLifecycleController {
   private latestTouchSequence = 0;
   private pendingTouch: Promise<void> | null = null;
   private seenEvents = new Map<string, number>();
+  private nextUrl: string;
 
-  constructor(private readonly options: Options) {}
+  constructor(private readonly options: Options) { this.nextUrl = options.nextUrl; }
+
+  setNextUrl(nextUrl: string) { this.nextUrl = nextUrl; }
 
   start() {
     if (this.started || this.disposed) return;
@@ -87,12 +90,13 @@ export class SessionLifecycleController {
     if (!explicit && this.state.lastTouchAttemptMs !== null && this.options.clock.now() - this.state.lastTouchAttemptMs < TOUCH_THROTTLE_MS) return Promise.resolve();
     const sequence = ++this.requestSequence;
     this.latestTouchSequence = sequence;
+    this.latestStatusSequence = sequence;
     this.state = { ...this.state, isExtending: true, lastTouchAttemptMs: this.options.clock.now() };
     this.emit();
     this.pendingTouch = this.options.transport.touch().then((snapshot) => {
       if (!this.disposed && sequence === this.latestTouchSequence) {
         this.commitSnapshot(snapshot);
-        if (snapshot.currentSessionId) this.options.syncBus.publish({
+        if (this.state.status !== "expired" && this.state.status !== "revoked" && snapshot.currentSessionId) this.options.syncBus.publish({
           type: "session-touched", eventId: createEventId(), sessionId: snapshot.currentSessionId,
           effectiveExpiresAt: snapshot.effectiveExpiresAt, sentAt: new Date().toISOString(),
         });
@@ -168,7 +172,7 @@ export class SessionLifecycleController {
       const event: OutboundSessionSyncEvent = { type: "session-revoked", eventId: createEventId(), sessionId: this.state.currentSessionId, reason, sentAt: new Date().toISOString() };
       this.options.syncBus.publish(event);
     }
-    this.options.navigation.redirectToLogin({ reason, nextUrl: this.options.nextUrl });
+    this.options.navigation.redirectToLogin({ reason, nextUrl: this.nextUrl });
     this.emit();
   }
 

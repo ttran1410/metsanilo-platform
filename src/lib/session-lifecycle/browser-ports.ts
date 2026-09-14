@@ -3,8 +3,11 @@ import { isSessionSyncEvent, type SessionSyncEvent } from "@/lib/session-sync";
 import type { ClockPort, NavigationPort, SessionStatusSnapshot, SessionSyncBusPort, SessionTransportPort, TimerPort } from "./types";
 
 export const sanitizeNextUrl = (value: string | null) => {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/admin/login") || value.includes("://")) return "/admin/dashboard";
-  return value;
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/admin/login") || value.includes("\\")) return "/admin/dashboard";
+  try {
+    const parsed = new URL(value, "https://metsanilo.local");
+    return parsed.origin === "https://metsanilo.local" ? `${parsed.pathname}${parsed.search}${parsed.hash}` : "/admin/dashboard";
+  } catch { return "/admin/dashboard"; }
 };
 
 export const createBrowserClockPort = (): ClockPort => ({ now: () => Date.now() });
@@ -33,6 +36,7 @@ export const createBrowserSyncBusPort = (): SessionSyncBusPort => {
   let initialized = false;
   const handlers = new Set<(event: SessionSyncEvent) => void>();
   const seen = new Map<string, number>();
+  const onMessage = (event: MessageEvent) => deliver(event.data);
   const deliver = (value: unknown) => {
     if (!isSessionSyncEvent(value)) return;
     const event = value as SessionSyncEvent;
@@ -48,12 +52,12 @@ export const createBrowserSyncBusPort = (): SessionSyncBusPort => {
     if (initialized) return;
     initialized = true;
     try { if (typeof BroadcastChannel !== "undefined") channel = new BroadcastChannel("metsanilo_auth_channel"); } catch { channel = null; }
-    channel?.addEventListener("message", (event) => deliver(event.data));
+    channel?.addEventListener("message", onMessage);
     window.addEventListener("storage", onStorage);
   };
   return {
     publish(event) { ensureInitialized(); try { channel?.postMessage(event); } catch { /* BroadcastChannel unavailable */ } try { localStorage.setItem("metsanilo_auth_sync", JSON.stringify(event)); } catch { /* storage unavailable */ } },
     subscribe(handler) { ensureInitialized(); handlers.add(handler); return () => handlers.delete(handler); },
-    close() { handlers.clear(); seen.clear(); channel?.close(); window.removeEventListener("storage", onStorage); initialized = false; channel = null; },
+    close() { handlers.clear(); seen.clear(); channel?.removeEventListener("message", onMessage); channel?.close(); window.removeEventListener("storage", onStorage); initialized = false; channel = null; },
   };
 };
