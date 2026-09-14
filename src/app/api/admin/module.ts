@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import { assertOperationalAccess, currentUser, hasUserPermission, type Permission } from "@/domain/access";
 import { DomainError } from "@/domain/errors";
 import { env } from "@/lib/env";
+import { success, failure } from "@/app/api/response";
 
 export type AdminActor = Awaited<ReturnType<typeof currentUser>>;
 
@@ -71,6 +72,12 @@ export async function authenticateAdminAny(request: Request, permissions: readon
   return context;
 }
 
+export async function assertAdminPermission(context: AdminExecutionContext, permission: Permission): Promise<void> {
+  if (!(await hasUserPermission(db(), context.actor, permission))) {
+    throw new DomainError("FORBIDDEN", `Permission required: ${permission}`, 403);
+  }
+}
+
 export async function executeAdmin<TInput, TResult>(
   request: Request,
   definition: AdminDefinition<TInput, TResult>,
@@ -87,4 +94,63 @@ export async function executeAdmin<TInput, TResult>(
   return result;
 }
 
+
 export type AdminResponseAdapter = (result: unknown, status?: number) => NextResponse;
+
+export type AdminRouteDefinition<TInput, TResult> = Readonly<
+  (
+    | { permission: Permission; permissions?: never }
+    | { permissions: readonly Permission[]; permission?: never }
+  ) & {
+    parse?: (request: Request) => Promise<TInput>;
+    authorize?: (input: TInput, context: AdminRequest) => Promise<void>;
+    run: (input: TInput, context: AdminRequest) => Promise<TResult>;
+    status?: number;
+    headers?: Record<string, string> | Headers;
+  }
+>;
+
+export async function executeAdminRoute<TInput = void, TResult = unknown>(
+  request: Request,
+  definition: AdminRouteDefinition<TInput, TResult>,
+): Promise<NextResponse> {
+  try {
+    const context = definition.permissions
+      ? await authenticateAdminAny(request, definition.permissions)
+      : await authenticateAdmin(request, definition.permission);
+
+
+    const input = definition.parse ? await definition.parse(request) : (undefined as unknown as TInput);
+    const adminRequest = {
+      request,
+      database: db(),
+      context,
+    };
+    if (definition.authorize) await definition.authorize(input, adminRequest);
+    const startedAt = Date.now();
+    const result = await definition.run(input, adminRequest);
+    console.info("[admin-timing]", JSON.stringify({
+      route: new URL(request.url).pathname,
+      phase: "application",
+      durationMs: Date.now() - startedAt,
+      correlationId: request.headers.get("x-correlation-id") ?? "none",
+    }));
+
+    const response = success(result, request, definition.status ?? 200);
+    response.headers.set("Cache-Control", "no-store, max-age=0");
+    if (definition.headers) {
+      if (definition.headers instanceof Headers) {
+        definition.headers.forEach((value, key) => {
+          response.headers.set(key, value);
+        });
+      } else {
+        for (const [key, value] of Object.entries(definition.headers)) {
+          response.headers.set(key, value);
+        }
+      }
+    }
+    return response;
+  } catch (error) {
+    return failure(error, request);
+  }
+}

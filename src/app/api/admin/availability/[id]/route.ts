@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { updateAdminAvailability } from "@/domain/admin-availability-actions";
-import { executeAdmin, authenticateAdminAny, parseJson } from "../../module";
+import { assertAdminPermission, executeAdminRoute, parseJson } from "../../module";
 import { DomainError } from "@/domain/errors";
-import { failure, success } from "../../../response";
 
 export const runtime = "nodejs";
 
@@ -17,15 +16,24 @@ const command = z.object({
 });
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    await authenticateAdminAny(request, ["availability.write", "availability.sold_out", "availability.cutoff.override"]);
-    const parsed = command.safeParse(await parseJson<unknown>(request));
-    if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability command", 422);
-    const { id } = await params;
-    const permission = parsed.data.cutoffOverride !== undefined ? "availability.cutoff.override" : parsed.data.manualSoldOut ? "availability.sold_out" : "availability.write";
-    const result = await executeAdmin(request, { permission, parse: async () => parsed.data, run: async (input, { database, context }) => updateAdminAvailability(database, { actor: context.actor, shop: { id: context.shop.shopId } }, id, input) });
-    return success(result, request);
-  } catch (error) {
-    return failure(error, request);
-  }
+  return executeAdminRoute(request, {
+    permissions: ["availability.write", "availability.sold_out", "availability.cutoff.override"],
+    parse: async (incoming) => {
+      const parsed = command.safeParse(await parseJson<unknown>(incoming));
+      if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid availability command", 422);
+      return parsed.data;
+    },
+    authorize: async (input, { context }) => {
+      const permission = input.cutoffOverride !== undefined
+        ? "availability.cutoff.override"
+        : input.manualSoldOut
+          ? "availability.sold_out"
+          : "availability.write";
+      await assertAdminPermission(context, permission);
+    },
+    run: async (input, { database, context }) => {
+      const { id } = await params;
+      return updateAdminAvailability(database, { actor: context.actor, shop: { id: context.shop.shopId } }, id, input);
+    },
+  });
 }

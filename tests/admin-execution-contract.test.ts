@@ -19,7 +19,7 @@ vi.mock("@/domain/access", async (importOriginal) => {
 });
 vi.mock("@/lib/env", () => ({ env: () => ({ SHOP_ID: "shop-test" }) }));
 
-import { authenticateAdminAny, executeAdmin } from "@/app/api/admin/module";
+import { authenticateAdminAny, assertAdminPermission, executeAdmin, executeAdminRoute } from "@/app/api/admin/module";
 import { assertAdminActionContext } from "@/domain/admin-action-context";
 import { failure } from "@/app/api/response";
 
@@ -145,5 +145,111 @@ describe("executeAdmin contract", () => {
 
     const invalid = failure(new DomainError("FORBIDDEN", "Denied", 403), new Request("http://localhost", { headers: { "x-correlation-id": "not-safe" } }));
     expect((await invalid.json()).correlationId).toMatch(/^[0-9a-f-]{36}$/i);
+  });
+});
+
+describe("executeAdminRoute contract", () => {
+  beforeEach(() => {
+    currentUser.mockResolvedValue({ id: "actor-1", role: "ADMIN", shopId: "shop-test", email: "admin@example.test", mustChangePassword: false });
+    hasUserPermission.mockResolvedValue(true);
+  });
+
+  it("returns JSON success response with correlation ID and custom status", async () => {
+    const response = await executeAdminRoute(
+      new Request("http://localhost/api/admin/products", {
+        headers: { "x-correlation-id": "123e4567-e89b-12d3-a456-426614174000" },
+      }),
+      {
+        permission: "catalog.product.read",
+        run: async () => ({ id: "prod-1", name: "Lingonberry" }),
+        status: 201,
+      },
+    );
+
+    expect(response.status).toBe(201);
+    expect(response.headers.get("Cache-Control")).toBe("no-store, max-age=0");
+    expect(response.headers.get("x-correlation-id")).toBe("123e4567-e89b-12d3-a456-426614174000");
+    const json = await response.json();
+    expect(json).toEqual({
+      data: { id: "prod-1", name: "Lingonberry" },
+      correlationId: "123e4567-e89b-12d3-a456-426614174000",
+    });
+  });
+
+  it("attaches custom response headers if provided", async () => {
+    const response = await executeAdminRoute(
+      new Request("http://localhost/api/admin/products"),
+      {
+        permission: "catalog.product.read",
+        run: async () => ({ ok: true }),
+        headers: { "Cache-Control": "no-store", "x-custom-header": "test-val" },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("x-custom-header")).toBe("test-val");
+  });
+
+  it("catches DomainError and returns JSON failure response without throwing", async () => {
+    hasUserPermission.mockResolvedValue(false);
+    const response = await executeAdminRoute(
+      new Request("http://localhost/api/admin/products"),
+      {
+        permission: "catalog.product.read",
+        run: async () => ({ ok: true }),
+      },
+    );
+
+    expect(response.status).toBe(403);
+    const json = await response.json();
+    expect(json.code).toBe("FORBIDDEN");
+  });
+
+  it("supports permissions array with dynamic authorization check", async () => {
+    hasUserPermission.mockImplementation(async (_db, _actor, perm) => perm === "settings.operational");
+
+    const response = await executeAdminRoute(
+      new Request("http://localhost/api/admin/settings"),
+      {
+        permissions: ["settings.read", "settings.operational"],
+        run: async () => ({ mode: "operational" }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.data).toEqual({ mode: "operational" });
+  });
+
+  it("handles parse function correctly", async () => {
+    const response = await executeAdminRoute(
+      new Request("http://localhost/api/admin/products?q=blueberry"),
+      {
+        permission: "catalog.product.read",
+        parse: async (req) => new URL(req.url).searchParams.get("q"),
+        run: async (q) => ({ query: q }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.data).toEqual({ query: "blueberry" });
+  });
+
+  it("runs action authorization after parsing", async () => {
+    hasUserPermission.mockImplementation(async (_db, _actor, permission) => permission === "orders.update");
+    const response = await executeAdminRoute(
+      new Request("http://localhost/api/admin/orders/order-1", { method: "PATCH" }),
+      {
+        permissions: ["orders.transition", "orders.update"],
+        parse: async () => ({ action: "transition" }),
+        authorize: async (input, { context }) => assertAdminPermission(context, input.action === "transition" ? "orders.transition" : "orders.update"),
+        run: async () => ({ ok: true }),
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("FORBIDDEN");
   });
 });

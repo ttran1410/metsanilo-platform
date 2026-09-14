@@ -1,10 +1,7 @@
 import { z } from "zod";
-import { db } from "@/db/client";
 import { createAdminOrderSource, deleteAdminOrderSource, listAdminOrderSources, updateAdminOrderSource } from "@/domain/admin-order-source-actions";
 import { DomainError } from "@/domain/errors";
-import { env } from "@/lib/env";
-import { executeAdmin, parseJson } from "@/app/api/admin/module";
-import { failure, success } from "../../response";
+import { executeAdminRoute, parseJson } from "@/app/api/admin/module";
 
 const input = z.object({
   key: z.string().trim().min(2).max(40).regex(/^[A-Z0-9_]+$/),
@@ -14,75 +11,52 @@ const input = z.object({
   sortOrder: z.number().int().min(0).default(0),
 });
 
-const actionContext = (actor: Parameters<NonNullable<Parameters<typeof executeAdmin>[1]["run"]>>[1]["context"]["actor"]) => ({
-  actor,
-  shop: { id: env().SHOP_ID },
-});
-
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  try {
-    const result = await executeAdmin(request, {
-      permission: "settings.sources.read",
-      parse: async () => undefined,
-      run: async (_, { context }) => listAdminOrderSources(db(), actionContext(context.actor)),
-    });
-    return success(result, request);
-  } catch (error) {
-    return failure(error, request);
-  }
+  return executeAdminRoute(request, {
+    permission: "settings.sources.read",
+    parse: async () => undefined,
+    run: async (_, { database, context }) => listAdminOrderSources(database, { actor: context.actor, shop: { id: context.shop.shopId } }),
+  });
 }
 
 export async function POST(request: Request) {
-  try {
-    const result = await executeAdmin(request, {
-      permission: "settings.sources.manage",
-      parse: async (incoming) => {
-        const parsed = input.safeParse(await parseJson(incoming));
-        if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid order source", 422);
-        return parsed.data;
-      },
-      run: async (value, { context }) => createAdminOrderSource(db(), actionContext(context.actor), value),
-    });
-    return success(result, request, 201);
-  } catch (error) {
-    return failure(error, request);
-  }
+  return executeAdminRoute(request, {
+    permission: "settings.sources.manage",
+    status: 201,
+    parse: async (incoming) => {
+      const parsed = input.safeParse(await parseJson(incoming));
+      if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid order source", 422);
+      return parsed.data;
+    },
+    run: async (value, { database, context }) => createAdminOrderSource(database, { actor: context.actor, shop: { id: context.shop.shopId } }, value),
+  });
 }
 
 export async function PATCH(request: Request) {
-  try {
-    const result = await executeAdmin(request, {
-      permission: "settings.sources.manage",
-      parse: async (incoming) => {
-        const body = (await parseJson(incoming)) as { id?: string } & Partial<z.infer<typeof input>>;
-        if (!body.id) throw new DomainError("VALIDATION_ERROR", "Source id is required", 422);
-        const parsed = input.partial().safeParse(body);
-        if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid order source", 422);
-        return { id: body.id, values: parsed.data };
-      },
-      run: async ({ id, values }, { context }) => updateAdminOrderSource(db(), actionContext(context.actor), id, values),
-    });
-    return success(result, request);
-  } catch (error) {
-    return failure(error, request);
-  }
+  return executeAdminRoute(request, {
+    permission: "settings.sources.manage",
+    parse: async (incoming) => {
+      const body = (await parseJson(incoming)) as { id?: string } & Partial<z.infer<typeof input>>;
+      if (!body.id) throw new DomainError("VALIDATION_ERROR", "Source id is required", 422);
+      const parsed = input.partial().safeParse(body);
+      if (!parsed.success) throw new DomainError("VALIDATION_ERROR", "Invalid order source", 422);
+      return { id: body.id, values: parsed.data };
+    },
+    run: async ({ id, values }, { database, context }) => updateAdminOrderSource(database, { actor: context.actor, shop: { id: context.shop.shopId } }, id, values),
+  });
 }
 
 export async function DELETE(request: Request) {
-  try {
-    const result = await executeAdmin(request, {
-      permission: "settings.sources.manage",
-      parse: async (incoming) => {
-        const id = new URL(incoming.url).searchParams.get("id");
-        if (!id) throw new DomainError("VALIDATION_ERROR", "Source id is required", 422);
-        return id;
-      },
-      run: async (id, { context }) => deleteAdminOrderSource(db(), actionContext(context.actor), id),
-    });
-    return success(result, request);
-  } catch (error) {
-    return failure(error, request);
-  }
+  return executeAdminRoute(request, {
+    permission: "settings.sources.manage",
+    parse: async (incoming) => {
+      const id = new URL(incoming.url).searchParams.get("id");
+      if (!id) throw new DomainError("VALIDATION_ERROR", "Source id is required", 422);
+      return id;
+    },
+    run: async (id, { database, context }) => deleteAdminOrderSource(database, { actor: context.actor, shop: { id: context.shop.shopId } }, id),
+  });
 }
+
