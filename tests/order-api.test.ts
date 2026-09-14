@@ -258,7 +258,8 @@ describe("order operations", () => {
     expect(result.availabilityList.length).toBeGreaterThan(0);
   });
   it("returns filtered queue read models and non-mutating capacity previews", async () => {
-    const created = await createExternalOrder(database, { ...pickupInput("queue-preview"), source: "PHONE", status: "CONFIRMED" });
+    const actor = { id: "admin", role: "ADMIN" as const, shopId: "shop-main", email: "admin@metsanilo.fi" };
+    const created = await createExternalOrder(database, { ...pickupInput("queue-preview"), shopId: "shop-main", actor, source: "PHONE", status: "CONFIRMED" });
     const confirmed = created;
     const queue = await getOrderQueue(database, { productId: "product-berries", from: "2099-08-13", to: "2099-08-13" });
     expect(queue.total).toBe(1);
@@ -272,7 +273,8 @@ describe("order operations", () => {
   });
 
   it("creates external and historical orders without customer email automation", async () => {
-    const external = await createExternalOrder(database, { ...pickupInput("external-placeholder"), source: "PHONE", status: "NEW" });
+    const actor = { id: "admin", role: "ADMIN" as const, shopId: "shop-main", email: "admin@metsanilo.fi" };
+    const external = await createExternalOrder(database, { ...pickupInput("external-placeholder"), shopId: "shop-main", actor, source: "PHONE", status: "NEW" });
     expect(external.orderSource).toBe("PHONE");
     const historical = await createHistoricalOrder(database, { productId: "product-berries", packageId: "package-5l", quantity: 1, fulfillmentDate: "2099-08-12", fulfillmentMethod: "PICKUP", customerName: "Historical Customer", mobile: "+358401234567", completedStatus: "PICKED_UP", completedAt: "2099-08-12T12:00:00.000Z", source: "OTHER", reason: "Paper record from launch", paymentAmountCents: 2500 });
     expect(historical.historicalEntry).toBe(true);
@@ -281,11 +283,12 @@ describe("order operations", () => {
   });
 
   it("supports date override permission for external orders on past or closed dates", async () => {
+    const actor = { id: "admin", role: "ADMIN" as const, shopId: "shop-main", email: "admin@metsanilo.fi" };
     await expect(
-      createExternalOrder(database, { ...pickupInput("external-closed", "2020-01-01"), source: "PHONE", status: "NEW", allowDateOverride: false })
+      createExternalOrder(database, { ...pickupInput("external-closed", "2020-01-01"), shopId: "shop-main", actor, source: "PHONE", status: "NEW", allowDateOverride: false })
     ).rejects.toMatchObject({ code: "DATE_CLOSED" });
 
-    const overrideOrder = await createExternalOrder(database, { ...pickupInput("external-override", "2020-01-01"), source: "PHONE", status: "NEW", allowDateOverride: true });
+    const overrideOrder = await createExternalOrder(database, { ...pickupInput("external-override", "2020-01-01"), shopId: "shop-main", actor, source: "PHONE", status: "NEW", allowDateOverride: true });
     expect(overrideOrder.fulfillmentDate).toBe("2020-01-01");
   });
 
