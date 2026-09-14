@@ -115,7 +115,7 @@ describe("Source Manifest & Backup Verification", () => {
     expect(manifest.counts.users).toBe(2);
     expect(manifest.counts.authUsers).toBe(2);
     expect(manifest.counts.authAccounts).toBe(2);
-    expect(manifest.migration.repoTag).toBe("0042_stormy_squadron_supreme");
+    expect(manifest.migration.repoTag).toBe("0044_availability_legacy_unique");
     expect(manifest.manifestSha256).toBeDefined();
 
     const filePath = join(directory, "manifest.json");

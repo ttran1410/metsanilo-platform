@@ -1,7 +1,7 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { auditEntries, availability, customers, fulfillmentLocations, notifications, orderNotes, orderPayments, orders, outboxJobs, packages, products, shops } from "@/db/schema";
+import { auditEntries, availability, customers, fulfillmentLocations, orderNotes, orderPayments, orders, packages, products, shops } from "@/db/schema";
 import { env } from "@/lib/env";
 import { getLegalOrderTransitions } from "./order-transitions";
 import { todayInTimezone } from "@/lib/format";
@@ -12,59 +12,9 @@ import { getHarvestSeasonForDate } from "./seasons";
 import { resolveAvailabilityForDate, resolveSeasonForAvailability } from "./availability-resolver";
 
 const nowIso = () => new Date().toISOString();
-const publicReference = () => `R-${randomBytes(5).toString("hex").toUpperCase()}`;
-function localTimeInTimezone(timezone: string, now = new Date()) {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: false }).format(now);
-}
+import { intakeOrderCore, type OrderReceipt, toReceipt } from "./order-intake";
 
-export type OrderReceipt = {
-  publicReference: string;
-  status: "NEW" | "CONFIRMED" | "PICKING" | "READY" | "OUT_FOR_DELIVERY" | "PICKED_UP" | "DELIVERED" | "CUSTOMER_DECLINED" | "CANCELLED" | "CANCELLED_BY_CUSTOMER" | "REJECTED" | "NO_SHOW" | "REFUNDED";
-  locale: "fi" | "en";
-  productName: string;
-  packageLabel: string;
-  volumeMl: number;
-  itemSubtotalCents: number;
-  deliveryFeeCents: number | null;
-  finalTotalCents: number | null;
-  fulfillmentDate: string;
-  fulfillmentMethod: "PICKUP" | "DELIVERY";
-  pickup?: { name: string; address: string; instructions: string; time: string };
-  delivery?: { streetAddress: string; postalCode: string; city: string };
-};
-
-function toReceipt(order: typeof orders.$inferSelect): OrderReceipt {
-  const locale = order.locale;
-  return {
-    publicReference: order.publicReference,
-    status: order.status,
-    locale,
-    productName: locale === "fi" ? order.productNameFi : order.productNameEn,
-    packageLabel: locale === "fi" ? order.packageLabelFi : order.packageLabelEn,
-    volumeMl: order.volumeMl,
-    itemSubtotalCents: order.itemSubtotalCents,
-    deliveryFeeCents: order.deliveryFeeCents,
-    finalTotalCents: order.finalTotalCents,
-    fulfillmentDate: order.fulfillmentDate,
-    fulfillmentMethod: order.fulfillmentMethod,
-    ...(order.fulfillmentMethod === "PICKUP"
-      ? {
-          pickup: {
-            name: order.pickupName!,
-            address: order.pickupAddress!,
-            instructions: order.pickupInstructions!,
-            time: order.pickupTime!,
-          },
-        }
-      : {
-          delivery: {
-            streetAddress: order.streetAddress!,
-            postalCode: order.postalCode!,
-            city: order.city!,
-          },
-        }),
-  };
-}
+export { type OrderReceipt, toReceipt };
 
 export async function submitOrder(database: Database, unknownInput: unknown, busyRetry = 0, options?: { allowDateOverride?: boolean }) {
   const parsed = orderInputSchema.safeParse(unknownInput);
@@ -76,257 +26,30 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
   }
 
   const input: OrderInput = parsed.data;
-  if (input.mobile && input.mobile.trim()) {
-    try {
-      normalizeMobile(input.mobile);
-    } catch {
-      throw new DomainError("VALIDATION_ERROR", "Invalid phone", 422, { mobile: "INVALID_PHONE" });
-    }
-  }
-
   const { SHOP_ID } = env();
-  const prior = await database.query.orders.findFirst({
-    where: and(eq(orders.shopId, SHOP_ID), eq(orders.idempotencyKey, input.idempotencyKey)),
-  });
-  if (prior) return toReceipt(prior);
 
   try {
-    return await database.transaction(async (tx) => {
-      const replay = await tx.query.orders.findFirst({
-        where: and(eq(orders.shopId, SHOP_ID), eq(orders.idempotencyKey, input.idempotencyKey)),
-      });
-      if (replay) return toReceipt(replay);
-
-      const catalog = await tx
-        .select({ product: products, package: packages, shop: shops })
-        .from(products)
-        .innerJoin(
-          packages,
-          and(
-            eq(packages.productId, products.id),
-            eq(packages.shopId, products.shopId),
-            eq(packages.id, input.packageId),
-          ),
-        )
-        .innerJoin(shops, and(eq(shops.id, products.shopId), eq(shops.id, SHOP_ID)))
-        .where(
-          and(
-            eq(products.id, input.productId),
-            eq(products.shopId, SHOP_ID),
-            eq(products.active, true),
-            eq(packages.active, true),
-            eq(shops.active, true),
-          ),
-        )
-        .limit(1);
-
-      const row = catalog[0];
-      if (!row) throw new DomainError("NOT_AVAILABLE", "Product is unavailable", 404);
-
-      const season = await getHarvestSeasonForDate(tx, row.product.id, input.fulfillmentDate);
-
-      let current = await tx.query.availability.findFirst({
-        where: and(
-          eq(availability.shopId, SHOP_ID),
-          eq(availability.productId, input.productId),
-          season ? eq(availability.seasonId, season.id) : isNull(availability.seasonId),
-          eq(availability.businessDate, input.fulfillmentDate),
-        ),
-      });
-
-      if (!options?.allowDateOverride) {
-        const today = todayInTimezone(row.shop.timezone);
-        if (
-          input.fulfillmentDate < today ||
-          input.fulfillmentDate < row.product.availableFrom ||
-          input.fulfillmentDate > row.product.availableThrough
-        ) {
-          throw new DomainError("DATE_CLOSED", "Date is not orderable", 409);
-        }
-
-        if (input.fulfillmentDate === today && row.shop.sameDayCutoffEnabled && localTimeInTimezone(row.shop.timezone) >= row.shop.sameDayCutoffTime) {
-          throw new DomainError("SAME_DAY_CUTOFF", "Same-day reservations are closed. Please choose another date.", 409);
-        }
-
-        if (!current || !current.acceptsOrders) {
-          throw new DomainError("DATE_CLOSED", "Date is closed", 409);
-        }
-        if (current.manualSoldOut || current.capacityMl - current.reservedMl === 0) {
-          throw new DomainError("SOLD_OUT", "Product is sold out", 409);
-        }
-      } else {
-        if (!current) {
-          const availId = randomUUID();
-          const now = nowIso();
-          await tx.insert(availability).values({
-            id: availId,
-            shopId: SHOP_ID,
-            productId: input.productId,
-            seasonId: season?.id ?? null,
-            businessDate: input.fulfillmentDate,
-            capacityMl: 100000,
-            reservedMl: 0,
-            acceptsOrders: true,
-            manualSoldOut: false,
-            updatedAt: now,
-          });
-          current = (await tx.query.availability.findFirst({
-            where: eq(availability.id, availId),
-          }))!;
-        }
-      }
-
-      if (row.package.volumeMl !== 10000 && input.quantity !== 1) {
-        throw new DomainError("INVALID_QUANTITY", "Only the 10 litre package supports a selectable quantity", 422);
-      }
-      const totalVolumeMl = row.package.volumeMl * input.quantity;
-      const itemSubtotalCents = row.package.priceCents * input.quantity;
-
-      const reserved = await tx
-        .update(availability)
-        .set({
-          reservedMl: sql`${availability.reservedMl} + ${totalVolumeMl}`,
-          version: sql`${availability.version} + 1`,
-          updatedAt: nowIso(),
-        })
-        .where(
-          and(
-            eq(availability.id, current.id),
-            eq(availability.shopId, SHOP_ID),
-            ...(options?.allowDateOverride
-              ? []
-              : [
-                  eq(availability.acceptsOrders, true),
-                  eq(availability.manualSoldOut, false),
-                  gte(sql`${availability.capacityMl} - ${availability.reservedMl}`, totalVolumeMl),
-                ]),
-          ),
-        )
-        .run();
-
-      if (reserved.rowsAffected !== 1) {
-        throw new DomainError("CAPACITY_CHANGED", "Capacity changed", 409);
-      }
-
-      const createdAt = nowIso();
-      const orderId = randomUUID();
-      const reference = publicReference();
-      const pickup = input.fulfillmentMethod === "PICKUP";
-      const configuredLocation = await tx.query.fulfillmentLocations.findFirst({ where: and(eq(fulfillmentLocations.shopId, SHOP_ID), eq(fulfillmentLocations.type, pickup ? "PICKUP" : "DELIVERY_ORIGIN"), eq(fulfillmentLocations.active, true), eq(fulfillmentLocations.isDefault, true)) });
-      const locationSnapshot = configuredLocation ? JSON.stringify({ id: configuredLocation.id, type: configuredLocation.type, nameFi: configuredLocation.nameFi, nameEn: configuredLocation.nameEn, address: configuredLocation.address, instructionsFi: configuredLocation.instructionsFi, instructionsEn: configuredLocation.instructionsEn }) : null;
-      let mobile: string | null = null;
-      if (input.mobile && input.mobile.trim()) {
-        try {
-          mobile = normalizeMobile(input.mobile);
-        } catch {
-          throw new DomainError("VALIDATION_ERROR", "Invalid mobile phone number", 422, { mobile: "INVALID_PHONE" });
-        }
-      }
-
-      const fbProfile = input.facebookProfile?.trim() || null;
-      const normalizedEmail = normalizeEmail(input.email);
-      const mobileMatch = mobile ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.mobile, mobile)) }) : undefined;
-      const emailMatch = normalizedEmail ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.email, normalizedEmail)) }) : undefined;
-      const fbMatch = fbProfile ? await tx.query.customers.findFirst({ where: and(eq(customers.shopId, SHOP_ID), eq(customers.facebookProfile, fbProfile)) }) : undefined;
-
-      const matchedCustomer = mobileMatch ?? emailMatch ?? fbMatch;
-      const conflict = Boolean(
-        (mobileMatch && emailMatch && mobileMatch.id !== emailMatch.id) ||
-        (mobileMatch && normalizedEmail && mobileMatch.email && mobileMatch.email !== normalizedEmail)
-      );
-      const consentGranted = input.marketingConsent === true;
-      const customer = (conflict || !matchedCustomer)
-        ? { id: randomUUID(), shopId: SHOP_ID, name: input.customerName, mobile, email: normalizedEmail, facebookProfile: fbProfile, matchStatus: conflict ? "CONFLICT_REVIEW" as const : "ACTIVE" as const, marketingConsent: consentGranted, marketingConsentStatus: consentGranted ? "CONSENTED" as const : "NOT_CONSENTED" as const, marketingConsentAt: consentGranted ? createdAt : null, marketingConsentSource: consentGranted ? "ORDER_FORM" as const : null, marketingConsentUpdatedBy: null, notes: conflict ? "Conflicting customer identifiers require staff review." : null, createdAt, updatedAt: createdAt }
-        : { ...matchedCustomer, name: input.customerName, mobile: mobile ?? matchedCustomer.mobile, email: normalizedEmail ?? matchedCustomer.email, facebookProfile: fbProfile ?? matchedCustomer.facebookProfile, ...(consentGranted ? { marketingConsent: true, marketingConsentStatus: "CONSENTED" as const, marketingConsentAt: createdAt, marketingConsentSource: "ORDER_FORM" as const, marketingConsentUpdatedBy: null } : {}), updatedAt: createdAt };
-      if (conflict || !matchedCustomer) await tx.insert(customers).values(customer);
-      else await tx.update(customers).set({ name: customer.name, mobile: customer.mobile, email: customer.email, facebookProfile: customer.facebookProfile, ...(conflict ? { matchStatus: "CONFLICT_REVIEW" as const } : {}), updatedAt: createdAt }).where(eq(customers.id, customer.id));
-      const created = {
-        id: orderId,
-        shopId: SHOP_ID,
-        publicReference: reference,
-        idempotencyKey: input.idempotencyKey,
-        productId: row.product.id,
-        customerId: customer.id,
-        seasonId: season?.id ?? null,
-        packageId: row.package.id,
-        productNameFi: row.product.nameFi,
-        productNameEn: row.product.nameEn,
-        packageLabelFi: row.package.labelFi,
-        packageLabelEn: row.package.labelEn,
-        quantity: input.quantity,
-        volumeMl: totalVolumeMl,
-        itemSubtotalCents,
-        deliveryFeeCents: pickup ? 0 : null,
-        finalTotalCents: pickup ? itemSubtotalCents : null,
-        fulfillmentDate: input.fulfillmentDate,
-        fulfillmentMethod: input.fulfillmentMethod,
-        customerName: input.customerName,
-        mobile,
-        email: normalizedEmail,
-        streetAddress: pickup ? null : input.streetAddress!,
-        postalCode: pickup ? null : input.postalCode!,
-        city: pickup ? null : input.city!,
-        pickupName: pickup ? (input.locale === "fi" ? row.shop.pickupNameFi : row.shop.pickupNameEn) : null,
-        pickupAddress: pickup ? row.shop.pickupAddress : null,
-        pickupInstructions: pickup
-          ? input.locale === "fi"
-            ? row.shop.pickupInstructionsFi
-            : row.shop.pickupInstructionsEn
-          : null,
-        pickupTime: pickup ? row.shop.pickupTime : null,
-        pickupLocationSnapshotJson: pickup ? locationSnapshot : null,
-        deliveryOriginSnapshotJson: pickup ? null : locationSnapshot,
-        notes: input.notes || null,
-        facebookProfile: input.facebookProfile?.trim() || null,
-        orderSource: "WEBSITE",
-
-        historicalEntry: false,
-        statusReason: null,
-        contactedAt: null,
-        contactedBy: null,
-        contactChannel: null,
-        fulfillmentStartedAt: null,
-        readyAt: null,
-        dispatchedAt: null,
-        completedAt: null,
-        pickupConfirmedAt: null,
-        pickupConfirmedBy: null,
-        locale: input.locale,
-        status: "NEW" as const,
-        archived: false,
-        archivedAt: null,
-        archivedBy: null,
-        version: 1,
-        createdAt,
-        updatedAt: createdAt,
-      };
-      await tx.insert(orders).values(created);
-      await tx.insert(notifications).values({ id: randomUUID(), shopId: SHOP_ID, eventKey: `order:${orderId}:new:v1`, category: "NEW_ORDER", title: "New order", body: `Order ${reference} is waiting for review.`, orderId, createdAt }).onConflictDoNothing({ target: [notifications.shopId, notifications.eventKey] });
-      await tx.insert(outboxJobs).values({ id: randomUUID(), shopId: SHOP_ID, eventKey: `order:${orderId}:new:v1`, type: "NOTIFICATION", payloadJson: JSON.stringify({ category: "NEW_ORDER", orderId, reference }), status: "PENDING", scheduledFor: createdAt, attempts: 0, createdAt }).onConflictDoNothing({ target: [outboxJobs.shopId, outboxJobs.eventKey] });
-      await tx.insert(auditEntries).values([
-        {
-          id: randomUUID(),
-          shopId: SHOP_ID,
-          actor: "public",
-          action: "order.created",
-          entityType: "order",
-          entityId: orderId,
-          detailsJson: JSON.stringify({ reference, status: "NEW", quantity: input.quantity, volumeMl: totalVolumeMl }),
-          createdAt,
-        },
-        {
-          id: randomUUID(),
-          shopId: SHOP_ID,
-          actor: "public",
-          action: "capacity.reserved",
-          entityType: "availability",
-          entityId: current.id,
-          detailsJson: JSON.stringify({ orderId, quantity: input.quantity, volumeMl: totalVolumeMl }),
-          createdAt,
-        },
-      ]);
-      return toReceipt(created);
+    const result = await intakeOrderCore(database, {
+      channel: "PUBLIC",
+      shopId: SHOP_ID,
+      locale: input.locale,
+      productId: input.productId,
+      packageId: input.packageId,
+      quantity: input.quantity,
+      fulfillmentDate: input.fulfillmentDate,
+      fulfillmentMethod: input.fulfillmentMethod,
+      customerName: input.customerName,
+      mobile: input.mobile,
+      email: input.email,
+      facebookProfile: input.facebookProfile,
+      streetAddress: input.streetAddress,
+      postalCode: input.postalCode,
+      city: input.city,
+      notes: input.notes,
+      marketingConsent: input.marketingConsent,
+      idempotencyKey: input.idempotencyKey,
     });
+    return result.receipt;
   } catch (error) {
     if (error instanceof DomainError) throw error;
     if (
@@ -337,7 +60,7 @@ export async function submitOrder(database: Database, unknownInput: unknown, bus
     ) {
       if (busyRetry >= 4) throw new DomainError("CAPACITY_CHANGED", "Capacity changed", 409);
       await new Promise((resolve) => setTimeout(resolve, 15 * (busyRetry + 1)));
-      return submitOrder(database, unknownInput, busyRetry + 1);
+      return submitOrder(database, unknownInput, busyRetry + 1, options);
     }
     const replay = await database.query.orders.findFirst({
       where: and(eq(orders.shopId, SHOP_ID), eq(orders.idempotencyKey, input.idempotencyKey)),

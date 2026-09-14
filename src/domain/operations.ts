@@ -5,28 +5,22 @@ import { auditEntries, customers, fulfillmentLocations, notifications, orderPaym
 import { env } from "@/lib/env";
 import { todayInTimezone } from "@/lib/format";
 import { DomainError } from "./errors";
-import { submitOrder, transitionOrder } from "./orders";
+import { transitionOrder } from "./orders";
 import { normalizeEmail, normalizeMobile } from "./order-input";
 
 const nowIso = () => new Date().toISOString();
 
-export async function createExternalOrder(database: Database, input: {
-  productId: string; packageId: string; quantity: number; fulfillmentDate: string; fulfillmentMethod: "PICKUP" | "DELIVERY";
-  customerName: string; mobile?: string; email?: string; facebookProfile?: string; streetAddress?: string; postalCode?: string; city?: string; notes?: string;
-  status: "NEW" | "CONFIRMED"; source: "PHONE" | "SMS" | "WHATSAPP" | "FACEBOOK" | "WEBSITE" | "OTHER"; deliveryFeeCents?: number;
-  allowDateOverride?: boolean;
-}) {
-  const receipt = await submitOrder(database, {
-    locale: "fi", ...input, idempotencyKey: `external-${randomBytes(12).toString("hex")}`,
-  }, 0, { allowDateOverride: input.allowDateOverride });
-  const order = await database.query.orders.findFirst({ where: eq(orders.publicReference, receipt.publicReference) });
-  if (!order) throw new DomainError("NOT_FOUND", "External order was not created", 404);
-  await database.update(orders).set({ orderSource: input.source, facebookProfile: input.facebookProfile?.trim() || null, notes: input.notes?.trim() || order.notes }).where(eq(orders.id, order.id));
-  if (input.deliveryFeeCents !== undefined && input.fulfillmentMethod === "DELIVERY") {
-    await database.update(orders).set({ deliveryFeeCents: input.deliveryFeeCents, finalTotalCents: order.itemSubtotalCents + input.deliveryFeeCents }).where(eq(orders.id, order.id));
-  }
-  if (input.status === "CONFIRMED") await transitionOrder(database, { orderId: order.id, status: "CONFIRMED", expectedVersion: order.version });
-  return (await database.query.orders.findFirst({ where: eq(orders.id, order.id) }))!;
+import { intakeOrderCore, type ExternalOrderChannelInput } from "./order-intake";
+
+export async function createExternalOrder(
+  database: Database,
+  input: Omit<ExternalOrderChannelInput, "channel">,
+) {
+  const result = await intakeOrderCore(database, {
+    channel: "EXTERNAL",
+    ...input,
+  });
+  return result.order;
 }
 
 export async function createHistoricalOrder(database: Database, input: {

@@ -256,6 +256,7 @@ describe("Customer Facebook Profile CRM & Order Sync", () => {
         source: "FACEBOOK",
         deliveryFeeCents: 0,
         status: "NEW",
+        idempotencyKey: "ext-fb-test-key",
       }),
     });
 

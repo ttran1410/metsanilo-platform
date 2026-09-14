@@ -8,8 +8,17 @@ export async function createAdminHistoricalOrder(database: Database, context: Ad
   return createHistoricalOrder(database, input);
 }
 
-export async function createAdminExternalOrder(database: Database, context: AdminActionContext, input: Parameters<typeof createExternalOrder>[1]) {
+export async function createAdminExternalOrder(
+  database: Database,
+  context: AdminActionContext,
+  input: Omit<Parameters<typeof createExternalOrder>[1], "actor" | "shopId" | "allowDateOverride">,
+) {
   assertAdminActionContext(context);
   const allowDateOverride = await hasUserPermission(database, context.actor, "orders.override_closed_date");
-  return createExternalOrder(database, { ...input, allowDateOverride });
+  return createExternalOrder(database, {
+    ...input,
+    shopId: context.shop.id,
+    actor: context.actor,
+    allowDateOverride,
+  });
 }
